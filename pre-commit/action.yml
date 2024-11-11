@@ -1,0 +1,58 @@
+name: pre-commit
+description: "Runs pre-commit on the repository and pushes the fixes back to the repository"
+
+branding:
+  icon: check-square
+  color: green
+
+inputs:
+  pre-commit-config:
+    description: "pre-commit configuration file"
+    required: true
+  base-branch:
+    description: "Base branch to compare against"
+    required: false
+  token:
+    description: "GitHub Token"
+    required: false
+    default: ${{ github.token }}
+  commit_user:
+    description: "Commit user"
+    required: false
+    default: "GitHub Actions"
+  commit_email:
+    description: "Commit email"
+    required: false
+    default: "github-actions@github.com"
+
+runs:
+  using: composite
+  steps:
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.commit_user }}
+        email: ${{ inputs.commit_email }}
+
+    - name: Set option
+      id: set-option
+      run: |
+        if [ -z "${{ inputs.base-branch }}" ]; then
+          echo "option=--all-files" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        echo "option=--from-ref ${{ inputs.base-branch }} --to-ref HEAD" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Run pre-commit
+      uses: pre-commit/action@v3.0.1
+      with:
+        extra_args: --config ${{ inputs.pre-commit-config }} ${{ steps.set-option.outputs.option }}
+
+    - name: Push pre-commit fixes
+      if: always() # Push changes even when pre-commit fails
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: "style(pre-commit): autofix"
+        add_options: -u
