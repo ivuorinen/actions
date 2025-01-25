@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Dotnet Version Detect
+description: "Detects .NET SDK version from global.json or defaults to a specified version."
+
+inputs:
+  default-version:
+    description: "Default .NET SDK version to use if global.json is not found."
+    required: true
+    default: "7.0"
+
+outputs:
+  dotnet-version:
+    description: "Detected or default .NET SDK version."
+    value: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+
+runs:
+  using: composite
+
+  steps:
+    - name: Detect .NET SDK Version
+      id: detect-dotnet-version
+      shell: bash
+      run: |
+        if [ -f global.json ]; then
+          version=$(jq -r '.sdk.version' global.json)
+          if [ "$version" != "null" ]; then
+            echo "Detected .NET SDK version: $version"
+            echo "dotnet-version=$version" >> $GITHUB_OUTPUT
+          else
+            echo "No version specified in global.json. Using default."
+            echo "dotnet-version=${{ inputs.default-version }}" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "global.json not found. Using default."
+          echo "dotnet-version=${{ inputs.default-version }}" >> $GITHUB_OUTPUT
+        fi

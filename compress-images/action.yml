@@ -3,37 +3,29 @@
 #
 # Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
 # Open a Pull Request if any images can be compressed.
-name: Compress Images on Demand
+name: Compress Images
 
 on:
-  workflow_dispatch:
   workflow_call:
   schedule:
-    - cron: '00 23 * * 0'
+      - cron: "0 23 * * 0"
 
 jobs:
-  CompressOnDemandOrSchedule:
-    name: calibreapp/image-actions
-
+  compress:
     runs-on: ubuntu-latest
 
-    permissions:
-      contents: write
-      statuses: write
-      pull-requests: write
-
     steps:
-      - uses: ivuorinen/actions/set-git-config@main
+      - name: Set Git Config
+        uses: ivuorinen/actions/composite/set-git-config@main
 
-      - name: Checkout Repo
-        uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v2
 
       - name: Compress Images
-        id: calibre
         uses: calibreapp/image-actions@main
         with:
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
           compressOnly: true
+          githubToken: ${{ steps.set-git-config.outputs.token }}
 
       - name: Create New Pull Request If Needed
         if: steps.calibre.outputs.markdown != ''

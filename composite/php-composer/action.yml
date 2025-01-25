@@ -1,21 +1,22 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
-name: Run Composer Install on defined PHP version
-description: "Runs Composer install on the repository"
+name: Run Composer Install
+description: "Runs Composer install on a repository with caching."
 author: "Ismo Vuorinen"
+
 branding:
-  icon: package
+  icon: server
   color: gray-dark
 
 inputs:
   php:
-    description: 'PHP Version to use'
+    description: "PHP Version to use."
     required: true
-    default: "8.3"
+    default: "8.4"
   args:
-    description: 'Arguments to pass to Composer'
+    description: "Arguments to pass to Composer."
     required: false
-    default: '--no-progress --prefer-dist --optimize-autoloader'
+    default: "--no-progress --prefer-dist --optimize-autoloader"
 
 outputs:
   lock:
@@ -41,9 +42,9 @@ runs:
       uses: actions/cache@v4
       with:
         path: vendor
-        key: ${{ runner.os }}-php-${{ inputs.php }}-${{ runs.hash.outputs.lock }}
+        key: ${{ runner.os }}-php-${{ inputs.php }}-${{ steps.hash.outputs.lock }}
         restore-keys: |
-          ${{ runner.os }}-php-${{ inputs.php }}-${{ runs.hash.outputs.lock }}
+          ${{ runner.os }}-php-${{ inputs.php }}-${{ steps.hash.outputs.lock }}
           ${{ runner.os }}-php-${{ inputs.php }}-
           ${{ runner.os }}-php-
 
@@ -52,7 +53,6 @@ runs:
       with:
         php-version: ${{ inputs.php }}
         tools: composer
-        extensions: ${{ inputs.extensions }}
 
     - name: Composer Install
       shell: bash

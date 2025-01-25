@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Node Setup
+description: "Sets up the Node.js environment based on .nvmrc, .tool-versions, or a default version."
+author: "Ismo Vuorinen"
+
+branding:
+  icon: server
+  color: green
+
+inputs:
+  default-version:
+    description: "Default Node.js version to use if no configuration file is found."
+    required: false
+    default: "22"
+
+runs:
+  using: composite
+
+  steps:
+    - name: Determine Node.js version
+      id: node
+      shell: bash
+      run: |
+        if [ -f .nvmrc ]; then
+          echo "Using .nvmrc file."
+          version=$(cat .nvmrc)
+        elif [ -f .tool-versions ]; then
+          echo "Using .tool-versions file."
+          version=$(grep -E '^nodejs ' .tool-versions | awk '{print $2}')
+        else
+          echo "Using default Node.js version."
+          version=${{ inputs.default-version }}
+        fi
+        echo "version=$version" >> $GITHUB_OUTPUT
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ steps.node.outputs.version }}
+        cache: "npm"

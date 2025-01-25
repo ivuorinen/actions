@@ -1,0 +1,39 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Biome Fix
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  biome-fix:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Git Config
+        uses: ivuorinen/actions/composite/set-git-config@main
+
+      - name: Node Setup
+        uses: ivuorinen/actions/composite/node-setup@main
+
+      - name: Install Dependencies
+        run: |
+          npm install -g biome
+
+      - name: Run Biome Fix
+        run: |
+          biome fix .
+
+      - name: Push Fixes
+        if: always()
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: autofix Biome violations"
+          add_options: "-u"

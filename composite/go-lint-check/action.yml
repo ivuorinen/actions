@@ -1,0 +1,35 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Go Lint Check
+description: "Runs golangci-lint to check for code style violations in Go projects."
+author: "Ismo Vuorinen"
+
+branding:
+  icon: code
+  color: blue
+
+inputs:
+  go-version:
+    description: "Go version to use."
+    required: false
+
+runs:
+  using: composite
+  steps:
+    - name: Detect Go Version
+      uses: ivuorinen/actions/composite/go-version-detect@main
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: "${{ steps.detect-go-version.outputs.go-version }}"
+
+    - name: Install golangci-lint
+      shell: bash
+      run: |
+        curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(go env GOPATH)/bin v1.51.2
+
+    - name: Run golangci-lint
+      shell: bash
+      run: |
+        golangci-lint run ./... --out-format sarif > golangci-lint-report.sarif

@@ -1,0 +1,43 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Publish to NPM
+description: "Publishes the package to the NPM registry with configurable scope and registry URL."
+author: "Ismo Vuorinen"
+
+branding:
+  icon: package
+  color: green
+
+inputs:
+  registry-url:
+    description: "Registry URL for publishing."
+    required: false
+    default: "https://registry.npmjs.org/"
+  scope:
+    description: "Package scope to use."
+    required: false
+    default: "@ivuorinen"
+  package-version:
+    description: "The version to publish."
+    required: true
+
+runs:
+  using: composite
+
+  steps:
+    - name: Setup Node.js
+      uses: ivuorinen/actions/composite/node-setup@main
+
+    - name: Authenticate NPM
+      shell: bash
+      run: |
+        echo "//${{ inputs.registry-url }}/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+    - name: Publish Package
+      shell: bash
+      run: |
+        npm publish \
+          --registry ${{ inputs.registry-url }} \
+          --verbose \
+          --scope ${{ inputs.scope }} \
+          --tag ${{ inputs.package-version }}

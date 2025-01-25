@@ -1,5 +1,8 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: pre-commit
 description: "Runs pre-commit on the repository and pushes the fixes back to the repository"
+author: "Ismo Vuorinen"
 
 branding:
   icon: check-square
@@ -8,7 +11,8 @@ branding:
 inputs:
   pre-commit-config:
     description: "pre-commit configuration file"
-    required: true
+    required: false
+    default: ".pre-commit-config.yaml"
   base-branch:
     description: "Base branch to compare against"
     required: false

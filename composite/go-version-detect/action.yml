@@ -1,0 +1,37 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Go Version Detect
+description: "Detects the Go version from the project's go.mod file or defaults to a specified version."
+author: "Ismo Vuorinen"
+
+branding:
+  icon: code
+  color: blue
+
+inputs:
+  default-version:
+    description: "Default Go version to use if go.mod is not found."
+    required: false
+    default: "1.22"
+
+outputs:
+  go-version:
+    description: "Detected or default Go version."
+    value: ${{ steps.detect-go-version.outputs.go-version }}
+
+runs:
+  using: composite
+
+  steps:
+    - name: Detect Go Version
+      id: detect-go-version
+      shell: bash
+      run: |
+        if [ -f go.mod ]; then
+          version=$(grep '^go ' go.mod | awk '{print $2}')
+          echo "Detected Go version: $version"
+          echo "go-version=$version" >> $GITHUB_OUTPUT
+        else
+          echo "No go.mod found. Using default Go version."
+          echo "go-version=${{ inputs.default-version }}" >> $GITHUB_OUTPUT
+        fi

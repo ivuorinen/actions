@@ -1,0 +1,50 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Set Git Config
+description: "Sets Git configuration for actions."
+author: "Ismo Vuorinen"
+
+branding:
+  icon: git-commit
+  color: gray-dark
+
+inputs:
+  token:
+    description: "GitHub token."
+    required: false
+    default: "${{ secrets.GITHUB_TOKEN }}"
+  username:
+    description: "GitHub username for commits."
+    default: "github-actions"
+  email:
+    description: "GitHub email for commits."
+    default: "github-actions@github.com"
+
+runs:
+  using: composite
+  steps:
+    - name: Check for FIXIMUS_TOKEN
+      id: bot
+      run: |
+        if [ -n "${{ secrets.FIXIMUS_TOKEN }}" ]; then
+          echo "token=${{ secrets.FIXIMUS_TOKEN }}" >> $GITHUB_OUTPUT
+          echo "username=fiximus" >> $GITHUB_OUTPUT
+          echo "email=github-bot@ivuorinen.net" >> $GITHUB_OUTPUT
+        else
+          echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
+          echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
+          echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
+      shell: bash
+
+    - name: Configure Git
+      run: |
+        git config --local --unset-all http.https://github.com/.extraheader || true
+        git config --global \
+          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          "https://github.com/"
+        git config --global \
+          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          'git@github.com:'
+        git config --global user.name "${{ steps.bot.outputs.username }}"
+        git config --global user.email "${{ steps.bot.outputs.email }}"
+      shell: bash
