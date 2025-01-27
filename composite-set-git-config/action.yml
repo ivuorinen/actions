@@ -50,13 +50,26 @@ runs:
 
     - name: Configure Git
       run: |
+        # Function to clean up Git config
+        cleanup_git_config() {
+          git config --local --unset-all "url.https://x-access-token:${TOKEN}@github.com/.insteadof" || true
+          git config --local --unset-all "user.name" || true
+          git config --local --unset-all "user.email" || true
+        }
+        
+        # Set up trap to ensure cleanup on exit
+        trap cleanup_git_config EXIT
+        
+        # Store token in variable to avoid repeated exposure
+        TOKEN="${{ steps.bot.outputs.token }}"
+        
         git config --local --unset-all http.https://github.com/.extraheader || true
-        git config --global \
+        git config --local \
           --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
           "https://github.com/"
-        git config --global \
+        git config --local \
           --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
           'git@github.com:'
-        git config --global user.name "${{ steps.bot.outputs.username }}"
-        git config --global user.email "${{ steps.bot.outputs.email }}"
+        git config --local user.name "${{ steps.bot.outputs.username }}"
+        git config --local user.email "${{ steps.bot.outputs.email }}"
       shell: bash

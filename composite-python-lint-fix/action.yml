@@ -46,7 +46,13 @@ runs:
         else
           git add .
           git commit -m "fix: applied python lint fixes"
-          git push
+          git pull --rebase
+          git push || {
+            echo "Push failed. Fetching latest changes..."
+            git fetch
+            git rebase origin/$(git branch --show-current)
+            git push
+          }
         fi
 
     - name: Upload SARIF Report

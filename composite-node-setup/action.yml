@@ -12,7 +12,7 @@ inputs:
   default-version:
     description: "Default Node.js version to use if no configuration file is found."
     required: false
-    default: "22"
+    default: "20"
 
 runs:
   using: composite
@@ -24,10 +24,22 @@ runs:
       run: |
         if [ -f .nvmrc ]; then
           echo "Using .nvmrc file."
-          version=$(cat .nvmrc)
+          version=$(cat .nvmrc | tr -d 'v' | tr -d ' ' | tr -d '\n')
+          if ! [[ $version =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "Invalid version in .nvmrc"
+            exit 1
+          fi
         elif [ -f .tool-versions ]; then
           echo "Using .tool-versions file."
-          version=$(grep -E '^nodejs ' .tool-versions | awk '{print $2}')
+          version=$(grep -E '^nodejs[[:space:]]' .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n')
+          if [ -z "$version" ]; then
+            echo "No valid nodejs version found in .tool-versions"
+            exit 1
+          fi
+          if ! [[ $version =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "Invalid version in .tool-versions"
+            exit 1
+          fi
         else
           echo "Using default Node.js version."
           version=${{ inputs.default-version }}

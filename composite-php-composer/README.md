@@ -16,7 +16,7 @@ the specified PHP version is used and all dependencies are installed correctly.
 
 The following inputs are supported by the workflow:
 
-- `php-version` (optional): The PHP version to install. Default is `8.4`.
+- `php-version` (optional): The PHP version to install. Default is `8.2`.
 
 ## Outputs
 
