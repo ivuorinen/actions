@@ -20,6 +20,17 @@ inputs:
     description: "GitHub email for commits."
     default: "github-actions@github.com"
 
+outputs:
+  token:
+    description: "GitHub token."
+    value: ${{ steps.bot.outputs.token }}
+  username:
+    description: "GitHub username for commits."
+    value: ${{ steps.bot.outputs.username }}
+  email:
+    description: "GitHub email for commits."
+    value: ${{ steps.bot.outputs.email }}
+
 runs:
   using: composite
   steps:

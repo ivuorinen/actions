@@ -17,4 +17,4 @@ permissions:
 
 jobs:
   SyncLabels:
-    uses: ivuorinen/.github/.github/workflows/sync-labels.yml@main
+    uses: ivuorinen/actions/sync-labels@main

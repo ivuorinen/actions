@@ -33,7 +33,12 @@ runs:
 
     - name: Run dotnet-format
       shell: bash
-      run: dotnet format --check --report sarif --report-file dotnet-format.sarif
+      run: |
+        set -eo pipefail
+        if ! dotnet format --check --report sarif --report-file dotnet-format.sarif; then
+          echo "::error::Code formatting issues found. Check the SARIF report for details."
+          exit 1
+        fi
 
     - name: Upload SARIF Report
       uses: github/codeql-action/upload-sarif@v2

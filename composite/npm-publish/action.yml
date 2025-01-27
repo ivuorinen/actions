@@ -19,7 +19,8 @@ inputs:
     default: "@ivuorinen"
   package-version:
     description: "The version to publish."
-    required: true
+    required: false
+    default: ${{ github.event.release.tag_name }}
 
 runs:
   using: composite

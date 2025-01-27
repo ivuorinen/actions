@@ -9,7 +9,7 @@ on:
 
 jobs:
   stale:
-    uses: ivuorinen/.github/.github/workflows/stale.yml@main
+    uses: ivuorinen/actions/stale@main
     permissions:
       contents: write
       issues: write

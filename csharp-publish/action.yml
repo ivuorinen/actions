@@ -5,10 +5,16 @@ name: C# Publish
 on:
   release:
     types: [published]
+    tags:
+      - 'v*.*.*'
 
 jobs:
   publish:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout Repository

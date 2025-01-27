@@ -23,7 +23,8 @@ uploaded to the specified registry with optional scope configurations.
 
 The following inputs are supported by the workflow:
 
-- `package-version` (required): The version of the package to publish.
+- `package-version` (optional): The version of the package to publish. Default
+  is `${{ github.event.release.tag_name }}`
 - `registry-url` (optional): The URL of the NPM registry. Default is
   `https://registry.npmjs.org/`.
 - `scope` (optional): The scope of the package to publish. Default is
@@ -37,7 +38,8 @@ The following inputs are supported by the workflow:
 name: Publish to NPM
 
 on:
-    release: [published]
+    release:
+        types: [published]
 
 jobs:
     publish:
@@ -55,7 +57,7 @@ jobs:
                 with:
                     registry-url: "https://registry.npmjs.org/"
                     scope: "@ivuorinen"
-                    package-version: [detected version]
+                    package-version: ${{ github.event.release.tag_name }}
 ```
 
 ## Notes
