@@ -23,7 +23,10 @@ runs:
     - name: Install ansible-lint
       shell: bash
       run: |
-        pip install ansible-lint
+        pip install ansible-lint==6.22.1 || {
+          echo "::error::Failed to install ansible-lint"
+          exit 1
+        }
 
     - name: Run ansible-lint
       shell: bash

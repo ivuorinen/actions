@@ -37,4 +37,13 @@ runs:
 
     - name: Run Tests
       shell: bash
-      run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage"
+      run: |
+        dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx"
+        
+    - name: Upload Test Results
+      uses: actions/upload-artifact@v3
+      with:
+        name: test-results
+        path: |
+          **/*.trx
+          **/TestResults/**/coverage.cobertura.xml

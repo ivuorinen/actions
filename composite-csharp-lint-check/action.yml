@@ -29,7 +29,7 @@ runs:
 
     - name: Install dotnet-format
       shell: bash
-      run: dotnet tool install --global dotnet-format
+      run: dotnet tool install --global dotnet-format --version 7.0.1
 
     - name: Run dotnet-format
       shell: bash
