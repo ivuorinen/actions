@@ -31,4 +31,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Lint and Fix Terraform Files
-        uses: ivuorinen/actions/composite/terraform-lint-fix@main
+        uses: ivuorinen/actions/composite-terraform-lint-fix@main

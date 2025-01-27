@@ -46,7 +46,7 @@ jobs:
                 uses: actions/checkout@v4
 
             -   name: Set Up PHP and Install Dependencies
-                uses: ivuorinen/actions/composite/php-composer@main
+                uses: ivuorinen/actions/composite-php-composer@main
 
             -   name: Run PHPUnit Tests
                 run: vendor/bin/phpunit --verbose

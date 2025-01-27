@@ -27,7 +27,7 @@ runs:
 
   steps:
     - name: Setup Node.js
-      uses: ivuorinen/actions/composite/node-setup@main
+      uses: ivuorinen/actions/composite-node-setup@main
 
     - name: Authenticate NPM
       shell: bash

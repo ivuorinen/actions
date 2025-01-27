@@ -16,7 +16,7 @@ jobs:
 
     steps:
       - name: Set Git Config
-        uses: ivuorinen/actions/composite/set-git-config@main
+        uses: ivuorinen/actions/composite-set-git-config@main
 
       - name: Checkout Repository
         uses: actions/checkout@v2
@@ -25,7 +25,7 @@ jobs:
         uses: calibreapp/image-actions@main
         with:
           compressOnly: true
-          githubToken: ${{ steps.set-git-config.outputs.token }}
+          githubToken: ${{ steps.composite-set-git-config.outputs.token }}
 
       - name: Create New Pull Request If Needed
         if: steps.calibre.outputs.markdown != ''

@@ -1,4 +1,4 @@
-# NPM Publish (ivuorinen/actions/composite/npm-publish)
+# NPM Publish (ivuorinen/actions/composite-npm-publish)
 
 ## Overview
 
@@ -50,10 +50,10 @@ jobs:
                 uses: actions/checkout@v4
 
             -   name: Set Git Config
-                uses: ivuorinen/actions/composite/set-git-config@main
+                uses: ivuorinen/actions/composite-set-git-config@main
 
             -   name: Publish Package
-                uses: ivuorinen/actions/composite/npm-publish@main
+                uses: ivuorinen/actions/composite-npm-publish@main
                 with:
                     registry-url: "https://registry.npmjs.org/"
                     scope: "@ivuorinen"
@@ -88,4 +88,4 @@ jobs:
 ## License
 
 This workflow is licensed under the MIT License. See
-the [LICENSE](../../LICENSE.md) file for details.
+the [LICENSE](../LICENSE.md) file for details.

@@ -18,7 +18,7 @@ runs:
 
   steps:
     - name: Detect .NET SDK Version
-      uses: ivuorinen/actions/composite/dotnet-version-detect@main
+      uses: ivuorinen/actions/composite-dotnet-version-detect@main
       with:
         default-version: "7.0"
 

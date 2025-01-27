@@ -26,4 +26,4 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Lint and Fix Ansible Playbooks
-        uses: ivuorinen/actions/composite/ansible-lint-fix@main
+        uses: ivuorinen/actions/composite-ansible-lint-fix@main

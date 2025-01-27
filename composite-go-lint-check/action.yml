@@ -17,7 +17,7 @@ runs:
   using: composite
   steps:
     - name: Detect Go Version
-      uses: ivuorinen/actions/composite/go-version-detect@main
+      uses: ivuorinen/actions/composite-go-version-detect@main
 
     - name: Setup Go
       uses: actions/setup-go@v4

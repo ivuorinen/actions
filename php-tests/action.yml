@@ -26,10 +26,10 @@ jobs:
       contents: read
     steps:
       - name: Set Git Config
-        uses: ivuorinen/actions/composite/set-git-config@main
+        uses: ivuorinen/actions/composite-set-git-config@main
 
       - name: Composer Install
-        uses: ivuorinen/actions/composite/php-composer@main
+        uses: ivuorinen/actions/composite-php-composer@main
 
       - name: Run PHPUnit Tests
         run: vendor/bin/phpunit --verbose

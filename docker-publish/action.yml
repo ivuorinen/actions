@@ -48,18 +48,18 @@ jobs:
           fi
 
       - name: Build Multi-Arch Docker Image
-        uses: ivuorinen/actions/composite/docker-build@main
+        uses: ivuorinen/actions/composite-docker-build@main
         with:
           tag: "${{ steps.tags.outputs.all-tags }}"
 
       - name: Publish to Docker Hub
         if: contains(steps.dest.outputs.reg, 'dockerhub')
-        uses: ivuorinen/actions/composite/docker-publish-hub@main
+        uses: ivuorinen/actions/composite-docker-publish-hub@main
         with:
           tags: "${{ steps.tags.outputs.all-tags }}"
 
       - name: Publish to GitHub Packages
         if: contains(steps.dest.outputs.reg, 'github')
-        uses: ivuorinen/actions/composite/docker-publish-gh@main
+        uses: ivuorinen/actions/composite-docker-publish-gh@main
         with:
           tags: "${{ steps.tags.outputs.all-tags }}"

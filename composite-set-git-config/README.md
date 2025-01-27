@@ -1,4 +1,4 @@
-# Set Git Config Workflow (ivuorinen/actions/composite/set-git-config)
+# Set Git Config Workflow (ivuorinen/actions/composite-set-git-config)
 
 ## Overview
 
@@ -42,7 +42,7 @@ jobs:
                 uses: actions/checkout@v4
 
             -   name: Configure Git
-                uses: ivuorinen/actions/composite/set-git-config@main
+                uses: ivuorinen/actions/composite-set-git-config@main
                 with:
                     username: "example-user"
                     email: "example@example.com"
@@ -73,4 +73,4 @@ jobs:
 ## License
 
 This workflow is licensed under the MIT License. See
-the [LICENSE](../../LICENSE.md) file for details.
+the [LICENSE](../LICENSE.md) file for details.

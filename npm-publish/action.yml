@@ -18,10 +18,10 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set Git Config
-        uses: ivuorinen/actions/composite/set-git-config@main
+        uses: ivuorinen/actions/composite-set-git-config@main
 
       - name: Publish Package
-        uses: ivuorinen/actions/composite/npm-publish@main
+        uses: ivuorinen/actions/composite-npm-publish@main
         with:
           registry-url: "https://registry.npmjs.org/"
           scope: "@ivuorinen"

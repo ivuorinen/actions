@@ -41,7 +41,7 @@ jobs:
                 uses: actions/checkout@v4
 
             -   name: Setup PHP and Install Dependencies
-                uses: ivuorinen/actions/composite/php-composer@main
+                uses: ivuorinen/actions/composite-php-composer@main
                 with:
                     php-version: "8.4"
 
@@ -80,4 +80,4 @@ jobs:
 ## License
 
 This workflow is licensed under the MIT License. See
-the [LICENSE](../../LICENSE.md) file for details.
+the [LICENSE](../LICENSE.md) file for details.

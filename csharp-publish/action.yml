@@ -21,9 +21,9 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Set Git Config
-        uses: ivuorinen/actions/composite/set-git-config@main
+        uses: ivuorinen/actions/composite-set-git-config@main
 
       - name: Publish C# Project
-        uses: ivuorinen/actions/composite/csharp-publish@main
+        uses: ivuorinen/actions/composite-csharp-publish@main
         with:
           namespace: "ivuorinen"

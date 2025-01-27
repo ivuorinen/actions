@@ -36,7 +36,7 @@ runs:
         autopep8 --in-place --recursive .
 
     - name: Set Git Config for Fixes
-      uses: ivuorinen/actions/composite/set-git-config@main
+      uses: ivuorinen/actions/composite-set-git-config@main
 
     - name: Commit Fixes
       shell: bash

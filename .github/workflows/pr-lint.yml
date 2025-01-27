@@ -62,7 +62,7 @@ jobs:
 
       - name: Setup Git Config
         id: git-config
-        uses: ivuorinen/actions/composite/set-git-config@main
+        uses: ivuorinen/actions/composite-set-git-config@main
 
       # MegaLinter
       - name: MegaLinter

@@ -1,4 +1,4 @@
-# Reusable Pre-Commit Checks (ivuorinen/actions/composite/pre-commit)
+# Reusable Pre-Commit Checks (ivuorinen/actions/composite-pre-commit)
 
 ## Overview
 
@@ -44,13 +44,13 @@ jobs:
 
         steps:
             -   name: Set Git Config
-                uses: ivuorinen/actions/composite/set-git-config@main
+                uses: ivuorinen/actions/composite-set-git-config@main
 
             -   name: Checkout Repository
                 uses: actions/checkout@v4
 
             -   name: Pre-Commit Checks
-                uses: ivuorinen/actions/composite/pre-commit@main
+                uses: ivuorinen/actions/composite-pre-commit@main
 ```
 
 ## Notes
@@ -80,4 +80,4 @@ jobs:
 ## License
 
 This workflow is licensed under the MIT License. See
-the [LICENSE](../../LICENSE.md) file for details.
+the [LICENSE](../LICENSE.md) file for details.

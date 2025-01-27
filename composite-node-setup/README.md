@@ -1,4 +1,4 @@
-# Node Setup (ivuorinen/actions/composite/node-setup)
+# Node Setup (ivuorinen/actions/composite-node-setup)
 
 ## Overview
 
@@ -30,7 +30,7 @@ steps:
         uses: actions/checkout@v4
 
     -   name: Setup Node.js
-        uses: ivuorinen/actions/composite/node-setup@main
+        uses: ivuorinen/actions/composite-node-setup@main
 
     -   name: Install Dependencies
         run: npm install
@@ -58,4 +58,4 @@ steps:
 ## License
 
 This action is licensed under the MIT License. See
-the [LICENSE](../../LICENSE.md) file for details.
+the [LICENSE](../LICENSE.md) file for details.
