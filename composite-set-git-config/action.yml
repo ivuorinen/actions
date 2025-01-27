@@ -45,6 +45,7 @@ runs:
           echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
           echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
           echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
+        fi
       shell: bash
 
     - name: Configure Git
