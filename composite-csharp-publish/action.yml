@@ -47,4 +47,11 @@ runs:
       shell: bash
       run: dotnet nuget push ./artifacts/*.nupkg \
         --api-key ${{ secrets.GITHUB_TOKEN }} \
-        --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json"
+        --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
+        --skip-duplicate \
+        --no-symbols \
+        || (sleep 5 && dotnet nuget push ./artifacts/*.nupkg \
+          --api-key ${{ secrets.GITHUB_TOKEN }} \
+          --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
+          --skip-duplicate \
+          --no-symbols)

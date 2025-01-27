@@ -29,9 +29,14 @@ runs:
       shell: bash
       run: |
         if [ -z "${{ inputs.image-name }}" ]; then
-          repo_name=$(basename $GITHUB_REPOSITORY)
+          repo_name=$(basename "${GITHUB_REPOSITORY}")
           echo "image-name=$repo_name" >> $GITHUB_OUTPUT
         else
+          # Validate image name format
+          if [[ ! "${{ inputs.image-name }}" =~ ^[a-z0-9]+(?:[._-][a-z0-9]+)*$ ]]; then
+            echo "Error: Invalid image name format"
+            exit 1
+          fi
           echo "image-name=${{ inputs.image-name }}" >> $GITHUB_OUTPUT
         fi
 
