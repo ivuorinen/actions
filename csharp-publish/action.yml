@@ -1,0 +1,23 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: C# Publish
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set Git Config
+        uses: ivuorinen/actions/composite/set-git-config@main
+
+      - name: Publish C# Project
+        uses: ivuorinen/actions/composite/csharp-publish@main
+        with:
+          namespace: "ivuorinen"

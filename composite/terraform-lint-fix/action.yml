@@ -1,0 +1,50 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Terraform Lint and Fix
+description: "Lints and fixes Terraform files, commits changes, and uploads SARIF report."
+author: "Ismo Vuorinen"
+
+branding:
+  icon: server
+  color: green
+
+runs:
+  using: composite
+
+  steps:
+    - name: Check for Terraform Files
+      shell: bash
+      run: |
+        if ! find . -name "*.tf" | grep -q .; then
+          echo "No Terraform files found. Skipping lint and fix."
+          exit 0
+        fi
+
+    - name: Install tflint
+      shell: bash
+      run: |
+        curl -sSL https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh | bash
+
+    - name: Run tflint
+      shell: bash
+      run: |
+        tflint --format sarif > tflint.sarif
+
+    - name: Set Git Config for Fixes
+      uses: ivuorinen/actions/composite/set-git-config@main
+
+    - name: Commit Fixes
+      shell: bash
+      run: |
+        if git diff --quiet; then
+          echo "No changes to commit."
+        else
+          git add .
+          git commit -m "fix: applied terraform lint fixes"
+          git push
+        fi
+
+    - name: Upload SARIF Report
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: tflint.sarif

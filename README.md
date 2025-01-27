@@ -73,16 +73,16 @@ list of all workflows, grouped by their types.
 This project is licensed under the MIT License. See the [LICENSE](LICENSE.md)
 file for details.
 
-[ansible-lint-fix]: ./ansible-lint-fix/README.md
+[ansible-lint-fix]: ./composite/ansible-lint-fix/README.md
 [common-file-check]: ./composite/common-file-check/README.md
-[csharp-build]: ./csharp-build/README.md
-[csharp-lint-check]: ./csharp-lint-check/README.md
+[csharp-build]: ./composite/csharp-build/README.md
+[csharp-lint-check]: ./composite/csharp-lint-check/README.md
 [csharp-publish]: ./csharp-publish/README.md
-[docker-build]: ./docker-build/README.md
-[docker-publish-gh]: ./docker-publish-gh/README.md
-[docker-publish-hub]: ./docker-publish-hub/README.md
-[dotnet-v-detect]: ./dotnet-version-detect/README.md
-[github-release]: ./github-release/README.md
+[docker-build]: ./composite/docker-build/README.md
+[docker-publish-gh]: ./composite/docker-publish-gh/README.md
+[docker-publish-hub]: ./composite/docker-publish-hub/README.md
+[dotnet-v-detect]: ./composite/dotnet-version-detect/README.md
+[github-release]: ./composite/github-release/README.md
 [go-build]: ./composite/go-build/README.md
 [go-lint]: ./go-lint/README.md
 [python-lint-fix]: ./python-lint-fix/README.md
@@ -94,7 +94,7 @@ file for details.
 [prettier-check]: ./prettier-check/README.md
 [prettier-fix]: ./prettier-fix/README.md
 [release-monthly]: ./release-monthly/README.md
-[terraform-lint-fix]: ./terraform-lint-fix/README.md
+[terraform-lint-fix]: ./composite/terraform-lint-fix/README.md
 
 [compress-images]: ./compress-images/README.md
 [go-version-detect]: ./composite/go-version-detect/README.md

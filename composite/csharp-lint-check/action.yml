@@ -1,0 +1,41 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: "C# Lint Check"
+description: "Runs linters like StyleCop or dotnet-format for C# code style checks."
+author: "Ismo Vuorinen"
+
+branding:
+  icon: "code"
+  color: "blue"
+
+inputs:
+  dotnet-version:
+    description: "Version of .NET SDK to use."
+    required: false
+
+runs:
+  using: composite
+
+  steps:
+    - name: Detect .NET SDK Version
+      uses: ivuorinen/actions/composite/dotnet-version-detect@main
+      with:
+        default-version: "7.0"
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: "${{ steps.detect-dotnet-version.outputs.dotnet-version }}"
+
+    - name: Install dotnet-format
+      shell: bash
+      run: dotnet tool install --global dotnet-format
+
+    - name: Run dotnet-format
+      shell: bash
+      run: dotnet format --check --report sarif --report-file dotnet-format.sarif
+
+    - name: Upload SARIF Report
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: dotnet-format.sarif
