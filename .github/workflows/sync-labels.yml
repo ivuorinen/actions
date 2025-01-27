@@ -1,20 +1,38 @@
 ---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Sync labels
 
 on:
   push:
     branches:
       - main
-    paths:
-      - .github/labels.yml
+      - master
   schedule:
     - cron: "34 5 * * *"
   workflow_call:
   workflow_dispatch:
 
 permissions:
-  issues: write
+  contents: read
+  statuses: read
 
 jobs:
-  SyncLabels:
-    uses: ivuorinen/actions/sync-labels@main
+  labels:
+    name: ♻️ Sync labels
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: ⤵️ Download latest labels definitions
+        shell: bash
+        run: |
+          curl -s --retry 5 \
+            "https://raw.githubusercontent.com/ivuorinen/actions/refs/heads/main/sync-labels/labels.yml" \
+            > labels.yml
+
+      - name: 🚀 Run Label Syncer
+        uses: micnncim/action-label-syncer@v1.3.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          manifest: labels.yml
