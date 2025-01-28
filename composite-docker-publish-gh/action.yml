@@ -42,4 +42,5 @@ runs:
 
     - name: Output Image Digest
       shell: bash
-      run: echo "Image digest: ${{ steps.build.outputs.digest }}"
+      run: |
+        echo "Image digest: ${{ steps.build.outputs.digest }}"

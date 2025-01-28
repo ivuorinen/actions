@@ -1,83 +1,42 @@
-# PHP Composer Workflow
+# ivuorinen/actions/composite-php-composer
 
-## Overview
+## Run Composer Install
 
-The **PHP Composer** composable workflow automates the setup of a PHP
-environment and installs project dependencies using Composer. It ensures that
-the specified PHP version is used and all dependencies are installed correctly.
+### Description
 
-## Features
+Runs Composer install on a repository with caching.
 
-- Installs the specified PHP version.
-- Installs project dependencies using Composer.
-- Caches Composer dependencies for faster builds.
+### Inputs
 
-## Inputs
+| name   | description                           | required | default                                             |
+| ------ | ------------------------------------- | -------- | --------------------------------------------------- |
+| `php`  | <p>PHP Version to use.</p>            | `true`   | `8.4`                                               |
+| `args` | <p>Arguments to pass to Composer.</p> | `false`  | `--no-progress --prefer-dist --optimize-autoloader` |
 
-The following inputs are supported by the workflow:
+### Outputs
 
-- `php-version` (optional): The PHP version to install. Default is `8.2`.
+| name   | description                                     |
+| ------ | ----------------------------------------------- |
+| `lock` | <p>composer.lock or composer.json file hash</p> |
 
-## Outputs
+### Runs
 
-This workflow does not produce direct outputs.
+This action is a `composite` action.
 
-## Usage
-
-### Example Workflow File
+### Usage
 
 ```yaml
-name: PHP Composer Example
+- uses: ivuorinen/actions/composite-php-composer@main
+  with:
+      php:
+      # PHP Version to use.
+      #
+      # Required: true
+      # Default: 8.4
 
-on:
-    workflow_dispatch:
-
-jobs:
-    setup-php:
-        runs-on: ubuntu-latest
-
-        steps:
-            -   name: Checkout Repository
-                uses: actions/checkout@v4
-
-            -   name: Setup PHP and Install Dependencies
-                uses: ivuorinen/actions/composite-php-composer@main
-                with:
-                    php-version: "8.4"
-
-            -   name: Verify PHP Version
-                run: php -v
-
-            -   name: Verify Composer Installation
-                run: composer --version
-
-            -   name: List Installed Dependencies
-                run: composer show
+      args:
+      # Arguments to pass to Composer.
+      #
+      # Required: false
+      # Default: --no-progress --prefer-dist --optimize-autoloader
 ```
-
-## Notes
-
-- Ensure that `composer.json` and `composer.lock` are present in the repository
-  for proper dependency installation.
-- The `php-version` input must be compatible with the project dependencies.
-- This workflow uses caching to optimize dependency installation where
-  applicable.
-
-## Troubleshooting
-
-1. **PHP Version Not Installed:**
-    - Verify that the `php-version` input is correctly specified.
-    - Check the logs for errors during PHP installation.
-
-2. **Composer Installation Fails:**
-    - Ensure that `composer.json` is properly configured in the repository.
-    - Check for conflicts or unsupported PHP extensions in the dependency list.
-
-3. **Cache Issues:**
-    - Ensure that the caching mechanism is properly configured and the cache key
-      is unique per dependency set.
-
-## License
-
-This workflow is licensed under the MIT License. See
-the [LICENSE](../LICENSE.md) file for details.

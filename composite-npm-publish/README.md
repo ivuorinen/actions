@@ -1,91 +1,43 @@
-# NPM Publish (ivuorinen/actions/composite-npm-publish)
+# ivuorinen/actions/composite-npm-publish
 
-## Overview
+## Publish to NPM
 
-The **NPM Publish** workflow automates the process of publishing a package to
-the NPM registry. It ensures that your package is properly versioned and
-uploaded to the specified registry with optional scope configurations.
+### Description
 
-## Features
+Publishes the package to the NPM registry with configurable scope and registry URL.
 
-- Publishes a package to the NPM registry.
-- Configurable registry URL and package scope.
-- Supports secure authentication using NPM tokens.
+### Inputs
 
-## Requirements
+| name              | description                         | required | default                                |
+| ----------------- | ----------------------------------- | -------- | -------------------------------------- |
+| `registry-url`    | <p>Registry URL for publishing.</p> | `false`  | `https://registry.npmjs.org/`          |
+| `scope`           | <p>Package scope to use.</p>        | `false`  | `@ivuorinen`                           |
+| `package-version` | <p>The version to publish.</p>      | `false`  | `${{ github.event.release.tag_name }}` |
 
-- A valid NPM token with publishing permissions. Save this token as a GitHub
-  secret with the name `NPM_TOKEN`.
-- A `package.json` file with the correct package name and version.
-- A build step that generates the package artifacts before publishing.
+### Runs
 
-## Inputs
+This action is a `composite` action.
 
-The following inputs are supported by the workflow:
-
-- `package-version` (optional): The version of the package to publish. Default
-  is `${{ github.event.release.tag_name }}`
-- `registry-url` (optional): The URL of the NPM registry. Default is
-  `https://registry.npmjs.org/`.
-- `scope` (optional): The scope of the package to publish. Default is
-  `@ivuorinen`.
-
-## Usage
-
-### Example Workflow File
+### Usage
 
 ```yaml
-name: Publish to NPM
+- uses: ivuorinen/actions/composite-npm-publish@main
+  with:
+      registry-url:
+      # Registry URL for publishing.
+      #
+      # Required: false
+      # Default: https://registry.npmjs.org/
 
-on:
-    release:
-        types: [published]
+      scope:
+      # Package scope to use.
+      #
+      # Required: false
+      # Default: @ivuorinen
 
-jobs:
-    publish:
-        runs-on: ubuntu-latest
-
-        steps:
-            -   name: Checkout Repository
-                uses: actions/checkout@v4
-
-            -   name: Set Git Config
-                uses: ivuorinen/actions/composite-set-git-config@main
-
-            -   name: Publish Package
-                uses: ivuorinen/actions/composite-npm-publish@main
-                with:
-                    registry-url: "https://registry.npmjs.org/"
-                    scope: "@ivuorinen"
-                    package-version: ${{ github.event.release.tag_name }}
+      package-version:
+      # The version to publish.
+      #
+      # Required: false
+      # Default: ${{ github.event.release.tag_name }}
 ```
-
-## Notes
-
-- Ensure that the `NPM_TOKEN` secret is configured in your repository settings
-  for authentication.
-- The `package-version` input should match the version defined in your
-  `package.json` file.
-
-## Troubleshooting
-
-1. **Authentication Fails:**
-    - Verify that the `NPM_TOKEN` secret is correctly configured and has
-      publishing permissions.
-    - Ensure the registry URL matches the one your NPM token is configured for.
-
-2. **Version Mismatch:**
-    - Check that the `package-version` input matches the `version` field in
-      `package.json`.
-    - Update `package.json` if necessary before running the workflow.
-
-3. **Publishing Fails:**
-    - Confirm that the package name and scope are correctly defined in
-      `package.json`.
-    - Ensure all dependencies are installed and build steps are completed before
-      publishing.
-
-## License
-
-This workflow is licensed under the MIT License. See
-the [LICENSE](../LICENSE.md) file for details.

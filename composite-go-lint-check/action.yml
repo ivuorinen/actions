@@ -13,10 +13,16 @@ inputs:
     description: "Go version to use."
     required: false
 
+outputs:
+  go-version:
+    description: "Detected go version"
+    value: ${{ steps.detect-go-version.outputs.go-version }}
+
 runs:
   using: composite
   steps:
     - name: Detect Go Version
+      id: detect-go-version
       uses: ivuorinen/actions/composite-go-version-detect@main
 
     - name: Setup Go
@@ -28,17 +34,18 @@ runs:
       uses: golangci/golangci-lint-action@v3
       with:
         version: latest
+
     - name: Run golangci-lint
       shell: bash
       run: |
         set -euo pipefail
-        
+
         LINT_FLAGS="${{ inputs.lint-flags }}"
         CONFIG_FLAG=""
         if [ -n "${{ inputs.config-file }}" ]; then
           CONFIG_FLAG="--config ${{ inputs.config-file }}"
         fi
-        
+
         cd "${{ inputs.working-directory }}"
         golangci-lint run ./... \
           --out-format sarif \
