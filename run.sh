@@ -27,25 +27,32 @@ find . -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
         version="main"
     fi
 
-    echo "Updating $readme"
+    echo "Updating $readme..."
 
     printf "# %s\n\n" "$repo" >"$readme"
 
+    echo "- Generating action documentation..."
     npx --yes action-docs@latest \
         --source="$action" \
         --no-banner \
         --include-name-header >>"$readme"
 
+    echo "- Replacing placeholders in $readme..."
     $SED_CMD "s|PROJECT|$repo|g; s|VERSION|$version|g; s|\*\*\*||g" "$readme"
 
     if [ -f "$readme.bak" ]; then
         rm "$readme.bak"
+        echo "- Removed $readme.bak"
     fi
 done
+echo ""
 
+echo "Running prettier..."
 npx --yes prettier --write "**/README.md"
+echo ""
 
-npx --yes markdownlint-cli \
-    --fix \
-    --ignore "**/node_modules/**" \
-    "**/README.md"
+echo "Running markdownlint..."
+npx --yes markdownlint-cli --fix --ignore "**/node_modules/**" "**/README.md"
+echo ""
+
+echo "Done!"
