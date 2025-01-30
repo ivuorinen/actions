@@ -1,24 +1,24 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Docker Build
-description: "Builds a Docker image for multiple architectures."
-author: "Ismo Vuorinen"
+description: 'Builds a Docker image for multiple architectures.'
+author: 'Ismo Vuorinen'
 
 branding:
-  icon: "package"
-  color: "blue"
+  icon: 'package'
+  color: 'blue'
 
 inputs:
   image-name:
-    description: "The name of the Docker image to build. Defaults to the repository name."
+    description: 'The name of the Docker image to build. Defaults to the repository name.'
     required: false
   tag:
-    description: "The tag for the Docker image."
+    description: 'The tag for the Docker image.'
     required: true
   architectures:
-    description: "List of architectures to build for. Defaults to amd64, arm64, arm/v7, arm/v6."
+    description: 'List of architectures to build for. Defaults to amd64, arm64, arm/v7, arm/v6.'
     required: false
-    default: "linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6"
+    default: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
 
 runs:
   using: composite

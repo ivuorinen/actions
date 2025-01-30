@@ -1,12 +1,12 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Python Lint and Fix
-description: "Lints and fixes Python files, commits changes, and uploads SARIF report."
-author: "Ismo Vuorinen"
+description: 'Lints and fixes Python files, commits changes, and uploads SARIF report.'
+author: 'Ismo Vuorinen'
 
 branding:
-  icon: "code"
-  color: "yellow"
+  icon: 'code'
+  color: 'yellow'
 
 runs:
   using: composite

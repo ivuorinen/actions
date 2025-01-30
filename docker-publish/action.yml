@@ -8,11 +8,11 @@ on:
   workflow_dispatch:
     inputs:
       registry:
-        description: "Registry to publish to (dockerhub, github, or both)."
+        description: 'Registry to publish to (dockerhub, github, or both).'
         required: true
-        default: "both"
+        default: 'both'
       nightly:
-        description: "Is this a nightly build?"
+        description: 'Is this a nightly build?'
         required: false
         default: false
 
@@ -50,16 +50,16 @@ jobs:
       - name: Build Multi-Arch Docker Image
         uses: ivuorinen/actions/composite-docker-build@main
         with:
-          tag: "${{ steps.tags.outputs.all-tags }}"
+          tag: '${{ steps.tags.outputs.all-tags }}'
 
       - name: Publish to Docker Hub
         if: contains(steps.dest.outputs.reg, 'dockerhub')
         uses: ivuorinen/actions/composite-docker-publish-hub@main
         with:
-          tags: "${{ steps.tags.outputs.all-tags }}"
+          tags: '${{ steps.tags.outputs.all-tags }}'
 
       - name: Publish to GitHub Packages
         if: contains(steps.dest.outputs.reg, 'github')
         uses: ivuorinen/actions/composite-docker-publish-gh@main
         with:
-          tags: "${{ steps.tags.outputs.all-tags }}"
+          tags: '${{ steps.tags.outputs.all-tags }}'

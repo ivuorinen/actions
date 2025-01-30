@@ -1,21 +1,21 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: GitHub Release
-description: "Creates a GitHub release with a version and changelog."
-author: "Ismo Vuorinen"
+description: 'Creates a GitHub release with a version and changelog.'
+author: 'Ismo Vuorinen'
 
 branding:
-  icon: "tag"
-  color: "blue"
+  icon: 'tag'
+  color: 'blue'
 
 inputs:
   version:
-    description: "The version for the release."
+    description: 'The version for the release.'
     required: true
   changelog:
-    description: "The changelog or description for the release."
+    description: 'The changelog or description for the release.'
     required: false
-    default: ""
+    default: ''
 
 runs:
   using: composite

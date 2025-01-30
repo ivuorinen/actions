@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       package-version:
-        description: "The version to publish."
+        description: 'The version to publish.'
         required: true
 
 jobs:
@@ -23,6 +23,6 @@ jobs:
       - name: Publish Package
         uses: ivuorinen/actions/composite-npm-publish@main
         with:
-          registry-url: "https://registry.npmjs.org/"
-          scope: "@ivuorinen"
+          registry-url: 'https://registry.npmjs.org/'
+          scope: '@ivuorinen'
           package-version: ${{ inputs.package-version }}

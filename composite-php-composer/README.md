@@ -9,14 +9,14 @@ Runs Composer install on a repository with caching.
 ### Inputs
 
 | name   | description                           | required | default                                             |
-| ------ | ------------------------------------- | -------- | --------------------------------------------------- |
+|--------|---------------------------------------|----------|-----------------------------------------------------|
 | `php`  | <p>PHP Version to use.</p>            | `true`   | `8.4`                                               |
 | `args` | <p>Arguments to pass to Composer.</p> | `false`  | `--no-progress --prefer-dist --optimize-autoloader` |
 
 ### Outputs
 
 | name   | description                                     |
-| ------ | ----------------------------------------------- |
+|--------|-------------------------------------------------|
 | `lock` | <p>composer.lock or composer.json file hash</p> |
 
 ### Runs

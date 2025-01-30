@@ -1,16 +1,16 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: C# Build
-description: "Builds and tests C# projects."
-author: "Ismo Vuorinen"
+description: 'Builds and tests C# projects.'
+author: 'Ismo Vuorinen'
 
 branding:
-  icon: "code"
-  color: "blue"
+  icon: 'code'
+  color: 'blue'
 
 inputs:
   dotnet-version:
-    description: "Version of .NET SDK to use."
+    description: 'Version of .NET SDK to use.'
     required: false
 
 runs:
@@ -20,12 +20,12 @@ runs:
     - name: Detect .NET SDK Version
       uses: ivuorinen/actions/composite-dotnet-version-detect@main
       with:
-        default-version: "7.0"
+        default-version: '7.0'
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@v3
       with:
-        dotnet-version: "${{ steps.detect-dotnet-version.outputs.dotnet-version }}"
+        dotnet-version: '${{ steps.detect-dotnet-version.outputs.dotnet-version }}'
 
     - name: Restore Dependencies
       shell: bash
@@ -39,7 +39,7 @@ runs:
       shell: bash
       run: |
         dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx"
-        
+
     - name: Upload Test Results
       uses: actions/upload-artifact@v3
       with:

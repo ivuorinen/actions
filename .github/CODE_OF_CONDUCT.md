@@ -139,7 +139,7 @@ the [Geek Feminism Anti-Harassment Policy][geek-feminism].
 * _Revision 2.0, adopted by the [Stumptown Syndicate][stumptown] board on 10
   January 2013. Posted 17 March 2013._
 
-[stumptown]: https://stumptownsyndicate.org
+[stumptown]: https://github.com/stumpsyn
 [cc-by-sa]: https://creativecommons.org/licenses/by-sa/3.0/
 [django]: https://www.djangoproject.com/conduct/
 [geek-feminism]: http://geekfeminism.wikia.com/wiki/Conference_anti-harassment/Policy

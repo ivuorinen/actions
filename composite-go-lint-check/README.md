@@ -9,13 +9,13 @@ Runs golangci-lint to check for code style violations in Go projects.
 ### Inputs
 
 | name         | description               | required | default |
-| ------------ | ------------------------- | -------- | ------- |
+|--------------|---------------------------|----------|---------|
 | `go-version` | <p>Go version to use.</p> | `false`  | `""`    |
 
 ### Outputs
 
 | name         | description                |
-| ------------ | -------------------------- |
+|--------------|----------------------------|
 | `go-version` | <p>Detected go version</p> |
 
 ### Runs

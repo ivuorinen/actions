@@ -9,7 +9,7 @@ Creates a GitHub release with a version and changelog.
 ### Inputs
 
 | name        | description                                          | required | default |
-| ----------- | ---------------------------------------------------- | -------- | ------- |
+|-------------|------------------------------------------------------|----------|---------|
 | `version`   | <p>The version for the release.</p>                  | `true`   | `""`    |
 | `changelog` | <p>The changelog or description for the release.</p> | `false`  | `""`    |
 

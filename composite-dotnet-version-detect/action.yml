@@ -1,17 +1,17 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Dotnet Version Detect
-description: "Detects .NET SDK version from global.json or defaults to a specified version."
+description: 'Detects .NET SDK version from global.json or defaults to a specified version.'
 
 inputs:
   default-version:
-    description: "Default .NET SDK version to use if global.json is not found."
+    description: 'Default .NET SDK version to use if global.json is not found.'
     required: true
-    default: "7.0"
+    default: '7.0'
 
 outputs:
   dotnet-version:
-    description: "Detected or default .NET SDK version."
+    description: 'Detected or default .NET SDK version.'
     value: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
 
 runs:

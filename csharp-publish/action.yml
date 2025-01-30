@@ -26,4 +26,4 @@ jobs:
       - name: Publish C# Project
         uses: ivuorinen/actions/composite-csharp-publish@main
         with:
-          namespace: "ivuorinen"
+          namespace: 'ivuorinen'

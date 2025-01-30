@@ -9,7 +9,7 @@ Builds the Go project.
 ### Inputs
 
 | name          | description                         | required | default |
-| ------------- | ----------------------------------- | -------- | ------- |
+|---------------|-------------------------------------|----------|---------|
 | `go-version`  | <p>Go version to use.</p>           | `false`  | `""`    |
 | `destination` | <p>Build destination directory.</p> | `false`  | `./bin` |
 

@@ -9,7 +9,7 @@ Builds and tests C# projects.
 ### Inputs
 
 | name             | description                        | required | default |
-| ---------------- | ---------------------------------- | -------- | ------- |
+|------------------|------------------------------------|----------|---------|
 | `dotnet-version` | <p>Version of .NET SDK to use.</p> | `false`  | `""`    |
 
 ### Runs

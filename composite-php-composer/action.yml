@@ -1,8 +1,8 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Run Composer Install
-description: "Runs Composer install on a repository with caching."
-author: "Ismo Vuorinen"
+description: 'Runs Composer install on a repository with caching.'
+author: 'Ismo Vuorinen'
 
 branding:
   icon: server
@@ -10,17 +10,17 @@ branding:
 
 inputs:
   php:
-    description: "PHP Version to use."
+    description: 'PHP Version to use.'
     required: true
-    default: "8.4"
+    default: '8.4'
   args:
-    description: "Arguments to pass to Composer."
+    description: 'Arguments to pass to Composer.'
     required: false
-    default: "--no-progress --prefer-dist --optimize-autoloader"
+    default: '--no-progress --prefer-dist --optimize-autoloader'
 
 outputs:
   lock:
-    description: "composer.lock or composer.json file hash"
+    description: 'composer.lock or composer.json file hash'
     value: ${{ steps.hash.outputs.lock }}
 
 runs:

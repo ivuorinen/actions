@@ -11,14 +11,14 @@ MD001: true
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md003.md
 MD003:
   # Heading style
-  style: "consistent"
+  style: 'consistent'
 
 # MD004/ul-style
 # Unordered list style
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md004.md
 MD004:
   # List style
-  style: "consistent"
+  style: 'consistent'
 
 # MD005/list-indent
 # Inconsistent indentation for list items at the same level
@@ -149,7 +149,7 @@ MD025:
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md026.md
 MD026:
   # Punctuation characters
-  punctuation: ".,;:!。，；：！"
+  punctuation: '.,;:!。，；：！'
 
 # MD027/no-multiple-space-blockquote
 # Multiple spaces after blockquote symbol
@@ -166,7 +166,7 @@ MD028: true
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md029.md
 MD029:
   # List style
-  style: "one_or_ordered"
+  style: 'one_or_ordered'
 
 # MD030/list-marker-space
 # Spaces after list markers
@@ -198,7 +198,7 @@ MD032: true
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md033.md
 MD033:
   # Allowed elements
-  allowed_elements: ["p"]
+  allowed_elements: ['p']
 
 # MD034/no-bare-urls
 # Bare URL used
@@ -210,14 +210,14 @@ MD034: true
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md035.md
 MD035:
   # Horizontal rule style
-  style: "consistent"
+  style: 'consistent'
 
 # MD036/no-emphasis-as-heading
 # Emphasis used instead of a heading
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md036.md
 MD036:
   # Punctuation characters
-  punctuation: ".,;:!?。，；：！？"
+  punctuation: '.,;:!?。，；：！？'
 
 # MD037/no-space-in-emphasis
 # Spaces inside emphasis markers
@@ -285,7 +285,7 @@ MD045: true
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md046.md
 MD046:
   # Block style
-  style: "consistent"
+  style: 'consistent'
 
 # MD047/single-trailing-newline
 # Files should end with a single newline character
@@ -297,21 +297,21 @@ MD047: true
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md048.md
 MD048:
   # Code fence style
-  style: "consistent"
+  style: 'consistent'
 
 # MD049/emphasis-style
 # Emphasis style
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md049.md
 MD049:
   # Emphasis style
-  style: "consistent"
+  style: 'consistent'
 
 # MD050/strong-style
 # Strong style
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md050.md
 MD050:
   # Strong style
-  style: "consistent"
+  style: 'consistent'
 
 # MD051/link-fragments
 # Link fragments should be valid
@@ -333,7 +333,7 @@ MD052:
 MD053:
   # Ignored definitions
   ignored_definitions:
-    - "//"
+    - '//'
 
 # MD054/link-image-style
 # Link and image style
@@ -357,7 +357,7 @@ MD054:
 # https://github.com/DavidAnson/markdownlint/blob/v0.37.4/doc/md055.md
 MD055:
   # Table pipe style
-  style: "consistent"
+  style: 'consistent'
 
 # MD056/table-column-count
 # Table column count

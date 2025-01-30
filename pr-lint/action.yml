@@ -107,7 +107,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: MegaLinter reports
-          include-hidden-files: "true"
+          include-hidden-files: 'true'
           path: |
             megalinter-reports
             mega-linter.log
@@ -148,8 +148,8 @@ jobs:
         if: env.APPLY_FIXES_IF_PR == 'true'
         with:
           token: ${{ steps.git-config.outputs.token || secrets.PAT || secrets.GITHUB_TOKEN }}
-          commit-message: "[MegaLinter] Apply linters automatic fixes"
-          title: "[MegaLinter] Apply linters automatic fixes"
+          commit-message: '[MegaLinter] Apply linters automatic fixes'
+          title: '[MegaLinter] Apply linters automatic fixes'
           labels: bot
 
       - name: Create PR output
@@ -174,6 +174,6 @@ jobs:
               github.head_ref ||
               github.ref
             }}
-          commit_message: "[MegaLinter] Apply linters fixes"
+          commit_message: '[MegaLinter] Apply linters fixes'
           commit_user_name: ${{ steps.git-config.outputs.username }}
           commit_user_email: ${{ steps.git-config.outputs.email }}

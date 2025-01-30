@@ -5,7 +5,7 @@ name: ESLint Fix
 on:
   workflow_dispatch:
   pull_request:
-      branches:
+    branches:
       - main
       - master
 
@@ -37,5 +37,5 @@ jobs:
         if: always()
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "style: autofix ESLint violations"
-          add_options: "-u"
+          commit_message: 'style: autofix ESLint violations'
+          add_options: '-u'

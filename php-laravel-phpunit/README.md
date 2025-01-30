@@ -5,7 +5,7 @@
 ### Inputs
 
 | name               | description                                                                                                           | type     | required | default                                     |
-| ------------------ | --------------------------------------------------------------------------------------------------------------------- | -------- | -------- | ------------------------------------------- |
+|--------------------|-----------------------------------------------------------------------------------------------------------------------|----------|----------|---------------------------------------------|
 | `php-version`      | <p>PHP Version to use, see https://github.com/marketplace/actions/setup-php-action#php-version-optional</p>           | `string` | `false`  | `latest`                                    |
 | `php-version-file` | <p>PHP Version file to use, see https://github.com/marketplace/actions/setup-php-action#php-version-file-optional</p> | `string` | `false`  | `.php-version`                              |
 | `extensions`       | <p>PHP extensions to install, see https://github.com/marketplace/actions/setup-php-action#extensions-optional</p>     | `string` | `false`  | `mbstring, intl, json, pdo_sqlite, sqlite3` |

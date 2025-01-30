@@ -1,8 +1,8 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Node Setup
-description: "Sets up the Node.js environment based on .nvmrc, .tool-versions, or a default version."
-author: "Ismo Vuorinen"
+description: 'Sets up the Node.js environment based on .nvmrc, .tool-versions, or a default version.'
+author: 'Ismo Vuorinen'
 
 branding:
   icon: server
@@ -10,9 +10,9 @@ branding:
 
 inputs:
   default-version:
-    description: "Default Node.js version to use if no configuration file is found."
+    description: 'Default Node.js version to use if no configuration file is found.'
     required: false
-    default: "20"
+    default: '20'
 
 runs:
   using: composite
@@ -50,4 +50,4 @@ runs:
       uses: actions/setup-node@v3
       with:
         node-version: ${{ steps.node.outputs.version }}
-        cache: "npm"
+        cache: 'npm'

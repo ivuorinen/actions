@@ -47,12 +47,16 @@ find . -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
 done
 echo ""
 
+echo "Running markdownlint..."
+npx --yes markdownlint-cli --fix --ignore "**/node_modules/**" "**/README.md"
+echo ""
+
 echo "Running prettier..."
 npx --yes prettier --write "**/README.md"
 echo ""
 
-echo "Running markdownlint..."
-npx --yes markdownlint-cli --fix --ignore "**/node_modules/**" "**/README.md"
+echo "Running MegaLinter..."
+npx --yes mega-linter-runner
 echo ""
 
 echo "Done!"

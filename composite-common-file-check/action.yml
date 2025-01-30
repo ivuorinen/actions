@@ -1,0 +1,32 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Common File Check
+description: |
+  A reusable action to check if a specific file or type of files exists in the repository.
+  Emits an output 'found' which is true or false.
+author: 'Ismo Vuorinen'
+branding:
+  icon: search
+  color: gray
+
+inputs:
+  file-pattern:
+    description: 'Glob pattern for files to check.'
+    required: true
+
+outputs:
+  found:
+    description: 'Indicates if the files matching the pattern were found.'
+
+runs:
+  using: composite
+
+  steps:
+    - name: Check for Files
+      id: check-files
+      run: |
+        if find . -name "${{ inputs.file-pattern }}" | grep -q .; then
+          echo "found=true" >> $GITHUB_OUTPUT
+        else
+          echo "found=false" >> $GITHUB_OUTPUT
+        fi

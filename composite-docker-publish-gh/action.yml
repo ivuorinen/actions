@@ -1,19 +1,19 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Docker Publish to GitHub Packages
-description: "Publishes a Docker image to GitHub Packages."
-author: "Ismo Vuorinen"
+description: 'Publishes a Docker image to GitHub Packages.'
+author: 'Ismo Vuorinen'
 
 branding:
-  icon: "package"
-  color: "blue"
+  icon: 'package'
+  color: 'blue'
 
 inputs:
   image-name:
-    description: "The name of the Docker image to publish. Defaults to the repository name."
+    description: 'The name of the Docker image to publish. Defaults to the repository name.'
     required: false
   tags:
-    description: "Comma-separated list of tags for the Docker image."
+    description: 'Comma-separated list of tags for the Docker image.'
     required: true
 
 runs:

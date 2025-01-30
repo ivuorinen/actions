@@ -1,12 +1,12 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Ansible Lint and Fix
-description: "Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report."
-author: "Ismo Vuorinen"
+description: 'Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report.'
+author: 'Ismo Vuorinen'
 
 branding:
-  icon: "play"
-  color: "green"
+  icon: 'play'
+  color: 'green'
 
 runs:
   using: composite

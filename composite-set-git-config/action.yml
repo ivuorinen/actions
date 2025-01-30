@@ -1,8 +1,8 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Set Git Config
-description: "Sets Git configuration for actions."
-author: "Ismo Vuorinen"
+description: 'Sets Git configuration for actions.'
+author: 'Ismo Vuorinen'
 
 branding:
   icon: git-commit
@@ -10,25 +10,25 @@ branding:
 
 inputs:
   token:
-    description: "GitHub token."
+    description: 'GitHub token.'
     required: false
-    default: "${{ secrets.GITHUB_TOKEN }}"
+    default: '${{ secrets.GITHUB_TOKEN }}'
   username:
-    description: "GitHub username for commits."
-    default: "github-actions"
+    description: 'GitHub username for commits.'
+    default: 'github-actions'
   email:
-    description: "GitHub email for commits."
-    default: "github-actions@github.com"
+    description: 'GitHub email for commits.'
+    default: 'github-actions@github.com'
 
 outputs:
   token:
-    description: "GitHub token."
+    description: 'GitHub token.'
     value: ${{ steps.bot.outputs.token }}
   username:
-    description: "GitHub username for commits."
+    description: 'GitHub username for commits.'
     value: ${{ steps.bot.outputs.username }}
   email:
-    description: "GitHub email for commits."
+    description: 'GitHub email for commits.'
     value: ${{ steps.bot.outputs.email }}
 
 runs:
@@ -56,13 +56,13 @@ runs:
           git config --local --unset-all "user.name" || true
           git config --local --unset-all "user.email" || true
         }
-        
+
         # Set up trap to ensure cleanup on exit
         trap cleanup_git_config EXIT
-        
+
         # Store token in variable to avoid repeated exposure
         TOKEN="${{ steps.bot.outputs.token }}"
-        
+
         git config --local --unset-all http.https://github.com/.extraheader || true
         git config --local \
           --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \

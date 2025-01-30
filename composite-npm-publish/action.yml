@@ -1,8 +1,8 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Publish to NPM
-description: "Publishes the package to the NPM registry with configurable scope and registry URL."
-author: "Ismo Vuorinen"
+description: 'Publishes the package to the NPM registry with configurable scope and registry URL.'
+author: 'Ismo Vuorinen'
 
 branding:
   icon: package
@@ -10,15 +10,15 @@ branding:
 
 inputs:
   registry-url:
-    description: "Registry URL for publishing."
+    description: 'Registry URL for publishing.'
     required: false
-    default: "https://registry.npmjs.org/"
+    default: 'https://registry.npmjs.org/'
   scope:
-    description: "Package scope to use."
+    description: 'Package scope to use.'
     required: false
-    default: "@ivuorinen"
+    default: '@ivuorinen'
   package-version:
-    description: "The version to publish."
+    description: 'The version to publish.'
     required: false
     default: ${{ github.event.release.tag_name }}
 
@@ -44,7 +44,7 @@ runs:
           echo "Version mismatch: package.json ($pkg_version) != input (${{ inputs.package-version }})"
           exit 1
         fi
-        
+
         # Dry run first
         npm publish \
           --registry ${{ inputs.registry-url }} \

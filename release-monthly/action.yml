@@ -6,14 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       token:
-        description: "GitHub Token"
-        default: "${{ github.token }}"
+        description: 'GitHub Token'
+        default: '${{ github.token }}'
         required: false
   workflow_call:
     inputs:
       token:
-        description: "GitHub Token"
-        default: "${{ github.token }}"
+        description: 'GitHub Token'
+        default: '${{ github.token }}'
         type: string
         required: false
   schedule:
