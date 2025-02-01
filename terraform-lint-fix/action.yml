@@ -225,7 +225,7 @@ runs:
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.found == 'true' && inputs.format == 'sarif'
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: ${{ inputs.working-directory }}/reports/tflint.sarif
         category: terraform-lint

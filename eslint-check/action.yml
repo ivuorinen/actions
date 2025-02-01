@@ -239,7 +239,7 @@ runs:
 
     - name: Upload ESLint Results
       if: always() && inputs.report-format == 'sarif'
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       with:
         sarif_file: ${{ inputs.working-directory }}/reports/eslint.sarif
         category: eslint
