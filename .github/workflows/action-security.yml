@@ -65,11 +65,6 @@ jobs:
           fail-on-error: true
           use-problem-matcher: true
 
-      - name: Run action-validator
-        uses: mpalmer/action-validator@v0.6.0
-        with:
-          workflows: ./**/action.{yml,yaml}
-
       - name: Run Gitleaks
         if: steps.check-configs.outputs.run_gitleaks == 'true'
         uses: gitleaks/gitleaks-action@v2.3.2

@@ -57,8 +57,8 @@ npx --yes prettier --write \
   "run.sh", "**/README.md" "**/action.yml" ".github/workflows/*.yml"
 echo ""
 
-# echo "Running MegaLinter..."
-# npx --yes mega-linter-runner
-# echo ""
+echo "Running MegaLinter..."
+npx --yes mega-linter-runner
+echo ""
 
 echo "Done!"
