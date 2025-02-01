@@ -66,7 +66,7 @@ jobs:
           use-problem-matcher: true
 
       - name: Run action-validator
-        uses: mpalmer/action-validator@594e66d487e7743baaf2fa5df7a198c054343110
+        uses: mpalmer/action-validator@v0.6.0
         with:
           workflows: ./**/action.{yml,yaml}
 

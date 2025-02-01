@@ -22,7 +22,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['javascript', 'yaml'] # Add languages used in your actions
+        language: ['javascript'] # Add languages used in your actions
 
     steps:
       - name: Checkout repository
