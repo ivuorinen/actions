@@ -229,7 +229,16 @@ jobs:
                 title: '⚠️ Label Sync Failure',
                 body,
                 labels: ['automation', 'bug'],
-                assignees: ['ivuorinen']
+                assignees: ['ivuorinen'],
+              }).catch(error => {
+                if (error.status === 403) {
+                  console.error('Permission denied while creating issue. Please check workflow permissions.');
+                } else if (error.status === 429) {
+                  console.error('Rate limit exceeded. Please try again later.');
+                } else {
+                  console.error(`Failed to create issue: ${error.message}`);
+                }
+                throw error;
               });
             } catch (error) {
               console.error('Failed to create issue:', error);
