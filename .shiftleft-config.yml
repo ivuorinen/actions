@@ -4,7 +4,7 @@ build_rules:
     pattern: package.json
     confidence: HIGH
     severity: WARNING
-    message: "Check scripts in package.json"
+    message: 'Check scripts in package.json'
 
 scan_rules:
   - id: js-eval
@@ -12,11 +12,11 @@ scan_rules:
     type: regex
     confidence: HIGH
     severity: WARNING
-    message: "Avoid using eval()"
+    message: 'Avoid using eval()'
 
   - id: js-secrets
     pattern: (password|secret|token|key).*=.*['"][^'"]*['"]
     type: regex
     confidence: HIGH
     severity: WARNING
-    message: "Possible hardcoded secret"
+    message: 'Possible hardcoded secret'
