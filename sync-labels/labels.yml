@@ -90,47 +90,72 @@
 # Areas
 - name: area/ansible
   color: '0e8a16'
+  description: 'Issues or PRs related to Ansible configuration and automation.'
 - name: area/docs
   color: '0e8a16'
+  description: 'Issues or PRs related to documentation and guides.'
 - name: area/github
   color: '0e8a16'
+  description: 'Issues or PRs related to GitHub Actions and repository configuration.'
 - name: area/kubernetes
   color: '0e8a16'
+  description: 'Issues or PRs related to Kubernetes manifests and configuration.'
 - name: area/taskfile
   color: '0e8a16'
+  description: 'Issues or PRs related to Taskfile automation scripts.'
 - name: area/terraform
   color: '0e8a16'
+  description: 'Issues or PRs related to Terraform infrastructure code.'
+
 # Clusters
 - name: cluster/main
   color: 'ffc300'
+  description: 'Issues or PRs affecting the main Kubernetes cluster.'
 - name: cluster/storage
   color: 'ffc300'
+  description: 'Issues or PRs affecting the storage-focused Kubernetes cluster.'
+
 # Renovate Types
 - name: renovate/ansible
   color: '027fa0'
+  description: 'Automated dependency updates for Ansible roles and collections.'
 - name: renovate/container
   color: '027fa0'
+  description: 'Automated updates for container images and tags.'
 - name: renovate/github-action
   color: '027fa0'
+  description: 'Automated updates for GitHub Actions and workflows.'
 - name: renovate/grafana-dashboard
   color: '027fa0'
+  description: 'Automated updates for Grafana dashboard configurations.'
 - name: renovate/github-release
   color: '027fa0'
+  description: 'Automated updates based on new GitHub releases.'
 - name: renovate/helm
   color: '027fa0'
+  description: 'Automated updates for Helm charts and dependencies.'
 - name: renovate/terraform
   color: '027fa0'
+  description: 'Automated updates for Terraform providers and modules.'
+
 # Semantic Types
 - name: type/digest
   color: 'ffeC19'
+  description: 'Digest of multiple changes or issues.'
 - name: type/patch
   color: 'ffeC19'
+  description: 'Small changes or fixes.'
 - name: type/minor
   color: 'ff9800'
+  description: 'Minor changes or improvements.'
 - name: type/major
   color: 'f6412d'
+  description: 'Major changes or new features.'
+
 # Uncategorized
 - name: community
   color: '370fb2'
+  description: 'Issues or PRs submitted by community members requiring special attention.'
 - name: hold
   color: 'ee0701'
+  description: 'Work is blocked or waiting for further input before proceeding.'

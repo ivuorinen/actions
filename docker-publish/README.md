@@ -11,7 +11,13 @@ Publish a Docker image to GitHub Packages and Docker Hub.
 | name       | description                                                 | required | default |
 | ---------- | ----------------------------------------------------------- | -------- | ------- |
 | `registry` | <p>Registry to publish to (dockerhub, github, or both).</p> | `true`   | `both`  |
-| `nightly`  | <p>Is this a nightly build?</p>                             | `false`  | `""`    |
+| `nightly`  | <p>Is this a nightly build? (true or false)</p>             | `false`  | `false` |
+
+### Outputs
+
+| name       | description                               |
+| ---------- | ----------------------------------------- |
+| `registry` | <p>Registry where image was published</p> |
 
 ### Runs
 
@@ -29,8 +35,8 @@ This action is a `composite` action.
     # Default: both
 
     nightly:
-    # Is this a nightly build?
+    # Is this a nightly build? (true or false)
     #
     # Required: false
-    # Default: ""
+    # Default: false
 ```

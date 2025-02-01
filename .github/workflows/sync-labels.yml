@@ -59,36 +59,76 @@ jobs:
           # Check for required fields in each label
           echo "Validating label definitions..."
           INVALID=0
-          while IFS= read -r line; do
+          HAS_NAME=0
+          HAS_COLOR=0
+          HAS_DESCRIPTION=0
+          CURRENT_LABEL=""
+
+          check_label_completion() {
+            if [[ $HAS_NAME -eq 1 && $HAS_COLOR -eq 1 && $HAS_DESCRIPTION -eq 1 ]]; then
+              echo "✓ Valid label: $CURRENT_LABEL"
+            else
+              echo "✗ Invalid label: $CURRENT_LABEL (missing:"
+              [[ $HAS_NAME -eq 0 ]] && echo "  - name"
+              [[ $HAS_COLOR -eq 0 ]] && echo "  - color"
+              [[ $HAS_DESCRIPTION -eq 0 ]] && echo "  - description"
+              echo ")"
+              INVALID=$((INVALID + 1))
+            fi
+          }
+
+          while IFS= read -r line || [ -n "$line" ]; do
+            # Skip empty lines and comments
+            [[ -z "$line" || "$line" =~ ^[[:space:]]*# ]] && continue
+
             if [[ "$line" =~ ^-.*$ ]]; then
+              # Check previous label completion before starting new one
+              if [[ -n "$CURRENT_LABEL" ]]; then
+                check_label_completion
+              fi
               # New label definition found, reset checks
               HAS_NAME=0
               HAS_COLOR=0
               HAS_DESCRIPTION=0
-            elif [[ "$line" =~ ^[[:space:]]+name:.*$ ]]; then
+              CURRENT_LABEL="(new label)"
+            elif [[ "$line" =~ ^[[:space:]]+name:[[:space:]]*(.+)$ ]]; then
               HAS_NAME=1
-            elif [[ "$line" =~ ^[[:space:]]+color:.*$ ]]; then
+              CURRENT_LABEL="${BASH_REMATCH[1]}"
+            elif [[ "$line" =~ ^[[:space:]]+color:[[:space:]]*([0-9A-Fa-f]{6})$ ]]; then
               HAS_COLOR=1
-            elif [[ "$line" =~ ^[[:space:]]+description:.*$ ]]; then
+            elif [[ "$line" =~ ^[[:space:]]+description:[[:space:]]+.+$ ]]; then
               HAS_DESCRIPTION=1
-            fi
-
-            # Check if we have all required fields for a label
-            if [[ $HAS_NAME -eq 1 && $HAS_COLOR -eq 1 && $HAS_DESCRIPTION -eq 1 ]]; then
-              # Valid label found, reset for next one
-              HAS_NAME=0
-              HAS_COLOR=0
-              HAS_DESCRIPTION=0
             fi
           done < "$LABELS_FILE"
 
+          # Check the last label
+          if [[ -n "$CURRENT_LABEL" ]]; then
+            check_label_completion
+          fi
+
+          echo "Validation complete. Found $INVALID invalid label(s)."
+
           if [ $INVALID -ne 0 ]; then
-            echo "::error::Invalid label definitions found"
+            echo "::error::Found $INVALID invalid label definition(s)"
             exit 1
           fi
 
           echo "Labels file validated successfully"
           echo "labels_file=$LABELS_FILE" >> "$GITHUB_OUTPUT"
+
+          # Create validation summary
+          {
+            echo "## Label Validation Results"
+            echo
+            echo "- Total invalid labels: $INVALID"
+            echo "- File: \`$LABELS_FILE\`"
+            echo "- Timestamp: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+            echo
+            echo "All labels have required fields:"
+            echo "- name"
+            echo "- color (6-digit hex)"
+            echo "- description"
+          } > validation-report.md
 
       - name: Run Label Syncer
         id: sync

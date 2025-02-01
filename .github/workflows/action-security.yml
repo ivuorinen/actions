@@ -27,6 +27,8 @@ jobs:
       security-events: write
       actions: read
       pull-requests: read
+      statuses: write
+      issues: write
 
     steps:
       - name: Checkout Repository
@@ -39,24 +41,17 @@ jobs:
         shell: bash
         run: |
           # Initialize all flags as false
-          echo "run_gitleaks=false" >> $GITHUB_OUTPUT
-          echo "run_shiftleft=false" >> $GITHUB_OUTPUT
-          echo "run_trivy=true" >> $GITHUB_OUTPUT  # Trivy doesn't require special config
+          {
+            echo "run_gitleaks=false"
+            echo "run_trivy=true"  # Trivy doesn't require special config
+          } >> "$GITHUB_OUTPUT"
 
           # Check Gitleaks configuration and license
-          if [ -f ".gitleaks.toml" ] && [ ! -z "${{ secrets.GITLEAKS_LICENSE }}" ]; then
+          if [ -f ".gitleaks.toml" ] && [ -n "${{ secrets.GITLEAKS_LICENSE }}" ]; then
             echo "Gitleaks config and license found"
-            echo "run_gitleaks=true" >> $GITHUB_OUTPUT
+            echo "run_gitleaks=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Gitleaks config or license missing - skipping Gitleaks scan"
-          fi
-
-          # Check ShiftLeft configuration
-          if [ -f ".shiftleft-config.yml" ]; then
-            echo "ShiftLeft config found"
-            echo "run_shiftleft=true" >> $GITHUB_OUTPUT
-          else
-            echo "::warning::ShiftLeft config missing - skipping ShiftLeft scan"
           fi
 
       - name: Run actionlint
@@ -91,23 +86,25 @@ jobs:
         shell: bash
         run: |
           # Initialize outputs
-          echo "has_trivy=false" >> $GITHUB_OUTPUT
-          echo "has_gitleaks=false" >> $GITHUB_OUTPUT
+          {
+            echo "has_trivy=false"
+            echo "has_gitleaks=false"
+          } >> "$GITHUB_OUTPUT"
 
           # Check Trivy results
           if [ -f "trivy-results.sarif" ]; then
-            if jq -e . >/dev/null 2>&1 <<<"$(cat trivy-results.sarif)"; then
-              echo "has_trivy=true" >> $GITHUB_OUTPUT
+            if jq -e . </dev/null 2>&1 <"trivy-results.sarif"; then
+              echo "has_trivy=true" >> "$GITHUB_OUTPUT"
             else
               echo "::warning::Trivy SARIF file exists but is not valid JSON"
             fi
           fi
 
           # Check Gitleaks results if it ran
-          if [ "${{ steps.check-configs.outputs.run_gitleaks }}" == "true" ]; then
+          if [ "${{ steps.check-configs.outputs.run_gitleaks }}" = "true" ]; then
             if [ -f "gitleaks-report.sarif" ]; then
-              if jq -e . >/dev/null 2>&1 <<<"$(cat gitleaks-report.sarif)"; then
-                echo "has_gitleaks=true" >> $GITHUB_OUTPUT
+              if jq -e . </dev/null 2>&1 <"gitleaks-report.sarif"; then
+                echo "has_gitleaks=true" >> "$GITHUB_OUTPUT"
               else
                 echo "::warning::Gitleaks SARIF file exists but is not valid JSON"
               fi
@@ -252,7 +249,6 @@ jobs:
             > Note: Some security tools might have been skipped due to missing configurations.
             > Check the workflow run for details.`;
 
-            // Create issue
             await github.rest.issues.create({
               owner,
               repo,

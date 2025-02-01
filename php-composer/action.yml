@@ -146,13 +146,29 @@ runs:
         fi
 
         # Verify Composer installation
-        composer_version=$(composer --version | grep -oP 'Composer version \K[0-9]+')
-        if [ "$composer_version" != "${{ inputs.composer-version }}" ]; then
-          echo "::error::Composer version mismatch. Expected ${{ inputs.composer-version }}, got $composer_version"
+        composer_full_version=$(composer --version | grep -oP 'Composer version \K[0-9]+\.[0-9]+\.[0-9]+')
+        if [ -z "$composer_full_version" ]; then
+          echo "::error::Failed to detect Composer version"
           exit 1
         fi
 
-        echo "version=$composer_version" >> $GITHUB_OUTPUT
+        # Extract major version for comparison
+        composer_major_version=${composer_full_version%%.*}
+        expected_version="${{ inputs.composer-version }}"
+
+        echo "Detected Composer version: $composer_full_version (major: $composer_major_version)"
+
+        if [ "$composer_major_version" != "$expected_version" ]; then
+          echo "::error::Composer major version mismatch. Expected $expected_version.x, got $composer_full_version"
+          exit 1
+        fi
+
+        # Store full version for output
+        echo "version=$composer_full_version" >> "$GITHUB_OUTPUT"
+
+        # Log Composer configuration
+        echo "Composer Configuration:"
+        composer config --list
 
     - name: Cache Composer packages
       id: composer-cache

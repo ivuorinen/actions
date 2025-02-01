@@ -204,6 +204,7 @@ jobs:
           script: |
             const { repo, owner } = context.repo;
             const pr = context.payload.pull_request;
+            const isLimitedPermissions = '${{ steps.check-secrets.outputs.use_github_token }}' === 'true';
 
             const errorMessage = `## ❌ Auto Approval Error
 
@@ -214,12 +215,17 @@ jobs:
             - Verify repository permissions
             - Ensure all required configurations are present
 
-            ${results.limitedPermissions ? '⚠️ Note: Running with limited permissions (GITHUB_TOKEN)' : ''}
+            ${isLimitedPermissions ? '⚠️ Note: Running with limited permissions (GITHUB_TOKEN)' : ''}
             `;
 
-            await github.rest.issues.createComment({
-              owner,
-              repo,
-              issue_number: pr.number,
-              body: errorMessage
-            });
+            try {
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pr.number,
+                body: errorMessage
+              });
+            } catch (error) {
+              console.error('Failed to create error comment:', error);
+              core.setFailed(`Failed to create error comment: ${error.message}`);
+            }

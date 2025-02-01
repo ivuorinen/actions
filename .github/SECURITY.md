@@ -26,7 +26,6 @@ This repository implements:
 - OWASP Dependency Check
 - Snyk vulnerability scanning
 - Gitleaks secret scanning
-- ShiftLeft security analysis
 - Trivy vulnerability scanner
 - MegaLinter code analysis
 - Regular security updates
@@ -78,7 +77,6 @@ When using these actions:
 5. Configure required security scanners:
    - Add `suppressions.xml` for OWASP Dependency Check
    - Add `.gitleaks.toml` for Gitleaks configuration
-   - Add `.shiftleft-config.yml` for ShiftLeft scanner
 
 ## Required Secrets
 

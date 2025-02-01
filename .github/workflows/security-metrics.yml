@@ -38,65 +38,137 @@ jobs:
                   submitted: 0,
                   merged: 0
                 },
-                meanTimeToFix: 0
+                meanTimeToFix: null  // Initialize as null instead of 0
               }
             };
 
-            // Collect scan metrics
-            const scans = await github.rest.actions.listWorkflowRuns({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              workflow_id: 'security.yml',
-              created: `>${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`
-            });
+            try {
+              // Collect scan metrics
+              const scans = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                workflow_id: 'security.yml',
+                created: `>${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`
+              });
 
-            metrics.weekly.scans = scans.data.total_count;
+              metrics.weekly.scans = scans.data.total_count;
 
-            // Collect vulnerability metrics
-            const vulnIssues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              labels: 'security',
-              state: 'all',
-              since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-            });
+              // Collect vulnerability metrics
+              const vulnIssues = await github.rest.issues.listForRepo({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                labels: 'security',
+                state: 'all',
+                since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+              });
 
-            // Calculate metrics
-            vulnIssues.data.forEach(issue => {
-              if (issue.labels.find(l => l.name === 'critical')) metrics.weekly.vulnerabilities.critical++;
-              if (issue.labels.find(l => l.name === 'high')) metrics.weekly.vulnerabilities.high++;
-              // ... etc
-            });
+              // Calculate vulnerability metrics
+              vulnIssues.data.forEach(issue => {
+                if (issue.labels.find(l => l.name === 'critical')) metrics.weekly.vulnerabilities.critical++;
+                if (issue.labels.find(l => l.name === 'high')) metrics.weekly.vulnerabilities.high++;
+                if (issue.labels.find(l => l.name === 'medium')) metrics.weekly.vulnerabilities.medium++;
+                if (issue.labels.find(l => l.name === 'low')) metrics.weekly.vulnerabilities.low++;
+              });
 
-            // Calculate fix metrics
-            const fixPRs = await github.rest.pulls.list({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'all',
-              labels: 'security-fix'
-            });
+              // Calculate fix metrics
+              const fixPRs = await github.rest.pulls.list({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                state: 'all',
+                labels: 'security-fix'
+              });
 
-            metrics.weekly.fixes.submitted = fixPRs.data.length;
-            metrics.weekly.fixes.merged = fixPRs.data.filter(pr => pr.merged).length;
+              metrics.weekly.fixes.submitted = fixPRs.data.length;
+              const mergedPRs = fixPRs.data.filter(pr => pr.merged);
+              metrics.weekly.fixes.merged = mergedPRs.length;
 
-            // Calculate mean time to fix
-            const fixTimes = fixPRs.data
-              .filter(pr => pr.merged)
-              .map(pr => new Date(pr.merged_at) - new Date(pr.created_at));
+              // Calculate mean time to fix only if there are merged PRs
+              if (mergedPRs.length > 0) {
+                const fixTimes = mergedPRs.map(pr => {
+                  const mergedAt = new Date(pr.merged_at);
+                  const createdAt = new Date(pr.created_at);
+                  return mergedAt - createdAt;
+                });
 
-            metrics.weekly.meanTimeToFix = fixTimes.reduce((a, b) => a + b, 0) / fixTimes.length;
+                const totalTime = fixTimes.reduce((a, b) => a + b, 0);
+                // Convert to hours and round to 2 decimal places
+                metrics.weekly.meanTimeToFix = Number((totalTime / (fixTimes.length * 3600000)).toFixed(2));
+              }
 
-            // Save metrics
-            fs.writeFileSync('security-metrics.json', JSON.stringify(metrics, null, 2));
+              // Save metrics
+              const fs = require('fs');
+              fs.writeFileSync('security-metrics.json', JSON.stringify(metrics, null, 2));
 
-            // Generate report
-            const report = generateMetricsReport(metrics);
+              // Generate report
+              const report = generateMetricsReport(metrics);
 
-            // Create/update metrics dashboard
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '📊 Weekly Security Metrics Report',
-              body: report,
-              labels: ['metrics', 'security']
-            });
+              // Create/update metrics dashboard
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '📊 Weekly Security Metrics Report',
+                body: generateReport(metrics),
+                labels: ['metrics', 'security']
+              });
+
+            } catch (error) {
+              core.setFailed(`Failed to collect metrics: ${error.message}`);
+            }
+
+            function generateReport(metrics) {
+              const formatDuration = (hours) => {
+                if (hours === null) return 'N/A';
+                return `${hours} hours`;
+              };
+
+              return `## 📊 Weekly Security Metrics Report
+
+              ### Timeline
+              - Report Generated: ${new Date().toISOString()}
+              - Period: Last 7 days
+
+              ### Security Scans
+              - Total Scans Run: ${metrics.weekly.scans}
+
+              ### Vulnerabilities
+              - Critical: ${metrics.weekly.vulnerabilities.critical}
+              - High: ${metrics.weekly.vulnerabilities.high}
+              - Medium: ${metrics.weekly.vulnerabilities.medium}
+              - Low: ${metrics.weekly.vulnerabilities.low}
+
+              ### Fixes
+              - PRs Submitted: ${metrics.weekly.fixes.submitted}
+              - PRs Merged: ${metrics.weekly.fixes.merged}
+              - Mean Time to Fix: ${formatDuration(metrics.weekly.meanTimeToFix)}
+
+              ### Summary
+              ${generateSummary(metrics)}
+
+              > This report was automatically generated by the security metrics workflow.`;
+            }
+
+            function generateSummary(metrics) {
+              const total = Object.values(metrics.weekly.vulnerabilities).reduce((a, b) => a + b, 0);
+              const fixRate = metrics.weekly.fixes.merged / metrics.weekly.fixes.submitted || 0;
+
+              let summary = [];
+
+              if (total === 0) {
+                summary.push('✅ No vulnerabilities detected this week.');
+              } else {
+                summary.push(`⚠️ Detected ${total} total vulnerabilities.`);
+                if (metrics.weekly.vulnerabilities.critical > 0) {
+                  summary.push(`🚨 ${metrics.weekly.vulnerabilities.critical} critical vulnerabilities require immediate attention!`);
+                }
+              }
+
+              if (metrics.weekly.fixes.submitted > 0) {
+                summary.push(`🔧 Fix rate: ${(fixRate * 100).toFixed(1)}%`);
+              }
+
+              if (metrics.weekly.meanTimeToFix !== null) {
+                summary.push(`⏱️ Average time to fix: ${metrics.weekly.meanTimeToFix} hours`);
+              }
+
+              return summary.join('\n');
+            }

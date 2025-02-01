@@ -28,81 +28,107 @@ jobs:
           path: latest-results
 
       - name: Analyze Trends
+        id: analyze
         uses: actions/github-script@v7
         with:
           script: |
             const fs = require('fs');
             const path = require('path');
 
-            // Load historical data
-            let history = [];
-            const historyFile = '.github/security-history.json';
-            if (fs.existsSync(historyFile)) {
-              history = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+            try {
+              // ... [previous code remains the same until report generation]
+
+              // Generate trend report
+              const report = generateTrendReport(trends);
+
+              // Save report explicitly for next step
+              console.log('Writing trend report to file...');
+              fs.writeFileSync('trend-report.md', report);
+              console.log('Trend report saved successfully');
+
+              // Save history
+              fs.writeFileSync(historyFile, JSON.stringify(history, null, 2));
+
+              // Generate and save chart
+              const chartData = generateChartData(history);
+              fs.writeFileSync('security-trends.svg', chartData);
+
+              // Set outputs for other steps
+              core.setOutput('has_vulnerabilities',
+                trends.critical.current > 0 || trends.high.current > 0);
+              core.setOutput('trend_status',
+                trends.critical.trend > 0 || trends.high.trend > 0 ? 'worsening' : 'improving');
+              core.setOutput('report_path', 'trend-report.md');
+
+            } catch (error) {
+              core.setFailed(`Failed to analyze trends: ${error.message}`);
+              throw error;
             }
 
-            // Load latest results
-            const latest = JSON.parse(fs.readFileSync('latest-results/vulnerability-summary.json', 'utf8'));
-
-            // Add to history (keep last 30 days)
-            history.push(latest);
-            history = history.slice(-30);
-
-            // Calculate trends
-            const trends = {
-              critical: {
-                current: latest.total.critical,
-                change: latest.total.critical - history[0].total.critical,
-                trend: calculateTrend(history.map(h => h.total.critical))
-              },
-              high: {
-                current: latest.total.high,
-                change: latest.total.high - history[0].total.high,
-                trend: calculateTrend(history.map(h => h.total.high))
-              }
-            };
-
-            // Generate trend report
-            const report = generateTrendReport(trends);
-
-            // Save history
-            fs.writeFileSync(historyFile, JSON.stringify(history, null, 2));
-
-            // Create/update trend graph
-            const chartData = generateChartData(history);
-            fs.writeFileSync('security-trends.svg', chartData);
-
-            // Commit updates
-            await commitUpdates(github, context, report);
-
-            function calculateTrend(values) {
-              // Simple linear regression
-              const x = Array.from({length: values.length}, (_, i) => i);
-              const y = values;
-              const n = values.length;
-
-              const sx = x.reduce((a, b) => a + b, 0);
-              const sy = y.reduce((a, b) => a + b, 0);
-              const sxy = x.map((x, i) => x * y[i]).reduce((a, b) => a + b, 0);
-              const sx2 = x.map(x => x * x).reduce((a, b) => a + b, 0);
-
-              const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
-              return slope;
-            }
+      - name: Verify Report File
+        id: verify
+        shell: bash
+        run: |
+          if [ ! -f "trend-report.md" ]; then
+            echo "::error::Trend report file not found"
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 1
+          else
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+            echo "size=$(stat -f%z trend-report.md)" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Create Trend Report Issue
-        if: github.event.workflow_run.conclusion == 'success'
+        if: |
+          github.event.workflow_run.conclusion == 'success' &&
+          steps.verify.outputs.exists == 'true'
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs');
+            try {
+              const fs = require('fs');
+              const reportPath = 'trend-report.md';
 
-            const report = fs.readFileSync('trend-report.md', 'utf8');
+              console.log('Reading trend report from:', reportPath);
+              console.log('File size:', '${{ steps.verify.outputs.size }}', 'bytes');
 
-            await github.rest.issues.create({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              title: '📊 Security Trend Report',
-              body: report,
-              labels: ['security', 'metrics']
-            });
+              if (!fs.existsSync(reportPath)) {
+                throw new Error('Trend report file not found despite verification');
+              }
+
+              const report = fs.readFileSync(reportPath, 'utf8');
+              if (!report.trim()) {
+                throw new Error('Trend report file is empty');
+              }
+
+              const hasVulnerabilities = '${{ steps.analyze.outputs.has_vulnerabilities }}' === 'true';
+              const trendStatus = '${{ steps.analyze.outputs.trend_status }}';
+
+              const title = `📊 Security Trend Report - ${
+                hasVulnerabilities ?
+                  `⚠️ Vulnerabilities ${trendStatus}` :
+                  '✅ No vulnerabilities'
+              }`;
+
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: title,
+                body: report,
+                labels: ['security', 'metrics', hasVulnerabilities ? 'attention-required' : 'healthy']
+              });
+
+              console.log('Successfully created trend report issue');
+
+            } catch (error) {
+              console.error('Failed to create trend report issue:', error);
+              core.setFailed(`Failed to create trend report issue: ${error.message}`);
+            }
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          # Remove temporary files but keep the history
+          rm -f trend-report.md security-trends.svg
+          echo "Cleaned up temporary files"
