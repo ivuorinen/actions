@@ -24,7 +24,7 @@ runs:
       uses: ivuorinen/actions/go-version-detect@main
 
     - name: Setup Go
-      uses: actions/setup-go@v4
+      uses: actions/setup-go@v5
       with:
         go-version: '${{ steps.detect-go-version.outputs.go-version }}'
 
