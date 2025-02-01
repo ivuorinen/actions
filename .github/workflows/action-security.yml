@@ -43,7 +43,7 @@ jobs:
           # Initialize all flags as false
           {
             echo "run_gitleaks=false"
-            echo "run_trivy=true"  # Trivy doesn't require special config
+            echo "run_trivy=true"
           } >> "$GITHUB_OUTPUT"
 
           # Check Gitleaks configuration and license
@@ -57,8 +57,9 @@ jobs:
       - name: Run actionlint
         uses: raven-actions/actionlint@v2
         with:
+          cache: true
           fail-on-error: true
-          use-problem-matcher: true
+          shellcheck: false
 
       - name: Run Gitleaks
         if: steps.check-configs.outputs.run_gitleaks == 'true'

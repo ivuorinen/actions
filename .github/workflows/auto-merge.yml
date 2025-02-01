@@ -35,6 +35,7 @@ jobs:
       - name: Check Required Secrets
         id: check-secrets
         run: |
+          # shellcheck disable=SC2016
           if [ -z "${{ secrets.APP_ID }}" ] || [ -z "${{ secrets.APP_PRIVATE_KEY }}" ]; then
             echo "::warning::GitHub App credentials not configured. Using GITHUB_TOKEN instead."
             echo "use_github_token=true" >> $GITHUB_OUTPUT

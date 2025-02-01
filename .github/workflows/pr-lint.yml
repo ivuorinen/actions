@@ -87,12 +87,12 @@ jobs:
         if: always()
         shell: bash
         run: |
-          echo "status=success" >> $GITHUB_OUTPUT
+          echo "status=success" >> "$GITHUB_OUTPUT"
 
           if [ -f "${{ env.REPORT_OUTPUT_FOLDER }}/megalinter.log" ]; then
             if grep -q "ERROR\|CRITICAL" "${{ env.REPORT_OUTPUT_FOLDER }}/megalinter.log"; then
               echo "Linting errors found"
-              echo "status=failure" >> $GITHUB_OUTPUT
+              echo "status=failure" >> "$GITHUB_OUTPUT"
             fi
           else
             echo "::warning::MegaLinter log file not found"
