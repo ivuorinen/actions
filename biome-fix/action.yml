@@ -1,39 +1,38 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Biome Fix
+description: Run Biome fix on the repository
+author: Ismo Vuorinen
 
-on:
-  workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-      - master
+branding:
+  icon: check-circle
+  color: green
 
-jobs:
-  biome-fix:
-    runs-on: ubuntu-latest
+runs:
+  using: composite
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
 
-      - name: Set Git Config
-        uses: ivuorinen/actions/composite-set-git-config@main
+    - name: Node Setup
+      uses: ivuorinen/actions/node-setup@main
 
-      - name: Node Setup
-        uses: ivuorinen/actions/composite-node-setup@main
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        npm install -g biome
 
-      - name: Install Dependencies
-        run: |
-          npm install -g biome
+    - name: Run Biome Fix
+      shell: bash
+      run: |
+        biome fix .
 
-      - name: Run Biome Fix
-        run: |
-          biome fix .
-
-      - name: Push Fixes
-        if: success()
-        uses: stefanzweifel/git-auto-commit-action@v5
-        with:
-          commit_message: 'style: autofix Biome violations'
-          add_options: '-u'
+    - name: Push Fixes
+      if: success()
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: 'style: autofix Biome violations'
+        add_options: '-u'

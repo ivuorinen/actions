@@ -1,37 +1,36 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Biome Check
+description: Run Biome check on the repository
+author: Ismo Vuorinen
 
-on:
-  workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-      - master
+branding:
+  icon: check-circle
+  color: green
 
-jobs:
-  biome-check:
-    runs-on: ubuntu-latest
+runs:
+  using: composite
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
 
-      - name: Set Git Config
-        uses: ivuorinen/actions/composite-set-git-config@main
+    - name: Node Setup
+      uses: ivuorinen/actions/node-setup@main
 
-      - name: Node Setup
-        uses: ivuorinen/actions/composite-node-setup@main
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        npm install -g biome
 
-      - name: Install Dependencies
-        run: |
-          npm install -g biome
+    - name: Run Biome Check
+      shell: bash
+      run: |
+        biome check . --json > biome-report.json
 
-      - name: Run Biome Check
-        run: |
-          biome check . --json > biome-report.json
-
-      - name: Upload Biome Results
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: biome-report.json
+    - name: Upload Biome Results
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: biome-report.json

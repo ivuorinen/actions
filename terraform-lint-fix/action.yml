@@ -1,0 +1,244 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Terraform Lint and Fix
+description: 'Lints and fixes Terraform files with advanced validation and security checks.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: server
+  color: green
+
+inputs:
+  terraform-version:
+    description: 'Terraform version to use'
+    required: false
+    default: 'latest'
+  tflint-version:
+    description: 'TFLint version to use'
+    required: false
+    default: 'latest'
+  working-directory:
+    description: 'Directory containing Terraform files'
+    required: false
+    default: '.'
+  config-file:
+    description: 'Path to TFLint config file'
+    required: false
+    default: '.tflint.hcl'
+  fail-on-error:
+    description: 'Fail workflow if issues are found'
+    required: false
+    default: 'true'
+  auto-fix:
+    description: 'Automatically fix issues when possible'
+    required: false
+    default: 'true'
+  max-retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '3'
+  format:
+    description: 'Output format (compact, json, checkstyle, junit, sarif)'
+    required: false
+    default: 'sarif'
+
+outputs:
+  error-count:
+    description: 'Number of errors found'
+    value: ${{ steps.lint.outputs.error_count }}
+  fixed-count:
+    description: 'Number of issues fixed'
+    value: ${{ steps.fix.outputs.fixed_count }}
+  sarif-file:
+    description: 'Path to SARIF report file'
+    value: ${{ steps.lint.outputs.sarif_file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Check for Terraform Files
+      id: check-files
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Check for Terraform files
+        if ! find . -name "*.tf" -o -name "*.tfvars" | grep -q .; then
+          echo "No Terraform files found. Skipping lint and fix."
+          echo "found=false" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
+        # Validate Terraform file syntax
+        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
+          if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
+            echo "::warning::Invalid Terraform syntax in $file"
+          fi
+        done
+
+        echo "found=true" >> $GITHUB_OUTPUT
+
+    - name: Setup Terraform
+      if: steps.check-files.outputs.found == 'true'
+      uses: hashicorp/setup-terraform@v3
+      with:
+        terraform_version: ${{ inputs.terraform-version }}
+        terraform_wrapper: false
+
+    - name: Install TFLint
+      if: steps.check-files.outputs.found == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Function to install TFLint with retries
+        install_tflint() {
+          local attempt=1
+          local max_attempts=${{ inputs.max-retries }}
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Installing TFLint (Attempt $attempt of $max_attempts)"
+
+            if curl -sSL "https://raw.githubusercontent.com/terraform-linters/tflint/master/install_linux.sh" | bash; then
+              echo "TFLint installed successfully"
+              return 0
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -le $max_attempts ]; then
+              echo "Installation failed, waiting 10 seconds before retry..."
+              sleep 10
+            fi
+          done
+
+          echo "::error::Failed to install TFLint after $max_attempts attempts"
+          return 1
+        }
+
+        install_tflint
+
+        # Initialize TFLint plugins
+        tflint --init
+
+    - name: Configure TFLint
+      if: steps.check-files.outputs.found == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Create default config if none exists
+        if [ ! -f "${{ inputs.config-file }}" ]; then
+          cat > "${{ inputs.config-file }}" <<EOF
+        plugin "aws" {
+          enabled = true
+          version = "latest"
+          source  = "github.com/terraform-linters/tflint-ruleset-aws"
+        }
+
+        config {
+          module = true
+          force = false
+          disabled_by_default = false
+        }
+        EOF
+        fi
+
+        # Validate config
+        tflint --config "${{ inputs.config-file }}" --validate
+
+    - name: Run TFLint
+      if: steps.check-files.outputs.found == 'true'
+      id: lint
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Create reports directory
+        mkdir -p reports
+
+        # Run TFLint with configured format
+        tflint_output="reports/tflint.${{ inputs.format }}"
+        if ! tflint --config "${{ inputs.config-file }}" \
+                   --format ${{ inputs.format }} \
+                   --no-color \
+                   . > "$tflint_output"; then
+          error_count=$(grep -c "level\": \"error\"" "$tflint_output" || echo 0)
+          echo "error_count=$error_count" >> $GITHUB_OUTPUT
+
+          if [[ "${{ inputs.fail-on-error }}" == "true" ]]; then
+            echo "::error::Found $error_count linting errors"
+            exit 1
+          fi
+        fi
+
+        echo "sarif_file=$tflint_output" >> $GITHUB_OUTPUT
+
+    - name: Run Terraform Format
+      if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true'
+      id: fix
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Track fixed files
+        fixed_count=0
+
+        # Format Terraform files
+        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
+          if ! terraform fmt -check "$file" >/dev/null 2>&1; then
+            terraform fmt "$file"
+            fixed_count=$((fixed_count + 1))
+          fi
+        done
+
+        echo "fixed_count=$fixed_count" >> $GITHUB_OUTPUT
+
+    - name: Set Git Config for Fixes
+      if: steps.fix.outputs.fixed_count > 0
+      uses: ivuorinen/actions/set-git-config@main
+
+    - name: Commit Fixes
+      if: steps.fix.outputs.fixed_count > 0
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        if git diff --quiet; then
+          echo "No changes to commit."
+        else
+          git add .
+          git commit -m "fix: applied terraform formatting fixes to ${{ steps.fix.outputs.fixed_count }} files"
+          git push || {
+            echo "Push failed, pulling latest changes..."
+            git pull --rebase
+            git push
+          }
+        fi
+
+    - name: Upload SARIF Report
+      if: steps.check-files.outputs.found == 'true' && inputs.format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: ${{ inputs.working-directory }}/reports/tflint.sarif
+        category: terraform-lint
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Remove temporary files
+        rm -rf .terraform/
+        rm -rf reports/
+
+        # Clean up TFLint cache
+        rm -rf ~/.tflint.d/

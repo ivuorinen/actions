@@ -1,38 +1,206 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: Sync labels
+name: Sync Labels
 
 on:
   push:
     branches:
       - main
       - master
+    paths:
+      - '.github/labels.yml'
+      - '.github/workflows/sync-labels.yml'
   schedule:
-    - cron: '34 5 * * *'
+    - cron: '34 5 * * *' # 5:34 AM UTC every day
   workflow_call:
   workflow_dispatch:
 
-permissions:
-  contents: read
-  statuses: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: read-all
 
 jobs:
   labels:
-    name: ♻️ Sync labels
+    name: ♻️ Sync Labels
     runs-on: ubuntu-latest
+    timeout-minutes: 10
+
     permissions:
+      contents: read
       issues: write
+
     steps:
-      - name: ⤵️ Download latest labels definitions
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Validate Labels File
+        id: validate
         shell: bash
         run: |
-          curl -s --retry 5 \
-            "https://raw.githubusercontent.com/ivuorinen/actions/refs/heads/main/sync-labels/labels.yml" \
-            > labels.yml
+          LABELS_URL="https://raw.githubusercontent.com/ivuorinen/actions/refs/heads/main/sync-labels/labels.yml"
+          LABELS_FILE="labels.yml"
 
-      - name: 🚀 Run Label Syncer
+          echo "Downloading labels file..."
+          if ! curl -s --retry 3 --retry-delay 5 -o "$LABELS_FILE" "$LABELS_URL"; then
+            echo "::error::Failed to download labels file"
+            exit 1
+          fi
+
+          echo "Validating YAML format..."
+          if ! yq eval "$LABELS_FILE" > /dev/null 2>&1; then
+            echo "::error::Invalid YAML format in labels file"
+            exit 1
+          fi
+
+          # Check for required fields in each label
+          echo "Validating label definitions..."
+          INVALID=0
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^-.*$ ]]; then
+              # New label definition found, reset checks
+              HAS_NAME=0
+              HAS_COLOR=0
+              HAS_DESCRIPTION=0
+            elif [[ "$line" =~ ^[[:space:]]+name:.*$ ]]; then
+              HAS_NAME=1
+            elif [[ "$line" =~ ^[[:space:]]+color:.*$ ]]; then
+              HAS_COLOR=1
+            elif [[ "$line" =~ ^[[:space:]]+description:.*$ ]]; then
+              HAS_DESCRIPTION=1
+            fi
+
+            # Check if we have all required fields for a label
+            if [[ $HAS_NAME -eq 1 && $HAS_COLOR -eq 1 && $HAS_DESCRIPTION -eq 1 ]]; then
+              # Valid label found, reset for next one
+              HAS_NAME=0
+              HAS_COLOR=0
+              HAS_DESCRIPTION=0
+            fi
+          done < "$LABELS_FILE"
+
+          if [ $INVALID -ne 0 ]; then
+            echo "::error::Invalid label definitions found"
+            exit 1
+          fi
+
+          echo "Labels file validated successfully"
+          echo "labels_file=$LABELS_FILE" >> "$GITHUB_OUTPUT"
+
+      - name: Run Label Syncer
+        id: sync
         uses: micnncim/action-label-syncer@3abd5e6e7981d5a790c6f8a7494374bd8c74b9c6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          manifest: labels.yml
+          manifest: ${{ steps.validate.outputs.labels_file }}
+          prune: true
+
+      - name: Verify Label Sync
+        id: verify
+        if: success()
+        shell: bash
+        run: |
+          echo "Verifying labels..."
+
+          # Get current labels from GitHub
+          CURRENT_LABELS=$(gh api repos/${{ github.repository }}/labels --jq '.[].name')
+
+          # Get expected labels from file
+          EXPECTED_LABELS=$(yq eval '.[] | .name' "${{ steps.validate.outputs.labels_file }}")
+
+          # Compare labels
+          MISSING_LABELS=0
+          while IFS= read -r label; do
+            if ! echo "$CURRENT_LABELS" | grep -q "^${label}$"; then
+              echo "::warning::Label not synced: $label"
+              MISSING_LABELS=1
+            fi
+          done <<< "$EXPECTED_LABELS"
+
+          if [ $MISSING_LABELS -eq 1 ]; then
+            echo "::error::Some labels failed to sync"
+            exit 1
+          fi
+
+          echo "All labels verified successfully"
+
+      - name: Generate Label Report
+        if: always()
+        shell: bash
+        run: |
+          {
+            echo "# Label Sync Report"
+            echo "## Current Labels"
+            echo
+            # shellcheck disable=SC2016
+            gh api repos/${{ github.repository }}/labels --jq '.[] | "- **" + .name + "** (`#" + .color + "`): " + .description' | sort
+            echo
+            echo "## Sync Status"
+            echo "- ✅ Success: ${{ steps.sync.outcome == 'success' }}"
+            echo "- 🔍 Verified: ${{ steps.verify.outcome == 'success' }}"
+            echo
+            echo "Generated at: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+          } > label-report.md
+
+      - name: Upload Label Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: label-sync-report
+          path: label-report.md
+          retention-days: 7
+
+      - name: Notify on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            try {
+              const { repo, owner } = context.repo;
+              const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+              const body = `## ⚠️ Label Sync Failed
+
+              The label synchronization workflow has failed.
+
+              ### Details
+              - Workflow: [View Run](${runUrl})
+              - Repository: ${owner}/${repo}
+              - Timestamp: ${new Date().toISOString()}
+
+              ### Status
+              - Validation: ${{ steps.validate.outcome }}
+              - Sync: ${{ steps.sync.outcome }}
+              - Verification: ${{ steps.verify.outcome }}
+
+              Please check the workflow logs for more details.
+
+              > This issue was automatically created by the label sync workflow.`;
+
+              await github.rest.issues.create({
+                owner,
+                repo,
+                title: '⚠️ Label Sync Failure',
+                body,
+                labels: ['automation', 'bug'],
+                assignees: ['ivuorinen']
+              });
+            } catch (error) {
+              console.error('Failed to create issue:', error);
+            }
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          # Remove temporary files
+          rm -f labels.yml
+
+          # Remove lock files if they exist
+          find . -name ".lock" -type f -delete

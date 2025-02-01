@@ -1,191 +1,215 @@
-# MegaLinter GitHub Action configuration file
-# More info at https://megalinter.io
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: MegaLinter
 
-# Trigger mega-linter at every push. Action will also be visible from Pull
-# Requests to main
-on: # yamllint disable-line rule:truthy - false positive
+on:
+  push:
+    branches:
+      - main
+      - master
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/*.md'
+      - 'LICENSE'
+
   pull_request:
     branches:
       - main
       - master
+    paths-ignore:
+      - '**.md'
+      - 'docs/**'
+      - '.github/*.md'
+      - 'LICENSE'
 
-# Comment env block if you do not want to apply fixes
 env:
   # Apply linter fixes configuration
-  #
-  # When active, APPLY_FIXES must also be defined as environment variable
-  # (in .github/workflows/mega-linter.yml or other CI tool)
   APPLY_FIXES: all
-
-  # Decide which event triggers application of fixes in a commit or a PR
-  # (pull_request, push, all)
   APPLY_FIXES_EVENT: pull_request
-
-  # If APPLY_FIXES is used, defines if the fixes are directly committed (commit)
-  # or posted in a PR (pull_request)
   APPLY_FIXES_MODE: commit
 
+  # Disable linters that do not work or conflict
+  DISABLE_LINTERS: REPOSITORY_DEVSKIM
+
+  # Additional settings
+  VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+  GITHUB_TOKEN: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
+
+  # Report configuration
+  REPORT_OUTPUT_FOLDER: megalinter-reports
+  ENABLE_SUMMARY_REPORTER: true
+  ENABLE_SARIF_REPORTER: true
+
 concurrency:
-  group: ${{ github.ref }}-${{ github.workflow }}
+  group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
-
-permissions: {}
-
-defaults:
-  run:
-    shell: bash
 
 jobs:
   megalinter:
     name: MegaLinter
     runs-on: ubuntu-latest
+    timeout-minutes: 30
 
-    # Give the default GITHUB_TOKEN write permission to commit and push, comment
-    # issues & post new PR; remove the ones you do not need
     permissions:
       contents: write
       issues: write
       pull-requests: write
+      security-events: write
 
     steps:
-      # Git Checkout
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
           token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      #- name: Setup Git Config
-      #  id: git-config
-      #   uses: ivuorinen/actions/composite-set-git-config@main
+      - name: Set up Python
+        uses: actions/setup-python@v5.4.0
+        with:
+          python-version: '3.x'
+          cache: 'pip'
 
-      - name: Configure Git
-        shell: bash
-        # shellcheck disable=SC2016,SC2129
-        run: |
-          git config --local --unset-all http.https://github.com/.extraheader || true
-          git config --global \
-            --add url.https://x-access-token:${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}@github.com/.insteadOf \
-            "https://github.com/"
-          git config --global \
-            --add url.https://x-access-token:${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}@github.com/.insteadOf \
-            'git@github.com:'
-          git config --global user.name "fiximus"
-          git config --global user.email "github-bot@ivuorinen.net"
-
-      # MegaLinter
       - name: MegaLinter
-
-        # You can override MegaLinter flavor used to have faster performances
-        # More info at https://megalinter.io/latest/flavors/
-        uses: oxsecurity/megalinter@v8
         id: ml
-
-        # All available variables are described in documentation
-        # https://megalinter.io/latest/configuration/
+        uses: oxsecurity/megalinter/flavors/cupcake@v8.4.0
         env:
-          # Validates all source when push on main, else just the git diff with
-          # main. Override with true if you always want to lint all sources
-          #
-          # To validate the entire codebase, set to:
-          # VALIDATE_ALL_CODEBASE: true
-          #
-          # To validate only diff with main, set to:
-          # VALIDATE_ALL_CODEBASE: >-
-          #   ${{
-          #     github.event_name == 'push' &&
-          #     contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
-          #   }}
-          VALIDATE_ALL_CODEBASE: >-
-            ${{
-              github.event_name == 'push' &&
-              contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
-            }}
+          PARALLEL: true # Run linters in parallel
+          FILTER_REGEX_EXCLUDE: '(\.automation/test|docs/json-schemas|\.github/workflows)'
+          DEFAULT_WORKSPACE: ${{ github.workspace }}
 
-          GITHUB_TOKEN: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
+          # Error configuration
+          ERROR_ON_MISSING_EXEC_BIT: true
+          CLEAR_REPORT_FOLDER: true
+          PRINT_ALPACA: false
+          SHOW_ELAPSED_TIME: true
 
-          # ADD YOUR CUSTOM ENV VARIABLES HERE OR DEFINE THEM IN A FILE
-          # .mega-linter.yml AT THE ROOT OF YOUR REPOSITORY
+          # File configuration
+          YAML_YAMLLINT_CONFIG_FILE: .yamllint.yml
+          YAML_PRETTIER_CONFIG_FILE: .prettierrc.yml
+          YAML_YAMLLINT_FILTER_REGEX_EXCLUDE: '(\.automation/test|docs/json-schemas|\.github/workflows)'
 
-          # Uncomment to disable copy-paste and spell checks
-          # DISABLE: COPYPASTE,SPELL
+      - name: Check MegaLinter Results
+        id: check-results
+        if: always()
+        shell: bash
+        run: |
+          echo "status=success" >> $GITHUB_OUTPUT
 
-      # Upload MegaLinter artifacts
-      - name: Archive production artifacts
-        if: success() || failure()
+          if [ -f "${{ env.REPORT_OUTPUT_FOLDER }}/megalinter.log" ]; then
+            if grep -q "ERROR\|CRITICAL" "${{ env.REPORT_OUTPUT_FOLDER }}/megalinter.log"; then
+              echo "Linting errors found"
+              echo "status=failure" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "::warning::MegaLinter log file not found"
+          fi
+
+      - name: Upload Reports
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: MegaLinter reports
-          include-hidden-files: 'true'
           path: |
             megalinter-reports
             mega-linter.log
+          retention-days: 30
 
-      # Set APPLY_FIXES_IF var for use in future steps
-      - name: Set APPLY_FIXES_IF var
+      - name: Upload SARIF Report
+        if: always() && hashFiles('megalinter-reports/sarif/*.sarif')
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: megalinter-reports/sarif
+          category: megalinter
+
+      - name: Prepare Git for Fixes
+        if: steps.ml.outputs.has_updated_sources == 1
+        shell: bash
         run: |
-          printf 'APPLY_FIXES_IF=%s\n' "${{
-            steps.ml.outputs.has_updated_sources == 1 &&
-            (
-              env.APPLY_FIXES_EVENT == 'all' ||
-              env.APPLY_FIXES_EVENT == github.event_name
-            ) &&
-            (
-              github.event_name == 'push' ||
-              github.event.pull_request.head.repo.full_name == github.repository
-            )
-          }}" >> "${GITHUB_ENV}"
+          sudo chown -Rc $UID .git/
+          git config --global user.name "fiximus"
+          git config --global user.email "github-bot@ivuorinen.net"
 
-      # Set APPLY_FIXES_IF_* vars for use in future steps
-      - name: Set APPLY_FIXES_IF_* vars
-        run: |
-          printf 'APPLY_FIXES_IF_PR=%s\n' "${{
-            env.APPLY_FIXES_IF == 'true' &&
-            env.APPLY_FIXES_MODE == 'pull_request'
-          }}" >> "${GITHUB_ENV}"
-          printf 'APPLY_FIXES_IF_COMMIT=%s\n' "${{
-            env.APPLY_FIXES_IF == 'true' &&
-            env.APPLY_FIXES_MODE == 'commit' &&
-            (!contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref))
-          }}" >> "${GITHUB_ENV}"
-
-      # Create pull request if applicable
-      # (for now works only on PR from same repository, not from forks)
-      - name: Create Pull Request with applied fixes
+      - name: Create Pull Request
+        if: |
+          steps.ml.outputs.has_updated_sources == 1 &&
+          (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) &&
+          env.APPLY_FIXES_MODE == 'pull_request' &&
+          (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) &&
+          !contains(github.event.head_commit.message, 'skip fix')
         uses: peter-evans/create-pull-request@v6
         id: cpr
-        if: env.APPLY_FIXES_IF_PR == 'true'
         with:
           token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
           commit-message: '[MegaLinter] Apply linters automatic fixes'
           title: '[MegaLinter] Apply linters automatic fixes'
           labels: bot
+          branch: megalinter/fixes-${{ github.ref_name }}
+          branch-suffix: timestamp
+          delete-branch: true
+          body: |
+            ## MegaLinter Fixes
 
-      - name: Create PR output
-        if: env.APPLY_FIXES_IF_PR == 'true'
-        run: |
-          echo "PR Number - ${{ steps.cpr.outputs.pull-request-number }}"
-          echo "PR URL - ${{ steps.cpr.outputs.pull-request-url }}"
+            MegaLinter has identified and fixed code style issues.
 
-      # Push new commit if applicable
-      # (for now works only on PR from same repository, not from forks)
-      - name: Prepare commit
-        if: env.APPLY_FIXES_IF_COMMIT == 'true'
-        run: sudo chown -Rc $UID .git/
+            ### 🔍 Changes Made
+            - Automated code style fixes
+            - Formatting improvements
+            - Lint error corrections
 
-      - name: Commit and push applied linter fixes
-        uses: stefanzweifel/git-auto-commit-action@v4
-        if: env.APPLY_FIXES_IF_COMMIT == 'true'
+            ### 📝 Notes
+            - Please review the changes carefully
+            - Run tests before merging
+            - Verify formatting matches project standards
+
+            > Generated automatically by MegaLinter
+
+      - name: Commit Fixes
+        if: |
+          steps.ml.outputs.has_updated_sources == 1 &&
+          (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) &&
+          env.APPLY_FIXES_MODE == 'commit' &&
+          github.ref != 'refs/heads/main' &&
+          (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) &&
+          !contains(github.event.head_commit.message, 'skip fix')
+        uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          branch: >-
-            ${{
-              github.event.pull_request.head.ref ||
-              github.head_ref ||
-              github.ref
-            }}
-          commit_message: '[MegaLinter] Apply linters fixes'
+          branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
+          commit_message: |
+            style: apply MegaLinter fixes
+
+            [skip ci]
           commit_user_name: fiximus
           commit_user_email: github-bot@ivuorinen.net
+          push_options: --force
+
+      - name: Create Status Check
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const status = '${{ steps.check-results.outputs.status }}';
+            const conclusion = status === 'success' ? 'success' : 'failure';
+
+            const summary = `## MegaLinter Results
+
+            ${status === 'success' ? '✅ All checks passed' : '❌ Issues found'}
+
+            [View detailed report](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})
+            `;
+
+            await core.summary
+              .addRaw(summary)
+              .write();
+
+            if (status !== 'success') {
+              core.setFailed('MegaLinter found issues');
+            }
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          # Remove temporary files but keep reports
+          find . -type f -name "megalinter.*" ! -name "megalinter-reports" -delete
+          find . -type d -name ".megalinter" -exec rm -rf {} +

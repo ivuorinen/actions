@@ -1,0 +1,174 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Auto Merge
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - labeled
+      - unlabeled
+  check_suite:
+    types:
+      - completed
+  status: {}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false # Don't cancel as this could leave PRs in inconsistent state
+
+jobs:
+  auto-merge:
+    name: 🤝 Auto Merge
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+      statuses: read
+
+    steps:
+      - name: Check Required Secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.APP_ID }}" ] || [ -z "${{ secrets.APP_PRIVATE_KEY }}" ]; then
+            echo "::warning::GitHub App credentials not configured. Using GITHUB_TOKEN instead."
+            echo "use_github_token=true" >> $GITHUB_OUTPUT
+          else
+            echo "use_github_token=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Generate Token
+        id: generate-token
+        if: steps.check-secrets.outputs.use_github_token == 'false'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Auto Merge PR
+        uses: pascalgn/automerge-action@v0.15.6
+        env:
+          GITHUB_TOKEN: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          MERGE_LABELS: 'dependencies,automated-pr,!work-in-progress,!do-not-merge'
+          MERGE_METHOD: 'squash'
+          MERGE_COMMIT_MESSAGE: 'pull-request-title'
+          MERGE_RETRIES: '6'
+          MERGE_RETRY_SLEEP: '10000'
+          MERGE_REQUIRED_APPROVALS: '0'
+          MERGE_DELETE_BRANCH: 'true'
+          UPDATE_LABELS: 'automerge'
+          UPDATE_METHOD: 'rebase'
+          MERGE_ERROR_FAIL: 'false'
+
+      - name: Check Merge Status
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+            const pr = context.payload.pull_request;
+
+            if (!pr) return;
+
+            try {
+              const status = await github.rest.pulls.get({
+                owner,
+                repo,
+                pull_number: pr.number
+              });
+
+              if (status.data.merged) {
+                console.log(`PR #${pr.number} was successfully merged`);
+
+                // Add merge success comment
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  body: '✅ Successfully auto-merged! Branch will be deleted.'
+                });
+              } else {
+                console.log(`PR #${pr.number} is not merged. State: ${status.data.state}`);
+
+                // Check merge blockers
+                if (status.data.mergeable_state === 'blocked') {
+                  console.log('PR is blocked from merging. Check branch protection rules.');
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: pr.number,
+                    body: '⚠️ Auto-merge is blocked. Please check branch protection rules and resolve any conflicts.'
+                  });
+                }
+
+                // Check if using reduced permissions
+                if ('${{ steps.check-secrets.outputs.use_github_token }}' === 'true') {
+                  await github.rest.issues.createComment({
+                    owner,
+                    repo,
+                    issue_number: pr.number,
+                    body: '⚠️ Note: Running with reduced permissions as GitHub App credentials are not configured.'
+                  });
+                }
+              }
+            } catch (error) {
+              console.error('Error checking merge status:', error);
+              core.setFailed(`Failed to check merge status: ${error.message}`);
+
+              // Add error comment to PR
+              try {
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  body: `❌ Error checking merge status: ${error.message}`
+                });
+              } catch (commentError) {
+                console.error('Failed to add error comment:', commentError);
+              }
+            }
+
+      - name: Remove Labels on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+            const pr = context.payload.pull_request;
+
+            if (!pr) return;
+
+            try {
+              // Remove automerge label
+              await github.rest.issues.removeLabel({
+                owner,
+                repo,
+                issue_number: pr.number,
+                name: 'automerge'
+              }).catch(e => console.log('automerge label not found'));
+
+              // Add merge-failed label
+              await github.rest.issues.addLabels({
+                owner,
+                repo,
+                issue_number: pr.number,
+                labels: ['merge-failed']
+              });
+
+              // Add failure comment
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: pr.number,
+                body: '❌ Auto-merge failed. The automerge label has been removed and merge-failed label added.'
+              });
+            } catch (error) {
+              console.error('Error handling merge failure:', error);
+            }

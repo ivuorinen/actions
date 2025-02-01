@@ -1,0 +1,225 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Docker Build
+description: 'Builds a Docker image for multiple architectures with enhanced security and reliability.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  image-name:
+    description: 'The name of the Docker image to build. Defaults to the repository name.'
+    required: false
+  tag:
+    description: 'The tag for the Docker image. Must follow semver or valid Docker tag format.'
+    required: true
+  architectures:
+    description: 'Comma-separated list of architectures to build for.'
+    required: false
+    default: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
+  dockerfile:
+    description: 'Path to the Dockerfile'
+    required: false
+    default: 'Dockerfile'
+  context:
+    description: 'Docker build context'
+    required: false
+    default: '.'
+  build-args:
+    description: 'Build arguments in format KEY=VALUE,KEY2=VALUE2'
+    required: false
+  cache-from:
+    description: 'External cache sources (e.g., type=registry,ref=user/app:cache)'
+    required: false
+  push:
+    description: 'Whether to push the image after building'
+    required: false
+    default: 'true'
+  max-retries:
+    description: 'Maximum number of retry attempts for build and push operations'
+    required: false
+    default: '3'
+
+outputs:
+  image-digest:
+    description: 'The digest of the built image'
+    value: ${{ steps.build.outputs.digest }}
+  metadata:
+    description: 'Build metadata in JSON format'
+    value: ${{ steps.build.outputs.metadata }}
+  platforms:
+    description: 'Successfully built platforms'
+    value: ${{ steps.platforms.outputs.built }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate image name
+        if [ -n "${{ inputs.image-name }}" ]; then
+          if ! [[ "${{ inputs.image-name }}" =~ ^[a-z0-9]+(?:[._-][a-z0-9]+)*$ ]]; then
+            echo "::error::Invalid image name format. Must match ^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+            exit 1
+          fi
+        fi
+
+        # Validate tag
+        if ! [[ "${{ inputs.tag }}" =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?|latest|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
+          echo "::error::Invalid tag format. Must be semver or valid Docker tag"
+          exit 1
+        fi
+
+        # Validate architectures
+        IFS=',' read -ra ARCHS <<< "${{ inputs.architectures }}"
+        for arch in "${ARCHS[@]}"; do
+          if ! [[ "$arch" =~ ^linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x)$ ]]; then
+            echo "::error::Invalid architecture format: $arch"
+            exit 1
+          fi
+        done
+
+        # Validate Dockerfile existence
+        if [ ! -f "${{ inputs.dockerfile }}" ]; then
+          echo "::error::Dockerfile not found at ${{ inputs.dockerfile }}"
+          exit 1
+        fi
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: ${{ inputs.architectures }}
+
+    - name: Set up Docker Buildx
+      id: buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        version: latest
+        platforms: ${{ inputs.architectures }}
+
+    - name: Determine Image Name
+      id: image-name
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        if [ -z "${{ inputs.image-name }}" ]; then
+          repo_name=$(basename "${GITHUB_REPOSITORY}")
+          echo "name=${repo_name}" >> $GITHUB_OUTPUT
+        else
+          echo "name=${{ inputs.image-name }}" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Parse Build Arguments
+      id: build-args
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        args=""
+        if [ -n "${{ inputs.build-args }}" ]; then
+          IFS=',' read -ra BUILD_ARGS <<< "${{ inputs.build-args }}"
+          for arg in "${BUILD_ARGS[@]}"; do
+            args="$args --build-arg $arg"
+          done
+        fi
+        echo "args=${args}" >> $GITHUB_OUTPUT
+
+    - name: Set up Build Cache
+      id: cache
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cache_from=""
+        if [ -n "${{ inputs.cache-from }}" ]; then
+          cache_from="--cache-from ${{ inputs.cache-from }}"
+        fi
+
+        # Local cache configuration
+        cache_from="$cache_from --cache-from type=local,src=/tmp/.buildx-cache"
+        cache_to="--cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max"
+
+        echo "from=${cache_from}" >> $GITHUB_OUTPUT
+        echo "to=${cache_to}" >> $GITHUB_OUTPUT
+
+    - name: Build Multi-Architecture Docker Image
+      id: build
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        attempt=1
+        max_attempts=${{ inputs.max-retries }}
+
+        while [ $attempt -le $max_attempts ]; do
+          echo "Build attempt $attempt of $max_attempts"
+
+          if docker buildx build \
+            --platform=${{ inputs.architectures }} \
+            --tag ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} \
+            ${{ steps.build-args.outputs.args }} \
+            ${{ steps.cache.outputs.from }} \
+            ${{ steps.cache.outputs.to }} \
+            --file ${{ inputs.dockerfile }} \
+            ${{ inputs.push == 'true' && '--push' || '--load' }} \
+            --provenance=true \
+            --sbom=true \
+            ${{ inputs.context }}; then
+
+            # Get image digest
+            digest=$(docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} --raw)
+            echo "digest=${digest}" >> $GITHUB_OUTPUT
+
+            # Move cache
+            rm -rf /tmp/.buildx-cache
+            mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+
+            break
+          fi
+
+          attempt=$((attempt + 1))
+          if [ $attempt -le $max_attempts ]; then
+            echo "Build failed, waiting 10 seconds before retry..."
+            sleep 10
+          else
+            echo "::error::Build failed after $max_attempts attempts"
+            exit 1
+          fi
+        done
+
+    - name: Verify Build
+      id: verify
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Verify image exists
+        if ! docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} >/dev/null 2>&1; then
+          echo "::error::Built image not found"
+          exit 1
+        fi
+
+        # Get and verify platform support
+        platforms=$(docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} | grep "Platform:" | cut -d' ' -f2)
+        echo "built=${platforms}" >> $GITHUB_OUTPUT
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Cleanup temporary files
+        rm -rf /tmp/.buildx-cache*
+
+        # Remove builder instance if created
+        if docker buildx ls | grep -q builder; then
+          docker buildx rm builder || true
+        fi

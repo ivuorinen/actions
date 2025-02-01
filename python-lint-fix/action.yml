@@ -1,30 +1,231 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Python Lint and Fix
+description: 'Lints and fixes Python files, commits changes, and uploads SARIF report.'
+author: 'Ismo Vuorinen'
 
-on:
-  workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-      - master
+branding:
+  icon: 'code'
+  color: 'yellow'
 
-jobs:
-  lint-and-fix:
-    runs-on: ubuntu-latest
+inputs:
+  python-version:
+    description: 'Python version to use'
+    required: false
+    default: '3.11'
+  flake8-version:
+    description: 'Flake8 version to use'
+    required: false
+    default: '7.0.0'
+  autopep8-version:
+    description: 'Autopep8 version to use'
+    required: false
+    default: '2.0.4'
+  max-retries:
+    description: 'Maximum number of retry attempts for installations and linting'
+    required: false
+    default: '3'
+  working-directory:
+    description: 'Directory containing Python files to lint'
+    required: false
+    default: '.'
+  fail-on-error:
+    description: 'Whether to fail the action if linting errors are found'
+    required: false
+    default: 'true'
 
-    permissions:
-      contents: write
-      pull-requests: write
-      security-events: write
+outputs:
+  lint-result:
+    description: 'Result of the linting process (success/failure)'
+    value: ${{ steps.lint.outputs.result }}
+  fixed-files:
+    description: 'Number of files that were fixed'
+    value: ${{ steps.fix.outputs.fixed_count }}
+  error-count:
+    description: 'Number of errors found'
+    value: ${{ steps.lint.outputs.error_count }}
 
-    concurrency:
-      group: ${{ github.workflow }}-${{ github.ref }}
-      cancel-in-progress: true
+runs:
+  using: composite
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ inputs.python-version }}
+        cache: 'pip'
+        cache-dependency-path: |
+          **/requirements.txt
+          **/requirements-dev.txt
+          **/pyproject.toml
+          **/setup.py
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+    - name: Check for Python Files
+      id: check-files
+      shell: bash
+      run: |
+        set -euo pipefail
 
-      - name: Lint and Fix Python Files
-        uses: ivuorinen/actions/composite-python-lint-fix@main
+        cd ${{ inputs.working-directory }}
+        if ! find . -name "*.py" -type f -not -path "*/\.*" | grep -q .; then
+          echo "No Python files found. Skipping lint and fix."
+          echo "result=skipped" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+        echo "result=found" >> $GITHUB_OUTPUT
+
+    - name: Install Dependencies
+      if: steps.check-files.outputs.result == 'found'
+      id: install
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        function install_with_retry() {
+          local package=$1
+          local version=$2
+          local attempt=1
+          local max_attempts=${{ inputs.max-retries }}
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Installing $package==$version (Attempt $attempt of $max_attempts)"
+            if pip install "$package==$version"; then
+              return 0
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -le $max_attempts ]; then
+              echo "Installation failed, waiting 5 seconds before retry..."
+              sleep 5
+            fi
+          done
+
+          echo "::error::Failed to install $package after $max_attempts attempts"
+          return 1
+        }
+
+        # Create virtual environment
+        python -m venv .venv
+        source .venv/bin/activate
+
+        # Install dependencies with retry logic
+        install_with_retry flake8 ${{ inputs.flake8-version }}
+        install_with_retry autopep8 ${{ inputs.autopep8-version }}
+
+        # Verify installations
+        flake8 --version || exit 1
+        autopep8 --version || exit 1
+
+    - name: Run flake8
+      if: steps.check-files.outputs.result == 'found'
+      id: lint
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        source .venv/bin/activate
+        cd ${{ inputs.working-directory }}
+
+        # Create temporary directory for reports
+        mkdir -p reports
+
+        # Run flake8 with error handling
+        error_count=0
+        if ! flake8 --format=sarif --output-file=reports/flake8.sarif .; then
+          error_count=$(grep -c "level\": \"error\"" reports/flake8.sarif || echo 0)
+          echo "Found $error_count linting errors"
+          echo "error_count=$error_count" >> $GITHUB_OUTPUT
+
+          if [[ "${{ inputs.fail-on-error }}" == "true" ]]; then
+            echo "::error::Linting failed with $error_count errors"
+            echo "result=failure" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+        fi
+
+        echo "result=success" >> $GITHUB_OUTPUT
+        echo "error_count=$error_count" >> $GITHUB_OUTPUT
+
+    - name: Run autopep8 Fix
+      if: steps.check-files.outputs.result == 'found'
+      id: fix
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        source .venv/bin/activate
+        cd ${{ inputs.working-directory }}
+
+        # Create temporary file for tracking changes
+        touch /tmp/changed_files
+
+        # Run autopep8 with change detection
+        find . -name "*.py" -type f -not -path "*/\.*" | while read -r file; do
+          if autopep8 --diff "$file" | grep -q '^[+-]'; then
+            autopep8 --in-place "$file"
+            echo "$file" >> /tmp/changed_files
+          fi
+        done
+
+        # Count fixed files
+        fixed_count=$(wc -l < /tmp/changed_files || echo 0)
+        echo "Fixed $fixed_count files"
+        echo "fixed_count=$fixed_count" >> $GITHUB_OUTPUT
+
+        # Cleanup
+        rm /tmp/changed_files
+
+    - name: Set Git Config for Fixes
+      if: steps.fix.outputs.fixed_count > 0
+      uses: ivuorinen/actions/set-git-config@main
+
+    - name: Commit Fixes
+      if: steps.fix.outputs.fixed_count > 0
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Commit changes with retry logic
+        attempt=1
+        max_attempts=${{ inputs.max-retries }}
+
+        while [ $attempt -le $max_attempts ]; do
+          echo "Attempting to commit and push changes (Attempt $attempt of $max_attempts)"
+
+          git add .
+          git commit -m "fix: applied python lint fixes to ${{ steps.fix.outputs.fixed_count }} files"
+
+          if git pull --rebase && git push; then
+            echo "Successfully pushed changes"
+            break
+          fi
+
+          attempt=$((attempt + 1))
+          if [ $attempt -le $max_attempts ]; then
+            echo "Push failed, waiting 5 seconds before retry..."
+            sleep 5
+          else
+            echo "::error::Failed to push changes after $max_attempts attempts"
+            exit 1
+          fi
+        done
+
+    - name: Upload SARIF Report
+      if: steps.check-files.outputs.result == 'found'
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: ${{ inputs.working-directory }}/reports/flake8.sarif
+        category: 'python-lint'
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Remove virtual environment
+        rm -rf .venv
+
+        # Remove temporary files
+        rm -rf reports

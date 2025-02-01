@@ -2,10 +2,16 @@
 
 ## Stale
 
+### Description
+
+A GitHub Action to close stale issues and pull requests.
+
+### Runs
+
+This action is a `composite` action.
+
 ### Usage
 
 ```yaml
-jobs:
-    job1:
-        uses: ivuorinen/actions/stale@main
+- uses: ivuorinen/actions/stale@main
 ```

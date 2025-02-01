@@ -1,0 +1,225 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Auto Approve
+
+on:
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - ready_for_review
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auto-approve:
+    name: 👍 Auto Approve
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      pull-requests: write
+      contents: read
+
+    steps:
+      - name: Check Required Secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.APP_ID }}" ] || [ -z "${{ secrets.APP_PRIVATE_KEY }}" ]; then
+            echo "::warning::GitHub App credentials not configured. Using GITHUB_TOKEN with limited functionality."
+            echo "use_github_token=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "use_github_token=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate Token
+        id: generate-token
+        if: steps.check-secrets.outputs.use_github_token == 'false'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Add Initial Status Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+            const pr = context.payload.pull_request;
+
+            # shellcheck disable=SC2016
+            const token_type = '${{ steps.check-secrets.outputs.use_github_token }}' === 'true'
+              ? 'GITHUB_TOKEN (limited functionality)'
+              : 'GitHub App token';
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: `⏳ Checking PR eligibility for auto-approval using ${token_type}...`
+            });
+
+      - name: Check PR Eligibility
+        id: check
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+            const pr = context.payload.pull_request;
+
+            // Configuration for trusted conditions
+            const trustedAuthors = ['dependabot[bot]', 'renovate[bot]', 'fiximus'];
+            const trustedLabels = ['dependencies', 'automated-pr'];
+            const excludedLabels = ['do-not-merge', 'work-in-progress'];
+            const trustedPaths = ['package.json', 'package-lock.json', 'yarn.lock', 'pnpm-lock.yaml'];
+
+            // Results object to store all check results
+            const results = {
+              isTrustedAuthor: false,
+              hasRequiredLabel: false,
+              hasExcludedLabel: false,
+              onlyTrustedFiles: false,
+              limitedPermissions: '${{ steps.check-secrets.outputs.use_github_token }}' === 'true'
+            };
+
+            // Check author
+            results.isTrustedAuthor = trustedAuthors.includes(pr.user.login);
+
+            // Check labels
+            results.hasRequiredLabel = pr.labels.some(label =>
+              trustedLabels.includes(label.name)
+            );
+
+            results.hasExcludedLabel = pr.labels.some(label =>
+              excludedLabels.includes(label.name)
+            );
+
+            try {
+              // Get changed files
+              const files = await github.rest.pulls.listFiles({
+                owner,
+                repo,
+                pull_number: pr.number
+              });
+
+              // Check if only trusted paths are modified
+              results.onlyTrustedFiles = files.data.every(file =>
+                trustedPaths.some(path => file.filename.includes(path))
+              );
+            } catch (error) {
+              console.error('Error checking files:', error);
+              results.onlyTrustedFiles = false;
+            }
+
+            // Store detailed results for the next step
+            core.setOutput('results', JSON.stringify(results));
+
+            // Set final approval decision
+            const shouldApprove = results.isTrustedAuthor &&
+                                results.hasRequiredLabel &&
+                                !results.hasExcludedLabel &&
+                                results.onlyTrustedFiles;
+
+            core.setOutput('should_approve', shouldApprove);
+
+            // Log results
+            console.log('Eligibility check results:', results);
+
+      - name: Process Auto Approval
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+            const pr = context.payload.pull_request;
+
+            // Parse check results
+            const results = JSON.parse('${{ steps.check.outputs.results }}');
+            const shouldApprove = '${{ steps.check.outputs.should_approve }}' === 'true';
+
+            // Create status report
+            let statusReport = `## 🔍 Auto Approval Check Results\n\n`;
+
+            if (results.limitedPermissions) {
+              statusReport += `⚠️ **Note:** Running with limited permissions (GITHUB_TOKEN)\n\n`;
+            }
+
+            statusReport += `### Checks\n`;
+            statusReport += `- Trusted Author: ${results.isTrustedAuthor ? '✅' : '❌'}\n`;
+            statusReport += `- Required Labels: ${results.hasRequiredLabel ? '✅' : '❌'}\n`;
+            statusReport += `- Excluded Labels: ${!results.hasExcludedLabel ? '✅' : '❌'}\n`;
+            statusReport += `- Trusted Files Only: ${results.onlyTrustedFiles ? '✅' : '❌'}\n\n`;
+
+            if (shouldApprove) {
+              statusReport += `### ✅ Result: Auto-approved\n`;
+
+              try {
+                // Create approval review
+                await github.rest.pulls.createReview({
+                  owner,
+                  repo,
+                  pull_number: pr.number,
+                  event: 'APPROVE',
+                  body: 'Automatically approved based on trusted conditions.'
+                });
+
+                // Add auto-merge label
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: pr.number,
+                  labels: ['auto-merge']
+                });
+              } catch (error) {
+                console.error('Error during approval:', error);
+                statusReport += `\n⚠️ Error during approval process: ${error.message}\n`;
+              }
+            } else {
+              statusReport += `### ❌ Result: Not eligible for auto-approval\n`;
+
+              if (results.limitedPermissions) {
+                statusReport += `\n⚠️ Note: Some functionality may be limited due to running with GITHUB_TOKEN.\n`;
+                statusReport += `Configure APP_ID and APP_PRIVATE_KEY for full functionality.\n`;
+              }
+            }
+
+            // Add final status comment
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: statusReport
+            });
+
+      - name: Handle Errors
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+            const pr = context.payload.pull_request;
+
+            const errorMessage = `## ❌ Auto Approval Error
+
+            The auto-approval process encountered an error.
+
+            ### Troubleshooting
+            - Check the [workflow logs](${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID})
+            - Verify repository permissions
+            - Ensure all required configurations are present
+
+            ${results.limitedPermissions ? '⚠️ Note: Running with limited permissions (GITHUB_TOKEN)' : ''}
+            `;
+
+            await github.rest.issues.createComment({
+              owner,
+              repo,
+              issue_number: pr.number,
+              body: errorMessage
+            });

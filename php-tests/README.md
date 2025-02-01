@@ -2,10 +2,16 @@
 
 ## PHP Tests
 
+### Description
+
+Run PHPUnit tests on the repository
+
+### Runs
+
+This action is a `composite` action.
+
 ### Usage
 
 ```yaml
-jobs:
-    job1:
-        uses: ivuorinen/actions/php-tests@main
+- uses: ivuorinen/actions/php-tests@main
 ```

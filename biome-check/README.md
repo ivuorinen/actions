@@ -2,10 +2,16 @@
 
 ## Biome Check
 
+### Description
+
+Run Biome check on the repository
+
+### Runs
+
+This action is a `composite` action.
+
 ### Usage
 
 ```yaml
-jobs:
-    job1:
-        uses: ivuorinen/actions/biome-check@main
+- uses: ivuorinen/actions/biome-check@main
 ```

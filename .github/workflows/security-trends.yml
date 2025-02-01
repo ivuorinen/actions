@@ -1,0 +1,108 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Security Trends Analysis
+
+on:
+  workflow_run:
+    workflows: ['Security Checks']
+    types:
+      - completed
+
+jobs:
+  analyze-trends:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Download latest results
+        uses: actions/download-artifact@v4
+        with:
+          name: security-reports-${{ github.event.workflow_run.id }}
+          path: latest-results
+
+      - name: Analyze Trends
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+
+            // Load historical data
+            let history = [];
+            const historyFile = '.github/security-history.json';
+            if (fs.existsSync(historyFile)) {
+              history = JSON.parse(fs.readFileSync(historyFile, 'utf8'));
+            }
+
+            // Load latest results
+            const latest = JSON.parse(fs.readFileSync('latest-results/vulnerability-summary.json', 'utf8'));
+
+            // Add to history (keep last 30 days)
+            history.push(latest);
+            history = history.slice(-30);
+
+            // Calculate trends
+            const trends = {
+              critical: {
+                current: latest.total.critical,
+                change: latest.total.critical - history[0].total.critical,
+                trend: calculateTrend(history.map(h => h.total.critical))
+              },
+              high: {
+                current: latest.total.high,
+                change: latest.total.high - history[0].total.high,
+                trend: calculateTrend(history.map(h => h.total.high))
+              }
+            };
+
+            // Generate trend report
+            const report = generateTrendReport(trends);
+
+            // Save history
+            fs.writeFileSync(historyFile, JSON.stringify(history, null, 2));
+
+            // Create/update trend graph
+            const chartData = generateChartData(history);
+            fs.writeFileSync('security-trends.svg', chartData);
+
+            // Commit updates
+            await commitUpdates(github, context, report);
+
+            function calculateTrend(values) {
+              // Simple linear regression
+              const x = Array.from({length: values.length}, (_, i) => i);
+              const y = values;
+              const n = values.length;
+
+              const sx = x.reduce((a, b) => a + b, 0);
+              const sy = y.reduce((a, b) => a + b, 0);
+              const sxy = x.map((x, i) => x * y[i]).reduce((a, b) => a + b, 0);
+              const sx2 = x.map(x => x * x).reduce((a, b) => a + b, 0);
+
+              const slope = (n * sxy - sx * sy) / (n * sx2 - sx * sx);
+              return slope;
+            }
+
+      - name: Create Trend Report Issue
+        if: github.event.workflow_run.conclusion == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            const report = fs.readFileSync('trend-report.md', 'utf8');
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '📊 Security Trend Report',
+              body: report,
+              labels: ['security', 'metrics']
+            });

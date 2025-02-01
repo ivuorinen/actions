@@ -1,65 +1,64 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Docker Publish
+description: Publish a Docker image to GitHub Packages and Docker Hub.
+author: Ismo Vuorinen
 
-on:
-  release:
-    types: [published]
-  workflow_dispatch:
-    inputs:
-      registry:
-        description: 'Registry to publish to (dockerhub, github, or both).'
-        required: true
-        default: 'both'
-      nightly:
-        description: 'Is this a nightly build?'
-        required: false
-        default: false
+branding:
+  icon: upload-cloud
+  color: blue
 
-jobs:
-  publish:
-    runs-on: ubuntu-latest
+inputs:
+  registry:
+    description: 'Registry to publish to (dockerhub, github, or both).'
+    required: true
+    default: 'both'
+  nightly:
+    description: 'Is this a nightly build?'
+    required: false
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+runs:
+  using: composite
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Determine Tags
-        id: tags
-        shell: bash
-        run: |
-          if [ "${{ github.event.inputs.nightly }}" == "true" ]; then
-            echo "tag1=nightly" >> $GITHUB_OUTPUT
-            echo "tag2=nightly-$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
-          else
-            echo "tag1=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
-            echo "tag2=latest" >> $GITHUB_OUTPUT
-          fi
-          echo "all-tags=${{ steps.tags.outputs.tag1 }},${{ steps.tags.outputs.tag2 }}" >> $GITHUB_OUTPUT
+    - name: Determine Tags
+      id: tags
+      shell: bash
+      run: |
+        if [ "${{ github.event.inputs.nightly }}" == "true" ]; then
+          echo "tag1=nightly" >> $GITHUB_OUTPUT
+          echo "tag2=nightly-$(date +'%Y%m%d-%H%M')" >> $GITHUB_OUTPUT
+        else
+          echo "tag1=${{ github.event.release.tag_name }}" >> $GITHUB_OUTPUT
+          echo "tag2=latest" >> $GITHUB_OUTPUT
+        fi
+        echo "all-tags=${{ steps.tags.outputs.tag1 }},${{ steps.tags.outputs.tag2 }}" >> $GITHUB_OUTPUT
 
-      - name: Determine publish destination
-        id: dest
-        shell: bash
-        run: |
-          if [ "${{ github.event.inputs.registry }}" == "both" ]; then
-            echo "reg=github,dockerhub" >> $GITHUB_OUTPUT
-          else
-            echo "reg=${{ github.event.inputs.registry }}" >> $GITHUB_OUTPUT
-          fi
+    - name: Determine publish destination
+      id: dest
+      shell: bash
+      run: |
+        if [ "${{ github.event.inputs.registry }}" == "both" ]; then
+          echo "reg=github,dockerhub" >> $GITHUB_OUTPUT
+        else
+          echo "reg=${{ github.event.inputs.registry }}" >> $GITHUB_OUTPUT
+        fi
 
-      - name: Build Multi-Arch Docker Image
-        uses: ivuorinen/actions/composite-docker-build@main
-        with:
-          tag: '${{ steps.tags.outputs.all-tags }}'
+    - name: Build Multi-Arch Docker Image
+      uses: ivuorinen/actions/docker-build@main
+      with:
+        tag: '${{ steps.tags.outputs.all-tags }}'
 
-      - name: Publish to Docker Hub
-        if: contains(steps.dest.outputs.reg, 'dockerhub')
-        uses: ivuorinen/actions/composite-docker-publish-hub@main
-        with:
-          tags: '${{ steps.tags.outputs.all-tags }}'
+    - name: Publish to Docker Hub
+      if: contains(steps.dest.outputs.reg, 'dockerhub')
+      uses: ivuorinen/actions/docker-publish-hub@main
+      with:
+        tags: '${{ steps.tags.outputs.all-tags }}'
 
-      - name: Publish to GitHub Packages
-        if: contains(steps.dest.outputs.reg, 'github')
-        uses: ivuorinen/actions/composite-docker-publish-gh@main
-        with:
-          tags: '${{ steps.tags.outputs.all-tags }}'
+    - name: Publish to GitHub Packages
+      if: contains(steps.dest.outputs.reg, 'github')
+      uses: ivuorinen/actions/docker-publish-gh@main
+      with:
+        tags: '${{ steps.tags.outputs.all-tags }}'

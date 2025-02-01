@@ -1,29 +1,288 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Go Lint Check
+description: 'Run golangci-lint with advanced configuration, caching, and reporting'
+author: Ismo Vuorinen
 
-on:
-  workflow_dispatch:
-  pull_request:
-    branches:
-      - main
+branding:
+  icon: code
+  color: blue
 
-jobs:
-  lint:
-    runs-on: ubuntu-latest
+inputs:
+  working-directory:
+    description: 'Directory containing Go files'
+    required: false
+    default: '.'
+  golangci-lint-version:
+    description: 'Version of golangci-lint to use'
+    required: false
+    default: 'latest'
+  go-version:
+    description: 'Go version to use'
+    required: false
+    default: 'stable'
+  config-file:
+    description: 'Path to golangci-lint config file'
+    required: false
+    default: '.golangci.yml'
+  timeout:
+    description: 'Timeout for analysis (e.g., 5m, 1h)'
+    required: false
+    default: '5m'
+  cache:
+    description: 'Enable golangci-lint caching'
+    required: false
+    default: 'true'
+  fail-on-error:
+    description: 'Fail workflow if issues are found'
+    required: false
+    default: 'true'
+  report-format:
+    description: 'Output format (json, sarif, github-actions)'
+    required: false
+    default: 'sarif'
+  max-retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '3'
+  only-new-issues:
+    description: 'Report only new issues since main branch'
+    required: false
+    default: 'true'
+  disable-all:
+    description: 'Disable all linters (useful with --enable-*)'
+    required: false
+    default: 'false'
+  enable-linters:
+    description: 'Comma-separated list of linters to enable'
+    required: false
+  disable-linters:
+    description: 'Comma-separated list of linters to disable'
+    required: false
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+outputs:
+  error-count:
+    description: 'Number of errors found'
+    value: ${{ steps.lint.outputs.error_count }}
+  sarif-file:
+    description: 'Path to SARIF report file'
+    value: ${{ steps.lint.outputs.sarif_file }}
+  cache-hit:
+    description: 'Indicates if there was a cache hit'
+    value: ${{ steps.cache.outputs.cache-hit }}
+  analyzed-files:
+    description: 'Number of files analyzed'
+    value: ${{ steps.lint.outputs.analyzed_files }}
 
-      - name: Set Git Config
-        uses: ivuorinen/actions/composite-set-git-config@main
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
 
-      - name: Lint Go Code
-        uses: ivuorinen/actions/composite-go-lint-check@main
+        # Validate working directory
+        if [ ! -d "${{ inputs.working-directory }}" ]; then
+          echo "::error::Working directory does not exist: ${{ inputs.working-directory }}"
+          exit 1
+        fi
 
-      - name: Upload Lint Results
-        if: success()
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: golangci-lint-report.sarif
+        # Validate timeout format
+        if ! echo "${{ inputs.timeout }}" | grep -qE '^[0-9]+(h|m|s)$'; then
+          echo "::error::Invalid timeout format. Expected format: 5m, 1h, etc."
+          exit 1
+        fi
+
+        # Validate linter lists if provided
+        for linter_list in "${{ inputs.enable-linters }}" "${{ inputs.disable-linters }}"; do
+          if [ -n "$linter_list" ]; then
+            if ! echo "$linter_list" | grep -qE '^[a-zA-Z0-9,-]+$'; then
+              echo "::error::Invalid linter list format"
+              exit 1
+            fi
+          fi
+        done
+
+    - name: Setup Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ inputs.go-version }}
+        cache: true
+
+    - name: Set up Cache
+      id: cache
+      if: inputs.cache == 'true'
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cache/golangci-lint
+          ~/.cache/go-build
+        key: ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-${{ hashFiles('**/go.sum') }}-${{ hashFiles('${{ inputs.config-file }}') }}
+        restore-keys: |
+          ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-
+
+    - name: Install golangci-lint
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Function to install golangci-lint with retries
+        install_golangci_lint() {
+          local attempt=1
+          local max_attempts=${{ inputs.max-retries }}
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Installation attempt $attempt of $max_attempts"
+
+            if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
+              sh -s -- -b "$(go env GOPATH)/bin" \
+              ${{ inputs.golangci-lint-version != 'latest' && 'v'}}${{ inputs.golangci-lint-version }}; then
+              return 0
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -le $max_attempts ]; then
+              echo "Installation failed, waiting 10 seconds before retry..."
+              sleep 10
+            fi
+          done
+
+          echo "::error::Failed to install golangci-lint after $max_attempts attempts"
+          return 1
+        }
+
+        install_golangci_lint
+
+    - name: Prepare Configuration
+      id: config
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Create default config if none exists
+        if [ ! -f "${{ inputs.config-file }}" ]; then
+          echo "Creating default golangci-lint configuration..."
+          cat > "${{ inputs.config-file }}" <<EOF
+        linters:
+          enable-all: true
+          disable:
+            - exhaustivestruct
+            - interfacer
+            - scopelint
+            - maligned
+
+        linters-settings:
+          govet:
+            check-shadowing: true
+          golint:
+            min-confidence: 0.8
+          gocyclo:
+            min-complexity: 15
+          dupl:
+            threshold: 100
+          goconst:
+            min-len: 3
+            min-occurrences: 3
+
+        issues:
+          exclude-use-default: false
+          max-issues-per-linter: 0
+          max-same-issues: 0
+          new: true
+
+        run:
+          deadline: ${{ inputs.timeout }}
+          tests: true
+          skip-dirs:
+            - vendor
+            - third_party
+        EOF
+        fi
+
+    - name: Run golangci-lint
+      id: lint
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Create reports directory
+        mkdir -p reports
+
+        # Prepare linter configuration
+        linter_args=""
+        if [ "${{ inputs.disable-all }}" = "true" ]; then
+          linter_args="--disable-all"
+        fi
+
+        if [ -n "${{ inputs.enable-linters }}" ]; then
+          linter_args="$linter_args --enable=${{ inputs.enable-linters }}"
+        fi
+
+        if [ -n "${{ inputs.disable-linters }}" ]; then
+          linter_args="$linter_args --disable=${{ inputs.disable-linters }}"
+        fi
+
+        # Run golangci-lint
+        echo "Running golangci-lint..."
+
+        result_file="reports/golangci-lint.${{ inputs.report-format }}"
+
+        GOLANGCI_LINT_CACHE="$HOME/.cache/golangci-lint" \
+        golangci-lint run \
+          --config "${{ inputs.config-file }}" \
+          --timeout "${{ inputs.timeout }}" \
+          ${{ inputs.cache == 'true' && '--cache' || '--no-cache' }} \
+          ${{ inputs.only-new-issues == 'true' && '--new' || '' }} \
+          --out-format "${{ inputs.report-format }}" \
+          $linter_args \
+          ./... > "$result_file" || {
+            exit_code=$?
+
+            # Count errors
+            if [ "${{ inputs.report-format }}" = "json" ]; then
+              error_count=$(jq '.Issues | length' "$result_file")
+            else
+              error_count=$(grep -c "level\": \"error\"" "$result_file" || echo 0)
+            fi
+
+            echo "error_count=${error_count}" >> $GITHUB_OUTPUT
+
+            if [ "${{ inputs.fail-on-error }}" = "true" ]; then
+              echo "::error::golangci-lint found ${error_count} issues"
+              exit $exit_code
+            fi
+          }
+
+        # Count analyzed files
+        analyzed_files=$(find . -type f -name "*.go" -not -path "./vendor/*" -not -path "./.git/*" | wc -l)
+        echo "analyzed_files=${analyzed_files}" >> $GITHUB_OUTPUT
+        echo "sarif_file=$result_file" >> $GITHUB_OUTPUT
+
+    - name: Upload Lint Results
+      if: always() && inputs.report-format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: ${{ inputs.working-directory }}/reports/golangci-lint.sarif
+        category: golangci-lint
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Remove temporary files
+        rm -rf reports/
+
+        # Clean cache if not being preserved
+        if [ "${{ inputs.cache }}" != "true" ]; then
+          rm -rf ~/.cache/golangci-lint
+        fi

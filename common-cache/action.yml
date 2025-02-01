@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Common Cache
+description: 'Standardized caching strategy for all actions'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: database
+  color: gray-dark
+
+inputs:
+  type:
+    description: 'Type of cache (npm, composer, go, pip, etc.)'
+    required: true
+  paths:
+    description: 'Paths to cache (comma-separated)'
+    required: true
+  key-prefix:
+    description: 'Custom prefix for cache key'
+    required: false
+    default: ''
+  key-files:
+    description: 'Files to hash for cache key (comma-separated)'
+    required: false
+    default: ''
+  restore-keys:
+    description: 'Fallback keys for cache restoration'
+    required: false
+    default: ''
+  env-vars:
+    description: 'Environment variables to include in cache key'
+    required: false
+    default: ''
+
+outputs:
+  cache-hit:
+    description: 'Cache hit indicator'
+    value: ${{ steps.cache.outputs.cache-hit }}
+  cache-key:
+    description: 'Generated cache key'
+    value: ${{ steps.prepare.outputs.cache-key }}
+  cache-paths:
+    description: 'Resolved cache paths'
+    value: ${{ steps.prepare.outputs.cache-paths }}
+
+runs:
+  using: composite
+  steps:
+    - id: prepare
+      shell: bash
+      run: |
+        # Generate standardized cache key components
+        os_key="${{ runner.os }}"
+        type_key="${{ inputs.type }}"
+        prefix_key="${{ inputs.key-prefix }}"
+
+        # Process file hashes
+        files_hash=""
+        if [ -n "${{ inputs.key-files }}" ]; then
+          IFS=',' read -ra FILES <<< "${{ inputs.key-files }}"
+          for file in "${FILES[@]}"; do
+            if [ -f "$file" ]; then
+              file_hash=$(sha256sum "$file" | cut -d' ' -f1)
+              files_hash="${files_hash}-${file_hash}"
+            fi
+          done
+        fi
+
+        # Process environment variables
+        env_hash=""
+        if [ -n "${{ inputs.env-vars }}" ]; then
+          IFS=',' read -ra VARS <<< "${{ inputs.env-vars }}"
+          for var in "${VARS[@]}"; do
+            if [ -n "${!var}" ]; then
+              env_hash="${env_hash}-${var}-${!var}"
+            fi
+          done
+        fi
+
+        # Generate final cache key
+        cache_key="${os_key}"
+        [ -n "$prefix_key" ] && cache_key="${cache_key}-${prefix_key}"
+        [ -n "$type_key" ] && cache_key="${cache_key}-${type_key}"
+        [ -n "$files_hash" ] && cache_key="${cache_key}-${files_hash}"
+        [ -n "$env_hash" ] && cache_key="${cache_key}-${env_hash}"
+
+        echo "cache-key=${cache_key}" >> $GITHUB_OUTPUT
+
+        # Process cache paths
+        IFS=',' read -ra PATHS <<< "${{ inputs.paths }}"
+        cache_paths=""
+        for path in "${PATHS[@]}"; do
+          cache_paths="${cache_paths}${path}\n"
+        done
+        echo "cache-paths=${cache_paths}" >> $GITHUB_OUTPUT
+
+    - id: cache
+      uses: actions/cache@v4
+      with:
+        path: ${{ steps.prepare.outputs.cache-paths }}
+        key: ${{ steps.prepare.outputs.cache-key }}
+        restore-keys: ${{ inputs.restore-keys }}

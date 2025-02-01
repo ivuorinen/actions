@@ -2,10 +2,16 @@
 
 ## Prettier Fix
 
+### Description
+
+Run Prettier to fix code style violations
+
+### Runs
+
+This action is a `composite` action.
+
 ### Usage
 
 ```yaml
-jobs:
-    job1:
-        uses: ivuorinen/actions/prettier-fix@main
+- uses: ivuorinen/actions/prettier-fix@main
 ```

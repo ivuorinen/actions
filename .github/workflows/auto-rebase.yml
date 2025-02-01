@@ -1,0 +1,183 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Auto Rebase
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request_target:
+    types:
+      - labeled
+  issue_comment:
+    types:
+      - created
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  auto-rebase:
+    name: 🔄 Auto Rebase
+    if: |
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       contains(github.event.comment.body, '/rebase')) ||
+      (github.event_name == 'pull_request_target' &&
+       contains(github.event.pull_request.labels.*.name, 'auto-rebase')) ||
+      github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Check Required Secrets
+        id: check-secrets
+        run: |
+          if [ -z "${{ secrets.APP_ID }}" ] || [ -z "${{ secrets.APP_PRIVATE_KEY }}" ]; then
+            echo "::warning::GitHub App credentials not configured. Using GITHUB_TOKEN instead."
+            echo "use_github_token=true" >> "$GITHUB_OUTPUT"
+
+            if [ "${{ github.event_name }}" == "push" ]; then
+              echo "::warning::Running with GITHUB_TOKEN on push events may have limited functionality."
+            fi
+          else
+            echo "use_github_token=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Generate Token
+        id: generate-token
+        if: steps.check-secrets.outputs.use_github_token == 'false'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.APP_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+
+      - name: Add Initial Comment
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+
+            // Get PR number based on event type
+            let prNumber;
+            if (context.eventName === 'issue_comment') {
+              prNumber = context.payload.issue.number;
+            } else if (context.eventName === 'pull_request_target') {
+              prNumber = context.payload.pull_request.number;
+            }
+
+            if (prNumber) {
+              const token_type = '${{ steps.check-secrets.outputs.use_github_token }}' === 'true'
+                ? 'GITHUB_TOKEN (limited permissions)'
+                : 'GitHub App token';
+
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: `🔄 Attempting rebase using ${token_type}...`
+              });
+            }
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          fetch-depth: 0
+
+      - name: Auto Rebase
+        id: rebase
+        continue-on-error: true
+        uses: cirrus-actions/rebase@1.8
+        env:
+          GITHUB_TOKEN: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+
+      - name: Handle Rebase Result
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
+          script: |
+            const { repo, owner } = context.repo;
+
+            // Get PR number based on event type
+            let prNumber;
+            if (context.eventName === 'issue_comment') {
+              prNumber = context.payload.issue.number;
+            } else if (context.eventName === 'pull_request_target') {
+              prNumber = context.payload.pull_request.number;
+            }
+
+            if (prNumber) {
+              const rebaseSuccess = '${{ steps.rebase.outcome }}' === 'success';
+              const usingGithubToken = '${{ steps.check-secrets.outputs.use_github_token }}' === 'true';
+
+              let commentBody;
+              if (rebaseSuccess) {
+                commentBody = '✅ Rebase completed successfully!';
+              } else {
+                commentBody = '❌ Rebase failed.\n\n';
+
+                if (usingGithubToken) {
+                  commentBody += '⚠️ Note: This workflow is running with reduced permissions (GITHUB_TOKEN).\n' +
+                               'For better functionality, configure APP_ID and APP_PRIVATE_KEY secrets.\n\n';
+                }
+
+                commentBody += 'Please try to:\n' +
+                             '1. Resolve any conflicts manually\n' +
+                             '2. Ensure branch is not protected\n' +
+                             '3. Verify you have proper permissions';
+              }
+
+              // Add result comment
+              await github.rest.issues.createComment({
+                owner,
+                repo,
+                issue_number: prNumber,
+                body: commentBody
+              });
+
+              // Handle labels
+              try {
+                // Remove auto-rebase label if it exists
+                await github.rest.issues.removeLabel({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  name: 'auto-rebase'
+                }).catch(e => console.log('auto-rebase label not found'));
+
+                // Add appropriate result label
+                const resultLabel = rebaseSuccess ? 'rebase-succeeded' : 'rebase-failed';
+                await github.rest.issues.addLabels({
+                  owner,
+                  repo,
+                  issue_number: prNumber,
+                  labels: [resultLabel]
+                });
+              } catch (error) {
+                console.log('Error handling labels:', error);
+              }
+            }
+
+            // Set action status based on rebase result
+            if ('${{ steps.rebase.outcome }}' !== 'success') {
+              core.setFailed('Rebase failed');
+            }
+
+      - name: Cleanup
+        if: always()
+        run: |
+          # Reset any pending changes
+          git reset --hard
+          git checkout main
+
+          # Clean up any temporary branches
+          git fetch --prune

@@ -2,10 +2,16 @@
 
 ## Biome Fix
 
+### Description
+
+Run Biome fix on the repository
+
+### Runs
+
+This action is a `composite` action.
+
 ### Usage
 
 ```yaml
-jobs:
-    job1:
-        uses: ivuorinen/actions/biome-fix@main
+- uses: ivuorinen/actions/biome-fix@main
 ```

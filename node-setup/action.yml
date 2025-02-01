@@ -1,0 +1,292 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Node Setup
+description: 'Sets up Node.js environment with advanced version management, caching, and tooling.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: server
+  color: green
+
+inputs:
+  default-version:
+    description: 'Default Node.js version to use if no configuration file is found.'
+    required: false
+    default: '22'
+  package-manager:
+    description: 'Node.js package manager to use (npm, yarn, pnpm)'
+    required: false
+    default: 'npm'
+  registry-url:
+    description: 'Custom NPM registry URL'
+    required: false
+    default: 'https://registry.npmjs.org'
+  token:
+    description: 'Auth token for private registry'
+    required: false
+  cache:
+    description: 'Enable dependency caching'
+    required: false
+    default: 'true'
+  install:
+    description: 'Automatically install dependencies'
+    required: false
+    default: 'true'
+  node-mirror:
+    description: 'Custom Node.js binary mirror'
+    required: false
+  force-version:
+    description: 'Force specific Node.js version regardless of config files'
+    required: false
+
+outputs:
+  node-version:
+    description: 'Installed Node.js version'
+    value: ${{ steps.setup.outputs.node-version }}
+  package-manager:
+    description: 'Selected package manager'
+    value: ${{ steps.setup.outputs.package-manager }}
+  cache-hit:
+    description: 'Indicates if there was a cache hit'
+    value: ${{ steps.deps-cache.outputs.cache-hit }}
+  node-path:
+    description: 'Path to Node.js installation'
+    value: ${{ steps.setup.outputs.node-path }}
+
+runs:
+  using: composite
+  steps:
+    - name: Version Detection
+      id: version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Function to validate Node.js version format
+        validate_version() {
+          local version=$1
+          if ! [[ $version =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
+            echo "::error::Invalid Node.js version format: $version"
+            return 1
+          fi
+        }
+
+        # Function to get version from .nvmrc
+        get_nvmrc_version() {
+          if [ -f .nvmrc ]; then
+            local version
+            version=$(cat .nvmrc | tr -d 'v' | tr -d ' ' | tr -d '\n')
+            if validate_version "$version"; then
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from .tool-versions
+        get_tool_versions_version() {
+          if [ -f .tool-versions ]; then
+            local version
+            version=$(grep -E '^nodejs[[:space:]]' .tool-versions |
+                     sed 's/#.*//' |
+                     awk '{print $2}' |
+                     tr -d ' ' |
+                     tr -d '\n')
+            if [ -n "$version" ] && validate_version "$version"; then
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from package.json
+        get_package_json_version() {
+          if [ -f package.json ]; then
+            local version
+            version=$(node -pe "try { require('./package.json').engines.node.replace(/[^0-9.]/g, '') } catch(e) { '' }")
+            if [ -n "$version" ] && validate_version "$version"; then
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Determine Node.js version
+        if [ -n "${{ inputs.force-version }}" ]; then
+          if ! validate_version "${{ inputs.force-version }}"; then
+            exit 1
+          fi
+          version="${{ inputs.force-version }}"
+          echo "Using forced Node.js version: $version"
+        else
+          version=$(get_nvmrc_version ||
+                   get_tool_versions_version ||
+                   get_package_json_version ||
+                   echo "${{ inputs.default-version }}")
+          echo "Detected Node.js version: $version"
+        fi
+
+        echo "version=$version" >> $GITHUB_OUTPUT
+
+    - name: Package Manager Detection
+      id: pkg-manager
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate input package manager
+        case "${{ inputs.package-manager }}" in
+          npm|yarn|pnpm)
+            pkg_manager="${{ inputs.package-manager }}"
+            ;;
+          *)
+            echo "::error::Invalid package manager specified: ${{ inputs.package-manager }}"
+            exit 1
+            ;;
+        esac
+
+        # Auto-detect if files exist
+        if [ -f "yarn.lock" ]; then
+          pkg_manager="yarn"
+        elif [ -f "pnpm-lock.yaml" ]; then
+          pkg_manager="pnpm"
+        elif [ -f "package-lock.json" ]; then
+          pkg_manager="npm"
+        fi
+
+        echo "manager=$pkg_manager" >> $GITHUB_OUTPUT
+
+    - name: Setup Node.js
+      id: setup
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ steps.version.outputs.version }}
+        registry-url: ${{ inputs.registry-url }}
+        cache: ${{ steps.pkg-manager.outputs.manager }}
+        node-version-file: ''
+        always-auth: ${{ inputs.token != '' }}
+        cache-dependency-path: |
+          **/package-lock.json
+          **/yarn.lock
+          **/pnpm-lock.yaml
+
+    - name: Configure Package Manager
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Configure package manager
+        case "${{ steps.pkg-manager.outputs.manager }}" in
+          yarn)
+            if ! command -v yarn &> /dev/null; then
+              echo "Installing Yarn..."
+              npm install -g yarn
+            fi
+            # Configure Yarn settings
+            yarn config set nodeLinker node-modules
+            yarn config set checksumBehavior ignore
+            ;;
+          pnpm)
+            if ! command -v pnpm &> /dev/null; then
+              echo "Installing pnpm..."
+              npm install -g pnpm
+            fi
+            ;;
+        esac
+
+        # Configure registry authentication if token provided
+        if [ -n "${{ inputs.token }}" ]; then
+          echo "Configuring registry authentication..."
+          case "${{ steps.pkg-manager.outputs.manager }}" in
+            npm)
+              npm config set //${{ inputs.registry-url }}/:_authToken ${{ inputs.token }}
+              ;;
+            yarn)
+              yarn config set npmAuthToken ${{ inputs.token }}
+              ;;
+            pnpm)
+              pnpm config set //registry.npmjs.org/:_authToken ${{ inputs.token }}
+              ;;
+          esac
+        fi
+
+    - name: Setup Caching
+      if: inputs.cache == 'true'
+      id: deps-cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          **/node_modules
+          ~/.npm
+          ~/.pnpm-store
+          ~/.yarn/cache
+        key: ${{ runner.os }}-node-${{ steps.version.outputs.version }}-${{ steps.pkg-manager.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
+        restore-keys: |
+          ${{ runner.os }}-node-${{ steps.version.outputs.version }}-${{ steps.pkg-manager.outputs.manager }}-
+
+    - name: Install Dependencies
+      if: inputs.install == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "Installing dependencies using ${{ steps.pkg-manager.outputs.manager }}..."
+
+        case "${{ steps.pkg-manager.outputs.manager }}" in
+          npm)
+            npm ci --prefer-offline --no-audit --no-fund
+            ;;
+          yarn)
+            yarn install --frozen-lockfile --prefer-offline --non-interactive
+            ;;
+          pnpm)
+            pnpm install --frozen-lockfile --prefer-offline
+            ;;
+        esac
+
+    - name: Verify Setup
+      id: verify
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Verify Node.js installation
+        echo "Verifying Node.js installation..."
+        node_version=$(node --version)
+        echo "Node.js version: $node_version"
+
+        # Verify package manager installation
+        echo "Verifying package manager installation..."
+        case "${{ steps.pkg-manager.outputs.manager }}" in
+          npm)
+            npm --version
+            ;;
+          yarn)
+            yarn --version
+            ;;
+          pnpm)
+            pnpm --version
+            ;;
+        esac
+
+        # Verify module resolution
+        if [ -f "package.json" ]; then
+          echo "Verifying module resolution..."
+          node -e "require('./package.json')"
+        fi
+
+    - name: Output Configuration
+      id: config
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Output final configuration
+        {
+          echo "node-version=$(node --version)"
+          echo "node-path=$(which node)"
+          echo "package-manager=${{ steps.pkg-manager.outputs.manager }}"
+        } >> $GITHUB_OUTPUT

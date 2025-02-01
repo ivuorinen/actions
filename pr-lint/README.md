@@ -2,10 +2,16 @@
 
 ## MegaLinter
 
+### Description
+
+Run MegaLinter on the repository
+
+### Runs
+
+This action is a `composite` action.
+
 ### Usage
 
 ```yaml
-jobs:
-    job1:
-        uses: ivuorinen/actions/pr-lint@main
+- uses: ivuorinen/actions/pr-lint@main
 ```

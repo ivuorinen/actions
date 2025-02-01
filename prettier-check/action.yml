@@ -1,37 +1,328 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Prettier Check
+description: 'Run Prettier check on the repository with advanced configuration and reporting'
+author: Ismo Vuorinen
 
-on:
-  workflow_dispatch:
-  pull_request:
-    branches:
-      - main
-      - master
+branding:
+  icon: check-circle
+  color: green
 
-jobs:
-  prettier-check:
-    runs-on: ubuntu-latest
+inputs:
+  working-directory:
+    description: 'Directory containing files to check'
+    required: false
+    default: '.'
+  prettier-version:
+    description: 'Prettier version to use'
+    required: false
+    default: 'latest'
+  config-file:
+    description: 'Path to Prettier config file'
+    required: false
+    default: '.prettierrc'
+  ignore-file:
+    description: 'Path to Prettier ignore file'
+    required: false
+    default: '.prettierignore'
+  file-pattern:
+    description: 'Files to include (glob pattern)'
+    required: false
+    default: '**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}'
+  cache:
+    description: 'Enable Prettier caching'
+    required: false
+    default: 'true'
+  fail-on-error:
+    description: 'Fail workflow if issues are found'
+    required: false
+    default: 'true'
+  report-format:
+    description: 'Output format (json, sarif)'
+    required: false
+    default: 'sarif'
+  max-retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '3'
+  plugins:
+    description: 'Comma-separated list of Prettier plugins to install'
+    required: false
+    default: ''
+  check-only:
+    description: 'Only check for formatting issues without fixing'
+    required: false
+    default: 'true'
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+outputs:
+  files-checked:
+    description: 'Number of files checked'
+    value: ${{ steps.check.outputs.files_checked }}
+  unformatted-files:
+    description: 'Number of files with formatting issues'
+    value: ${{ steps.check.outputs.unformatted_files }}
+  sarif-file:
+    description: 'Path to SARIF report file'
+    value: ${{ steps.check.outputs.sarif_file }}
+  cache-hit:
+    description: 'Indicates if there was a cache hit'
+    value: ${{ steps.cache.outputs.cache-hit }}
 
-      - name: Set Git Config
-        uses: ivuorinen/actions/composite-set-git-config@main
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
 
-      - name: Node Setup
-        uses: ivuorinen/actions/composite-node-setup@main
+        # Validate working directory
+        if [ ! -d "${{ inputs.working-directory }}" ]; then
+          echo "::error::Working directory does not exist: ${{ inputs.working-directory }}"
+          exit 1
+        fi
 
-      - name: Install Dependencies
-        run: |
-          npm install
+        # Validate glob pattern
+        if ! echo "${{ inputs.file-pattern }}" | grep -qE '^[*{}\[\].,a-zA-Z0-9/_-]+$'; then
+          echo "::error::Invalid file pattern format"
+          exit 1
+        fi
 
-      - name: Run Prettier Check
-        run: |
-          npx prettier --check . --loglevel warn --write-report --report-output prettier-report.json
+        # Validate plugins format if provided
+        if [ -n "${{ inputs.plugins }}" ]; then
+          if ! echo "${{ inputs.plugins }}" | grep -qE '^[a-zA-Z0-9/@._,-]+$'; then
+            echo "::error::Invalid plugins format"
+            exit 1
+          fi
+        fi
 
-      - name: Upload Prettier Results
-        uses: github/codeql-action/upload-sarif@v2
-        with:
-          sarif_file: prettier-report.json
+    - name: Setup Node.js
+      uses: ivuorinen/actions/node-setup@main
+
+    - name: Set up Cache
+      id: cache
+      uses: actions/cache@v4
+      if: inputs.cache == 'true'
+      with:
+        path: |
+          node_modules/.cache/prettier
+          .prettier-cache
+        key: ${{ runner.os }}-prettier-${{ hashFiles('**/package.json', '**/package-lock.json', '${{ inputs.config-file }}') }}
+        restore-keys: |
+          ${{ runner.os }}-prettier-
+
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Function to install with retries
+        install_with_retries() {
+          local attempt=1
+          local max_attempts=${{ inputs.max-retries }}
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Installation attempt $attempt of $max_attempts"
+
+            # Install Prettier and base dependencies
+            if npm install \
+              prettier@${{ inputs.prettier-version }} \
+              @prettier/plugin-xml \
+              prettier-plugin-packagejson \
+              prettier-plugin-sh; then
+
+              # Install additional plugins if specified
+              if [ -n "${{ inputs.plugins }}" ]; then
+                IFS=',' read -ra PLUGINS <<< "${{ inputs.plugins }}"
+                for plugin in "${PLUGINS[@]}"; do
+                  if ! npm install "$plugin"; then
+                    return 1
+                  fi
+                done
+              fi
+
+              return 0
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -le $max_attempts ]; then
+              echo "Installation failed, waiting 10 seconds before retry..."
+              sleep 10
+            fi
+          done
+
+          echo "::error::Failed to install dependencies after $max_attempts attempts"
+          return 1
+        }
+
+        install_with_retries
+
+    - name: Prepare Configuration
+      id: config
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Create default config if none exists
+        if [ ! -f "${{ inputs.config-file }}" ]; then
+          echo "Creating default Prettier configuration..."
+          cat > "${{ inputs.config-file }}" <<EOF
+        {
+          "semi": true,
+          "singleQuote": true,
+          "tabWidth": 2,
+          "useTabs": false,
+          "trailingComma": "es5",
+          "printWidth": 100,
+          "arrowParens": "avoid",
+          "endOfLine": "lf"
+        }
+        EOF
+        fi
+
+        # Create default ignore file if none exists
+        if [ ! -f "${{ inputs.ignore-file }}" ]; then
+          echo "Creating default Prettier ignore file..."
+          cat > "${{ inputs.ignore-file }}" <<EOF
+        node_modules/
+        dist/
+        build/
+        coverage/
+        .git/
+        *.min.js
+        *.d.ts
+        EOF
+        fi
+
+    - name: Run Prettier Check
+      id: check
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Create reports directory
+        mkdir -p reports
+
+        # Function to convert Prettier output to SARIF
+        prettier_to_sarif() {
+          local input_file=$1
+          local output_file=$2
+
+          echo '{
+            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "version": "2.1.0",
+            "runs": [
+              {
+                "tool": {
+                  "driver": {
+                    "name": "Prettier",
+                    "informationUri": "https://prettier.io",
+                    "rules": []
+                  }
+                },
+                "results": [' > "$output_file"
+
+          local first=true
+          while IFS= read -r line; do
+            if [ "$first" = true ]; then
+              first=false
+            else
+              echo "," >> "$output_file"
+            fi
+
+            echo "{
+              \"level\": \"error\",
+              \"message\": {
+                \"text\": \"File is not formatted according to Prettier rules\"
+              },
+              \"locations\": [
+                {
+                  \"physicalLocation\": {
+                    \"artifactLocation\": {
+                      \"uri\": \"$line\"
+                    }
+                  }
+                }
+              ]
+            }" >> "$output_file"
+          done < "$input_file"
+
+          echo ']}]}' >> "$output_file"
+        }
+
+        # Run Prettier
+        echo "Running Prettier check..."
+        unformatted_files=$(mktemp)
+
+        if [ "${{ inputs.check-only }}" = "true" ]; then
+          npx prettier \
+            --check \
+            --config "${{ inputs.config-file }}" \
+            --ignore-path "${{ inputs.ignore-file }}" \
+            ${{ inputs.cache == 'true' && '--cache --cache-location=.prettier-cache' || '' }} \
+            --no-error-on-unmatched-pattern \
+            "${{ inputs.file-pattern }}" 2>&1 | \
+            grep -oE '[^ ]+\.[a-zA-Z]+$' > "$unformatted_files" || true
+        else
+          npx prettier \
+            --write \
+            --list-different \
+            --config "${{ inputs.config-file }}" \
+            --ignore-path "${{ inputs.ignore-file }}" \
+            ${{ inputs.cache == 'true' && '--cache --cache-location=.prettier-cache' || '' }} \
+            --no-error-on-unmatched-pattern \
+            "${{ inputs.file-pattern }}" > "$unformatted_files" || true
+        fi
+
+        # Count files
+        files_checked=$(find . -type f -name "${{ inputs.file-pattern }}" -not -path "*/node_modules/*" | wc -l)
+        unformatted_count=$(wc -l < "$unformatted_files")
+
+        echo "files_checked=${files_checked}" >> $GITHUB_OUTPUT
+        echo "unformatted_files=${unformatted_count}" >> $GITHUB_OUTPUT
+
+        # Generate SARIF report if requested
+        if [ "${{ inputs.report-format }}" = "sarif" ]; then
+          prettier_to_sarif "$unformatted_files" "reports/prettier.sarif"
+          echo "sarif_file=reports/prettier.sarif" >> $GITHUB_OUTPUT
+        fi
+
+        # Clean up temporary file
+        rm "$unformatted_files"
+
+        # Exit with error if issues found and fail-on-error is true
+        if [ "${{ inputs.fail-on-error }}" = "true" ] && [ "$unformatted_count" -gt 0 ]; then
+          echo "::error::Found $unformatted_count files with formatting issues"
+          exit 1
+        fi
+
+    - name: Upload Prettier Results
+      if: always() && inputs.report-format == 'sarif'
+      uses: github/codeql-action/upload-sarif@v2
+      with:
+        sarif_file: ${{ inputs.working-directory }}/reports/prettier.sarif
+        category: prettier
+
+    - name: Cleanup
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        cd ${{ inputs.working-directory }}
+
+        # Remove temporary files
+        rm -rf reports/
+
+        # Clean cache if exists and not being preserved
+        if [ "${{ inputs.cache }}" != "true" ]; then
+          rm -rf .prettier-cache
+          rm -rf node_modules/.cache/prettier
+        fi

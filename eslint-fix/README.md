@@ -2,10 +2,16 @@
 
 ## ESLint Fix
 
+### Description
+
+Fixes ESLint violations in a project.
+
+### Runs
+
+This action is a `composite` action.
+
 ### Usage
 
 ```yaml
-jobs:
-    job1:
-        uses: ivuorinen/actions/eslint-fix@main
+- uses: ivuorinen/actions/eslint-fix@main
 ```

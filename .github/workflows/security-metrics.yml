@@ -1,0 +1,102 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Security Metrics Collection
+
+on:
+  workflow_run:
+    workflows: ['Security Checks']
+    types:
+      - completed
+  schedule:
+    - cron: '0 0 * * 0' # Weekly
+
+jobs:
+  collect-metrics:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Collect Metrics
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const metrics = {
+              timestamp: new Date().toISOString(),
+              weekly: {
+                scans: 0,
+                vulnerabilities: {
+                  critical: 0,
+                  high: 0,
+                  medium: 0,
+                  low: 0
+                },
+                fixes: {
+                  submitted: 0,
+                  merged: 0
+                },
+                meanTimeToFix: 0
+              }
+            };
+
+            // Collect scan metrics
+            const scans = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'security.yml',
+              created: `>${new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()}`
+            });
+
+            metrics.weekly.scans = scans.data.total_count;
+
+            // Collect vulnerability metrics
+            const vulnIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'security',
+              state: 'all',
+              since: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+            });
+
+            // Calculate metrics
+            vulnIssues.data.forEach(issue => {
+              if (issue.labels.find(l => l.name === 'critical')) metrics.weekly.vulnerabilities.critical++;
+              if (issue.labels.find(l => l.name === 'high')) metrics.weekly.vulnerabilities.high++;
+              // ... etc
+            });
+
+            // Calculate fix metrics
+            const fixPRs = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'all',
+              labels: 'security-fix'
+            });
+
+            metrics.weekly.fixes.submitted = fixPRs.data.length;
+            metrics.weekly.fixes.merged = fixPRs.data.filter(pr => pr.merged).length;
+
+            // Calculate mean time to fix
+            const fixTimes = fixPRs.data
+              .filter(pr => pr.merged)
+              .map(pr => new Date(pr.merged_at) - new Date(pr.created_at));
+
+            metrics.weekly.meanTimeToFix = fixTimes.reduce((a, b) => a + b, 0) / fixTimes.length;
+
+            // Save metrics
+            fs.writeFileSync('security-metrics.json', JSON.stringify(metrics, null, 2));
+
+            // Generate report
+            const report = generateMetricsReport(metrics);
+
+            // Create/update metrics dashboard
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: '📊 Weekly Security Metrics Report',
+              body: report,
+              labels: ['metrics', 'security']
+            });

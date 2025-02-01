@@ -1,0 +1,486 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Security Checks
+
+on:
+  schedule:
+    - cron: '0 0 * * *' # Run daily at midnight
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '**/package.json'
+      - '**/package-lock.json'
+      - '**/yarn.lock'
+      - '**/pnpm-lock.yaml'
+      - '**/requirements.txt'
+      - '**/Dockerfile'
+      - '**/*.py'
+      - '**/*.js'
+      - '**/*.ts'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SLACK_WEBHOOK: ${{ secrets.SLACK_WEBHOOK }}
+
+jobs:
+  security:
+    name: Security Analysis
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      security-events: write
+      issues: write
+      actions: read
+      pull-requests: write
+
+    steps:
+      - name: Check Required Secrets
+        id: check-secrets
+        shell: bash
+        run: |
+          # Initialize flags
+          {
+            echo "run_snyk=false"
+            echo "run_slack=false"
+            echo "run_sonarcloud=false"
+          } >> "$GITHUB_OUTPUT"
+
+          # Check secrets
+          if [ -n "${{ secrets.SNYK_TOKEN }}" ]; then
+            echo "run_snyk=true" >> "$GITHUB_OUTPUT"
+            echo "Snyk token available"
+          else
+            echo "::warning::SNYK_TOKEN not set - Snyk scans will be skipped"
+          fi
+
+          if [ -n "${{ secrets.SLACK_WEBHOOK }}" ]; then
+            echo "run_slack=true" >> "$GITHUB_OUTPUT"
+            echo "Slack webhook available"
+          else
+            echo "::warning::SLACK_WEBHOOK not set - Slack notifications will be skipped"
+          fi
+
+          if [ -n "${{ secrets.SONAR_TOKEN }}" ]; then
+            echo "run_sonarcloud=true" >> "$GITHUB_OUTPUT"
+            echo "SonarCloud token available"
+          else
+            echo "::warning::SONAR_TOKEN not set - SonarCloud analysis will be skipped"
+          fi
+
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # Full history for better analysis
+
+      - name: Run OWASP Dependency Check
+        uses: dependency-check/Dependency-Check_Action@main
+        with:
+          project: 'GitHub Actions'
+          path: '.'
+          format: 'SARIF'
+          out: 'reports'
+          args: >
+            --enableRetired
+            --enableExperimental
+            --failOnCVSS 7
+            --suppress ${{ github.workspace }}/suppressions.xml
+
+      - name: Upload OWASP Results
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: reports/dependency-check-report.sarif
+          category: owasp-dependency-check
+
+      - name: Setup Node.js
+        if: steps.check-secrets.outputs.run_snyk == 'true'
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+          cache: 'npm'
+
+      - name: Run Snyk Scan
+        id: snyk
+        if: steps.check-secrets.outputs.run_snyk == 'true'
+        uses: snyk/actions/node@master
+        continue-on-error: true # Don't fail the workflow, we'll handle results
+        env:
+          SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+        with:
+          args: --all-projects --sarif-file-output=snyk-results.sarif
+
+      - name: Upload Snyk Results
+        if: steps.check-secrets.outputs.run_snyk == 'true'
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: snyk-results.sarif
+          category: snyk
+
+      - name: Analyze Vulnerabilities
+        id: vuln-analysis
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            async function analyzeSarif(filePath, tool) {
+              if (!fs.existsSync(filePath)) return null;
+
+              try {
+                const sarif = JSON.parse(fs.readFileSync(filePath, 'utf8'));
+                let counts = { critical: 0, high: 0, medium: 0, low: 0 };
+
+                sarif.runs.forEach(run => {
+                  run.results?.forEach(result => {
+                    let severity;
+                    if (tool === 'snyk') {
+                      severity = result.ruleId.includes('critical') ? 'critical' :
+                               result.ruleId.includes('high') ? 'high' :
+                               result.ruleId.includes('medium') ? 'medium' : 'low';
+                    } else {
+                      severity = result.level === 'error' ? 'high' :
+                               result.level === 'warning' ? 'medium' : 'low';
+                    }
+                    counts[severity]++;
+                  });
+                });
+
+                return counts;
+              } catch (error) {
+                console.error(`Error analyzing ${tool} results:`, error);
+                return null;
+              }
+            }
+
+            try {
+              // Analyze results from different tools
+              const results = {
+                owasp: await analyzeSarif('reports/dependency-check-report.sarif', 'owasp'),
+                snyk: ${{ steps.check-secrets.outputs.run_snyk == 'true' }} ?
+                  await analyzeSarif('snyk-results.sarif', 'snyk') : null
+              };
+
+              // Calculate totals
+              const summary = {
+                timestamp: new Date().toISOString(),
+                results,
+                total: {
+                  critical: Object.values(results).reduce((sum, r) => sum + (r?.critical || 0), 0),
+                  high: Object.values(results).reduce((sum, r) => sum + (r?.high || 0), 0),
+                  medium: Object.values(results).reduce((sum, r) => sum + (r?.medium || 0), 0),
+                  low: Object.values(results).reduce((sum, r) => sum + (r?.low || 0), 0)
+                }
+              };
+
+              // Save summary
+              fs.writeFileSync('vulnerability-summary.json', JSON.stringify(summary, null, 2));
+
+              // Set outputs for other steps
+              core.setOutput('critical_count', summary.total.critical);
+              core.setOutput('high_count', summary.total.high);
+
+              // Create/update status badge
+              const badge = {
+                schemaVersion: 1,
+                label: 'vulnerabilities',
+                message: `critical: ${summary.total.critical} high: ${summary.total.high}`,
+                color: summary.total.critical > 0 ? 'red' :
+                       summary.total.high > 0 ? 'orange' : 'green'
+              };
+
+              fs.writeFileSync('security-badge.json', JSON.stringify(badge));
+
+              // Generate markdown report
+              const report = `## Security Scan Results
+
+              ### Summary
+              - Critical: ${summary.total.critical}
+              - High: ${summary.total.high}
+              - Medium: ${summary.total.medium}
+              - Low: ${summary.total.low}
+
+              ### Tool-specific Results
+              ${Object.entries(results)
+                .filter(([_, r]) => r)
+                .map(([tool, r]) => `
+              #### ${tool.toUpperCase()}
+              - Critical: ${r.critical}
+              - High: ${r.high}
+              - Medium: ${r.medium}
+              - Low: ${r.low}
+              `).join('\n')}
+              `;
+
+              fs.writeFileSync('security-report.md', report);
+
+              // Write job summary
+              await core.summary
+                .addRaw(report)
+                .write();
+
+              // Exit with error if critical/high vulnerabilities found
+              if (summary.total.critical > 0 || summary.total.high > 0) {
+                core.setFailed(`Found ${summary.total.critical} critical and ${summary.total.high} high severity vulnerabilities`);
+              }
+            } catch (error) {
+              core.setFailed(`Analysis failed: ${error.message}`);
+            }
+
+      - name: Archive Security Reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.run_id }}
+          path: |
+            reports/
+            snyk-results.sarif
+            vulnerability-summary.json
+            security-report.md
+            security-badge.json
+          retention-days: 30
+
+      - name: Create Fix PRs
+        if: always() && (steps.vuln-analysis.outputs.critical_count > 0 || steps.vuln-analysis.outputs.high_count > 0)
+        uses: actions/github-script@v7
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+
+            async function createFixPR(vulnerability) {
+              const branchName = `security/fix-${vulnerability.id}`;
+
+              try {
+                // Create branch
+                await exec.exec('git', ['checkout', '-b', branchName]);
+
+                // Apply fixes based on vulnerability type
+                if (vulnerability.tool === 'snyk') {
+                  await exec.exec('npx', ['snyk', 'fix']);
+                } else if (vulnerability.tool === 'owasp') {
+                  // Update dependencies to fixed versions
+                  if (fs.existsSync('package.json')) {
+                    await exec.exec('npm', ['audit', 'fix']);
+                  }
+                }
+
+                // Check if there are changes
+                const { stdout: status } = await exec.getExecOutput('git', ['status', '--porcelain']);
+                if (!status) {
+                  console.log('No changes to commit');
+                  return null;
+                }
+
+                // Commit changes
+                await exec.exec('git', ['config', 'user.name', 'fiximus']);
+                await exec.exec('git', ['config', 'user.email', 'github-bot@ivuorinen.net']);
+                await exec.exec('git', ['add', '.']);
+                await exec.exec('git', ['commit', '-m', `fix: ${vulnerability.title}`]);
+                await exec.exec('git', ['push', 'origin', branchName]);
+
+                // Create PR
+                const pr = await github.rest.pulls.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `🔒 Security: ${vulnerability.title}`,
+                  body: generatePRBody(vulnerability),
+                  head: branchName,
+                  base: 'main'
+                });
+
+                // Add labels
+                await github.rest.issues.addLabels({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: pr.data.number,
+                  labels: ['security-fix', 'automated-pr', 'dependencies']
+                });
+
+                return pr.data.html_url;
+              } catch (error) {
+                console.error(`Failed to create fix PR: ${error.message}`);
+                return null;
+              }
+            }
+
+            function generatePRBody(vulnerability) {
+              return `## Security Fix
+
+              ### Vulnerability Details
+              - ID: ${vulnerability.id}
+              - Severity: ${vulnerability.severity}
+              - Tool: ${vulnerability.tool}
+
+              ### Changes Made
+              ${vulnerability.fixes || 'Dependency updates to resolve security vulnerabilities'}
+
+              ### Testing
+              - [ ] Verify fix resolves the vulnerability
+              - [ ] Run security scan to confirm fix
+              - [ ] Test affected functionality
+
+              ### Notes
+              - This PR was automatically generated
+              - Please review changes carefully
+              - Additional manual changes may be needed
+
+              > Generated by security workflow`;
+            }
+
+            try {
+              // Process vulnerabilities from both tools
+              const vulnFiles = ['snyk-results.sarif', 'reports/dependency-check-report.sarif'];
+              const fixableVulnerabilities = [];
+
+              for (const file of vulnFiles) {
+                if (fs.existsSync(file)) {
+                  const sarif = JSON.parse(fs.readFileSync(file, 'utf8'));
+                  const tool = file.includes('snyk') ? 'snyk' : 'owasp';
+
+                  sarif.runs.forEach(run => {
+                    run.results?.forEach(result => {
+                      if (result.level === 'error' || result.level === 'critical') {
+                        fixableVulnerabilities.push({
+                          id: result.ruleId,
+                          title: result.message.text,
+                          severity: result.level,
+                          tool,
+                          fixes: result.fixes
+                        });
+                      }
+                    });
+                  });
+                }
+              }
+
+              // Create PRs for fixable vulnerabilities
+              const prUrls = [];
+              for (const vuln of fixableVulnerabilities) {
+                const prUrl = await createFixPR(vuln);
+                if (prUrl) prUrls.push(prUrl);
+              }
+
+              core.setOutput('fix_prs', prUrls.join('\n'));
+
+              if (prUrls.length > 0) {
+                console.log(`Created ${prUrls.length} fix PRs:`);
+                prUrls.forEach(url => console.log(`- ${url}`));
+              }
+            } catch (error) {
+              console.error('Failed to process vulnerabilities:', error);
+            }
+
+      - name: Notify on Failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            try {
+              const { repo, owner } = context.repo;
+              const runUrl = `${process.env.GITHUB_SERVER_URL}/${owner}/${repo}/actions/runs/${process.env.GITHUB_RUN_ID}`;
+
+              // Read vulnerability summary if available
+              let vulnSummary = '';
+              if (fs.existsSync('vulnerability-summary.json')) {
+                const summary = JSON.parse(fs.readFileSync('vulnerability-summary.json', 'utf8'));
+                vulnSummary = `
+                ### Vulnerability Counts
+                - Critical: ${summary.total.critical}
+                - High: ${summary.total.high}
+                - Medium: ${summary.total.medium}
+                - Low: ${summary.total.low}
+                `;
+              }
+
+              const message = `## 🚨 Security Check Failure
+
+              Security checks have failed in the workflow run.
+
+              ### Details
+              - Run: [View Results](${runUrl})
+              - Timestamp: ${new Date().toISOString()}
+
+              ${vulnSummary}
+
+              ### Reports
+              Security scan reports are available in the workflow artifacts.
+
+              ### Next Steps
+              1. Review the security reports
+              2. Address identified vulnerabilities
+              3. Re-run security checks
+
+              > This issue was automatically created by the security workflow.`;
+
+              // Create GitHub issue
+              const issue = await github.rest.issues.create({
+                owner,
+                repo,
+                title: `🚨 Security Check Failure - ${new Date().toISOString().split('T')[0]}`,
+                body: message,
+                labels: ['security', 'automated-issue', 'high-priority'],
+                assignees: ['ivuorinen']
+              });
+
+              // Send Slack notification if configured
+              if (process.env.SLACK_WEBHOOK) {
+                const fetch = require('node-fetch');
+                await fetch(process.env.SLACK_WEBHOOK, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    text: `🚨 Security checks failed in ${owner}/${repo}\nDetails: ${issue.data.html_url}`
+                  })
+                });
+              }
+            } catch (error) {
+              console.error('Failed to send notifications:', error);
+              core.setFailed(`Notification failed: ${error.message}`);
+            }
+
+      - name: Cleanup Old Issues
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            try {
+              const { repo, owner } = context.repo;
+
+              const oldIssues = await github.rest.issues.listForRepo({
+                owner,
+                repo,
+                state: 'open',
+                labels: 'automated-issue,security',
+                sort: 'created',
+                direction: 'desc'
+              });
+
+              // Keep only the latest 3 issues
+              const issuesToClose = oldIssues.data.slice(3);
+
+              for (const issue of issuesToClose) {
+                await github.rest.issues.update({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  state: 'closed',
+                  state_reason: 'completed'
+                });
+
+                await github.rest.issues.createComment({
+                  owner,
+                  repo,
+                  issue_number: issue.number,
+                  body: '🔒 Auto-closing this issue as newer security check results are available.'
+                });
+              }
+            } catch (error) {
+              console.error('Failed to cleanup old issues:', error);
+            }

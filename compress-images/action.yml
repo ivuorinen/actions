@@ -1,37 +1,36 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 #
 # Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
 # Open a Pull Request if any images can be compressed.
 name: Compress Images
+description: Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
+author: Ismo Vuorinen
 
-on:
-  workflow_call:
-  schedule:
-    - cron: '0 23 * * 0'
+branding:
+  icon: image
+  color: blue
 
-jobs:
-  compress:
-    runs-on: ubuntu-latest
+runs:
+  using: composite
+  steps:
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
 
-    steps:
-      - name: Set Git Config
-        uses: ivuorinen/actions/composite-set-git-config@main
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-      - name: Checkout Repository
-        uses: actions/checkout@v2
+    - name: Compress Images
+      uses: calibreapp/image-actions@main
+      with:
+        compressOnly: true
+        githubToken: ${{ steps.set-git-config.outputs.token }}
 
-      - name: Compress Images
-        uses: calibreapp/image-actions@main
-        with:
-          compressOnly: true
-          githubToken: ${{ steps.composite-set-git-config.outputs.token }}
-
-      - name: Create New Pull Request If Needed
-        if: steps.calibre.outputs.markdown != ''
-        uses: peter-evans/create-pull-request@v7
-        with:
-          title: Compressed Images Nightly
-          branch-suffix: timestamp
-          commit-message: Compressed Images
-          body: ${{ steps.calibre.outputs.markdown }}
+    - name: Create New Pull Request If Needed
+      if: steps.calibre.outputs.markdown != ''
+      uses: peter-evans/create-pull-request@v7
+      with:
+        title: Compressed Images Nightly
+        branch-suffix: timestamp
+        commit-message: Compressed Images
+        body: ${{ steps.calibre.outputs.markdown }}

@@ -1,35 +1,22 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: PHP Tests
+description: Run PHPUnit tests on the repository
+author: Ismo Vuorinen
 
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+branding:
+  icon: check-circle
+  color: green
 
-on:
-  workflow_dispatch:
-  workflow_call:
-    push:
-      branches:
-        - main
-        - master
-    pull_request:
-      branches:
-        - main
-        - master
+runs:
+  using: composite
+  steps:
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
 
-jobs:
-  tests:
-    name: PHP Tests
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    steps:
-      - name: Set Git Config
-        uses: ivuorinen/actions/composite-set-git-config@main
+    - name: Composer Install
+      uses: ivuorinen/actions/php-composer@main
 
-      - name: Composer Install
-        uses: ivuorinen/actions/composite-php-composer@main
-
-      - name: Run PHPUnit Tests
-        run: vendor/bin/phpunit --verbose
+    - name: Run PHPUnit Tests
+      shell: bash
+      run: vendor/bin/phpunit --verbose

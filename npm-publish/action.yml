@@ -1,28 +1,57 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Publish to NPM
+description: 'Publishes the package to the NPM registry with configurable scope and registry URL.'
+author: 'Ismo Vuorinen'
 
-on:
-  workflow_dispatch:
-    inputs:
-      package-version:
-        description: 'The version to publish.'
-        required: true
+branding:
+  icon: package
+  color: green
 
-jobs:
-  publish:
-    runs-on: ubuntu-latest
+inputs:
+  registry-url:
+    description: 'Registry URL for publishing.'
+    required: false
+    default: 'https://registry.npmjs.org/'
+  scope:
+    description: 'Package scope to use.'
+    required: false
+    default: '@ivuorinen'
+  package-version:
+    description: 'The version to publish.'
+    required: false
+    default: ${{ github.event.release.tag_name }}
 
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
+runs:
+  using: composite
+  steps:
+    - name: Setup Node.js
+      uses: ivuorinen/actions/node-setup@main
 
-      - name: Set Git Config
-        uses: ivuorinen/actions/composite-set-git-config@main
+    - name: Authenticate NPM
+      shell: bash
+      run: |
+        echo "//${{ inputs.registry-url }}/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
 
-      - name: Publish Package
-        uses: ivuorinen/actions/composite-npm-publish@main
-        with:
-          registry-url: 'https://registry.npmjs.org/'
-          scope: '@ivuorinen'
-          package-version: ${{ inputs.package-version }}
+    - name: Publish Package
+      shell: bash
+      env:
+        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+      run: |
+        pkg_version=$(node -p "require('./package.json').version")
+        if [ "$pkg_version" != "${{ inputs.package-version }}" ]; then
+          echo "Version mismatch: package.json ($pkg_version) != input (${{ inputs.package-version }})"
+          exit 1
+        fi
+
+        # Dry run first
+        npm publish \
+          --registry ${{ inputs.registry-url }} \
+          --dry-run \
+          --scope ${{ inputs.scope }}
+
+        npm publish \
+          --registry ${{ inputs.registry-url }} \
+          --verbose \
+          --scope ${{ inputs.scope }} \
+          --tag ${{ inputs.package-version }}
