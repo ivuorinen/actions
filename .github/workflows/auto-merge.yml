@@ -52,7 +52,7 @@ jobs:
           private-key: ${{ secrets.APP_PRIVATE_KEY }}
 
       - name: Auto Merge PR
-        uses: pascalgn/automerge-action@v0.15.6
+        uses: pascalgn/automerge-action@v0.16.4
         env:
           GITHUB_TOKEN: ${{ steps.check-secrets.outputs.use_github_token == 'true' && github.token || steps.generate-token.outputs.token }}
           MERGE_LABELS: 'dependencies,automated-pr,!work-in-progress,!do-not-merge'
