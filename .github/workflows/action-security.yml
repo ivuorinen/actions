@@ -60,7 +60,7 @@ jobs:
           fi
 
       - name: Run actionlint
-        uses: raven-actions/actionlint@v3.0.0
+        uses: raven-actions/actionlint@v2
         with:
           fail-on-error: true
           use-problem-matcher: true

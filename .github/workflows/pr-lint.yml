@@ -76,7 +76,6 @@ jobs:
         env:
           PARALLEL: true # Run linters in parallel
           FILTER_REGEX_EXCLUDE: '(\.automation/test|docs/json-schemas|\.github/workflows)'
-          DEFAULT_WORKSPACE: ${{ github.workspace }}
 
           # Error configuration
           ERROR_ON_MISSING_EXEC_BIT: true
