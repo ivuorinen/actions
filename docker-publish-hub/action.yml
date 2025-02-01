@@ -1,0 +1,258 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Docker Publish to Docker Hub
+description: 'Publishes a Docker image to Docker Hub with enhanced security and reliability features.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: 'package'
+  color: 'blue'
+
+inputs:
+  image-name:
+    description: 'The name of the Docker image to publish. Defaults to the repository name.'
+    required: false
+  tags:
+    description: 'Comma-separated list of tags for the Docker image.'
+    required: true
+  platforms:
+    description: 'Platforms to publish (comma-separated). Defaults to amd64 and arm64.'
+    required: false
+    default: 'linux/amd64,linux/arm64'
+  username:
+    description: 'Docker Hub username'
+    required: true
+  password:
+    description: 'Docker Hub password or access token'
+    required: true
+  repository-description:
+    description: 'Update Docker Hub repository description'
+    required: false
+  readme-file:
+    description: 'Path to README file to update on Docker Hub'
+    required: false
+    default: 'README.md'
+  provenance:
+    description: 'Enable SLSA provenance generation'
+    required: false
+    default: 'true'
+  sbom:
+    description: 'Generate Software Bill of Materials'
+    required: false
+    default: 'true'
+  max-retries:
+    description: 'Maximum number of retry attempts for publishing'
+    required: false
+    default: '3'
+  retry-delay:
+    description: 'Delay in seconds between retries'
+    required: false
+    default: '10'
+
+outputs:
+  image-name:
+    description: 'Full image name including registry'
+    value: ${{ steps.metadata.outputs.full-name }}
+  digest:
+    description: 'The digest of the published image'
+    value: ${{ steps.publish.outputs.digest }}
+  tags:
+    description: 'List of published tags'
+    value: ${{ steps.metadata.outputs.tags }}
+  repo-url:
+    description: 'Docker Hub repository URL'
+    value: ${{ steps.metadata.outputs.repo-url }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate image name format
+        if [ -n "${{ inputs.image-name }}" ]; then
+          if ! [[ "${{ inputs.image-name }}" =~ ^[a-z0-9]+(?:[._-][a-z0-9]+)*$ ]]; then
+            echo "::error::Invalid image name format"
+            exit 1
+          fi
+        fi
+
+        # Validate tags
+        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+        for tag in "${TAGS[@]}"; do
+          if ! [[ "$tag" =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?|latest|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
+            echo "::error::Invalid tag format: $tag"
+            exit 1
+          fi
+        done
+
+        # Validate platforms
+        IFS=',' read -ra PLATFORMS <<< "${{ inputs.platforms }}"
+        for platform in "${PLATFORMS[@]}"; do
+          if ! [[ "$platform" =~ ^linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x)$ ]]; then
+            echo "::error::Invalid platform: $platform"
+            exit 1
+          fi
+        done
+
+        # Validate credentials (without exposing them)
+        if [ -z "${{ inputs.username }}" ] || [ -z "${{ inputs.password }}" ]; then
+          echo "::error::Docker Hub credentials are required"
+          exit 1
+        fi
+
+    - name: Set up QEMU
+      uses: docker/setup-qemu-action@v3
+      with:
+        platforms: ${{ inputs.platforms }}
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      with:
+        platforms: ${{ inputs.platforms }}
+
+    - name: Prepare Metadata
+      id: metadata
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Determine image name
+        if [ -z "${{ inputs.image-name }}" ]; then
+          image_name=$(basename $GITHUB_REPOSITORY)
+        else
+          image_name="${{ inputs.image-name }}"
+        fi
+
+        # Construct full image name
+        full_name="${{ inputs.username }}/${image_name}"
+        echo "full-name=${full_name}" >> $GITHUB_OUTPUT
+
+        # Process tags
+        processed_tags=""
+        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+        for tag in "${TAGS[@]}"; do
+          processed_tags="${processed_tags}${full_name}:${tag},"
+        done
+        processed_tags=${processed_tags%,}
+        echo "tags=${processed_tags}" >> $GITHUB_OUTPUT
+
+        # Generate repository URL
+        echo "repo-url=https://hub.docker.com/r/${full_name}" >> $GITHUB_OUTPUT
+
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ inputs.username }}
+        password: ${{ inputs.password }}
+
+    - name: Set up Cosign
+      if: inputs.provenance == 'true'
+      uses: sigstore/cosign-installer@v3
+
+    - name: Update Docker Hub Description
+      if: inputs.repository-description != '' || inputs.readme-file != ''
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Install Docker Hub API client
+        pip install docker-hub-api
+
+        # Update repository description
+        if [ -n "${{ inputs.repository-description }}" ]; then
+          docker-hub-api update-repo \
+            --user "${{ inputs.username }}" \
+            --password "${{ inputs.password }}" \
+            --name "${{ steps.metadata.outputs.full-name }}" \
+            --description "${{ inputs.repository-description }}"
+        fi
+
+        # Update README
+        if [ -f "${{ inputs.readme-file }}" ]; then
+          docker-hub-api update-repo \
+            --user "${{ inputs.username }}" \
+            --password "${{ inputs.password }}" \
+            --name "${{ steps.metadata.outputs.full-name }}" \
+            --full-description "$(cat ${{ inputs.readme-file }})"
+        fi
+
+    - name: Publish Image
+      id: publish
+      shell: bash
+      env:
+        DOCKER_BUILDKIT: 1
+      run: |
+        set -euo pipefail
+
+        attempt=1
+        max_attempts=${{ inputs.max-retries }}
+
+        while [ $attempt -le $max_attempts ]; do
+          echo "Publishing attempt $attempt of $max_attempts"
+
+          if docker buildx build \
+            --platform=${{ inputs.platforms }} \
+            --tag ${{ steps.metadata.outputs.tags }} \
+            --push \
+            ${{ inputs.provenance == 'true' && '--provenance=true' || '' }} \
+            ${{ inputs.sbom == 'true' && '--sbom=true' || '' }} \
+            --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            .; then
+
+            # Get image digest
+            digest=$(docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${TAGS[0]} --raw)
+            echo "digest=${digest}" >> $GITHUB_OUTPUT
+
+            break
+          fi
+
+          attempt=$((attempt + 1))
+          if [ $attempt -le $max_attempts ]; then
+            echo "Publish failed, waiting ${{ inputs.retry-delay }} seconds before retry..."
+            sleep ${{ inputs.retry-delay }}
+          else
+            echo "::error::Publishing failed after $max_attempts attempts"
+            exit 1
+          fi
+        done
+
+    - name: Verify Publication
+      id: verify
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Verify image existence and accessibility
+        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+        for tag in "${TAGS[@]}"; do
+          if ! docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${tag} >/dev/null 2>&1; then
+            echo "::error::Published image not found: $tag"
+            exit 1
+          fi
+        done
+
+        # Verify platforms
+        IFS=',' read -ra PLATFORMS <<< "${{ inputs.platforms }}"
+        for platform in "${PLATFORMS[@]}"; do
+          if ! docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${TAGS[0]} | grep -q "$platform"; then
+            echo "::warning::Platform $platform not found in published image"
+          fi
+        done
+
+    - name: Clean up
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Remove temporary files and cleanup Docker cache
+        docker buildx prune -f --keep-storage=10GB
+
+        # Logout from Docker Hub
+        docker logout

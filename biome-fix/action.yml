@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Biome Fix
+description: Run Biome fix on the repository
+author: Ismo Vuorinen
+
+branding:
+  icon: check-circle
+  color: green
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
+
+    - name: Node Setup
+      uses: ivuorinen/actions/node-setup@main
+
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        npm install -g biome
+
+    - name: Run Biome Fix
+      shell: bash
+      run: |
+        biome fix .
+
+    - name: Push Fixes
+      if: success()
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: 'style: autofix Biome violations'
+        add_options: '-u'

@@ -1,5 +1,8 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: pre-commit
-description: "Runs pre-commit on the repository and pushes the fixes back to the repository"
+description: 'Runs pre-commit on the repository and pushes the fixes back to the repository'
+author: 'Ismo Vuorinen'
 
 branding:
   icon: check-square
@@ -7,23 +10,24 @@ branding:
 
 inputs:
   pre-commit-config:
-    description: "pre-commit configuration file"
-    required: true
+    description: 'pre-commit configuration file'
+    required: false
+    default: '.pre-commit-config.yaml'
   base-branch:
-    description: "Base branch to compare against"
+    description: 'Base branch to compare against'
     required: false
   token:
-    description: "GitHub Token"
+    description: 'GitHub Token'
     required: false
     default: ${{ github.token }}
   commit_user:
-    description: "Commit user"
+    description: 'Commit user'
     required: false
-    default: "GitHub Actions"
+    default: 'GitHub Actions'
   commit_email:
-    description: "Commit email"
+    description: 'Commit email'
     required: false
-    default: "github-actions@github.com"
+    default: 'github-actions@github.com'
 
 runs:
   using: composite
@@ -54,5 +58,5 @@ runs:
       if: always() # Push changes even when pre-commit fails
       uses: stefanzweifel/git-auto-commit-action@v5
       with:
-        commit_message: "style(pre-commit): autofix"
+        commit_message: 'style(pre-commit): autofix'
         add_options: -u

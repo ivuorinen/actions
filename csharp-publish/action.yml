@@ -1,0 +1,56 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: C# Publish
+description: 'Publishes a C# project to GitHub Packages.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  dotnet-version:
+    description: 'Version of .NET SDK to use.'
+    required: false
+  namespace:
+    description: 'GitHub namespace for the package.'
+    required: true
+    default: 'ivuorinen'
+
+runs:
+  using: composite
+  steps:
+    - name: Detect .NET SDK Version
+      uses: ivuorinen/actions/dotnet-version-detect@main
+      with:
+        default-version: '7.0'
+
+    - name: Setup .NET SDK
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '${{ steps.detect-dotnet-version.outputs.dotnet-version }}'
+
+    - name: Restore Dependencies
+      shell: bash
+      run: dotnet restore
+
+    - name: Build Solution
+      shell: bash
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Pack Solution
+      shell: bash
+      run: dotnet pack --configuration Release --output ./artifacts
+
+    - name: Publish Package
+      shell: bash
+      run: dotnet nuget push ./artifacts/*.nupkg \
+        --api-key ${{ secrets.GITHUB_TOKEN }} \
+        --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
+        --skip-duplicate \
+        --no-symbols \
+        || (sleep 5 && dotnet nuget push ./artifacts/*.nupkg \
+        --api-key ${{ secrets.GITHUB_TOKEN }} \
+        --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
+        --skip-duplicate \
+        --no-symbols)

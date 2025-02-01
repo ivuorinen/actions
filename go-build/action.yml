@@ -1,0 +1,34 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Go Build
+description: 'Builds the Go project.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  go-version:
+    description: 'Go version to use.'
+    required: false
+  destination:
+    description: 'Build destination directory.'
+    required: false
+    default: './bin'
+
+runs:
+  using: composite
+  steps:
+    - name: Detect Go Version
+      uses: ivuorinen/actions/go-version-detect@main
+
+    - name: Setup Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '${{ steps.detect-go-version.outputs.go-version }}'
+
+    - name: Build Go Project
+      shell: bash
+      run: |
+        go build -o ${{ inputs.destination }} ./...

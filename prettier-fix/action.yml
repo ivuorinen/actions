@@ -1,0 +1,38 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Prettier Fix
+description: Run Prettier to fix code style violations
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: 'code'
+  color: 'blue'
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
+
+    - name: Node Setup
+      uses: ivuorinen/actions/node-setup@main
+
+    - name: Install Dependencies
+      shell: bash
+      run: |
+        npm install
+
+    - name: Run Prettier Fix
+      shell: bash
+      run: |
+        npx prettier --write .
+
+    - name: Push Fixes
+      if: always()
+      uses: stefanzweifel/git-auto-commit-action@v5
+      with:
+        commit_message: 'style: autofix Prettier violations'
+        add_options: '-u'

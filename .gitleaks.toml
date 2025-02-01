@@ -1,0 +1,21 @@
+[allowlist]
+description = "Allowlisted files"
+paths = [
+    '''node_modules''',
+    '''.git''',
+    '''dist''',
+    '''yarn.lock''',
+    '''package-lock.json''',
+    '''pnpm-lock.yaml'''
+]
+
+[rules]
+    [rules.github-token]
+    description = "GitHub Token"
+    regex = '''ghp_[0-9a-zA-Z]{36}'''
+    tags = ["token", "github"]
+
+    [rules.secrets]
+    description = "Generic Secret Pattern"
+    regex = '''(?i)(secret|token|key|password|cert)[\s]*[=:]\s*['"][^'"]*['"]'''
+    tags = ["key", "secret"]

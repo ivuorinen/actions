@@ -1,0 +1,22 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: PHP Tests
+description: Run PHPUnit tests on the repository
+author: Ismo Vuorinen
+
+branding:
+  icon: check-circle
+  color: green
+
+runs:
+  using: composite
+  steps:
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
+
+    - name: Composer Install
+      uses: ivuorinen/actions/php-composer@main
+
+    - name: Run PHPUnit Tests
+      shell: bash
+      run: vendor/bin/phpunit --verbose

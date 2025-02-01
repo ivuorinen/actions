@@ -1,0 +1,260 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Action Security
+
+on:
+  push:
+    paths:
+      - '**/action.yml'
+      - '**/action.yaml'
+  pull_request:
+    paths:
+      - '**/action.yml'
+      - '**/action.yaml'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze Action Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    permissions:
+      contents: read
+      security-events: write
+      actions: read
+      pull-requests: read
+      statuses: write
+      issues: write
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check Required Configurations
+        id: check-configs
+        shell: bash
+        run: |
+          # Initialize all flags as false
+          {
+            echo "run_gitleaks=false"
+            echo "run_trivy=true"
+          } >> "$GITHUB_OUTPUT"
+
+          # Check Gitleaks configuration and license
+          if [ -f ".gitleaks.toml" ] && [ -n "${{ secrets.GITLEAKS_LICENSE }}" ]; then
+            echo "Gitleaks config and license found"
+            echo "run_gitleaks=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Gitleaks config or license missing - skipping Gitleaks scan"
+          fi
+
+      - name: Run actionlint
+        uses: raven-actions/actionlint@v2
+        with:
+          cache: true
+          fail-on-error: true
+          shellcheck: false
+
+      - name: Run Gitleaks
+        if: steps.check-configs.outputs.run_gitleaks == 'true'
+        uses: gitleaks/gitleaks-action@v2.3.2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_LICENSE: ${{ secrets.GITLEAKS_LICENSE }}
+        with:
+          config-path: .gitleaks.toml
+          report-format: sarif
+          report-path: gitleaks-report.sarif
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          security-checks: 'vuln,config,secret'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+          timeout: '10m'
+
+      - name: Verify SARIF files
+        id: verify-sarif
+        shell: bash
+        run: |
+          # Initialize outputs
+          {
+            echo "has_trivy=false"
+            echo "has_gitleaks=false"
+          } >> "$GITHUB_OUTPUT"
+
+          # Check Trivy results
+          if [ -f "trivy-results.sarif" ]; then
+            if jq -e . </dev/null 2>&1 <"trivy-results.sarif"; then
+              echo "has_trivy=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "::warning::Trivy SARIF file exists but is not valid JSON"
+            fi
+          fi
+
+          # Check Gitleaks results if it ran
+          if [ "${{ steps.check-configs.outputs.run_gitleaks }}" = "true" ]; then
+            if [ -f "gitleaks-report.sarif" ]; then
+              if jq -e . </dev/null 2>&1 <"gitleaks-report.sarif"; then
+                echo "has_gitleaks=true" >> "$GITHUB_OUTPUT"
+              else
+                echo "::warning::Gitleaks SARIF file exists but is not valid JSON"
+              fi
+            fi
+          fi
+
+      - name: Upload Trivy results
+        if: steps.verify-sarif.outputs.has_trivy == 'true'
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'trivy-results.sarif'
+          category: 'trivy'
+
+      - name: Upload Gitleaks results
+        if: steps.verify-sarif.outputs.has_gitleaks == 'true'
+        uses: github/codeql-action/upload-sarif@v2
+        with:
+          sarif_file: 'gitleaks-report.sarif'
+          category: 'gitleaks'
+
+      - name: Archive security reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-reports-${{ github.run_id }}
+          path: |
+            ${{ steps.verify-sarif.outputs.has_trivy == 'true' && 'trivy-results.sarif' || '' }}
+            ${{ steps.verify-sarif.outputs.has_gitleaks == 'true' && 'gitleaks-report.sarif' || '' }}
+          retention-days: 30
+
+      - name: Analyze Results
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+
+            try {
+              let totalIssues = 0;
+              let criticalIssues = 0;
+
+              const analyzeSarif = (file, tool) => {
+                if (!fs.existsSync(file)) {
+                  console.log(`No results file found for ${tool}`);
+                  return null;
+                }
+
+                try {
+                  const sarif = JSON.parse(fs.readFileSync(file, 'utf8'));
+                  return sarif.runs.reduce((acc, run) => {
+                    if (!run.results) return acc;
+
+                    const critical = run.results.filter(r =>
+                      r.level === 'error' ||
+                      r.level === 'critical' ||
+                      (r.ruleId || '').toLowerCase().includes('critical')
+                    ).length;
+
+                    return {
+                      total: acc.total + run.results.length,
+                      critical: acc.critical + critical
+                    };
+                  }, { total: 0, critical: 0 });
+                } catch (error) {
+                  console.log(`Error analyzing ${tool} results: ${error.message}`);
+                  return null;
+                }
+              };
+
+              // Only analyze results from tools that ran successfully
+              const results = {
+                trivy: ${{ steps.verify-sarif.outputs.has_trivy }} ?
+                  analyzeSarif('trivy-results.sarif', 'trivy') : null,
+                gitleaks: ${{ steps.verify-sarif.outputs.has_gitleaks }} ?
+                  analyzeSarif('gitleaks-report.sarif', 'gitleaks') : null
+              };
+
+              // Aggregate results
+              Object.entries(results).forEach(([tool, result]) => {
+                if (result) {
+                  totalIssues += result.total;
+                  criticalIssues += result.critical;
+                  console.log(`${tool}: ${result.total} total, ${result.critical} critical issues`);
+                }
+              });
+
+              // Create summary
+              const summary = `## Security Scan Summary
+
+              - Total Issues Found: ${totalIssues}
+              - Critical Issues: ${criticalIssues}
+
+              ### Tool Breakdown
+              ${Object.entries(results)
+                .filter(([_, r]) => r)
+                .map(([tool, r]) =>
+                  `- ${tool}: ${r.total} total, ${r.critical} critical`
+                ).join('\n')}
+
+              ### Tools Run Status
+              - Trivy: ${{ steps.verify-sarif.outputs.has_trivy }}
+              - Gitleaks: ${{ steps.check-configs.outputs.run_gitleaks }}
+              `;
+
+              // Set output
+              core.setOutput('total_issues', totalIssues);
+              core.setOutput('critical_issues', criticalIssues);
+
+              // Add job summary
+              await core.summary
+                .addRaw(summary)
+                .write();
+
+              // Fail if critical issues found
+              if (criticalIssues > 0) {
+                core.setFailed(`Found ${criticalIssues} critical security issues`);
+              }
+            } catch (error) {
+              core.setFailed(`Analysis failed: ${error.message}`);
+            }
+
+      - name: Notify on Critical Issues
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { repo, owner } = context.repo;
+            const critical = core.getInput('critical_issues');
+
+            const body = `🚨 Critical security issues found in GitHub Actions
+
+            ${critical} critical security issues were found during the security scan.
+
+            ### Scan Results
+            - Trivy: ${{ steps.verify-sarif.outputs.has_trivy == 'true' && 'Completed' || 'Skipped/Failed' }}
+            - Gitleaks: ${{ steps.check-configs.outputs.run_gitleaks == 'true' && 'Completed' || 'Skipped' }}
+
+            [View detailed scan results](https://github.com/${owner}/${repo}/actions/runs/${context.runId})
+
+            Please address these issues immediately.
+
+            > Note: Some security tools might have been skipped due to missing configurations.
+            > Check the workflow run for details.`;
+
+            await github.rest.issues.create({
+              owner,
+              repo,
+              title: '🚨 Critical Security Issues in Actions',
+              body,
+              labels: ['security', 'critical', 'actions'],
+              assignees: ['ivuorinen']
+            });

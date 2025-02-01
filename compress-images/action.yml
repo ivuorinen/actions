@@ -1,45 +1,37 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 #
 # Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
 # Open a Pull Request if any images can be compressed.
-name: Compress Images on Demand
+name: Compress Images
+description: Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
+author: Ismo Vuorinen
 
-on:
-  workflow_dispatch:
-  workflow_call:
-  schedule:
-    - cron: '00 23 * * 0'
+branding:
+  icon: image
+  color: blue
 
-jobs:
-  CompressOnDemandOrSchedule:
-    name: calibreapp/image-actions
+runs:
+  using: composite
+  steps:
+    - name: Set Git Config
+      uses: ivuorinen/actions/set-git-config@main
 
-    runs-on: ubuntu-latest
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-    permissions:
-      contents: write
-      statuses: write
-      pull-requests: write
+    - name: Compress Images
+      id: calibre
+      uses: calibreapp/image-actions@main
+      with:
+        compressOnly: true
+        githubToken: ${{ steps.set-git-config.outputs.token }}
 
-    steps:
-      - uses: ivuorinen/actions/set-git-config@main
-
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Compress Images
-        id: calibre
-        uses: calibreapp/image-actions@main
-        with:
-          githubToken: ${{ secrets.GITHUB_TOKEN }}
-          compressOnly: true
-
-      - name: Create New Pull Request If Needed
-        if: steps.calibre.outputs.markdown != ''
-        uses: peter-evans/create-pull-request@v7
-        with:
-          title: Compressed Images Nightly
-          branch-suffix: timestamp
-          commit-message: Compressed Images
-          body: ${{ steps.calibre.outputs.markdown }}
+    - name: Create New Pull Request If Needed
+      if: steps.calibre.outputs.markdown != ''
+      uses: peter-evans/create-pull-request@v7
+      with:
+        title: Compressed Images Nightly
+        branch-suffix: timestamp
+        commit-message: Compressed Images
+        body: ${{ steps.calibre.outputs.markdown }}

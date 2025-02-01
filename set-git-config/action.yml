@@ -1,31 +1,75 @@
-name: set-git-config
-description: "Sets git config for the action"
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Set Git Config
+description: 'Sets Git configuration for actions.'
+author: 'Ismo Vuorinen'
 
 branding:
-  icon: settings
+  icon: git-commit
   color: gray-dark
 
 inputs:
   token:
-    description: "GitHub token"
-    required: true
+    description: 'GitHub token.'
+    required: false
+    default: '${{ secrets.GITHUB_TOKEN }}'
   username:
-    description: "GitHub username action should use"
-    default: "github-actions"
-    format: string
+    description: 'GitHub username for commits.'
+    default: 'github-actions'
   email:
-    description: "GitHub email action should use"
-    default: "github-actions@github.com"
-    format: email
+    description: 'GitHub email for commits.'
+    default: 'github-actions@github.com'
+
+outputs:
+  token:
+    description: 'GitHub token.'
+    value: ${{ steps.bot.outputs.token }}
+  username:
+    description: 'GitHub username for commits.'
+    value: ${{ steps.bot.outputs.username }}
+  email:
+    description: 'GitHub email for commits.'
+    value: ${{ steps.bot.outputs.email }}
 
 runs:
   using: composite
   steps:
-    - name: Set git config
+    - name: Check for FIXIMUS_TOKEN
+      id: bot
       run: |
+        if [ -n "${{ secrets.FIXIMUS_TOKEN }}" ]; then
+          echo "token=${{ secrets.FIXIMUS_TOKEN }}" >> $GITHUB_OUTPUT
+          echo "username=fiximus" >> $GITHUB_OUTPUT
+          echo "email=github-bot@ivuorinen.net" >> $GITHUB_OUTPUT
+        else
+          echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
+          echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
+          echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
+        fi
+      shell: bash
+
+    - name: Configure Git
+      run: |
+        # Function to clean up Git config
+        cleanup_git_config() {
+          git config --local --unset-all "url.https://x-access-token:${TOKEN}@github.com/.insteadof" || true
+          git config --local --unset-all "user.name" || true
+          git config --local --unset-all "user.email" || true
+        }
+
+        # Set up trap to ensure cleanup on exit
+        trap cleanup_git_config EXIT
+
+        # Store token in variable to avoid repeated exposure
+        TOKEN="${{ steps.bot.outputs.token }}"
+
         git config --local --unset-all http.https://github.com/.extraheader || true
-        git config --global --add url.https://x-access-token:${{ inputs.token }}@github.com/.insteadOf 'https://github.com/'
-        git config --global --add url.https://x-access-token:${{ inputs.token }}@github.com/.insteadOf 'git@github.com:'
-        git config --global user.name ${{ inputs.username }}
-        git config --global user.email ${{ inputs.email }}
+        git config --local \
+          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          "https://github.com/"
+        git config --local \
+          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          'git@github.com:'
+        git config --local user.name "${{ steps.bot.outputs.username }}"
+        git config --local user.email "${{ steps.bot.outputs.email }}"
       shell: bash

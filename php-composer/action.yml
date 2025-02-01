@@ -1,59 +1,252 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
-name: Run Composer Install on defined PHP version
-description: "Runs Composer install on the repository"
-author: "Ismo Vuorinen"
+name: Run Composer Install
+description: 'Runs Composer install on a repository with advanced caching and configuration.'
+author: 'Ismo Vuorinen'
+
 branding:
-  icon: package
+  icon: server
   color: gray-dark
 
 inputs:
   php:
-    description: 'PHP Version to use'
+    description: 'PHP Version to use.'
     required: true
-    default: "8.3"
+    default: '8.4'
+  extensions:
+    description: 'Comma-separated list of PHP extensions to install'
+    required: false
+    default: 'mbstring, xml, zip, curl, json'
+  tools:
+    description: 'Comma-separated list of Composer tools to install'
+    required: false
+    default: 'composer:v2'
   args:
-    description: 'Arguments to pass to Composer'
+    description: 'Arguments to pass to Composer.'
     required: false
     default: '--no-progress --prefer-dist --optimize-autoloader'
+  composer-version:
+    description: 'Composer version to use (1 or 2)'
+    required: false
+    default: '2'
+  stability:
+    description: 'Minimum stability (stable, RC, beta, alpha, dev)'
+    required: false
+    default: 'stable'
+  cache-directories:
+    description: 'Additional directories to cache (comma-separated)'
+    required: false
+    default: ''
+  token:
+    description: 'GitHub token for private repository access'
+    required: false
+    default: ${{ github.token }}
+  max-retries:
+    description: 'Maximum number of retry attempts for Composer commands'
+    required: false
+    default: '3'
 
 outputs:
   lock:
-    description: "composer.lock or composer.json file hash"
+    description: 'composer.lock or composer.json file hash'
     value: ${{ steps.hash.outputs.lock }}
+  php-version:
+    description: 'Installed PHP version'
+    value: ${{ steps.php.outputs.version }}
+  composer-version:
+    description: 'Installed Composer version'
+    value: ${{ steps.composer.outputs.version }}
+  cache-hit:
+    description: 'Indicates if there was a cache hit'
+    value: ${{ steps.composer-cache.outputs.cache-hit }}
 
 runs:
   using: composite
-
   steps:
-    - name: Get composer.lock or composer.json hash for caching
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate PHP version
+        if ! [[ "${{ inputs.php }}" =~ ^([5-9]\.[0-9]+|[1-9][0-9]+\.[0-9]+)$ ]]; then
+          echo "::error::Invalid PHP version format: ${{ inputs.php }}"
+          exit 1
+        fi
+
+        # Validate Composer version
+        if ! [[ "${{ inputs.composer-version }}" =~ ^[12]$ ]]; then
+          echo "::error::Invalid Composer version: ${{ inputs.composer-version }}"
+          exit 1
+        fi
+
+        # Validate stability
+        if ! [[ "${{ inputs.stability }}" =~ ^(stable|RC|beta|alpha|dev)$ ]]; then
+          echo "::error::Invalid stability option: ${{ inputs.stability }}"
+          exit 1
+        fi
+
+    - name: Setup PHP
+      id: php
+      uses: shivammathur/setup-php@v2
+      with:
+        php-version: ${{ inputs.php }}
+        extensions: ${{ inputs.extensions }}
+        tools: ${{ inputs.tools }}
+        coverage: none
+        ini-values: memory_limit=1G, max_execution_time=600
+        fail-fast: true
+
+    - name: Get Dependency Hashes
       id: hash
       shell: bash
       run: |
+        set -euo pipefail
+
+        # Function to calculate directory hash
+        calculate_dir_hash() {
+          local dir=$1
+          if [ -d "$dir" ]; then
+            find "$dir" -type f -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1
+          fi
+        }
+
+        # Get composer.lock hash or composer.json hash
         if [ -f composer.lock ]; then
           echo "lock=${{ hashFiles('**/composer.lock') }}" >> $GITHUB_OUTPUT
         else
           echo "lock=${{ hashFiles('**/composer.json') }}" >> $GITHUB_OUTPUT
         fi
 
+        # Calculate additional directory hashes
+        if [ -n "${{ inputs.cache-directories }}" ]; then
+          IFS=',' read -ra DIRS <<< "${{ inputs.cache-directories }}"
+          for dir in "${DIRS[@]}"; do
+            dir_hash=$(calculate_dir_hash "$dir")
+            if [ -n "$dir_hash" ]; then
+              echo "${dir}_hash=$dir_hash" >> $GITHUB_OUTPUT
+            fi
+          done
+        fi
+
+    - name: Configure Composer
+      id: composer
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Configure Composer environment
+        composer config --global process-timeout 600
+        composer config --global allow-plugins true
+        composer config --global github-oauth.github.com "${{ inputs.token }}"
+
+        if [ "${{ inputs.stability }}" != "stable" ]; then
+          composer config minimum-stability ${{ inputs.stability }}
+        fi
+
+        # Verify Composer installation
+        composer_full_version=$(composer --version | grep -oP 'Composer version \K[0-9]+\.[0-9]+\.[0-9]+')
+        if [ -z "$composer_full_version" ]; then
+          echo "::error::Failed to detect Composer version"
+          exit 1
+        fi
+
+        # Extract major version for comparison
+        composer_major_version=${composer_full_version%%.*}
+        expected_version="${{ inputs.composer-version }}"
+
+        echo "Detected Composer version: $composer_full_version (major: $composer_major_version)"
+
+        if [ "$composer_major_version" != "$expected_version" ]; then
+          echo "::error::Composer major version mismatch. Expected $expected_version.x, got $composer_full_version"
+          exit 1
+        fi
+
+        # Store full version for output
+        echo "version=$composer_full_version" >> "$GITHUB_OUTPUT"
+
+        # Log Composer configuration
+        echo "Composer Configuration:"
+        composer config --list
+
     - name: Cache Composer packages
       id: composer-cache
       uses: actions/cache@v4
       with:
-        path: vendor
-        key: ${{ runner.os }}-php-${{ inputs.php }}-${{ runs.hash.outputs.lock }}
+        path: |
+          vendor
+          ~/.composer/cache
+          ${{ inputs.cache-directories }}
+        key: ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-${{ steps.hash.outputs.lock }}
         restore-keys: |
-          ${{ runner.os }}-php-${{ inputs.php }}-${{ runs.hash.outputs.lock }}
+          ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-
+          ${{ runner.os }}-php-${{ inputs.php }}-composer-
           ${{ runner.os }}-php-${{ inputs.php }}-
-          ${{ runner.os }}-php-
 
-    - name: PHP ${{ inputs.php }}
-      uses: shivammathur/setup-php@v2
-      with:
-        php-version: ${{ inputs.php }}
-        tools: composer
-        extensions: ${{ inputs.extensions }}
-
-    - name: Composer Install
+    - name: Install Dependencies
       shell: bash
-      run: composer install ${{ inputs.args }}
+      run: |
+        set -euo pipefail
+
+        # Function to run composer with retries
+        run_composer() {
+          local attempt=1
+          local max_attempts=${{ inputs.max-retries }}
+
+          while [ $attempt -le $max_attempts ]; do
+            echo "Composer install attempt $attempt of $max_attempts"
+
+            if composer install ${{ inputs.args }}; then
+              return 0
+            fi
+
+            attempt=$((attempt + 1))
+            if [ $attempt -le $max_attempts ]; then
+              echo "Composer install failed, waiting 30 seconds before retry..."
+              sleep 30
+
+              # Clear composer cache if retry needed
+              if [ $attempt -eq $max_attempts ]; then
+                echo "Clearing Composer cache before final attempt..."
+                composer clear-cache
+              fi
+            fi
+          done
+
+          echo "::error::Composer install failed after $max_attempts attempts"
+          return 1
+        }
+
+        # Run Composer install with retry logic
+        run_composer
+
+    - name: Verify Installation
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Verify vendor directory
+        if [ ! -d "vendor" ]; then
+          echo "::error::vendor directory not found"
+          exit 1
+        fi
+
+        # Verify autoloader
+        if [ ! -f "vendor/autoload.php" ]; then
+          echo "::error::autoload.php not found"
+          exit 1
+        fi
+
+        # Check for any PHP errors in vendor
+        find vendor -name "*.php" -type f -exec php -l {} \; > /dev/null
+
+        # Verify Composer installation
+        composer validate --no-check-all --strict
+
+    - name: Generate Optimized Autoloader
+      if: success()
+      shell: bash
+      run: |
+        set -euo pipefail
+        composer dump-autoload --optimize --classmap-authoritative

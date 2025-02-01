@@ -1,46 +1,168 @@
 ---
-# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
-name: 'Release'
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Do Monthly Release
+description: 'Creates a release for the current month, incrementing patch number if necessary.'
+author: 'Ismo Vuorinen'
 
-on:
-  workflow_dispatch:
-  workflow_call:
-  schedule:
-    - cron: '0 0 1 * *' # 1st of every month at midnight
+branding:
+  icon: calendar
+  color: blue
 
-jobs:
-  release:
-    name: Release
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+inputs:
+  token:
+    description: 'GitHub token with permission to create releases.'
+    required: true
+  dry-run:
+    description: 'Run in dry-run mode without creating the release.'
+    required: false
+    default: 'false'
+  prefix:
+    description: 'Optional prefix for release tags.'
+    required: false
+    default: ''
 
-      - name: Create Release
-        shell: bash
-        env:
-          GITHUB_TOKEN: '${{ secrets.GITHUB_TOKEN }}'
-        run: |
-          # Retrieve previous release tag
-          previous_tag="$(gh release list --limit 1 | awk '{ print $1 }')"
+outputs:
+  release-tag:
+    description: 'The tag of the created release'
+    value: ${{ steps.create-release.outputs.release_tag }}
+  release-url:
+    description: 'The URL of the created release'
+    value: ${{ steps.create-release.outputs.release_url }}
+  previous-tag:
+    description: 'The previous release tag'
+    value: ${{ steps.create-release.outputs.previous_tag }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Validate Inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate token
+        if [ -z "${{ inputs.token }}" ]; then
+          echo "::error::GitHub token is required"
+          exit 1
+        fi
+
+        # Validate dry-run option
+        if [ "${{ inputs.dry-run }}" != "true" ] && [ "${{ inputs.dry-run }}" != "false" ]; then
+          echo "::error::dry-run must be either 'true' or 'false'"
+          exit 1
+        fi
+
+        # Validate prefix format if provided
+        if [ -n "${{ inputs.prefix }}" ]; then
+          if ! [[ "${{ inputs.prefix }}" =~ ^[a-zA-Z0-9_.-]*$ ]]; then
+            echo "::error::Invalid prefix format. Only alphanumeric characters, dots, underscores, and hyphens are allowed"
+            exit 1
+          fi
+        fi
+
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0 # Fetch all history for tag comparison
+
+    - name: Create Release
+      id: create-release
+      shell: bash
+      env:
+        GITHUB_TOKEN: '${{ inputs.token }}'
+      run: |
+        set -euo pipefail
+
+        # Function to validate version format
+        validate_version() {
+          local version=$1
+          if ! [[ $version =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]+$ ]]; then
+            echo "::error::Invalid version format: $version"
+            return 1
+          fi
+        }
+
+        # Function to get previous release tag with error handling
+        get_previous_tag() {
+          local previous_tag
+          previous_tag=$(gh release list --limit 1 2>/dev/null | awk '{ print $1 }') || {
+            echo "::warning::No previous releases found"
+            return 1
+          }
+          echo "$previous_tag"
+        }
+
+        # Get previous release tag
+        previous_tag=$(get_previous_tag) || previous_tag=""
+        echo "previous_tag=${previous_tag}" >> $GITHUB_OUTPUT
+
+        if [ -n "$previous_tag" ]; then
           previous_major="${previous_tag%%\.*}"
           previous_minor="${previous_tag#*.}"
           previous_minor="${previous_minor%.*}"
           previous_patch="${previous_tag##*.}"
-          # Determine next release tag
-          next_major_minor="$(date +'%Y').$(date +'%-m')"
-          if [[ "${previous_major}.${previous_minor}" == "${next_major_minor}" ]]; then
-              echo "Month release already exists for year, incrementing patch number by 1"
-              next_patch="$((previous_patch + 1))"
-          else
-              echo "Month release does not exist for year, setting patch number to 0"
-              next_patch="0"
-          fi
-          # Create release
-          release_tag="${next_major_minor}.${next_patch}"
-          gh release create "${release_tag}" \
+
+          # Validate previous tag format
+          validate_version "$previous_tag" || {
+            echo "::error::Invalid previous tag format: $previous_tag"
+            exit 1
+          }
+        fi
+
+        # Determine next release tag
+        next_major_minor="$(date +'%Y').$(date +'%-m')"
+
+        if [ -n "$previous_tag" ] && [[ "${previous_major}.${previous_minor}" == "${next_major_minor}" ]]; then
+          echo "Month release already exists for year, incrementing patch number by 1"
+          next_patch="$((previous_patch + 1))"
+        else
+          echo "Month release does not exist for year, setting patch number to 0"
+          next_patch="0"
+        fi
+
+        # Construct release tag
+        release_tag="${next_major_minor}.${next_patch}"
+        if [ -n "${{ inputs.prefix }}" ]; then
+          release_tag="${{ inputs.prefix }}${release_tag}"
+        fi
+
+        # Validate final release tag
+        validate_version "${release_tag#${{ inputs.prefix }}}" || {
+          echo "::error::Invalid release tag format: $release_tag"
+          exit 1
+        }
+
+        echo "release_tag=${release_tag}" >> $GITHUB_OUTPUT
+
+        # Create release if not in dry-run mode
+        if [ "${{ inputs.dry-run }}" = "false" ]; then
+          echo "Creating release ${release_tag}..."
+          release_url=$(gh release create "${release_tag}" \
               --repo="${GITHUB_REPOSITORY}" \
               --title="${release_tag}" \
-              --generate-notes
+              --generate-notes 2>/dev/null) || {
+            echo "::error::Failed to create release"
+            exit 1
+          }
+          echo "release_url=${release_url}" >> $GITHUB_OUTPUT
+          echo "Release created successfully: ${release_url}"
+        else
+          echo "Dry run mode - would create release: ${release_tag}"
+          echo "release_url=dry-run" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Verify Release
+      if: inputs.dry-run == 'false'
+      shell: bash
+      env:
+        GITHUB_TOKEN: '${{ inputs.token }}'
+      run: |
+        set -euo pipefail
+
+        # Verify the release was created
+        if ! gh release view "${{ steps.create-release.outputs.release_tag }}" &>/dev/null; then
+          echo "::error::Failed to verify release creation"
+          exit 1
+        fi
+
+        echo "Release verification successful"

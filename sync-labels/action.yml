@@ -1,0 +1,33 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Sync labels
+description: Sync labels from a YAML file to a GitHub repository
+author: Ismo Vuorinen
+
+inputs:
+  labels:
+    description: 'Path to the labels YAML file'
+    required: true
+    default: 'labels.yml'
+
+outputs:
+  labels:
+    description: 'Path to the labels YAML file'
+    value: ${{ inputs.labels }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: ⤵️ Download latest labels definitions
+      shell: bash
+      run: |
+        curl -s --retry 5 \
+          "https://raw.githubusercontent.com/ivuorinen/actions/refs/heads/main/sync-labels/labels.yml" \
+          > ${{ inputs.labels }}
+
+    - name: 🚀 Run Label Syncer
+      uses: micnncim/action-label-syncer@v1.3.0
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        manifest: ${{ inputs.labels }}
