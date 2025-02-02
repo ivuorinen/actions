@@ -69,7 +69,7 @@ jobs:
 
       - name: MegaLinter
         id: ml
-        uses: oxsecurity/megalinter/flavors/cupcake@839e6d63c0423eb74ce2578225f8b8b4bed63ede # v8.4.1
+        uses: oxsecurity/megalinter/flavors/cupcake@ec124f7998718d79379a3c5b39f5359952baf21d # v8.4.2
         env:
           PARALLEL: true # Run linters in parallel
           FILTER_REGEX_EXCLUDE: '(\.automation/test|docs/json-schemas|\.github/workflows)'
