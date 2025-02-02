@@ -90,7 +90,6 @@ jobs:
             --enableRetired
             --enableExperimental
             --failOnCVSS 7
-            --suppression suppressions.xml
 
       - name: Upload OWASP Results
         uses: github/codeql-action/upload-sarif@dd746615b3b9d728a6a37ca2045b68ca76d4841a # v3.28.8

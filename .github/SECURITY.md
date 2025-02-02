@@ -33,39 +33,6 @@ This repository implements:
 - Daily security scans
 - Weekly metrics collection
 
-## Vulnerability Suppressions
-
-This repository uses OWASP Dependency Check for security scanning. Some vulnerabilities may be suppressed if:
-
-1. They are false positives
-2. They affect only test/development dependencies
-3. They have been assessed and determined to not be exploitable in our context
-
-### Suppression File
-
-Suppressions are managed in `suppressions.xml` in the root directory. Each suppression must include:
-
-- Detailed notes explaining why the vulnerability is suppressed
-- Specific identifiers (CVE, package, etc.)
-- Regular review date
-
-### Adding New Suppressions
-
-To add a new suppression:
-
-1. Add the entry to `suppressions.xml`
-2. Include detailed notes explaining the reason
-3. Create a PR with the changes
-4. Get security team review
-
-### Reviewing Suppressions
-
-Suppressions are reviewed:
-
-- Monthly during security scans
-- When related dependencies are updated
-- During security audits
-
 ## Security Best Practices
 
 When using these actions:
@@ -75,7 +42,6 @@ When using these actions:
 3. Validate all inputs
 4. Set appropriate timeouts
 5. Configure required security scanners:
-   - Add `suppressions.xml` for OWASP Dependency Check
    - Add `.gitleaks.toml` for Gitleaks configuration
 
 ## Required Secrets
