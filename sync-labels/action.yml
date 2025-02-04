@@ -22,7 +22,7 @@ runs:
       shell: bash
       run: |
         curl -s --retry 5 \
-          "https://raw.githubusercontent.com/ivuorinen/actions/refs/heads/main/sync-labels/labels.yml" \
+          "https://raw.githubusercontent.com/ivuorinen/actions/main/sync-labels/labels.yml" \
           > ${{ inputs.labels }}
 
     - name: 🚀 Run Label Syncer
