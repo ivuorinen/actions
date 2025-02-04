@@ -1,7 +1,9 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
 name: Scorecard
 on:
   schedule:
-    - cron: '0 2 * * 0'
+    - cron: '0 2 * * 0' # Run every Sunday at 2:00 AM
   push:
     branches: [main]
 

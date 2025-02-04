@@ -64,7 +64,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          token: ${{ secrets.PAT || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
       - name: MegaLinter

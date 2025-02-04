@@ -11,7 +11,7 @@ on:
       - '.github/labels.yml'
       - '.github/workflows/sync-labels.yml'
   schedule:
-    - cron: '34 5 * * *' # 5:34 AM UTC every day
+    - cron: '34 5 * * *' # Run every day at 05:34 AM UTC
   workflow_call:
   workflow_dispatch:
 
@@ -132,7 +132,7 @@ jobs:
 
       - name: Run Label Syncer
         id: sync
-        uses: micnncim/action-label-syncer@3abd5e6e7981d5a790c6f8a7494374bd8c74b9c6
+        uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:

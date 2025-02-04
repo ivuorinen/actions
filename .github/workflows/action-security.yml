@@ -78,7 +78,7 @@ jobs:
         uses: aquasecurity/trivy-action@a11da62073708815958ea6d84f5650c78a3ef85b # master
         with:
           scan-type: 'fs'
-          security-checks: 'vuln,config,secret'
+          scanners: 'vuln,config,secret'
           format: 'sarif'
           output: 'trivy-results.sarif'
           severity: 'CRITICAL,HIGH'
