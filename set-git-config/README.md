@@ -8,11 +8,11 @@ Sets Git configuration for actions.
 
 ### Inputs
 
-| name       | description                         | required | default                       |
-| ---------- | ----------------------------------- | -------- | ----------------------------- |
-| `token`    | <p>GitHub token.</p>                | `false`  | `${{ secrets.GITHUB_TOKEN }}` |
-| `username` | <p>GitHub username for commits.</p> | `false`  | `github-actions`              |
-| `email`    | <p>GitHub email for commits.</p>    | `false`  | `github-actions@github.com`   |
+| name       | description                         | required | default                     |
+| ---------- | ----------------------------------- | -------- | --------------------------- |
+| `token`    | <p>GitHub token.</p>                | `false`  | `${{ github.token }}`       |
+| `username` | <p>GitHub username for commits.</p> | `false`  | `github-actions`            |
+| `email`    | <p>GitHub email for commits.</p>    | `false`  | `github-actions@github.com` |
 
 ### Outputs
 
@@ -35,7 +35,7 @@ This action is a `composite` action.
     # GitHub token.
     #
     # Required: false
-    # Default: ${{ secrets.GITHUB_TOKEN }}
+    # Default: ${{ github.token }}
 
     username:
     # GitHub username for commits.

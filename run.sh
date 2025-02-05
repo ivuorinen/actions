@@ -18,8 +18,8 @@ echo "🚀 Aloitetaan päivitys $(date)"
 
 # Check required tools
 for cmd in npx sed find grep; do
-  if ! command -v $cmd &> /dev/null; then
-    echo "❌ Error: $cmd not found" | tee -a "$log_file"
+  if ! command -v $cmd &>/dev/null; then
+    echo "⚠️ Error: $cmd not found" | tee -a "$log_file"
     exit 1
   fi
 done
@@ -36,44 +36,50 @@ fi
 # Iterate over directories
 echo "📂 Iterating over directories..."
 find . -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
-  dir=${dir#./}
-  action="./$dir/action.yml"
+  (
+    echo "🔍 Found directory: $dir"
+    dir=${dir#./}
+    action="./$dir/action.yml"
 
-  # if action doesn't exist, skip
-  if [ ! -f "$action" ]; then
-    echo "⏩ Skipping $dir - action.yml missing"
-    continue
-  fi
+    if [ -f "$action" ]; then
+      echo "📄 Found action.yml in $dir"
 
-  repo="ivuorinen/actions/$dir"
-  readme="./$dir/README.md"
-  version=$(grep -E '^# version:' "$action" | cut -d ' ' -f 2)
+      repo="ivuorinen/actions/$dir"
+      readme="./$dir/README.md"
+      version=$(grep -E '^# version:' "$action" | cut -d ' ' -f 2)
 
-  # if version doesn't exist, use 'main'
-  if [ -z "$version" ]; then
-    version="main"
-    echo "ℹ️ Version not set in $dir/action.yml, using 'main'"
-  fi
+      # if version doesn't exist, use 'main'
+      if [ -z "$version" ]; then
+        version="main"
+        echo "ℹ️ Version not set in $dir/action.yml, using 'main'"
+      fi
 
-  echo "📝 Updating $readme..."
+      echo "📝 Updating $readme..."
 
-  printf "# %s\n\n" "$repo" >"$readme"
+      printf "# %s\n\n" "$repo" >"$readme"
 
-  echo "📄 Generating action documentation..."
-  if ! npx --yes action-docs@latest \
-    --source="$action" \
-    --no-banner \
-    --include-name-header >>"$readme"; then
-    echo "⚠️ Warning: action-docs failed in $dir directory" | tee -a "$log_file"
-  fi
+      echo "📄 Generating action documentation..."
+      if ! npx --yes action-docs@latest \
+        --source="$action" \
+        --no-banner \
+        --include-name-header >>"$readme"; then
+        echo "⚠️ Warning: action-docs failed in $dir directory" | tee -a "$log_file"
+      fi
 
-  echo "🔄 Replacing placeholders in $readme..."
-  $SED_CMD "s|PROJECT|$repo|g; s|VERSION|$version|g; s|\*\*\*||g" "$readme"
+      echo "🔄 Replacing placeholders in $readme..."
+      $SED_CMD "s|PROJECT|$repo|g; s|VERSION|$version|g; s|\*\*\*||g" "$readme"
 
-  if [ -f "$readme.bak" ]; then
-    rm "$readme.bak"
-    echo "🗑️ Removed $readme.bak"
-  fi
+      if [ -f "$readme.bak" ]; then
+        rm "$readme.bak"
+        echo "🗑️  Removed $readme.bak"
+      fi
+    else
+      # if action doesn't exist, skip
+      echo "⏩ Skipping $dir - action.yml missing"
+    fi
+  ) || {
+    echo "⚠️ Warning: Error processing directory $dir" | tee -a "$log_file"
+  }
 done
 echo ""
 
@@ -105,5 +111,3 @@ if [ -f "$log_file" ]; then
   echo "- Warnings: $warnings"
 fi
 echo "- Status: ✅ Ready"
-
-echo "✅ Ready!"

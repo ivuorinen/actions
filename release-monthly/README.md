@@ -8,11 +8,11 @@ Creates a release for the current month, incrementing patch number if necessary.
 
 ### Inputs
 
-| name      | description                                              | required | default |
-| --------- | -------------------------------------------------------- | -------- | ------- |
-| `token`   | <p>GitHub token with permission to create releases.</p>  | `true`   | `""`    |
-| `dry-run` | <p>Run in dry-run mode without creating the release.</p> | `false`  | `false` |
-| `prefix`  | <p>Optional prefix for release tags.</p>                 | `false`  | `""`    |
+| name      | description                                              | required | default               |
+| --------- | -------------------------------------------------------- | -------- | --------------------- |
+| `token`   | <p>GitHub token with permission to create releases.</p>  | `true`   | `${{ github.token }}` |
+| `dry-run` | <p>Run in dry-run mode without creating the release.</p> | `false`  | `false`               |
+| `prefix`  | <p>Optional prefix for release tags.</p>                 | `false`  | `""`                  |
 
 ### Outputs
 
@@ -35,7 +35,7 @@ This action is a `composite` action.
     # GitHub token with permission to create releases.
     #
     # Required: true
-    # Default: ""
+    # Default: ${{ github.token }}
 
     dry-run:
     # Run in dry-run mode without creating the release.

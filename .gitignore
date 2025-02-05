@@ -134,3 +134,4 @@ Homestead.json
 next-env.d.ts
 
 megalinter-reports/
+./update_*

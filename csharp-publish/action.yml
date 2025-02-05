@@ -45,12 +45,12 @@ runs:
     - name: Publish Package
       shell: bash
       run: dotnet nuget push ./artifacts/*.nupkg \
-        --api-key ${{ secrets.GITHUB_TOKEN }} \
+        --api-key ${{ github.token }} \
         --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
         --skip-duplicate \
         --no-symbols \
         || (sleep 5 && dotnet nuget push ./artifacts/*.nupkg \
-        --api-key ${{ secrets.GITHUB_TOKEN }} \
+        --api-key ${{ github.token }} \
         --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
         --skip-duplicate \
         --no-symbols)
