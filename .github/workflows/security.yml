@@ -17,6 +17,7 @@ on:
       - '**/*.py'
       - '**/*.js'
       - '**/*.ts'
+  merge_group:
 
 permissions:
   contents: read

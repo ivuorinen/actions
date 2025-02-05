@@ -11,6 +11,7 @@ on:
     paths:
       - '**/action.yml'
       - '**/action.yaml'
+  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
