@@ -89,6 +89,7 @@ runs:
 
     # Set APPLY_FIXES_IF var for use in future steps
     - name: Set APPLY_FIXES_IF var
+      shell: bash
       run: |
         printf 'APPLY_FIXES_IF=%s\n' "${{
           steps.ml.outputs.has_updated_sources == 1 &&
