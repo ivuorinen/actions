@@ -19,6 +19,10 @@ inputs:
   email:
     description: 'GitHub email for commits.'
     default: 'github-actions@github.com'
+  is_fiximus:
+    description: 'Whether to use the Fiximus bot.'
+    required: false
+    default: 'false'
 
 outputs:
   token:
@@ -30,6 +34,9 @@ outputs:
   email:
     description: 'GitHub email for commits.'
     value: ${{ steps.bot.outputs.email }}
+  is_fiximus:
+    description: 'Whether to use the Fiximus bot.'
+    value: ${{ steps.bot.outputs.is_fiximus }}
 
 runs:
   using: composite
@@ -38,14 +45,13 @@ runs:
       id: bot
       shell: bash
       run: |
-        if [ -n "${{ secrets.FIXIMUS_TOKEN }}" ]; then
-          echo "token=${{ secrets.FIXIMUS_TOKEN }}" >> $GITHUB_OUTPUT
+        echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
+        echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
+        echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
+
+        if [ "${{ inputs.is_fiximus }}" != "false" ]; then
           echo "username=fiximus" >> $GITHUB_OUTPUT
           echo "email=github-bot@ivuorinen.net" >> $GITHUB_OUTPUT
-        else
-          echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
-          echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
-          echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
         fi
 
     - name: Configure Git
