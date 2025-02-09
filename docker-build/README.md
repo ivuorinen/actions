@@ -9,7 +9,7 @@ Builds a Docker image for multiple architectures with enhanced security and reli
 ### Inputs
 
 | name            | description                                                                         | required | default                                             |
-| --------------- | ----------------------------------------------------------------------------------- | -------- | --------------------------------------------------- |
+|-----------------|-------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
 | `image-name`    | <p>The name of the Docker image to build. Defaults to the repository name.</p>      | `false`  | `""`                                                |
 | `tag`           | <p>The tag for the Docker image. Must follow semver or valid Docker tag format.</p> | `true`   | `""`                                                |
 | `architectures` | <p>Comma-separated list of architectures to build for.</p>                          | `false`  | `linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6` |
@@ -23,7 +23,7 @@ Builds a Docker image for multiple architectures with enhanced security and reli
 ### Outputs
 
 | name           | description                          |
-| -------------- | ------------------------------------ |
+|----------------|--------------------------------------|
 | `image-digest` | <p>The digest of the built image</p> |
 | `metadata`     | <p>Build metadata in JSON format</p> |
 | `platforms`    | <p>Successfully built platforms</p>  |

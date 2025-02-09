@@ -36,6 +36,7 @@ runs:
   steps:
     - name: Check for FIXIMUS_TOKEN
       id: bot
+      shell: bash
       run: |
         if [ -n "${{ secrets.FIXIMUS_TOKEN }}" ]; then
           echo "token=${{ secrets.FIXIMUS_TOKEN }}" >> $GITHUB_OUTPUT
@@ -46,9 +47,9 @@ runs:
           echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
           echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
         fi
-      shell: bash
 
     - name: Configure Git
+      shell: bash
       run: |
         # Function to clean up Git config
         cleanup_git_config() {
@@ -72,4 +73,3 @@ runs:
           'git@github.com:'
         git config --local user.name "${{ steps.bot.outputs.username }}"
         git config --local user.email "${{ steps.bot.outputs.email }}"
-      shell: bash

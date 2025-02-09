@@ -9,13 +9,13 @@ Detects the Go version from the project's go.mod file or defaults to a specified
 ### Inputs
 
 | name              | description                                              | required | default |
-| ----------------- | -------------------------------------------------------- | -------- | ------- |
+|-------------------|----------------------------------------------------------|----------|---------|
 | `default-version` | <p>Default Go version to use if go.mod is not found.</p> | `false`  | `1.22`  |
 
 ### Outputs
 
 | name         | description                            |
-| ------------ | -------------------------------------- |
+|--------------|----------------------------------------|
 | `go-version` | <p>Detected or default Go version.</p> |
 
 ### Runs

@@ -14,12 +14,12 @@ handle_error() {
 }
 trap 'handle_error $LINENO' ERR
 
-echo "🚀 Aloitetaan päivitys $(date)"
+echo "🚀 Starting update $(date)"
 
 # Check required tools
 for cmd in npx sed find grep; do
   if ! command -v $cmd &>/dev/null; then
-    echo "⚠️ Error: $cmd not found" | tee -a "$log_file"
+    echo "- ⚠️ Error: $cmd not found" | tee -a "$log_file"
     exit 1
   fi
 done
@@ -42,7 +42,7 @@ find . -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
     action="./$dir/action.yml"
 
     if [ -f "$action" ]; then
-      echo "📄 Found action.yml in $dir"
+      echo "- 📄 Found action.yml in $dir"
 
       repo="ivuorinen/actions/$dir"
       readme="./$dir/README.md"
@@ -51,35 +51,36 @@ find . -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
       # if version doesn't exist, use 'main'
       if [ -z "$version" ]; then
         version="main"
-        echo "ℹ️ Version not set in $dir/action.yml, using 'main'"
+        echo "- ℹ️ Version not set in $dir/action.yml, using 'main'"
       fi
 
-      echo "📝 Updating $readme..."
+      echo "- 📝 Updating $readme..."
 
       printf "# %s\n\n" "$repo" >"$readme"
 
-      echo "📄 Generating action documentation..."
+      echo "- 📄 Generating action documentation..."
       if ! npx --yes action-docs@latest \
         --source="$action" \
         --no-banner \
         --include-name-header >>"$readme"; then
-        echo "⚠️ Warning: action-docs failed in $dir directory" | tee -a "$log_file"
+        echo "- ⚠️ Warning: action-docs failed in $dir directory" | tee -a "$log_file"
       fi
 
-      echo "🔄 Replacing placeholders in $readme..."
+      echo "- 🔄 Replacing placeholders in $readme..."
       $SED_CMD "s|PROJECT|$repo|g; s|VERSION|$version|g; s|\*\*\*||g" "$readme"
 
       if [ -f "$readme.bak" ]; then
         rm "$readme.bak"
-        echo "🗑️  Removed $readme.bak"
+        echo "- 🗑️  Removed $readme.bak"
       fi
     else
       # if action doesn't exist, skip
-      echo "⏩ Skipping $dir - action.yml missing"
+      echo "- ⏩ Skipping $dir - action.yml missing"
     fi
   ) || {
-    echo "⚠️ Warning: Error processing directory $dir" | tee -a "$log_file"
+    echo "- ⚠️ Warning: Error processing directory $dir" | tee -a "$log_file"
   }
+  echo ""
 done
 echo ""
 
@@ -92,14 +93,21 @@ echo ""
 
 echo "✨ Running prettier..."
 if ! npx --yes prettier --write \
-  "run.sh" "**/README.md" "**/action.yml" ".github/workflows/*.yml"; then
-  echo "⚠️ Warning: prettier formatting failed" | tee -a "$log_file"
+  "**/README.md" "**/action.yml" ".github/workflows/*.yml"; then
+  echo "- ⚠️ Warning: prettier formatting failed" | tee -a "$log_file"
+fi
+echo ""
+
+# Run markdown-table-formatter
+echo "🔍 Running markdown-table-formatter..."
+if ! npx --yes markdown-table-formatter "**/README.md"; then
+  echo "- ⚠️ Warning: markdown-table-formatter found issues" | tee -a "$log_file"
 fi
 echo ""
 
 echo "🔎 Running MegaLinter..."
 if ! npx --yes mega-linter-runner; then
-  echo "⚠️ Warning: MegaLinter found issues" | tee -a "$log_file"
+  echo "- ⚠️ Warning: MegaLinter found issues" | tee -a "$log_file"
 fi
 echo ""
 

@@ -9,7 +9,7 @@ Runs Composer install on a repository with advanced caching and configuration.
 ### Inputs
 
 | name                | description                                                   | required | default                                             |
-| ------------------- | ------------------------------------------------------------- | -------- | --------------------------------------------------- |
+|---------------------|---------------------------------------------------------------|----------|-----------------------------------------------------|
 | `php`               | <p>PHP Version to use.</p>                                    | `true`   | `8.4`                                               |
 | `extensions`        | <p>Comma-separated list of PHP extensions to install</p>      | `false`  | `mbstring, xml, zip, curl, json`                    |
 | `tools`             | <p>Comma-separated list of Composer tools to install</p>      | `false`  | `composer:v2`                                       |
@@ -23,7 +23,7 @@ Runs Composer install on a repository with advanced caching and configuration.
 ### Outputs
 
 | name               | description                                     |
-| ------------------ | ----------------------------------------------- |
+|--------------------|-------------------------------------------------|
 | `lock`             | <p>composer.lock or composer.json file hash</p> |
 | `php-version`      | <p>Installed PHP version</p>                    |
 | `composer-version` | <p>Installed Composer version</p>               |

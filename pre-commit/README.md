@@ -9,7 +9,7 @@ Runs pre-commit on the repository and pushes the fixes back to the repository
 ### Inputs
 
 | name                | description                           | required | default                     |
-| ------------------- | ------------------------------------- | -------- | --------------------------- |
+|---------------------|---------------------------------------|----------|-----------------------------|
 | `pre-commit-config` | <p>pre-commit configuration file</p>  | `false`  | `.pre-commit-config.yaml`   |
 | `base-branch`       | <p>Base branch to compare against</p> | `false`  | `""`                        |
 | `token`             | <p>GitHub Token</p>                   | `false`  | `${{ github.token }}`       |

@@ -9,7 +9,7 @@ Runs linters like StyleCop or dotnet-format for C# code style checks.
 ### Inputs
 
 | name             | description                        | required | default |
-| ---------------- | ---------------------------------- | -------- | ------- |
+|------------------|------------------------------------|----------|---------|
 | `dotnet-version` | <p>Version of .NET SDK to use.</p> | `false`  | `""`    |
 
 ### Runs

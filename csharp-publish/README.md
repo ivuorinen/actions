@@ -9,7 +9,7 @@ Publishes a C# project to GitHub Packages.
 ### Inputs
 
 | name             | description                              | required | default     |
-| ---------------- | ---------------------------------------- | -------- | ----------- |
+|------------------|------------------------------------------|----------|-------------|
 | `dotnet-version` | <p>Version of .NET SDK to use.</p>       | `false`  | `""`        |
 | `namespace`      | <p>GitHub namespace for the package.</p> | `true`   | `ivuorinen` |
 
