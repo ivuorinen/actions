@@ -21,6 +21,24 @@ inputs:
     description: 'The version to publish.'
     required: false
     default: ${{ github.event.release.tag_name }}
+  npm_token:
+    description: 'NPM token.'
+    required: true
+    default: ''
+
+outputs:
+  registry-url:
+    description: 'Registry URL for publishing.'
+    value: ${{ inputs.registry-url }}
+  scope:
+    description: 'Package scope to use.'
+    value: ${{ inputs.scope }}
+  package-version:
+    description: 'The version to publish.'
+    value: ${{ inputs.package-version }}
+  npm_token:
+    description: 'NPM token.'
+    value: ${{ inputs.token }}
 
 runs:
   using: composite
@@ -31,12 +49,12 @@ runs:
     - name: Authenticate NPM
       shell: bash
       run: |
-        echo "//${{ inputs.registry-url }}/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+        echo "//${{ inputs.registry-url }}/:_authToken=${{ inputs.npm_token }}" > ~/.npmrc
 
     - name: Publish Package
       shell: bash
       env:
-        NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        NPM_TOKEN: ${{ inputs.npm_token }}
       run: |
         pkg_version=$(node -p "require('./package.json').version")
         if [ "$pkg_version" != "${{ inputs.package-version }}" ]; then
