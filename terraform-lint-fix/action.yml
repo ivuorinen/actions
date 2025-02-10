@@ -82,7 +82,7 @@ runs:
 
     - name: Setup Terraform
       if: steps.check-files.outputs.found == 'true'
-      uses: hashicorp/setup-terraform@v3
+      uses: hashicorp/setup-terraform@b9cd54a3c349d3f38e8881555d616ced269862dd # v3
       with:
         terraform_version: ${{ inputs.terraform-version }}
         terraform_wrapper: false
@@ -225,7 +225,7 @@ runs:
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.found == 'true' && inputs.format == 'sarif'
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3
       with:
         sarif_file: ${{ inputs.working-directory }}/reports/tflint.sarif
         category: terraform-lint

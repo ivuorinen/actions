@@ -102,7 +102,7 @@ runs:
 
     - name: Set up Cache
       id: cache
-      uses: actions/cache@v4
+      uses: actions/cache@1bd1e32a3bdc45362d1e726936510720a7c30a57 # v4
       if: inputs.cache == 'true'
       with:
         path: |
@@ -305,7 +305,7 @@ runs:
 
     - name: Upload Prettier Results
       if: always() && inputs.report-format == 'sarif'
-      uses: github/codeql-action/upload-sarif@v3
+      uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3
       with:
         sarif_file: ${{ inputs.working-directory }}/reports/prettier.sarif
         category: prettier
