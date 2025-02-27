@@ -22,13 +22,7 @@ on:
   push:
     branches: [main]
 
-permissions:
-  contents: read
-  security-events: write
-  actions: read
-  issues: write
-  pull-requests: write
-  id-token: write
+permissions: read-all
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -42,6 +36,13 @@ jobs:
     name: Security Checks
     runs-on: ubuntu-latest
     timeout-minutes: 30
+
+    permissions:
+      security-events: write
+      pull-requests: write
+      statuses: write
+      issues: write
+      id-token: write
 
     steps:
       - name: Check Required Secrets
