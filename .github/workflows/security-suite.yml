@@ -168,7 +168,7 @@ jobs:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Download scan results
-        uses: actions/download-artifact@9a3a06f0939529693e1cf3738838b0b3c1555e3c # v4.1.0
+        uses: actions/download-artifact@cc203385981b70ca67e1cc392babf9cc229d5806 # v4.1.0
         with:
           path: ./results
 
