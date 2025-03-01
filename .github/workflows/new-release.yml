@@ -1,0 +1,46 @@
+---
+name: Release Daily State
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 21 * * *' # 00:00 at Europe/Helsinki
+
+permissions: read-all
+
+jobs:
+  new-daily-release:
+    runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
+
+    outputs:
+      created: ${{ steps.daily-version.outputs.created }}
+      version: ${{ steps.daily-version.outputs.version }}
+
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+
+      - name: Create tag if necessary
+        uses: fregante/daily-version-action@fb1a60b7c4daf1410cd755e360ebec3901e58588 # v2
+        id: daily-version
+
+      - name: Create changelog text
+        if: steps.daily-version.outputs.created
+        id: changelog
+        uses: loopwerk/tag-changelog@941366edb8920e2071eae0449031830984b9f26e # v1.3.0
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          config_file: .github/tag-changelog-config.js
+
+      - name: Create release
+        if: steps.daily-version.outputs.created
+        uses: ncipollo/release-action@440c8c1cb0ed28b9f43e4d1d670870f059653174 # v1.16.0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag: ${{ steps.daily-version.outputs.version }}
+          name: Release ${{ steps.daily-version.outputs.version }}
+          body: ${{ steps.changelog.outputs.changes }}
+          allowUpdates: true
