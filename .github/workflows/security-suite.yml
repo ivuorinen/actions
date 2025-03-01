@@ -92,7 +92,7 @@ jobs:
           sarif_file: reports/dependency-check-report.sarif
           category: owasp-dependency-check
       - name: Upload artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: owasp-results
           path: reports/dependency-check-report.sarif
@@ -124,7 +124,7 @@ jobs:
           sarif_file: snyk-results.sarif
           category: snyk
       - name: Upload artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: snyk-results
           path: snyk-results.sarif
@@ -151,7 +151,7 @@ jobs:
           sarif_file: scorecard-results.sarif
           category: scorecard
       - name: Upload artifact
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: scorecard-results
           path: scorecard-results.sarif
@@ -338,7 +338,7 @@ jobs:
 
       - name: Archive Results
         if: always()
-        uses: actions/upload-artifact@65c4c4a1ddee5b72f698fdd19549f0f0fb45cf08 # v4.6.0
+        uses: actions/upload-artifact@4cec3d8aa04e39d1a68397de0c4cd6fb9dce8ec1 # v4.6.1
         with:
           name: security-results
           path: |
