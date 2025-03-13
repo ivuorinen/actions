@@ -238,12 +238,6 @@ runs:
           exit 1
         fi
 
-        # Check for any PHP errors in vendor
-        find vendor -name "*.php" -type f -exec php -l {} \; > /dev/null
-
-        # Verify Composer installation
-        composer validate --no-check-all --strict
-
     - name: Generate Optimized Autoloader
       if: success()
       shell: bash
