@@ -22,7 +22,7 @@ runs:
         default-version: '7.0'
 
     - name: Setup .NET SDK
-      uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4
+      uses: actions/setup-dotnet@3951f0dfe7a07e2313ec93c75700083e2005cbab # v4.3.0
       with:
         dotnet-version: '${{ steps.detect-dotnet-version.outputs.dotnet-version }}'
 
@@ -40,6 +40,6 @@ runs:
         fi
 
     - name: Upload SARIF Report
-      uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3
+      uses: github/codeql-action/upload-sarif@9e8d0789d4a0fa9ceb6b1738f7e269594bdd67f0 # v3.28.9
       with:
         sarif_file: dotnet-format.sarif

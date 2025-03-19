@@ -12,7 +12,7 @@ runs:
   using: composite
   steps:
     - name: Checkout Repository
-      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
     - name: Set Git Config
       uses: ivuorinen/actions/set-git-config@main
@@ -32,7 +32,7 @@ runs:
 
     - name: Push Fixes
       if: success()
-      uses: stefanzweifel/git-auto-commit-action@e348103e9026cc0eee72ae06630dbe30c8bf7a79 # v5
+      uses: stefanzweifel/git-auto-commit-action@e348103e9026cc0eee72ae06630dbe30c8bf7a79 # v5.1.0
       with:
         commit_message: 'style: autofix Biome violations'
         add_options: '-u'
