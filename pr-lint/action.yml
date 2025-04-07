@@ -31,9 +31,9 @@ runs:
       id: git-config
       uses: ivuorinen/actions/set-git-config@730304e2936e7afeab4ac5652d448d0ded2fbe4b # 25.4.5
 
-    #     ╭──────────────────────────────────────────────────────────╮
-    #     │               Install packages for linting               │
-    #     ╰──────────────────────────────────────────────────────────╯
+    #   ╭──────────────────────────────────────────────────────────╮
+    #   │               Install packages for linting               │
+    #   ╰──────────────────────────────────────────────────────────╯
 
     # Node.js tests if package.json exists
     - name: Detect package.json
@@ -52,6 +52,7 @@ runs:
 
     - name: Install Node.js dependencies
       if: steps.detect-node.outputs.found == 'true'
+      shell: bash
       run: npm ci
 
     # PHP tests if composer.json exists
@@ -74,10 +75,12 @@ runs:
 
     - name: Setup problem matchers for PHP
       if: steps.detect-php.outputs.found == 'true'
+      shell: bash
       run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
     - name: Install PHP dependencies
       if: steps.detect-php.outputs.found == 'true'
+      shell: bash
       run: composer install --no-progress --prefer-dist --no-interaction
 
     # Python tests if requirements.txt exists
@@ -97,6 +100,7 @@ runs:
 
     - name: Install Python dependencies
       if: steps.detect-python.outputs.found == 'true'
+      shell: bash
       run: pip install -r requirements.txt
 
     # Go tests if go.mod exists
