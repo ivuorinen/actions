@@ -78,7 +78,8 @@ find . -mindepth 1 -maxdepth 1 -type d | while read -r dir; do
       echo "- ⏩ Skipping $dir - action.yml missing"
     fi
   ) || {
-    echo "- ⚠️ Warning: Error processing directory $dir" | tee -a "$log_file"
+    echo "- ⚠️ Warning: Error processing directory $dir" |
+      tee -a "$log_file"
   }
   echo ""
 done
@@ -106,7 +107,7 @@ fi
 echo ""
 
 echo "🔎 Running MegaLinter..."
-if ! npx --yes mega-linter-runner; then
+if ! npx --yes mega-linter-runner --flavor cupcake --fix --remove-container --container-name cupcake; then
   echo "- ⚠️ Warning: MegaLinter found issues" | tee -a "$log_file"
 fi
 echo ""
