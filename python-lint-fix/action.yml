@@ -213,7 +213,7 @@ runs:
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.result == 'found'
-      uses: github/codeql-action/upload-sarif@1b549b9259bda1cb5ddde3b41741a82a2d15a841 # v3.28.13
+      uses: github/codeql-action/upload-sarif@45775bd8235c68ba998cffa5171334d58593da47 # v3.28.15
       with:
         sarif_file: ${{ inputs.working-directory }}/reports/flake8.sarif
         category: 'python-lint'
