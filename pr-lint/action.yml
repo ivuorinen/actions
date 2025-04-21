@@ -29,7 +29,7 @@ runs:
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Setup Git Config
       id: git-config
-      uses: ivuorinen/actions/set-git-config@312c00f77fbd73948441c8b004607e098e40c97f # 25.4.8
+      uses: ivuorinen/actions/set-git-config@359f34ac2092b90b15ee3df3e597cdc81aa63f5b # 25.4.15
 
     #   ╭──────────────────────────────────────────────────────────╮
     #   │               Install packages for linting               │
