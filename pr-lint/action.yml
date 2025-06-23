@@ -54,14 +54,15 @@ runs:
       if: steps.detect-node.outputs.found == 'true'
       shell: bash
       run: |
-        if [ -f package-lock.json ]; then
-          npm ci
-        fi
-        if [ -f yarn.lock ]; then
-          yarn install
-        fi
         if [ -f pnpm-lock.yaml ]; then
+          npm install -g pnpm # github actions runners doesn't come with pnpm
           pnpm install
+        elif [ -f yarn.lock ]; then
+          yarn install
+        elif [ -f package-lock.json ]; then
+          npm ci
+        else
+          echo "No supported lockfile found, skipping Node.js dependencies installation."
         fi
 
     # PHP tests if composer.json exists
