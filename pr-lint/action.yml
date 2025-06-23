@@ -47,13 +47,21 @@ runs:
     - name: Setup Node.js and run tests
       if: steps.detect-node.outputs.found == 'true'
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-      with:
-        cache: 'npm'
 
     - name: Install Node.js dependencies
       if: steps.detect-node.outputs.found == 'true'
       shell: bash
-      run: npm ci
+      run: |
+        if [ -f pnpm-lock.yaml ]; then
+          npm install -g pnpm # GitHub Actions runners don’t come with pnpm
+          pnpm install
+        elif [ -f yarn.lock ]; then
+          yarn install
+        elif [ -f package-lock.json ]; then
+          npm ci
+        else
+          echo "No supported lockfile found, skipping Node.js dependencies installation."
+        fi
 
     # PHP tests if composer.json exists
     - name: Detect composer.json
