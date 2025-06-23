@@ -53,7 +53,16 @@ runs:
     - name: Install Node.js dependencies
       if: steps.detect-node.outputs.found == 'true'
       shell: bash
-      run: npm ci
+      run: |
+        if [ -f package-lock.json ]; then
+          npm ci
+        fi
+        if [ -f yarn.lock ]; then
+          yarn install
+        fi
+        if [ -f pnpm-lock.yaml ]; then
+          pnpm install
+        fi
 
     # PHP tests if composer.json exists
     - name: Detect composer.json
