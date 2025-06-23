@@ -47,8 +47,6 @@ runs:
     - name: Setup Node.js and run tests
       if: steps.detect-node.outputs.found == 'true'
       uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-      with:
-        cache: 'npm'
 
     - name: Install Node.js dependencies
       if: steps.detect-node.outputs.found == 'true'
