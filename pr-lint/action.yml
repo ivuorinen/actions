@@ -53,7 +53,7 @@ runs:
       shell: bash
       run: |
         if [ -f pnpm-lock.yaml ]; then
-          npm install -g pnpm # github actions runners doesn't come with pnpm
+          npm install -g pnpm # GitHub Actions runners don’t come with pnpm
           pnpm install
         elif [ -f yarn.lock ]; then
           yarn install
