@@ -53,12 +53,13 @@ runs:
       shell: bash
       run: |
         if [ -f pnpm-lock.yaml ]; then
-          npm install -g pnpm # GitHub Actions runners don’t come with pnpm
+          npm install -g pnpm
           pnpm install
         elif [ -f yarn.lock ]; then
+          npm install -g yarn
           yarn install
         elif [ -f package-lock.json ]; then
-          npm ci
+          npm ci || npm install
         else
           echo "No supported lockfile found, skipping Node.js dependencies installation."
         fi
