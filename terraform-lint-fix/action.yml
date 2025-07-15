@@ -201,7 +201,7 @@ runs:
 
     - name: Set Git Config for Fixes
       if: steps.fix.outputs.fixed_count > 0
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
 
     - name: Commit Fixes
       if: steps.fix.outputs.fixed_count > 0

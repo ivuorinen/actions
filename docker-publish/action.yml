@@ -83,19 +83,19 @@ runs:
         echo "Publishing to: ${{ inputs.registry }}"
 
     - name: Build Multi-Arch Docker Image
-      uses: ivuorinen/actions/docker-build@main
+      uses: ./docker-build
       with:
         tag: ${{ steps.tags.outputs.all-tags }}
 
     - name: Publish to Docker Hub
       if: contains(steps.dest.outputs.reg, 'dockerhub')
-      uses: ivuorinen/actions/docker-publish-hub@main
+      uses: ./docker-publish-hub
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
 
     - name: Publish to GitHub Packages
       if: contains(steps.dest.outputs.reg, 'github')
-      uses: ivuorinen/actions/docker-publish-gh@main
+      uses: ./docker-publish-gh
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
 
@@ -115,13 +115,17 @@ runs:
           echo "Checking ${registry} publication..."
           case "${registry}" in
             "dockerhub")
-              if ! curl -s "https://hub.docker.com/v2/repositories/${{ github.repository }}/tags/" | grep -q "${{ steps.tags.outputs.all-tags }}"; then
+              # Use docker manifest inspect for more reliable verification
+              image_name="docker.io/${{ github.repository }}"
+              if ! docker manifest inspect "${image_name}:${{ steps.tags.outputs.version }}" > /dev/null 2>&1; then
                 echo "::error::Failed to verify Docker Hub publication"
                 success=false
               fi
               ;;
             "github")
-              if ! gh api "/packages/container/${github.repository}/versions" | grep -q "${{ steps.tags.outputs.all-tags }}"; then
+              # Use docker manifest inspect for GitHub Container Registry
+              image_name="ghcr.io/${{ github.repository }}"
+              if ! docker manifest inspect "${image_name}:${{ steps.tags.outputs.version }}" > /dev/null 2>&1; then
                 echo "::error::Failed to verify GitHub Packages publication"
                 success=false
               fi

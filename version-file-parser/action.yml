@@ -1,0 +1,126 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Version File Parser
+description: 'Universal parser for common version detection files (.tool-versions, Dockerfile, devcontainer.json, etc.)'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: search
+  color: gray-dark
+
+inputs:
+  language:
+    description: 'Programming language name (node, python, php, go, dotnet)'
+    required: true
+  tool-versions-key:
+    description: 'Key name in .tool-versions file (nodejs, python, php, golang, dotnet)'
+    required: true
+  dockerfile-image:
+    description: 'Docker image name pattern (node, python, php, golang, dotnet)'
+    required: true
+  version-file:
+    description: 'Language-specific version file (.nvmrc, .python-version, etc.)'
+    required: false
+  validation-regex:
+    description: 'Version validation regex pattern'
+    required: false
+    default: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+
+outputs:
+  tool-versions-version:
+    description: 'Version found in .tool-versions'
+    value: ${{ steps.parse.outputs.tool-versions-version }}
+  dockerfile-version:
+    description: 'Version found in Dockerfile'
+    value: ${{ steps.parse.outputs.dockerfile-version }}
+  devcontainer-version:
+    description: 'Version found in devcontainer.json'
+    value: ${{ steps.parse.outputs.devcontainer-version }}
+  version-file-version:
+    description: 'Version found in language-specific version file'
+    value: ${{ steps.parse.outputs.version-file-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Parse Version Files
+      id: parse
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Function to validate version format
+        validate_version() {
+          local version=$1
+          if [[ $version =~ ${{ inputs.validation-regex }} ]]; then
+            return 0
+          fi
+          return 1
+        }
+
+        # Function to clean version string
+        clean_version() {
+          echo "$1" | tr -d 'v' | tr -d ' ' | tr -d '\n'
+        }
+
+        # Initialize outputs
+        echo "tool-versions-version=" >> $GITHUB_OUTPUT
+        echo "dockerfile-version=" >> $GITHUB_OUTPUT
+        echo "devcontainer-version=" >> $GITHUB_OUTPUT
+        echo "version-file-version=" >> $GITHUB_OUTPUT
+
+        # Parse .tool-versions file
+        if [ -f .tool-versions ]; then
+          echo "Checking .tool-versions for ${{ inputs.tool-versions-key }}..." >&2
+          version=$(grep -E "^${{ inputs.tool-versions-key }}[[:space:]]" .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n' || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found ${{ inputs.language }} version in .tool-versions: $version" >&2
+              echo "tool-versions-version=$version" >> $GITHUB_OUTPUT
+            fi
+          fi
+        fi
+
+        # Parse Dockerfile
+        if [ -f Dockerfile ]; then
+          echo "Checking Dockerfile for ${{ inputs.dockerfile-image }}..." >&2
+          version=$(grep -i "^FROM.*${{ inputs.dockerfile-image }}:" Dockerfile | head -1 | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p" || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found ${{ inputs.language }} version in Dockerfile: $version" >&2
+              echo "dockerfile-version=$version" >> $GITHUB_OUTPUT
+            fi
+          fi
+        fi
+
+        # Parse devcontainer.json
+        if [ -f .devcontainer/devcontainer.json ]; then
+          echo "Checking devcontainer.json for ${{ inputs.dockerfile-image }}..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p" || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found ${{ inputs.language }} version in devcontainer: $version" >&2
+                echo "devcontainer-version=$version" >> $GITHUB_OUTPUT
+              fi
+            fi
+          else
+            echo "jq not available, skipping devcontainer parsing" >&2
+          fi
+        fi
+
+        # Parse language-specific version file
+        if [ -n "${{ inputs.version-file }}" ] && [ -f "${{ inputs.version-file }}" ]; then
+          echo "Checking ${{ inputs.version-file }}..." >&2
+          version=$(cat "${{ inputs.version-file }}" | head -1)
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found ${{ inputs.language }} version in ${{ inputs.version-file }}: $version" >&2
+              echo "version-file-version=$version" >> $GITHUB_OUTPUT
+            fi
+          fi
+        fi

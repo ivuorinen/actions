@@ -33,7 +33,7 @@ runs:
         ansible-lint --write --parseable-severity --format sarif > ansible-lint.sarif
 
     - name: Set Git Config for Fixes
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
 
     - name: Commit Fixes
       shell: bash

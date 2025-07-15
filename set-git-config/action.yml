@@ -72,10 +72,10 @@ runs:
 
         git config --local --unset-all http.https://github.com/.extraheader || true
         git config --local \
-          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          --add url.https://x-access-token:${TOKEN}@github.com/.insteadOf \
           "https://github.com/"
         git config --local \
-          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          --add url.https://x-access-token:${TOKEN}@github.com/.insteadOf \
           'git@github.com:'
         git config --local user.name "${{ steps.bot.outputs.username }}"
         git config --local user.email "${{ steps.bot.outputs.email }}"

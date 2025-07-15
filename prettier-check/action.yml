@@ -98,7 +98,7 @@ runs:
         fi
 
     - name: Setup Node.js
-      uses: ivuorinen/actions/node-setup@main
+      uses: ./node-setup
 
     - name: Set up Cache
       id: cache
