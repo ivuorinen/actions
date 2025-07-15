@@ -1,8 +1,9 @@
 # MegaLinter GitHub Action configuration file
 # More info at https://megalinter.io
 ---
-name: MegaLinter
-description: Run MegaLinter on the repository
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: PR Lint
+description: Runs MegaLinter against pull requests
 author: Ismo Vuorinen
 
 branding:
@@ -29,7 +30,7 @@ runs:
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Setup Git Config
       id: git-config
-      uses: ivuorinen/actions/set-git-config@9df3b0bff7353884d1bfb1bdad6236f68ccd670d # 25.10.6
+      uses: ./set-git-config
 
     #   ╭──────────────────────────────────────────────────────────╮
     #   │               Install packages for linting               │
@@ -44,28 +45,12 @@ runs:
           echo "found=true" >> $GITHUB_OUTPUT
         fi
 
-    - name: Setup Node.js and run tests
+    - name: Setup Node.js environment
       if: steps.detect-node.outputs.found == 'true'
-      uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
-
-    - name: Install Node.js dependencies
-      if: steps.detect-node.outputs.found == 'true'
-      shell: bash
-      run: |
-        if [ -f pnpm-lock.yaml ]; then
-          npm install -g pnpm
-          pnpm install
-        elif [ -f yarn.lock ]; then
-          npm install -g yarn
-          yarn install
-        elif [ -f package-lock.json ]; then
-          if ! npm ci; then
-            echo "::warning ::npm ci failed – falling back to npm install (lockfile drift?)"
-            npm install
-          fi
-        else
-          echo "No supported lockfile found, skipping Node.js dependencies installation."
-        fi
+      uses: ./node-setup
+      with:
+        install: true
+        cache: true
 
     # PHP tests if composer.json exists
     - name: Detect composer.json
@@ -76,10 +61,16 @@ runs:
           echo "found=true" >> $GITHUB_OUTPUT
         fi
 
+    - name: Detect PHP Version
+      if: steps.detect-php.outputs.found == 'true'
+      id: php-version
+      uses: ./php-version-detect
+
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
-      uses: shivammathur/setup-php@9e72090525849c5e82e596468b86eb55e9cc5401 # master
+      uses: shivammathur/setup-php@0f7f1d08e3e32076e51cae65eb0b0c871405b16e # 2.34.1
       with:
+        php-version: ${{ steps.php-version.outputs.php-version }}
         tools: composer
         coverage: none
       env:
@@ -104,10 +95,16 @@ runs:
           echo "found=true" >> $GITHUB_OUTPUT
         fi
 
+    - name: Detect Python Version
+      if: steps.detect-python.outputs.found == 'true'
+      id: python-version
+      uses: ./python-version-detect
+
     - name: Setup Python
       if: steps.detect-python.outputs.found == 'true'
       uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
       with:
+        python-version: ${{ steps.python-version.outputs.python-version }}
         cache: 'pip'
 
     - name: Install Python dependencies
@@ -124,11 +121,16 @@ runs:
           echo "found=true" >> $GITHUB_OUTPUT
         fi
 
+    - name: Detect Go Version
+      if: steps.detect-go.outputs.found == 'true'
+      id: go-version
+      uses: ./go-version-detect
+
     - name: Setup Go
       if: steps.detect-go.outputs.found == 'true'
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
-        go-version-file: 'go.mod'
+        go-version: ${{ steps.go-version.outputs.go-version }}
         cache: true
 
     #   ╭──────────────────────────────────────────────────────────╮

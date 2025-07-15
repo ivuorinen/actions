@@ -1,0 +1,63 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Version Validator
+description: 'Validates and normalizes version strings using customizable regex patterns'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  version:
+    description: 'Version string to validate'
+    required: true
+  validation-regex:
+    description: 'Regex pattern for validation'
+    required: false
+    default: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+  language:
+    description: 'Language name for error messages'
+    required: false
+    default: 'version'
+
+outputs:
+  is-valid:
+    description: 'Boolean indicating if version is valid (true/false)'
+    value: ${{ steps.validate.outputs.is-valid }}
+  validated-version:
+    description: 'Cleaned/normalized version string'
+    value: ${{ steps.validate.outputs.validated-version }}
+  error-message:
+    description: 'Error message if validation fails'
+    value: ${{ steps.validate.outputs.error-message }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Version
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        input_version="${{ inputs.version }}"
+        regex="${{ inputs.validation-regex }}"
+        language="${{ inputs.language }}"
+
+        # Clean the version string
+        cleaned_version=$(echo "$input_version" | tr -d 'v' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+
+        # Validate the version
+        if [[ $cleaned_version =~ $regex ]]; then
+          echo "is-valid=true" >> $GITHUB_OUTPUT
+          echo "validated-version=$cleaned_version" >> $GITHUB_OUTPUT
+          echo "error-message=" >> $GITHUB_OUTPUT
+          echo "✅ Valid $language version: $cleaned_version" >&2
+        else
+          echo "is-valid=false" >> $GITHUB_OUTPUT
+          echo "validated-version=" >> $GITHUB_OUTPUT
+          error_msg="Invalid $language version format: '$input_version' (cleaned: '$cleaned_version'). Expected pattern: $regex"
+          echo "error-message=$error_msg" >> $GITHUB_OUTPUT
+          echo "❌ $error_msg" >&2
+        fi

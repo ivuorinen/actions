@@ -17,9 +17,10 @@ runs:
   using: composite
   steps:
     - name: Detect .NET SDK Version
-      uses: ivuorinen/actions/dotnet-version-detect@main
+      id: detect-dotnet-version
+      uses: ./dotnet-version-detect
       with:
-        default-version: '7.0'
+        default-version: "${{ inputs.dotnet-version || '7.0' }}"
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
@@ -28,21 +29,38 @@ runs:
 
     - name: Restore Dependencies
       shell: bash
-      run: dotnet restore
+      run: |
+        set -euo pipefail
+        echo "Restoring .NET dependencies..."
+        dotnet restore --verbosity normal
 
     - name: Build Solution
       shell: bash
-      run: dotnet build --configuration Release --no-restore
+      run: |
+        set -euo pipefail
+        echo "Building .NET solution..."
+        dotnet build --configuration Release --no-restore --verbosity normal
 
     - name: Run Tests
       shell: bash
       run: |
-        dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx"
+        set -euo pipefail
+        echo "Running .NET tests..."
+        if find . -name "*.csproj" -exec grep -l "Microsoft.NET.Test" {} \; | head -1 | grep -q .; then
+          dotnet test --configuration Release --no-build \
+            --collect:"XPlat Code Coverage" \
+            --logger "trx;LogFileName=test-results.trx" \
+            --verbosity normal
+        else
+          echo "No test projects found, skipping test execution."
+        fi
 
     - name: Upload Test Results
+      if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
-        name: test-results
+        name: csharp-test-results
         path: |
           **/*.trx
           **/TestResults/**/coverage.cobertura.xml
+        if-no-files-found: ignore
