@@ -1,0 +1,180 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: Python Version Detect
+description: 'Detects Python version from project configuration files or defaults to a specified version.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: code
+  color: blue
+
+inputs:
+  default-version:
+    description: 'Default Python version to use if no version is detected.'
+    required: false
+    default: '3.12'
+
+outputs:
+  python-version:
+    description: 'Detected or default Python version.'
+    value: ${{ steps.detect-python-version.outputs.python-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect Python Version
+      id: detect-python-version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Function to validate Python version format
+        validate_python_version() {
+          local version=$1
+          if [[ $version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            return 0
+          fi
+          return 1
+        }
+
+        # Function to get version from .python-version
+        get_python_version_file() {
+          if [ -f .python-version ]; then
+            local version
+            version=$(cat .python-version | tr -d 'v' | tr -d ' ' | tr -d '\n')
+            if validate_python_version "$version"; then
+              echo "Found Python version in .python-version: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from pyproject.toml
+        get_pyproject_version() {
+          if [ -f pyproject.toml ]; then
+            local version
+            # Try to extract requires-python
+            version=$(grep -E '^requires-python\s*=' pyproject.toml | sed -n 's/.*[">= ]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in pyproject.toml: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from setup.py
+        get_setup_py_version() {
+          if [ -f setup.py ]; then
+            local version
+            version=$(grep -E 'python_requires\s*=' setup.py | sed -n 's/.*[">= ]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in setup.py: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from runtime.txt (Heroku style)
+        get_runtime_txt_version() {
+          if [ -f runtime.txt ]; then
+            local version
+            version=$(cat runtime.txt | sed -n 's/python-\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in runtime.txt: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from Pipfile
+        get_pipfile_version() {
+          if [ -f Pipfile ]; then
+            local version
+            version=$(grep -E '^python_version\s*=' Pipfile | sed -n 's/.*[">= ]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in Pipfile: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from .tool-versions
+        get_tool_versions_version() {
+          if [ -f .tool-versions ]; then
+            local version
+            version=$(grep -E '^python[[:space:]]' .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n')
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in .tool-versions: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from tox.ini
+        get_tox_version() {
+          if [ -f tox.ini ]; then
+            local version
+            version=$(grep -E '^basepython\s*=' tox.ini | sed -n 's/.*python\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in tox.ini: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from Dockerfile
+        get_dockerfile_version() {
+          if [ -f Dockerfile ]; then
+            local version
+            version=$(grep -i "^FROM.*python:" Dockerfile | head -1 | sed -n 's/.*python:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in Dockerfile: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from .devcontainer
+        get_devcontainer_version() {
+          if [ -f .devcontainer/devcontainer.json ]; then
+            local version
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n 's/.*python:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_python_version "$version"; then
+              echo "Found Python version in devcontainer: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Detect version with priority order
+        detected_version=$(get_python_version_file ||
+                          get_pyproject_version ||
+                          get_setup_py_version ||
+                          get_runtime_txt_version ||
+                          get_pipfile_version ||
+                          get_tool_versions_version ||
+                          get_tox_version ||
+                          get_devcontainer_version ||
+                          get_dockerfile_version ||
+                          echo "${{ inputs.default-version }}")
+
+        echo "Using Python version: $detected_version"
+        echo "python-version=$detected_version" >> $GITHUB_OUTPUT

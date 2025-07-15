@@ -21,14 +21,66 @@ runs:
   using: composite
   steps:
     - name: Detect Go Version
-      uses: ivuorinen/actions/go-version-detect@main
+      id: detect-go-version
+      uses: ./go-version-detect
+      with:
+        default-version: "${{ inputs.go-version || '1.21' }}"
 
     - name: Setup Go
       uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
       with:
         go-version: '${{ steps.detect-go-version.outputs.go-version }}'
+        cache: true
+
+    - name: Download Dependencies
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Downloading Go dependencies..."
+        go mod download
+        go mod verify
 
     - name: Build Go Project
       shell: bash
       run: |
-        go build -o ${{ inputs.destination }} ./...
+        set -euo pipefail
+        echo "Building Go project..."
+
+        # Create destination directory
+        mkdir -p "${{ inputs.destination }}"
+
+        # Check if there are any main packages
+        if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
+          # Build all main packages
+          for main_dir in $(find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u); do
+            echo "Building package in $main_dir..."
+            cd "$main_dir"
+            output_name=$(basename "$main_dir")
+            go build -ldflags="-s -w" -o "../${{ inputs.destination }}/$output_name" .
+            cd - > /dev/null
+          done
+        else
+          echo "No main packages found, building library..."
+          go build ./...
+        fi
+
+    - name: Run Tests
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Running Go tests..."
+        if find . -name "*_test.go" | grep -q .; then
+          go test -v ./... -race -coverprofile=coverage.out
+        else
+          echo "No test files found, skipping test execution."
+        fi
+
+    - name: Upload Build Artifacts
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: go-build-artifacts
+        path: |
+          ${{ inputs.destination }}/*
+          coverage.out
+        if-no-files-found: ignore

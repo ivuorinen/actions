@@ -142,9 +142,14 @@ runs:
           cache_from="--cache-from ${{ inputs.cache-from }}"
         fi
 
-        # Local cache configuration
+        # Registry cache configuration for better performance
+        registry_cache_ref="ghcr.io/${{ github.repository }}/cache:latest"
+        cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
+        cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=max"
+
+        # Also include local cache as fallback
         cache_from="$cache_from --cache-from type=local,src=/tmp/.buildx-cache"
-        cache_to="--cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max"
+        cache_to="$cache_to --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max"
 
         echo "from=${cache_from}" >> $GITHUB_OUTPUT
         echo "to=${cache_to}" >> $GITHUB_OUTPUT
