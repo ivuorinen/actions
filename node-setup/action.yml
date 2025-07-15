@@ -1,7 +1,7 @@
 ---
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Node Setup
-description: 'Sets up Node.js environment with advanced version management, caching, and tooling.'
+description: 'Sets up Node.js env with advanced version management, caching, and tooling.'
 author: 'Ismo Vuorinen'
 
 branding:
@@ -101,11 +101,62 @@ runs:
           return 1
         }
 
-        # Function to get version from package.json
+        # Function to get version from .node-version
+        get_node_version_file() {
+          if [ -f .node-version ]; then
+            local version
+            version=$(cat .node-version | tr -d 'v' | tr -d ' ' | tr -d '\n')
+            if validate_version "$version"; then
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from package.json (engines.node or volta)
         get_package_json_version() {
           if [ -f package.json ]; then
             local version
-            version=$(node -pe "try { require('./package.json').engines.node.replace(/[^0-9.]/g, '') } catch(e) { '' }")
+            # Try engines.node first
+            version=$(
+              node -pe "try { require('./package.json').engines.node.replace(/[^0-9.]/g, '') } catch(e) { '' }" 2>/dev/null || echo "")
+            if [ -n "$version" ] && validate_version "$version"; then
+              echo "$version"
+              return 0
+            fi
+            # Try volta.node configuration
+            version=$(node -pe "try { require('./package.json').volta.node.replace(/[^0-9.]/g, '') } catch(e) { '' }" 2>/dev/null || echo "")
+            if [ -n "$version" ] && validate_version "$version"; then
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from Dockerfile
+        get_dockerfile_version() {
+          if [ -f Dockerfile ]; then
+            local version
+            version=$(
+              grep -i "^FROM.*node:" Dockerfile | head -1 | sed -n 's/.*node:\([0-9]\+\(\.[0-9]\+\)*\).*/\1/p'
+            )
+            if [ -n "$version" ] && validate_version "$version"; then
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from .devcontainer/devcontainer.json
+        get_devcontainer_version() {
+          if [ -f .devcontainer/devcontainer.json ]; then
+            local version
+            version=$(
+              node -pe "try { JSON.parse(require('fs').readFileSync('.devcontainer/devcontainer.json', 'utf8')).image.match(/node:([0-9.]+)/)?.[1] || '' } catch(e) { '' }" 2>/dev/null || echo ""
+            )
             if [ -n "$version" ] && validate_version "$version"; then
               echo "$version"
               return 0
@@ -122,9 +173,13 @@ runs:
           version="${{ inputs.force-version }}"
           echo "Using forced Node.js version: $version"
         else
+          # Priority order: explicit files, project config, container config, fallback
           version=$(get_nvmrc_version ||
+                   get_node_version_file ||
                    get_tool_versions_version ||
                    get_package_json_version ||
+                   get_devcontainer_version ||
+                   get_dockerfile_version ||
                    echo "${{ inputs.default-version }}")
           echo "Detected Node.js version: $version"
         fi
@@ -208,7 +263,7 @@ runs:
               yarn config set npmAuthToken ${{ inputs.token }}
               ;;
             pnpm)
-              pnpm config set //registry.npmjs.org/:_authToken ${{ inputs.token }}
+              pnpm config set //${{ inputs.registry-url }}/:_authToken ${{ inputs.token }}
               ;;
           esac
         fi
