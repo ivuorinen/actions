@@ -15,14 +15,14 @@ runs:
   using: composite
   steps:
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
 
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
     - name: Compress Images
       id: calibre
-      uses: calibreapp/image-actions@main
+      uses: calibreapp/image-actions@737ceeaeed61e17b8d358358a303f1b8d177b779 # v1.1.0
       with:
         compressOnly: true
         githubToken: ${{ steps.set-git-config.outputs.token }}

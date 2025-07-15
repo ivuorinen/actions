@@ -135,3 +135,6 @@ next-env.d.ts
 
 megalinter-reports/
 ./update_*
+_tests/reports
+*.pyc
+.coverage
