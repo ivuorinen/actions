@@ -1,0 +1,144 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: PHP Version Detect
+description: 'Detects PHP version from project configuration files or defaults to a specified version.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: code
+  color: purple
+
+inputs:
+  default-version:
+    description: 'Default PHP version to use if no version is detected.'
+    required: false
+    default: '8.3'
+
+outputs:
+  php-version:
+    description: 'Detected or default PHP version.'
+    value: ${{ steps.detect-php-version.outputs.php-version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Detect PHP Version
+      id: detect-php-version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Function to validate PHP version format
+        validate_php_version() {
+          local version=$1
+          if [[ $version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+            return 0
+          fi
+          return 1
+        }
+
+        # Function to get version from .php-version
+        get_php_version_file() {
+          if [ -f .php-version ]; then
+            local version
+            version=$(cat .php-version | tr -d 'v' | tr -d ' ' | tr -d '\n')
+            if validate_php_version "$version"; then
+              echo "Found PHP version in .php-version: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from composer.json
+        get_composer_version() {
+          if [ -f composer.json ]; then
+            local version
+            # Try require.php first
+            version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/.*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_php_version "$version"; then
+              echo "Found PHP version in composer.json require: $version" >&2
+              echo "$version"
+              return 0
+            fi
+            # Try platform.php
+            version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/.*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_php_version "$version"; then
+              echo "Found PHP version in composer.json platform: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from .tool-versions
+        get_tool_versions_version() {
+          if [ -f .tool-versions ]; then
+            local version
+            version=$(grep -E '^php[[:space:]]' .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n')
+            if [ -n "$version" ] && validate_php_version "$version"; then
+              echo "Found PHP version in .tool-versions: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from phpunit.xml
+        get_phpunit_version() {
+          if [ -f phpunit.xml ] || [ -f phpunit.xml.dist ]; then
+            local phpunit_file
+            phpunit_file=$([ -f phpunit.xml ] && echo "phpunit.xml" || echo "phpunit.xml.dist")
+            local version
+            version=$(grep -o 'php[[:space:]]*version[[:space:]]*=[[:space:]]*"[^"]*"' "$phpunit_file" | sed -n 's/.*"\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\)".*/\1/p')
+            if [ -n "$version" ] && validate_php_version "$version"; then
+              echo "Found PHP version in $phpunit_file: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from Dockerfile
+        get_dockerfile_version() {
+          if [ -f Dockerfile ]; then
+            local version
+            version=$(grep -i "^FROM.*php:" Dockerfile | head -1 | sed -n 's/.*php:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_php_version "$version"; then
+              echo "Found PHP version in Dockerfile: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Function to get version from .devcontainer
+        get_devcontainer_version() {
+          if [ -f .devcontainer/devcontainer.json ]; then
+            local version
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n 's/.*php:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ] && validate_php_version "$version"; then
+              echo "Found PHP version in devcontainer: $version" >&2
+              echo "$version"
+              return 0
+            fi
+          fi
+          return 1
+        }
+
+        # Detect version with priority order
+        detected_version=$(get_php_version_file ||
+                          get_composer_version ||
+                          get_tool_versions_version ||
+                          get_phpunit_version ||
+                          get_devcontainer_version ||
+                          get_dockerfile_version ||
+                          echo "${{ inputs.default-version }}")
+
+        echo "Using PHP version: $detected_version"
+        echo "php-version=$detected_version" >> $GITHUB_OUTPUT
