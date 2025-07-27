@@ -117,18 +117,24 @@ runs:
             "dockerhub")
               # Use docker manifest inspect for more reliable verification
               image_name="docker.io/${{ github.repository }}"
-              if ! docker manifest inspect "${image_name}:${{ steps.tags.outputs.version }}" > /dev/null 2>&1; then
-                echo "::error::Failed to verify Docker Hub publication"
-                success=false
-              fi
+              IFS=',' read -ra TAGS <<< "${{ steps.tags.outputs.all-tags }}"
+              for tag in "${TAGS[@]}"; do
+                if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
+                  echo "::error::Failed to verify Docker Hub publication for ${tag}"
+                  success=false
+                fi
+              done
               ;;
             "github")
               # Use docker manifest inspect for GitHub Container Registry
               image_name="ghcr.io/${{ github.repository }}"
-              if ! docker manifest inspect "${image_name}:${{ steps.tags.outputs.version }}" > /dev/null 2>&1; then
-                echo "::error::Failed to verify GitHub Packages publication"
-                success=false
-              fi
+              IFS=',' read -ra TAGS <<< "${{ steps.tags.outputs.all-tags }}"
+              for tag in "${TAGS[@]}"; do
+                if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
+                  echo "::error::Failed to verify GitHub Packages publication for ${tag}"
+                  success=false
+                fi
+              done
               ;;
           esac
         done

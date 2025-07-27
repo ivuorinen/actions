@@ -46,18 +46,22 @@ runs:
         language="${{ inputs.language }}"
 
         # Clean the version string
-        cleaned_version=$(echo "$input_version" | tr -d 'v' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+        cleaned_version=$(echo "$input_version" | sed 's/^v//' | tr -d ' ' | tr -d '\n' | tr -d '\r')
 
         # Validate the version
         if [[ $cleaned_version =~ $regex ]]; then
-          echo "is-valid=true" >> $GITHUB_OUTPUT
-          echo "validated-version=$cleaned_version" >> $GITHUB_OUTPUT
-          echo "error-message=" >> $GITHUB_OUTPUT
+          {
+            echo "is-valid=true"
+            printf 'validated-version=%s\n' "$cleaned_version"
+            echo "error-message="
+          } >> "$GITHUB_OUTPUT"
           echo "✅ Valid $language version: $cleaned_version" >&2
         else
-          echo "is-valid=false" >> $GITHUB_OUTPUT
-          echo "validated-version=" >> $GITHUB_OUTPUT
           error_msg="Invalid $language version format: '$input_version' (cleaned: '$cleaned_version'). Expected pattern: $regex"
-          echo "error-message=$error_msg" >> $GITHUB_OUTPUT
+          {
+            echo "is-valid=false"
+            echo "validated-version="
+            printf 'error-message=%s\n' "$error_msg"
+          } >> "$GITHUB_OUTPUT"
           echo "❌ $error_msg" >&2
         fi

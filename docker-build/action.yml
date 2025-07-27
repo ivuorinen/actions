@@ -131,6 +131,14 @@ runs:
         fi
         echo "args=${args}" >> $GITHUB_OUTPUT
 
+    - name: Login to GitHub Container Registry
+      if: inputs.push == 'true'
+      uses: docker/login-action@v3
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ github.token }}
+
     - name: Set up Build Cache
       id: cache
       shell: bash
@@ -143,7 +151,8 @@ runs:
         fi
 
         # Registry cache configuration for better performance
-        registry_cache_ref="ghcr.io/${{ github.repository }}/cache:latest"
+        normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
+        registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
         cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
         cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=max"
 
