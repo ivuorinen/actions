@@ -122,8 +122,12 @@ runs:
                 if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
                   echo "::error::Failed to verify Docker Hub publication for ${tag}"
                   success=false
+                  break
                 fi
               done
+              if [[ "${success}" != "true" ]]; then
+                break
+              fi
               ;;
             "github")
               # Use docker manifest inspect for GitHub Container Registry
@@ -133,8 +137,12 @@ runs:
                 if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
                   echo "::error::Failed to verify GitHub Packages publication for ${tag}"
                   success=false
+                  break
                 fi
               done
+              if [[ "${success}" != "true" ]]; then
+                break
+              fi
               ;;
           esac
         done

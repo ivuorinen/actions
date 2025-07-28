@@ -132,7 +132,7 @@ runs:
         echo "args=${args}" >> $GITHUB_OUTPUT
 
     - name: Login to GitHub Container Registry
-      if: inputs.push == 'true'
+      if: ${{ inputs.push == 'true' }}
       uses: docker/login-action@v3
       with:
         registry: ghcr.io
