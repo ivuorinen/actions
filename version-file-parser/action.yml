@@ -52,7 +52,8 @@ runs:
         # Function to validate version format
         validate_version() {
           local version=$1
-          if [[ $version =~ ${{ inputs.validation-regex }} ]]; then
+          local regex="${{ inputs.validation-regex }}"
+          if [[ $version =~ $regex ]]; then
             return 0
           fi
           return 1
@@ -72,7 +73,7 @@ runs:
         # Parse .tool-versions file
         if [ -f .tool-versions ]; then
           echo "Checking .tool-versions for ${{ inputs.tool-versions-key }}..." >&2
-          version=$(grep -E "^${{ inputs.tool-versions-key }}[[:space:]]" .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n' || echo "")
+          version=$(awk -v key="${{ inputs.tool-versions-key }}" '$1==key {gsub(/#.*/, "", $2); print $2; exit}' .tool-versions | tr -d ' ' | tr -d '\n' || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then

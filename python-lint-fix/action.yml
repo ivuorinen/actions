@@ -181,11 +181,11 @@ runs:
         rm /tmp/changed_files
 
     - name: Set Git Config for Fixes
-      if: steps.fix.outputs.fixed_count > 0
+      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
       uses: ./set-git-config
 
     - name: Commit Fixes
-      if: steps.fix.outputs.fixed_count > 0
+      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
       shell: bash
       run: |
         set -euo pipefail
