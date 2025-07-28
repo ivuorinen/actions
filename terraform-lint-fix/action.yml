@@ -183,6 +183,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        set -euo pipefail
 
         cd ${{ inputs.working-directory }}
 

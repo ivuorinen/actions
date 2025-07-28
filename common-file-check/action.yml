@@ -26,6 +26,10 @@ runs:
       id: check-files
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         if find . -name "${{ inputs.file-pattern }}" | grep -q .; then
           echo "found=true" >> $GITHUB_OUTPUT
         else

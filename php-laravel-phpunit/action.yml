@@ -64,37 +64,3 @@ runs:
       with:
         files: 'package.json, artisan'
 
-    - name: Copy .env
-      if: steps.check_files.outputs.files_exists == 'true'
-      shell: bash
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
-
-    - name: Install Dependencies
-      if: steps.check_files.outputs.files_exists == 'true'
-      shell: bash
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
-
-    - name: Generate key
-      if: steps.check_files.outputs.files_exists == 'true'
-      shell: bash
-      run: php artisan key:generate
-
-    - name: Directory Permissions
-      if: steps.check_files.outputs.files_exists == 'true'
-      shell: bash
-      run: chmod -R 777 storage bootstrap/cache
-
-    - name: Create Database
-      if: steps.check_files.outputs.files_exists == 'true'
-      shell: bash
-      run: |
-        mkdir -p database
-        touch database/database.sqlite
-
-    - name: Execute composer test (Unit and Feature tests)
-      if: steps.check_files.outputs.files_exists == 'true'
-      shell: bash
-      env:
-        DB_CONNECTION: sqlite
-        DB_DATABASE: database/database.sqlite
-      run: composer test

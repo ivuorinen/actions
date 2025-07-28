@@ -14,14 +14,23 @@ runs:
     - name: Check for Ansible Files
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         if ! find . -name "*.yml" | grep -q .; then
           echo "No Ansible files found. Skipping lint and fix."
           exit 0
         fi
+        set -euo pipefail
 
     - name: Install ansible-lint
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         pip install ansible-lint==6.22.1 || {
           echo "::error::Failed to install ansible-lint"
           exit 1
@@ -29,7 +38,12 @@ runs:
 
     - name: Run ansible-lint
       shell: bash
+        set -euo pipefail
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         ansible-lint --write --parseable-severity --format sarif > ansible-lint.sarif
 
     - name: Set Git Config for Fixes
@@ -38,6 +52,10 @@ runs:
     - name: Commit Fixes
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         if git diff --quiet; then
           echo "No changes to commit."
         else

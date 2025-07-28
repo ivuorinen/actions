@@ -232,6 +232,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        set -euo pipefail
 
         # Configure package manager
         case "${{ steps.pkg-manager.outputs.manager }}" in

@@ -42,12 +42,12 @@ runs:
     - name: Set option
       id: set-option
       run: |
+        set -euo pipefail
         if [ -z "${{ inputs.base-branch }}" ]; then
           echo "option=--all-files" >> $GITHUB_OUTPUT
           exit 0
         fi
         echo "option=--from-ref ${{ inputs.base-branch }} --to-ref HEAD" >> $GITHUB_OUTPUT
-      shell: bash
 
     - name: Run pre-commit
       uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1

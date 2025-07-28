@@ -24,16 +24,21 @@ runs:
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
       with:
-        dotnet-version: '${{ steps.detect-dotnet-version.outputs.dotnet-version }}'
+        dotnet-version: '${{ steps.dotnet-version-detect.outputs.dotnet-version }}'
 
     - name: Install dotnet-format
       shell: bash
-      run: dotnet tool install --global dotnet-format --version 7.0.1
+      run: |
+        set -euo pipefail
+        set -euo pipefail
+        dotnet tool install --global dotnet-format --version 7.0.1
+        set -euo pipefail
 
     - name: Run dotnet-format
       shell: bash
       run: |
-        set -eo pipefail
+        set -euo pipefail
+        set -euo pipefail
         if ! dotnet format --check --report sarif --report-file dotnet-format.sarif; then
           echo "::error::Code formatting issues found. Check the SARIF report for details."
           exit 1

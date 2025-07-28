@@ -24,6 +24,9 @@ runs:
       if: ${{ inputs.changelog == '' }}
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         # Validate version format
         if [[ ! "${{ inputs.version }}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?$ ]]; then
          echo "Error: Invalid version format. Must follow semantic versioning."
@@ -40,6 +43,9 @@ runs:
       if: ${{ inputs.changelog != '' }}
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         # Validate version format
         if [[ ! "${{ inputs.version }}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?$ ]]; then
          echo "Error: Invalid version format. Must follow semantic versioning."

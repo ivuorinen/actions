@@ -21,6 +21,10 @@ runs:
     - name: ⤵️ Download latest labels definitions
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         curl -s --retry 5 \
           "https://raw.githubusercontent.com/ivuorinen/actions/main/sync-labels/labels.yml" \
           > ${{ inputs.labels }}

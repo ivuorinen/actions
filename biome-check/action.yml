@@ -23,11 +23,19 @@ runs:
     - name: Install Dependencies
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         npm install -g biome
 
     - name: Run Biome Check
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         biome check . --json > biome-report.json
 
     - name: Upload Biome Results
