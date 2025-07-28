@@ -50,11 +50,12 @@ runs:
         get_csproj_version() {
           for csproj in $(find . -maxdepth 3 -name "*.csproj" | head -5); do
             if [ -f "$csproj" ]; then
-              local target_framework
-              target_framework=$(grep -o '<TargetFramework[^>]*>net[0-9]\+\.[0-9]\+</TargetFramework>' "$csproj" | head -1 | sed -n 's/.*>net\([0-9]\+\.[0-9]\+\)<.*/\1/p')
-              if [ -n "$target_framework" ] && validate_dotnet_version "$target_framework"; then
-                echo "Found .NET version in $csproj: $target_framework" >&2
-                echo "$target_framework"
+              local target_framework dotnet_version
+              target_framework=$(grep -oE '<TargetFrameworks?[^>]*>[^<]*</TargetFrameworks?>' "$csproj" | head -1 | grep -oE 'net[0-9]+\.[0-9]+' | head -1)
+              dotnet_version=${target_framework#net}
+              if [ -n "$dotnet_version" ] && validate_dotnet_version "$dotnet_version"; then
+                echo "Found .NET version in $csproj: $dotnet_version" >&2
+                echo "$dotnet_version"
                 return 0
               fi
             fi
@@ -65,8 +66,9 @@ runs:
         # Function to get version from Directory.Build.props
         get_directory_build_props_version() {
           if [ -f Directory.Build.props ]; then
-            local version
-            version=$(grep -o '<TargetFramework[^>]*>net[0-9]\+\.[0-9]\+</TargetFramework>' Directory.Build.props | head -1 | sed -n 's/.*>net\([0-9]\+\.[0-9]\+\)<.*/\1/p')
+            local version raw
+            raw=$(grep -oE '<TargetFrameworks?[^>]*>[^<]*</TargetFrameworks?>' Directory.Build.props | head -1 | grep -oE 'net[0-9]+\.[0-9]+' | head -1)
+            version=${raw#net}
             if [ -n "$version" ] && validate_dotnet_version "$version"; then
               echo "Found .NET version in Directory.Build.props: $version" >&2
               echo "$version"
