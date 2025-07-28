@@ -45,6 +45,10 @@ runs:
       id: bot
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
         echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
         echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
@@ -52,11 +56,16 @@ runs:
         if [ "${{ inputs.is_fiximus }}" != "false" ]; then
           echo "username=fiximus" >> $GITHUB_OUTPUT
           echo "email=github-bot@ivuorinen.net" >> $GITHUB_OUTPUT
+        set -euo pipefail
         fi
 
     - name: Configure Git
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         # Function to clean up Git config
         cleanup_git_config() {
           git config --local --unset-all "url.https://x-access-token:${TOKEN}@github.com/.insteadof" || true

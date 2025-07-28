@@ -68,6 +68,7 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
+        set -euo pipefail
         echo "Running Go tests..."
         if find . -name "*_test.go" | grep -q .; then
           go test -v ./... -race -coverprofile=coverage.out

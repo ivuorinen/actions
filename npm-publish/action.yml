@@ -49,6 +49,9 @@ runs:
     - name: Authenticate NPM
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         echo "//${{ inputs.registry-url }}/:_authToken=${{ inputs.npm_token }}" > ~/.npmrc
 
     - name: Publish Package
@@ -56,6 +59,8 @@ runs:
       env:
         NPM_TOKEN: ${{ inputs.npm_token }}
       run: |
+        set -euo pipefail
+        set -euo pipefail
         pkg_version=$(node -p "require('./package.json').version")
         if [ "$pkg_version" != "${{ inputs.package-version }}" ]; then
           echo "Version mismatch: package.json ($pkg_version) != input (${{ inputs.package-version }})"

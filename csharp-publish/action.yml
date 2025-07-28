@@ -32,19 +32,31 @@ runs:
 
     - name: Restore Dependencies
       shell: bash
-      run: dotnet restore
+      run: |
+        set -euo pipefail
+        dotnet restore
 
     - name: Build Solution
       shell: bash
-      run: dotnet build --configuration Release --no-restore
+      run: |
+        set -euo pipefail
+        dotnet build --configuration Release --no-restore
 
     - name: Pack Solution
       shell: bash
-      run: dotnet pack --configuration Release --output ./artifacts
+      run: |
+        set -euo pipefail
+        dotnet pack --configuration Release --output ./artifacts
 
     - name: Publish Package
       shell: bash
-      run: dotnet nuget push ./artifacts/*.nupkg \
+      run: |
+        set -euo pipefail
+        set -euo pipefail
+        dotnet nuget push ./artifacts/*.nupkg \
+          --api-key ${{ github.token }} \
+          --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
+          --skip-duplicate
         --api-key ${{ github.token }} \
         --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
         --skip-duplicate \

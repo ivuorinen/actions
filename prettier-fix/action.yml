@@ -23,11 +23,20 @@ runs:
     - name: Install Dependencies
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         npm install
+        set -euo pipefail
 
     - name: Run Prettier Fix
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         npx prettier --write .
 
     - name: Push Fixes

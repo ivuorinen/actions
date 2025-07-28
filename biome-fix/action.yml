@@ -23,11 +23,19 @@ runs:
     - name: Install Dependencies
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         npm install -g biome
 
     - name: Run Biome Fix
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         biome fix .
 
     - name: Push Fixes

@@ -23,11 +23,19 @@ runs:
     - name: Install Dependencies
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         npm install
 
     - name: Run ESLint Fix
       shell: bash
       run: |
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
+        set -euo pipefail
         npx eslint . --fix
 
     - name: Push Fixes
