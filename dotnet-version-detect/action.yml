@@ -2,6 +2,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: Dotnet Version Detect
 description: 'Detects .NET SDK version from global.json or defaults to a specified version.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: code
+  color: blue
 
 inputs:
   default-version:
@@ -12,122 +17,17 @@ inputs:
 outputs:
   dotnet-version:
     description: 'Detected or default .NET SDK version.'
-    value: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+    value: ${{ steps.parse-version.outputs.detected-version }}
 
 runs:
   using: composite
   steps:
-    - name: Detect .NET SDK Version
-      id: detect-dotnet-version
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Function to validate .NET version format
-        validate_dotnet_version() {
-          local version=$1
-          if [[ $version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)*$ ]]; then
-            return 0
-          fi
-          return 1
-        }
-
-        # Function to get version from global.json
-        get_global_json_version() {
-          if [ -f global.json ]; then
-            local version
-            version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null || echo "")
-            if [ -n "$version" ] && validate_dotnet_version "$version"; then
-              echo "Found .NET version in global.json: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .csproj files
-        get_csproj_version() {
-          for csproj in $(find . -maxdepth 3 -name "*.csproj" | head -5); do
-            if [ -f "$csproj" ]; then
-              local target_framework dotnet_version
-              target_framework=$(grep -oE '<TargetFrameworks?[^>]*>[^<]*</TargetFrameworks?>' "$csproj" | head -1 | grep -oE 'net[0-9]+\.[0-9]+' | head -1)
-              dotnet_version=${target_framework#net}
-              if [ -n "$dotnet_version" ] && validate_dotnet_version "$dotnet_version"; then
-                echo "Found .NET version in $csproj: $dotnet_version" >&2
-                echo "$dotnet_version"
-                return 0
-              fi
-            fi
-          done
-          return 1
-        }
-
-        # Function to get version from Directory.Build.props
-        get_directory_build_props_version() {
-          if [ -f Directory.Build.props ]; then
-            local version raw
-            raw=$(grep -oE '<TargetFrameworks?[^>]*>[^<]*</TargetFrameworks?>' Directory.Build.props | head -1 | grep -oE 'net[0-9]+\.[0-9]+' | head -1)
-            version=${raw#net}
-            if [ -n "$version" ] && validate_dotnet_version "$version"; then
-              echo "Found .NET version in Directory.Build.props: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .tool-versions
-        get_tool_versions_version() {
-          if [ -f .tool-versions ]; then
-            local version
-            version=$(grep -E '^dotnet[[:space:]]' .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n')
-            if [ -n "$version" ] && validate_dotnet_version "$version"; then
-              echo "Found .NET version in .tool-versions: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from Dockerfile
-        get_dockerfile_version() {
-          if [ -f Dockerfile ]; then
-            local version
-            version=$(grep -i "^FROM.*dotnet" Dockerfile | head -1 | sed -n 's/.*dotnet[^:]*:\([0-9]\+\.[0-9]\+\).*/\1/p')
-            if [ -n "$version" ] && validate_dotnet_version "$version"; then
-              echo "Found .NET version in Dockerfile: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .devcontainer
-        get_devcontainer_version() {
-          if [ -f .devcontainer/devcontainer.json ]; then
-            local version
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n 's/.*dotnet[^:]*:\([0-9]\+\.[0-9]\+\).*/\1/p')
-            if [ -n "$version" ] && validate_dotnet_version "$version"; then
-              echo "Found .NET version in devcontainer: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Detect version with priority order
-        detected_version=$(get_global_json_version ||
-                          get_directory_build_props_version ||
-                          get_csproj_version ||
-                          get_tool_versions_version ||
-                          get_devcontainer_version ||
-                          get_dockerfile_version ||
-                          echo "${{ inputs.default-version }}")
-
-        echo "Using .NET SDK version: $detected_version"
-        echo "dotnet-version=$detected_version" >> $GITHUB_OUTPUT
+    - name: Parse .NET Version
+      id: parse-version
+      uses: ivuorinen/actions/version-file-parser@main
+      with:
+        language: 'dotnet'
+        tool-versions-key: 'dotnet'
+        dockerfile-image: 'dotnet'
+        validation-regex: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+        default-version: ${{ inputs.default-version }}

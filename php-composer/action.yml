@@ -69,27 +69,95 @@ runs:
       run: |
         set -euo pipefail
 
-        # Validate PHP version
-        if ! [[ "${{ inputs.php }}" =~ ^([5-9]\.[0-9]+|[1-9][0-9]+\.[0-9]+)$ ]]; then
-          echo "::error::Invalid PHP version format: ${{ inputs.php }}"
+        # Validate PHP version format
+        if ! [[ "${{ inputs.php }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+          echo "::error::Invalid PHP version format: '${{ inputs.php }}'. Expected format: X.Y or X.Y.Z (e.g., 8.4, 8.4.1)"
           exit 1
+        fi
+
+        # Validate PHP version is supported (5.6 minimum, reasonable upper bound)
+        php_major_minor=$(echo "${{ inputs.php }}" | cut -d. -f1,2)
+        if (( $(echo "$php_major_minor < 5.6" | bc -l 2>/dev/null || echo "0") )); then
+          echo "::error::PHP version too old: '${{ inputs.php }}'. Minimum supported version is 5.6"
+          exit 1
+        fi
+        if (( $(echo "$php_major_minor > 8.5" | bc -l 2>/dev/null || echo "0") )); then
+          echo "::warning::PHP version may be unsupported: '${{ inputs.php }}'. Latest stable version is around 8.4"
+        fi
+
+        # Validate extensions format (comma-separated list)
+        if [[ -n "${{ inputs.extensions }}" ]]; then
+          if ! [[ "${{ inputs.extensions }}" =~ ^[a-zA-Z0-9]+(,[[:space:]]*[a-zA-Z0-9]+)*$ ]]; then
+            echo "::error::Invalid extensions format: '${{ inputs.extensions }}'. Expected comma-separated list (e.g., mbstring, xml, zip)"
+            exit 1
+          fi
+        fi
+
+        # Validate tools format (comma-separated list with optional versions)
+        if [[ -n "${{ inputs.tools }}" ]]; then
+          if ! [[ "${{ inputs.tools }}" =~ ^[a-zA-Z0-9:v.-]+(,[[:space:]]*[a-zA-Z0-9:v.-]+)*$ ]]; then
+            echo "::error::Invalid tools format: '${{ inputs.tools }}'. Expected comma-separated list with optional versions (e.g., composer:v2, phpunit:^9.0)"
+            exit 1
+          fi
         fi
 
         # Validate Composer version
-        if ! [[ "${{ inputs.composer-version }}" =~ ^[12]$ ]]; then
-          echo "::error::Invalid Composer version: ${{ inputs.composer-version }}"
-          exit 1
+        case "${{ inputs.composer-version }}" in
+          1|2)
+            ;;
+          *)
+            echo "::error::Invalid composer-version: '${{ inputs.composer-version }}'. Allowed values: 1, 2"
+            exit 1
+            ;;
+        esac
+
+        # Validate stability option
+        case "${{ inputs.stability }}" in
+          stable|RC|beta|alpha|dev)
+            ;;
+          *)
+            echo "::error::Invalid stability: '${{ inputs.stability }}'. Allowed values: stable, RC, beta, alpha, dev"
+            exit 1
+            ;;
+        esac
+
+        # Validate cache directories format if provided (comma-separated paths)
+        if [[ -n "${{ inputs.cache-directories }}" ]]; then
+          IFS=',' read -ra DIRS <<< "${{ inputs.cache-directories }}"
+          for dir in "${DIRS[@]}"; do
+            # Trim whitespace
+            dir=$(echo "$dir" | xargs)
+
+            # Check for path traversal
+            if [[ "$dir" == *".."* ]] || [[ "$dir" == /* ]]; then
+              echo "::error::Invalid cache directory path: '$dir'. Path traversal or absolute paths not allowed"
+              exit 1
+            fi
+
+            # Check for valid directory name
+            if ! [[ "$dir" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+              echo "::error::Invalid cache directory name: '$dir'. Must contain only alphanumeric characters, periods, hyphens, underscores, and forward slashes"
+              exit 1
+            fi
+          done
         fi
 
-        # Validate stability
-        if ! [[ "${{ inputs.stability }}" =~ ^(stable|RC|beta|alpha|dev)$ ]]; then
-          echo "::error::Invalid stability option: ${{ inputs.stability }}"
+        # Validate GitHub token format (basic validation)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^(gh[pousr]_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36})$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
+          fi
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
     - name: Setup PHP
       id: php
-      uses: shivammathur/setup-php@0f7f1d08e3e32076e51cae65eb0b0c871405b16e # 2.34.1
+      uses: shivammathur/setup-php@ccf2c627fe61b1b4d924adfcbd19d661a18133a0 # 2.35.2
       with:
         php-version: ${{ inputs.php }}
         extensions: ${{ inputs.extensions }}

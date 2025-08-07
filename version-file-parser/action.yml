@@ -25,6 +25,9 @@ inputs:
     description: 'Version validation regex pattern'
     required: false
     default: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+  default-version:
+    description: 'Default version to use if no version is detected'
+    required: false
 
 outputs:
   tool-versions-version:
@@ -39,6 +42,15 @@ outputs:
   version-file-version:
     description: 'Version found in language-specific version file'
     value: ${{ steps.parse.outputs.version-file-version }}
+  config-file-version:
+    description: 'Version found in language config files (package.json, composer.json, etc.)'
+    value: ${{ steps.parse.outputs.config-file-version }}
+  detected-version:
+    description: 'Final detected version (first found or default)'
+    value: ${{ steps.parse.outputs.detected-version }}
+  package-manager:
+    description: 'Detected package manager (npm, yarn, pnpm, composer, pip, poetry, etc.)'
+    value: ${{ steps.parse.outputs.package-manager }}
 
 runs:
   using: composite
@@ -69,11 +81,17 @@ runs:
         echo "dockerfile-version=" >> $GITHUB_OUTPUT
         echo "devcontainer-version=" >> $GITHUB_OUTPUT
         echo "version-file-version=" >> $GITHUB_OUTPUT
+        echo "config-file-version=" >> $GITHUB_OUTPUT
+        echo "detected-version=" >> $GITHUB_OUTPUT
+        echo "package-manager=" >> $GITHUB_OUTPUT
+
+        # Language detection patterns
+        language="${{ inputs.language }}"
 
         # Parse .tool-versions file
         if [ -f .tool-versions ]; then
           echo "Checking .tool-versions for ${{ inputs.tool-versions-key }}..." >&2
-          version=$(awk -v key="${{ inputs.tool-versions-key }}" '$1==key {gsub(/#.*/, "", $2); print $2; exit}' .tool-versions | tr -d ' ' | tr -d '\n' || echo "")
+          version=$(grep -F "${{ inputs.tool-versions-key }}" .tool-versions | grep "^${{ inputs.tool-versions-key }}[[:space:]]" | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n' || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -124,4 +142,215 @@ runs:
               echo "version-file-version=$version" >> $GITHUB_OUTPUT
             fi
           fi
+        fi
+
+        # Parse language-specific configuration files
+        config_version=""
+        detected_package_manager=""
+
+        case "$language" in
+          "node")
+            # Check package.json
+            if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
+              version=$(jq -r '.engines.node // empty' package.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+              if [ -n "$version" ] && validate_version "$version"; then
+                echo "Found Node.js version in package.json: $version" >&2
+                config_version="$version"
+              fi
+            fi
+
+            # Detect package manager
+            if [ -f pnpm-lock.yaml ]; then
+              detected_package_manager="pnpm"
+            elif [ -f yarn.lock ]; then
+              detected_package_manager="yarn"
+            elif [ -f package-lock.json ]; then
+              detected_package_manager="npm"
+            else
+              detected_package_manager="npm"
+            fi
+            ;;
+
+          "php")
+            # Check composer.json
+            if [ -f composer.json ] && command -v jq >/dev/null 2>&1; then
+              # Try require.php first
+              version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+              if [ -z "$version" ]; then
+                # Try platform.php
+                version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+              fi
+              if [ -n "$version" ] && validate_version "$version"; then
+                echo "Found PHP version in composer.json: $version" >&2
+                config_version="$version"
+              fi
+            fi
+
+            # Check phpunit.xml
+            if [ -z "$config_version" ]; then
+              phpunit_file=""
+              if [ -f phpunit.xml ]; then
+                phpunit_file="phpunit.xml"
+              elif [ -f phpunit.xml.dist ]; then
+                phpunit_file="phpunit.xml.dist"
+              fi
+
+              if [ -n "$phpunit_file" ]; then
+                version=$(grep -o 'php[[:space:]]*version[[:space:]]*=[[:space:]]*"[^"]*"' "$phpunit_file" | sed -n 's/.*"\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\)".*/\1/p')
+                if [ -n "$version" ] && validate_version "$version"; then
+                  echo "Found PHP version in $phpunit_file: $version" >&2
+                  config_version="$version"
+                fi
+              fi
+            fi
+
+            # Detect package manager
+            if [ -f composer.json ]; then
+              detected_package_manager="composer"
+            fi
+            ;;
+
+          "python")
+            # Check pyproject.toml
+            if [ -f pyproject.toml ]; then
+              version=$(grep -E '^python[[:space:]]*=' pyproject.toml | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+              if [ -n "$version" ] && validate_version "$version"; then
+                echo "Found Python version in pyproject.toml: $version" >&2
+                config_version="$version"
+              fi
+            fi
+
+            # Check setup.py for python_requires
+            if [ -z "$config_version" ] && [ -f setup.py ]; then
+              version=$(grep -o 'python_requires[[:space:]]*=[[:space:]]*['\''"].*['\''"]' setup.py | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+              if [ -n "$version" ] && validate_version "$version"; then
+                echo "Found Python version in setup.py: $version" >&2
+                config_version="$version"
+              fi
+            fi
+
+            # Detect package manager
+            if [ -f pyproject.toml ] && grep -q '\[tool\.poetry\]' pyproject.toml; then
+              detected_package_manager="poetry"
+            elif [ -f Pipfile ]; then
+              detected_package_manager="pipenv"
+            elif [ -f requirements.txt ]; then
+              detected_package_manager="pip"
+            else
+              detected_package_manager="pip"
+            fi
+            ;;
+
+          "go")
+            # Check go.mod
+            if [ -f go.mod ]; then
+              version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1)
+              if [ -n "$version" ] && validate_version "$version"; then
+                echo "Found Go version in go.mod: $version" >&2
+                config_version="$version"
+              fi
+            fi
+
+            # Detect package manager
+            if [ -f go.mod ]; then
+              detected_package_manager="go"
+            fi
+            ;;
+
+          "dotnet")
+            # Check global.json
+            if [ -f global.json ] && command -v jq >/dev/null 2>&1; then
+              version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null)
+              if [ -n "$version" ] && validate_version "$version"; then
+                echo "Found .NET version in global.json: $version" >&2
+                config_version="$version"
+              fi
+            fi
+
+            # Check .csproj files
+            if [ -z "$config_version" ]; then
+              for csproj in *.csproj; do
+                if [ -f "$csproj" ]; then
+                  version=$(grep -o '<TargetFramework>net[0-9]\+\.[0-9]\+</TargetFramework>' "$csproj" | sed -n 's/.*net\([0-9]\+\.[0-9]\+\).*/\1/p' | head -1)
+                  if [ -n "$version" ] && validate_version "$version"; then
+                    echo "Found .NET version in $csproj: $version" >&2
+                    config_version="$version"
+                    break
+                  fi
+                fi
+              done
+            fi
+
+            # Detect package manager
+            detected_package_manager="dotnet"
+            ;;
+        esac
+
+        # Set config-file-version output
+        if [ -n "$config_version" ]; then
+          echo "config-file-version=$config_version" >> $GITHUB_OUTPUT
+        fi
+
+        # Set package-manager output
+        if [ -n "$detected_package_manager" ]; then
+          echo "package-manager=$detected_package_manager" >> $GITHUB_OUTPUT
+        fi
+
+        # Determine final detected version with priority order
+        final_version=""
+
+        # Priority order: version-file > config-file > tool-versions > dockerfile > devcontainer > default
+        for output in version-file-version config-file-version tool-versions-version dockerfile-version devcontainer-version; do
+          case "$output" in
+            "version-file-version")
+              if [ -n "${{ inputs.version-file }}" ] && [ -f "${{ inputs.version-file }}" ]; then
+                temp_version=$(grep "^version-file-version=" $GITHUB_OUTPUT | cut -d= -f2)
+                if [ -n "$temp_version" ]; then
+                  final_version="$temp_version"
+                  break
+                fi
+              fi
+              ;;
+            "config-file-version")
+              if [ -n "$config_version" ]; then
+                final_version="$config_version"
+                break
+              fi
+              ;;
+            "tool-versions-version")
+              temp_version=$(grep "^tool-versions-version=" $GITHUB_OUTPUT | cut -d= -f2)
+              if [ -n "$temp_version" ]; then
+                final_version="$temp_version"
+                break
+              fi
+              ;;
+            "dockerfile-version")
+              temp_version=$(grep "^dockerfile-version=" $GITHUB_OUTPUT | cut -d= -f2)
+              if [ -n "$temp_version" ]; then
+                final_version="$temp_version"
+                break
+              fi
+              ;;
+            "devcontainer-version")
+              temp_version=$(grep "^devcontainer-version=" $GITHUB_OUTPUT | cut -d= -f2)
+              if [ -n "$temp_version" ]; then
+                final_version="$temp_version"
+                break
+              fi
+              ;;
+          esac
+        done
+
+        # Use default version if nothing was detected
+        if [ -z "$final_version" ] && [ -n "${{ inputs.default-version }}" ]; then
+          final_version="${{ inputs.default-version }}"
+          echo "Using default ${{ inputs.language }} version: $final_version" >&2
+        fi
+
+        # Set final detected version
+        if [ -n "$final_version" ]; then
+          echo "detected-version=$final_version" >> $GITHUB_OUTPUT
+          echo "Final detected ${{ inputs.language }} version: $final_version" >&2
+        else
+          echo "No ${{ inputs.language }} version detected" >&2
         fi

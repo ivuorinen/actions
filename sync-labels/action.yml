@@ -4,11 +4,19 @@ name: Sync labels
 description: Sync labels from a YAML file to a GitHub repository
 author: Ismo Vuorinen
 
+branding:
+  icon: tag
+  color: blue
+
 inputs:
   labels:
     description: 'Path to the labels YAML file'
     required: true
     default: 'labels.yml'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   labels:
@@ -18,9 +26,35 @@ outputs:
 runs:
   using: 'composite'
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate labels file path format
+        if [[ "${{ inputs.labels }}" == *".."* ]] || [[ "${{ inputs.labels }}" == "/"* ]]; then
+          echo "::error::Invalid labels file path: '${{ inputs.labels }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate labels file extension
+        if ! [[ "${{ inputs.labels }}" =~ \.(yml|yaml)$ ]]; then
+          echo "::error::Invalid labels file extension: '${{ inputs.labels }}'. Expected .yml or .yaml file"
+          exit 1
+        fi
+
+        # Validate token is provided (basic check)
+        if [[ -z "${{ inputs.token }}" ]]; then
+          echo "::error::GitHub token is required for label synchronization"
+          exit 1
+        fi
+
     - name: ⤵️ Download latest labels definitions
       shell: bash
       run: |
+        set -euo pipefail
+
         curl -s --retry 5 \
           "https://raw.githubusercontent.com/ivuorinen/actions/main/sync-labels/labels.yml" \
           > ${{ inputs.labels }}
@@ -28,6 +62,6 @@ runs:
     - name: 🚀 Run Label Syncer
       uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ inputs.token }}
       with:
         manifest: ${{ inputs.labels }}

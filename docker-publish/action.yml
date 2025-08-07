@@ -83,19 +83,19 @@ runs:
         echo "Publishing to: ${{ inputs.registry }}"
 
     - name: Build Multi-Arch Docker Image
-      uses: ./docker-build
+      uses: ivuorinen/actions/docker-build@main
       with:
         tag: ${{ steps.tags.outputs.all-tags }}
 
     - name: Publish to Docker Hub
       if: contains(steps.dest.outputs.reg, 'dockerhub')
-      uses: ./docker-publish-hub
+      uses: ivuorinen/actions/docker-publish-hub@main
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
 
     - name: Publish to GitHub Packages
       if: contains(steps.dest.outputs.reg, 'github')
-      uses: ./docker-publish-gh
+      uses: ivuorinen/actions/docker-publish-gh@main
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
 
