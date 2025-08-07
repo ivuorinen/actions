@@ -8,13 +8,19 @@ branding:
   icon: clock
   color: yellow
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+
 runs:
   using: composite
   steps:
     - name: 🚀 Run stale
       uses: actions/stale@5bef64f19d7facfb25b37b414482c7164d639639 # v9.1.0
       with:
-        repo-token: ${{ github.token }}
+        repo-token: ${{ inputs.token }}
         days-before-stale: 30
         days-before-close: 7
         remove-stale-when-updated: true
