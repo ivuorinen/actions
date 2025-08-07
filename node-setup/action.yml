@@ -45,7 +45,7 @@ outputs:
     value: ${{ steps.setup.outputs.node-version }}
   package-manager:
     description: 'Selected package manager'
-    value: ${{ steps.setup.outputs.package-manager }}
+    value: ${{ steps.version.outputs.package-manager || inputs.package-manager }}
   cache-hit:
     description: 'Indicates if there was a cache hit'
     value: ${{ steps.deps-cache.outputs.cache-hit }}
@@ -56,292 +56,76 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Version Detection
+    - name: Parse Node.js Version
       id: version
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Function to validate Node.js version format
-        validate_version() {
-          local version=$1
-          if ! [[ $version =~ ^[0-9]+(\.[0-9]+)*$ ]]; then
-            echo "::error::Invalid Node.js version format: $version"
-            return 1
-          fi
-        }
-
-        # Function to get version from .nvmrc
-        get_nvmrc_version() {
-          if [ -f .nvmrc ]; then
-            local version
-            version=$(cat .nvmrc | tr -d 'v' | tr -d ' ' | tr -d '\n')
-            if validate_version "$version"; then
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .tool-versions
-        get_tool_versions_version() {
-          if [ -f .tool-versions ]; then
-            local version
-            version=$(grep -E '^nodejs[[:space:]]' .tool-versions |
-                     sed 's/#.*//' |
-                     awk '{print $2}' |
-                     tr -d ' ' |
-                     tr -d '\n')
-            if [ -n "$version" ] && validate_version "$version"; then
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .node-version
-        get_node_version_file() {
-          if [ -f .node-version ]; then
-            local version
-            version=$(cat .node-version | tr -d 'v' | tr -d ' ' | tr -d '\n')
-            if validate_version "$version"; then
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from package.json (engines.node or volta)
-        get_package_json_version() {
-          if [ -f package.json ]; then
-            local version
-            # Try engines.node first
-            version=$(
-              node -pe "try { require('./package.json').engines.node.replace(/[^0-9.]/g, '') } catch(e) { '' }" 2>/dev/null || echo "")
-            if [ -n "$version" ] && validate_version "$version"; then
-              echo "$version"
-              return 0
-            fi
-            # Try volta.node configuration
-            version=$(node -pe "try { require('./package.json').volta.node.replace(/[^0-9.]/g, '') } catch(e) { '' }" 2>/dev/null || echo "")
-            if [ -n "$version" ] && validate_version "$version"; then
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from Dockerfile
-        get_dockerfile_version() {
-          if [ -f Dockerfile ]; then
-            local version
-            version=$(
-              grep -i "^FROM.*node:" Dockerfile | head -1 | sed -n 's/.*node:\([0-9]\+\(\.[0-9]\+\)*\).*/\1/p'
-            )
-            if [ -n "$version" ] && validate_version "$version"; then
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .devcontainer/devcontainer.json
-        get_devcontainer_version() {
-          if [ -f .devcontainer/devcontainer.json ]; then
-            local version
-            version=$(
-              node -pe "try { JSON.parse(require('fs').readFileSync('.devcontainer/devcontainer.json', 'utf8')).image.match(/node:([0-9.]+)/)?.[1] || '' } catch(e) { '' }" 2>/dev/null || echo ""
-            )
-            if [ -n "$version" ] && validate_version "$version"; then
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Determine Node.js version
-        if [ -n "${{ inputs.force-version }}" ]; then
-          if ! validate_version "${{ inputs.force-version }}"; then
-            exit 1
-          fi
-          version="${{ inputs.force-version }}"
-          echo "Using forced Node.js version: $version"
-        else
-          # Priority order: explicit files, project config, container config, fallback
-          version=$(get_nvmrc_version ||
-                   get_node_version_file ||
-                   get_tool_versions_version ||
-                   get_package_json_version ||
-                   get_devcontainer_version ||
-                   get_dockerfile_version ||
-                   echo "${{ inputs.default-version }}")
-          echo "Detected Node.js version: $version"
-        fi
-
-        echo "version=$version" >> $GITHUB_OUTPUT
-
-    - name: Package Manager Detection
-      id: pkg-manager
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Validate input package manager
-        case "${{ inputs.package-manager }}" in
-          npm|yarn|pnpm)
-            pkg_manager="${{ inputs.package-manager }}"
-            ;;
-          *)
-            echo "::error::Invalid package manager specified: ${{ inputs.package-manager }}"
-            exit 1
-            ;;
-        esac
-
-        # Auto-detect if files exist
-        if [ -f "yarn.lock" ]; then
-          pkg_manager="yarn"
-        elif [ -f "pnpm-lock.yaml" ]; then
-          pkg_manager="pnpm"
-        elif [ -f "package-lock.json" ]; then
-          pkg_manager="npm"
-        fi
-
-        echo "manager=$pkg_manager" >> $GITHUB_OUTPUT
+      uses: ivuorinen/actions/version-file-parser@main
+      with:
+        language: 'node'
+        tool-versions-key: 'nodejs'
+        dockerfile-image: 'node'
+        version-file: '.nvmrc'
+        validation-regex: '^[0-9]+(\.[0-9]+)*$'
+        default-version: ${{ inputs.force-version || inputs.default-version }}
 
     - name: Setup Node.js
       id: setup
       uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
       with:
-        node-version: ${{ steps.version.outputs.version }}
+        node-version: ${{ steps.version.outputs.detected-version }}
         registry-url: ${{ inputs.registry-url }}
-        cache: ${{ steps.pkg-manager.outputs.manager }}
-        node-version-file: ''
-        always-auth: ${{ inputs.token != '' }}
-        cache-dependency-path: |
-          **/package-lock.json
-          **/yarn.lock
-          **/pnpm-lock.yaml
+        cache: ${{ steps.version.outputs.package-manager || inputs.package-manager }}
 
-    - name: Configure Package Manager
+    - name: Set Auth Token
+      if: inputs.token != ''
       shell: bash
       run: |
-        set -euo pipefail
+        echo "NODE_AUTH_TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
 
-        # Configure package manager
-        case "${{ steps.pkg-manager.outputs.manager }}" in
-          yarn)
-            if ! command -v yarn &> /dev/null; then
-              echo "Installing Yarn..."
-              npm install -g yarn
-            fi
-            # Configure Yarn settings
-            yarn config set nodeLinker node-modules
-            yarn config set checksumBehavior ignore
-            ;;
-          pnpm)
-            if ! command -v pnpm &> /dev/null; then
-              echo "Installing pnpm..."
-              npm install -g pnpm
-            fi
-            ;;
-        esac
-
-        # Configure registry authentication if token provided
-        if [ -n "${{ inputs.token }}" ]; then
-          echo "Configuring registry authentication..."
-          case "${{ steps.pkg-manager.outputs.manager }}" in
-            npm)
-              npm config set //${{ inputs.registry-url }}/:_authToken ${{ inputs.token }}
-              ;;
-            yarn)
-              yarn config set npmAuthToken ${{ inputs.token }}
-              ;;
-            pnpm)
-              pnpm config set //${{ inputs.registry-url }}/:_authToken ${{ inputs.token }}
-              ;;
-          esac
-        fi
-
-    - name: Setup Caching
+    - name: Cache Dependencies
       if: inputs.cache == 'true'
       id: deps-cache
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: |
-          **/node_modules
           ~/.npm
-          ~/.pnpm-store
           ~/.yarn/cache
-        key: ${{ runner.os }}-node-${{ steps.version.outputs.version }}-${{ steps.pkg-manager.outputs.manager }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
+          ~/.pnpm-store
+          node_modules
+        key: ${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
         restore-keys: |
-          ${{ runner.os }}-node-${{ steps.version.outputs.version }}-${{ steps.pkg-manager.outputs.manager }}-
+          ${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}-
 
     - name: Install Dependencies
-      if: inputs.install == 'true'
+      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
 
-        echo "Installing dependencies using ${{ steps.pkg-manager.outputs.manager }}..."
+        package_manager="${{ steps.version.outputs.package-manager || inputs.package-manager }}"
+        echo "Installing dependencies using $package_manager..."
 
-        case "${{ steps.pkg-manager.outputs.manager }}" in
-          npm)
-            npm ci --prefer-offline --no-audit --no-fund
+        case "$package_manager" in
+          "pnpm")
+            if ! command -v pnpm >/dev/null 2>&1; then
+              npm install -g pnpm
+            fi
+            pnpm install --frozen-lockfile
             ;;
-          yarn)
-            yarn install --frozen-lockfile --prefer-offline --non-interactive
+          "yarn")
+            yarn install --frozen-lockfile
             ;;
-          pnpm)
-            pnpm install --frozen-lockfile --prefer-offline
+          "npm"|*)
+            npm ci
             ;;
         esac
 
-    - name: Verify Setup
-      id: verify
+        echo "✅ Dependencies installed successfully"
+
+    - name: Set Final Outputs
       shell: bash
       run: |
-        set -euo pipefail
-
-        # Verify Node.js installation
-        echo "Verifying Node.js installation..."
-        node_version=$(node --version)
-        echo "Node.js version: $node_version"
-
-        # Verify package manager installation
-        echo "Verifying package manager installation..."
-        case "${{ steps.pkg-manager.outputs.manager }}" in
-          npm)
-            npm --version
-            ;;
-          yarn)
-            yarn --version
-            ;;
-          pnpm)
-            pnpm --version
-            ;;
-        esac
-
-        # Verify module resolution
-        if [ -f "package.json" ]; then
-          echo "Verifying module resolution..."
-          node -e "require('./package.json')"
-        fi
-
-    - name: Output Configuration
-      id: config
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Output final configuration
         {
-          echo "node-version=$(node --version)"
+          echo "node-version=${{ steps.version.outputs.detected-version }}"
+          echo "package-manager=${{ steps.version.outputs.package-manager || inputs.package-manager }}"
           echo "node-path=$(which node)"
-          echo "package-manager=${{ steps.pkg-manager.outputs.manager }}"
         } >> $GITHUB_OUTPUT

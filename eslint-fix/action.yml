@@ -8,26 +8,50 @@ branding:
   icon: 'code'
   color: 'blue'
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+
 runs:
   using: composite
   steps:
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ./set-git-config
+      uses: ivuorinen/actions/set-git-config@main
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Node Setup
-      uses: ./node-setup
+      uses: ivuorinen/actions/node-setup@main
 
     - name: Install Dependencies
       shell: bash
       run: |
+        set -euo pipefail
+
         npm install
 
     - name: Run ESLint Fix
       shell: bash
       run: |
+        set -euo pipefail
+
         npx eslint . --fix
 
     - name: Push Fixes

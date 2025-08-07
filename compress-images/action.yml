@@ -11,21 +11,131 @@ branding:
   icon: image
   color: blue
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  working-directory:
+    description: 'Directory containing images to compress'
+    required: false
+    default: '.'
+  image-quality:
+    description: 'JPEG compression quality (0-100)'
+    required: false
+    default: '85'
+  png-quality:
+    description: 'PNG compression quality (0-100)'
+    required: false
+    default: '95'
+  ignore-paths:
+    description: 'Paths to ignore during compression (glob patterns)'
+    required: false
+    default: 'node_modules/**,dist/**,build/**'
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate working directory
+        if [ ! -d "${{ inputs.working-directory }}" ]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Directory does not exist"
+          exit 1
+        fi
+
+        # Validate path security (prevent path traversal)
+        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate image quality (0-100)
+        if ! [[ "${{ inputs.image-quality }}" =~ ^[0-9]+$ ]]; then
+          echo "::error::Invalid image-quality: '${{ inputs.image-quality }}'. Must be a number between 0 and 100"
+          exit 1
+        fi
+
+        if [ "${{ inputs.image-quality }}" -lt 0 ] || [ "${{ inputs.image-quality }}" -gt 100 ]; then
+          echo "::error::Invalid image-quality: '${{ inputs.image-quality }}'. Must be between 0 and 100"
+          exit 1
+        fi
+
+        # Validate PNG quality (0-100)
+        if ! [[ "${{ inputs.png-quality }}" =~ ^[0-9]+$ ]]; then
+          echo "::error::Invalid png-quality: '${{ inputs.png-quality }}'. Must be a number between 0 and 100"
+          exit 1
+        fi
+
+        if [ "${{ inputs.png-quality }}" -lt 0 ] || [ "${{ inputs.png-quality }}" -gt 100 ]; then
+          echo "::error::Invalid png-quality: '${{ inputs.png-quality }}'. Must be between 0 and 100"
+          exit 1
+        fi
+
+        # Validate ignore paths format (prevent command injection)
+        if [[ "${{ inputs.ignore-paths }}" == *";"* ]] || [[ "${{ inputs.ignore-paths }}" == *"&&"* ]] || [[ "${{ inputs.ignore-paths }}" == *"|"* ]]; then
+          echo "::error::Invalid ignore-paths: '${{ inputs.ignore-paths }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate ignore paths for path traversal
+        if [[ "${{ inputs.ignore-paths }}" == *".."* ]]; then
+          echo "::error::Invalid ignore-paths: '${{ inputs.ignore-paths }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate token format if provided (basic GitHub token pattern)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[pousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
     - name: Set Git Config
-      uses: ./set-git-config
+      uses: ivuorinen/actions/set-git-config@main
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Compress Images
       id: calibre
       uses: calibreapp/image-actions@737ceeaeed61e17b8d358358a303f1b8d177b779 # v1.1.0
       with:
         compressOnly: true
-        githubToken: ${{ steps.set-git-config.outputs.token }}
+        githubToken: ${{ inputs.token }}
+        jpegQuality: ${{ inputs.image-quality }}
+        pngQuality: ${{ inputs.png-quality }}
+        ignorePaths: ${{ inputs.ignore-paths }}
+        workingDirectory: ${{ inputs.working-directory }}
 
     - name: Create New Pull Request If Needed
       if: steps.calibre.outputs.markdown != ''

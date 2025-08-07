@@ -49,6 +49,8 @@ runs:
     - id: prepare
       shell: bash
       run: |
+        set -euo pipefail
+
         # Generate standardized cache key components
         os_key="${{ runner.os }}"
         type_key="${{ inputs.type }}"

@@ -73,26 +73,86 @@ runs:
       run: |
         set -euo pipefail
 
-        # Validate working directory
+        # Validate working directory exists
         if [ ! -d "${{ inputs.working-directory }}" ]; then
-          echo "::error::Working directory does not exist: ${{ inputs.working-directory }}"
+          echo "::error::Working directory not found at '${{ inputs.working-directory }}'"
           exit 1
         fi
 
-        # Validate file extensions
-        if ! [[ "${{ inputs.file-extensions }}" =~ ^[.,a-zA-Z0-9]+$ ]]; then
-          echo "::error::Invalid file extensions format"
+        # Validate working directory path security (prevent traversal)
+        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
+          echo "::error::Invalid working directory path: '${{ inputs.working-directory }}'. Path traversal not allowed"
           exit 1
         fi
 
-        # Validate max warnings
+        # Validate ESLint version format
+        if [[ -n "${{ inputs.eslint-version }}" ]] && [[ "${{ inputs.eslint-version }}" != "latest" ]]; then
+          if ! [[ "${{ inputs.eslint-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid eslint-version format: '${{ inputs.eslint-version }}'. Expected format: X.Y.Z or 'latest' (e.g., 8.57.0, latest)"
+            exit 1
+          fi
+        fi
+
+        # Validate config file path if not default
+        if [[ "${{ inputs.config-file }}" != ".eslintrc" ]] && [[ "${{ inputs.config-file }}" == *".."* ]]; then
+          echo "::error::Invalid config file path: '${{ inputs.config-file }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate ignore file path if not default
+        if [[ "${{ inputs.ignore-file }}" != ".eslintignore" ]] && [[ "${{ inputs.ignore-file }}" == *".."* ]]; then
+          echo "::error::Invalid ignore file path: '${{ inputs.ignore-file }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate file extensions format
+        if ! [[ "${{ inputs.file-extensions }}" =~ ^(\.[a-zA-Z0-9]+)(,\.[a-zA-Z0-9]+)*$ ]]; then
+          echo "::error::Invalid file extensions format: '${{ inputs.file-extensions }}'. Expected format: .js,.jsx,.ts,.tsx"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        validate_boolean() {
+          local value="$1"
+          local name="$2"
+
+          case "${value,,}" in
+            true|false)
+              ;;
+            *)
+              echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
+              exit 1
+              ;;
+          esac
+        }
+
+        validate_boolean "${{ inputs.cache }}" "cache"
+        validate_boolean "${{ inputs.fail-on-error }}" "fail-on-error"
+
+        # Validate max warnings (positive integer)
         if ! [[ "${{ inputs.max-warnings }}" =~ ^[0-9]+$ ]]; then
-          echo "::error::Invalid max warnings value"
+          echo "::error::Invalid max-warnings: '${{ inputs.max-warnings }}'. Must be a non-negative integer (e.g., 0, 10)"
+          exit 1
+        fi
+
+        # Validate report format enumerated values
+        case "${{ inputs.report-format }}" in
+          stylish|json|sarif|checkstyle|compact|html|jslint-xml|junit|tap|unix)
+            ;;
+          *)
+            echo "::error::Invalid report-format: '${{ inputs.report-format }}'. Allowed values: stylish, json, sarif, checkstyle, compact, html, jslint-xml, junit, tap, unix"
+            exit 1
+            ;;
+        esac
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
     - name: Setup Node.js
-      uses: ./node-setup
+      uses: ivuorinen/actions/node-setup@main
 
     - name: Install Dependencies
       shell: bash

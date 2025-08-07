@@ -8,15 +8,36 @@ branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+
 runs:
   using: composite
   steps:
     - name: Set Git Config
-      uses: ./set-git-config
+      uses: ivuorinen/actions/set-git-config@main
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Composer Install
-      uses: ./php-composer
+      uses: ivuorinen/actions/php-composer@main
 
     - name: Run PHPUnit Tests
       shell: bash
-      run: vendor/bin/phpunit --verbose
+      run: |
+        set -euo pipefail
+
+        vendor/bin/phpunit --verbose

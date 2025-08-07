@@ -43,12 +43,50 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate registry URL format
+        if ! [[ "${{ inputs.registry-url }}" =~ ^https?://[a-zA-Z0-9.-]+(/.*)?/?$ ]]; then
+          echo "::error::Invalid registry URL format: '${{ inputs.registry-url }}'. Expected http:// or https:// URL (e.g., 'https://registry.npmjs.org/')"
+          exit 1
+        fi
+
+        # Validate package version format (semver)
+        if ! [[ "${{ inputs.package-version }}" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid package version format: '${{ inputs.package-version }}'. Expected semantic version (e.g., '1.2.3', 'v1.2.3-alpha', '1.2.3+build')"
+          exit 1
+        fi
+
+        # Validate scope format (if provided)
+        if [[ -n "${{ inputs.scope }}" ]] && ! [[ "${{ inputs.scope }}" =~ ^@[a-z0-9-~][a-z0-9-._~]*$ ]]; then
+          echo "::error::Invalid NPM scope format: '${{ inputs.scope }}'. Expected format: @scope-name (e.g., '@myorg', '@my-org')"
+          exit 1
+        fi
+
+        # Validate NPM token is provided
+        if [[ -z "${{ inputs.npm_token }}" ]]; then
+          echo "::error::NPM token is required for publishing"
+          exit 1
+        fi
+
+        # Validate package.json exists
+        if [ ! -f "package.json" ]; then
+          echo "::error::package.json not found in current directory"
+          exit 1
+        fi
+
     - name: Setup Node.js
-      uses: ./node-setup
+      uses: ivuorinen/actions/node-setup@main
 
     - name: Authenticate NPM
       shell: bash
       run: |
+        set -euo pipefail
+
         echo "//${{ inputs.registry-url }}/:_authToken=${{ inputs.npm_token }}" > ~/.npmrc
 
     - name: Publish Package
@@ -56,9 +94,11 @@ runs:
       env:
         NPM_TOKEN: ${{ inputs.npm_token }}
       run: |
+        set -euo pipefail
+
         pkg_version=$(node -p "require('./package.json').version")
         if [ "$pkg_version" != "${{ inputs.package-version }}" ]; then
-          echo "Version mismatch: package.json ($pkg_version) != input (${{ inputs.package-version }})"
+          echo "::error::Version mismatch: package.json ($pkg_version) != input (${{ inputs.package-version }})"
           exit 1
         fi
 

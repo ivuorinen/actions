@@ -17,118 +17,18 @@ inputs:
 outputs:
   go-version:
     description: 'Detected or default Go version.'
-    value: ${{ steps.detect-go-version.outputs.go-version }}
+    value: ${{ steps.parse-version.outputs.detected-version }}
 
 runs:
   using: composite
   steps:
-    - name: Detect Go Version
-      id: detect-go-version
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Function to validate Go version format
-        validate_go_version() {
-          local version=$1
-          if [[ $version =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-            return 0
-          fi
-          return 1
-        }
-
-        # Function to get version from go.mod
-        get_go_mod_version() {
-          if [ -f go.mod ]; then
-            local version
-            version=$(grep '^go ' go.mod | awk '{print $2}' | tr -d '\n')
-            if [ -n "$version" ] && validate_go_version "$version"; then
-              echo "Found Go version in go.mod: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from go.work
-        get_go_work_version() {
-          if [ -f go.work ]; then
-            local version
-            version=$(grep '^go ' go.work | awk '{print $2}' | tr -d '\n')
-            if [ -n "$version" ] && validate_go_version "$version"; then
-              echo "Found Go version in go.work: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .go-version
-        get_go_version_file() {
-          if [ -f .go-version ]; then
-            local version
-            version=$(cat .go-version | tr -d 'v' | tr -d ' ' | tr -d '\n')
-            if validate_go_version "$version"; then
-              echo "Found Go version in .go-version: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .tool-versions
-        get_tool_versions_version() {
-          if [ -f .tool-versions ]; then
-            local version
-            version=$(grep -E '^golang[[:space:]]' .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n')
-            if [ -n "$version" ] && validate_go_version "$version"; then
-              echo "Found Go version in .tool-versions: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from Dockerfile
-        get_dockerfile_version() {
-          if [ -f Dockerfile ]; then
-            local version
-            version=$(grep -i "^FROM.*golang:" Dockerfile | head -1 | sed -n 's/.*golang:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
-            if [ -n "$version" ] && validate_go_version "$version"; then
-              echo "Found Go version in Dockerfile: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Function to get version from .devcontainer
-        get_devcontainer_version() {
-          if [ -f .devcontainer/devcontainer.json ]; then
-            local version
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n 's/.*golang:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
-            if [ -n "$version" ] && validate_go_version "$version"; then
-              echo "Found Go version in devcontainer: $version" >&2
-              echo "$version"
-              return 0
-            fi
-          fi
-          return 1
-        }
-
-        # Detect version with priority order
-        detected_version=$(get_go_mod_version ||
-                          get_go_work_version ||
-                          get_go_version_file ||
-                          get_tool_versions_version ||
-                          get_devcontainer_version ||
-                          get_dockerfile_version ||
-                          echo "${{ inputs.default-version }}")
-
-        echo "Using Go version: $detected_version"
-        echo "go-version=$detected_version" >> $GITHUB_OUTPUT
+    - name: Parse Go Version
+      id: parse-version
+      uses: ivuorinen/actions/version-file-parser@main
+      with:
+        language: 'go'
+        tool-versions-key: 'golang'
+        dockerfile-image: 'golang'
+        version-file: '.go-version'
+        validation-regex: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+        default-version: ${{ inputs.default-version }}

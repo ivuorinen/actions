@@ -33,6 +33,18 @@ inputs:
     description: 'Whether to fail the action if linting errors are found'
     required: false
     default: 'true'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
 
 outputs:
   lint-result:
@@ -48,9 +60,84 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate Python version format
+        if ! [[ "${{ inputs.python-version }}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+          echo "::error::Invalid python-version: '${{ inputs.python-version }}'. Expected format: X.Y or X.Y.Z (e.g., 3.11, 3.11.5)"
+          exit 1
+        fi
+
+        # Validate flake8 version format (semantic versioning)
+        if ! [[ "${{ inputs.flake8-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid flake8-version: '${{ inputs.flake8-version }}'. Expected semantic version (e.g., 7.0.0)"
+          exit 1
+        fi
+
+        # Validate autopep8 version format (semantic versioning)
+        if ! [[ "${{ inputs.autopep8-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid autopep8-version: '${{ inputs.autopep8-version }}'. Expected semantic version (e.g., 2.0.4)"
+          exit 1
+        fi
+
+        # Validate working directory
+        if [ ! -d "${{ inputs.working-directory }}" ]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Directory does not exist"
+          exit 1
+        fi
+
+        # Validate path security (prevent path traversal)
+        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate max-retries (positive integer)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer"
+          exit 1
+        fi
+
+        # Validate max-retries range
+        if [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Maximum allowed is 10"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        case "${{ inputs.fail-on-error }}" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid fail-on-error value: '${{ inputs.fail-on-error }}'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate token format if provided (basic GitHub token pattern)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[pousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
     - name: Detect Python Version
       id: python-version
-      uses: ./python-version-detect
+      uses: ivuorinen/actions/python-version-detect@main
       with:
         default-version: ${{ inputs.python-version }}
 
@@ -182,7 +269,11 @@ runs:
 
     - name: Set Git Config for Fixes
       if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
-      uses: ./set-git-config
+      uses: ivuorinen/actions/set-git-config@main
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Commit Fixes
       if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}

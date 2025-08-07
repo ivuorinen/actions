@@ -17,7 +17,7 @@ runs:
   using: composite
   steps:
     - name: Detect .NET SDK Version
-      uses: ./dotnet-version-detect
+      uses: ivuorinen/actions/dotnet-version-detect@main
       with:
         default-version: '7.0'
 
@@ -28,12 +28,16 @@ runs:
 
     - name: Install dotnet-format
       shell: bash
-      run: dotnet tool install --global dotnet-format --version 7.0.1
+      run: |
+        set -euo pipefail
+
+        dotnet tool install --global dotnet-format --version 7.0.1
 
     - name: Run dotnet-format
       shell: bash
       run: |
-        set -eo pipefail
+        set -euo pipefail
+
         if ! dotnet format --check --report sarif --report-file dotnet-format.sarif; then
           echo "::error::Code formatting issues found. Check the SARIF report for details."
           exit 1

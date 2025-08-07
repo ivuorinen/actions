@@ -3,7 +3,7 @@
 ## Supported Versions
 
 | Version | Supported          |
-|---------| ------------------ |
+| ------- | ------------------ |
 | main    | :white_check_mark: |
 
 ## Reporting a Vulnerability
@@ -48,13 +48,13 @@ When using these actions:
 
 The following secrets should be configured in your repository:
 
-| Secret Name | Description | Required |
-|-------------|-------------|----------|
-| `SNYK_TOKEN` | Token for Snyk vulnerability scanning | Optional |
-| `GITLEAKS_LICENSE` | License for Gitleaks scanning | Optional |
-| `SLACK_WEBHOOK` | Webhook URL for Slack notifications | Optional |
-| `SONAR_TOKEN` | Token for SonarCloud analysis | Optional |
-| `FIXIMUS_TOKEN` | Token for automated fixes | Optional |
+| Secret Name        | Description                           | Required |
+| ------------------ | ------------------------------------- | -------- |
+| `SNYK_TOKEN`       | Token for Snyk vulnerability scanning | Optional |
+| `GITLEAKS_LICENSE` | License for Gitleaks scanning         | Optional |
+| `SLACK_WEBHOOK`    | Webhook URL for Slack notifications   | Optional |
+| `SONAR_TOKEN`      | Token for SonarCloud analysis         | Optional |
+| `FIXIMUS_TOKEN`    | Token for automated fixes             | Optional |
 
 ## Security Workflows
 

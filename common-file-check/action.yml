@@ -22,10 +22,58 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate file pattern is not empty
+        if [[ -z "${{ inputs.file-pattern }}" ]]; then
+          echo "::error::file-pattern input is required and cannot be empty"
+          exit 1
+        fi
+
+        # Validate file pattern format (basic glob pattern validation)
+        pattern="${{ inputs.file-pattern }}"
+
+        # Check for path traversal attempts
+        if [[ "$pattern" == *".."* ]]; then
+          echo "::error::Invalid file pattern: '$pattern'. Path traversal (..) not allowed"
+          exit 1
+        fi
+
+        # Check for absolute paths (should be relative patterns)
+        if [[ "$pattern" == /* ]]; then
+          echo "::error::Invalid file pattern: '$pattern'. Absolute paths not allowed, use relative patterns"
+          exit 1
+        fi
+
+        # Basic validation for dangerous patterns
+        if [[ "$pattern" == *";"* ]] || [[ "$pattern" == *"|"* ]] || [[ "$pattern" == *"&"* ]] || [[ "$pattern" == *"\$"* ]]; then
+          echo "::error::Invalid file pattern: '$pattern'. Command injection characters not allowed"
+          exit 1
+        fi
+
+        # Check for reasonable pattern length (prevent extremely long patterns)
+        if [ ${#pattern} -gt 255 ]; then
+          echo "::error::File pattern too long: ${#pattern} characters. Maximum allowed is 255 characters"
+          exit 1
+        fi
+
+        # Validate common glob pattern characters are safe
+        if ! [[ "$pattern" =~ ^[a-zA-Z0-9*?./_{}\[\]-]+$ ]]; then
+          echo "::warning::File pattern contains special characters: '$pattern'. Ensure this is intentional and safe"
+        fi
+
+        echo "Validated file pattern: '$pattern'"
+
     - name: Check for Files
       id: check-files
       shell: bash
       run: |
+        set -euo pipefail
+
         if find . -name "${{ inputs.file-pattern }}" | grep -q .; then
           echo "found=true" >> $GITHUB_OUTPUT
         else
