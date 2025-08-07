@@ -1,0 +1,50 @@
+{
+  "name": "@ivuorinen/actions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Actions monorepo with 40 reusable actions",
+  "scripts": {
+    "generate-catalog": "node generate_listing.cjs",
+    "update-catalog": "node generate_listing.cjs --update",
+    "lint": "npm run lint:markdown && npm run lint:yaml && npm run lint:actions",
+    "lint:markdown": "markdownlint-cli2 '**/*.md'",
+    "lint:yaml": "yaml-lint '**/*.yml' '**/*.yaml'",
+    "lint:actions": "actionlint",
+    "format": "npm run format:prettier && npm run format:tables",
+    "format:prettier": "prettier --write '**/*.{md,yml,yaml,json,cjs}'",
+    "format:tables": "markdown-table-formatter '**/*.md'",
+    "format:markdown": "markdownlint-cli2 --fix '**/*.md'",
+    "docs": "echo 'Generating documentation for all actions...' && find . -mindepth 2 -maxdepth 2 -name 'action.yml' -exec dirname {} \\; | xargs -I {} sh -c 'npx action-docs --source={}/action.yml --no-banner --include-name-header > {}/README.md'"
+  },
+  "devDependencies": {
+    "js-yaml": "^4.1.0",
+    "markdown-table": "^3.0.3",
+    "action-docs": "^2.4.1",
+    "markdownlint-cli2": "^0.13.0",
+    "prettier": "^3.3.3",
+    "markdown-table-formatter": "^1.6.0",
+    "yaml-lint": "^1.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ivuorinen/actions.git"
+  },
+  "keywords": [
+    "github-actions",
+    "ci-cd",
+    "automation",
+    "devops",
+    "linting",
+    "testing",
+    "docker",
+    "node",
+    "python",
+    "php",
+    "go"
+  ],
+  "author": "Ismo Vuorinen",
+  "license": "MIT"
+}
