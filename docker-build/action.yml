@@ -41,6 +41,10 @@ inputs:
     description: 'Maximum number of retry attempts for build and push operations'
     required: false
     default: '3'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   image-digest:
@@ -64,23 +68,24 @@ runs:
 
         # Validate image name
         if [ -n "${{ inputs.image-name }}" ]; then
-          if ! [[ "${{ inputs.image-name }}" =~ ^[a-z0-9]+(?:[._-][a-z0-9]+)*$ ]]; then
-            echo "::error::Invalid image name format. Must match ^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
+          if ! [[ "${{ inputs.image-name }}" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]]; then
+            echo "::error::Invalid image name format: '${{ inputs.image-name }}'. Must contain only lowercase letters, digits, periods, hyphens, and underscores (e.g., 'my-app', 'registry.io/my-app')"
             exit 1
           fi
         fi
 
         # Validate tag
         if ! [[ "${{ inputs.tag }}" =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?|latest|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
-          echo "::error::Invalid tag format. Must be semver or valid Docker tag"
+          echo "::error::Invalid tag format: '${{ inputs.tag }}'. Expected semantic version (e.g., '1.2.3', 'v1.2.3-alpha'), 'latest', or valid Docker tag"
           exit 1
         fi
 
         # Validate architectures
         IFS=',' read -ra ARCHS <<< "${{ inputs.architectures }}"
         for arch in "${ARCHS[@]}"; do
+          arch=$(echo "$arch" | xargs)  # Trim whitespace
           if ! [[ "$arch" =~ ^linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x)$ ]]; then
-            echo "::error::Invalid architecture format: $arch"
+            echo "::error::Invalid architecture format: '$arch'. Supported: linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v6, linux/386, linux/ppc64le, linux/s390x"
             exit 1
           fi
         done
@@ -133,11 +138,11 @@ runs:
 
     - name: Login to GitHub Container Registry
       if: ${{ inputs.push == 'true' }}
-      uses: docker/login-action@v3
+      uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ github.token }}
+        password: ${{ inputs.token }}
 
     - name: Set up Build Cache
       id: cache

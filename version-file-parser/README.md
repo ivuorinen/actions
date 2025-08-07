@@ -15,22 +15,22 @@ Universal parser for common version detection files (.tool-versions, Dockerfile,
 
 ## Inputs
 
-| Name | Description | Required | Default |
-|------|-------------|----------|---------|
-| `language` | Programming language name (node, python, php, go, dotnet) | Yes | |
-| `tool-versions-key` | Key name in .tool-versions file (nodejs, python, php, golang, dotnet) | Yes | |
-| `dockerfile-image` | Docker image name pattern (node, python, php, golang, dotnet) | Yes | |
-| `version-file` | Language-specific version file (.nvmrc, .python-version, etc.) | No | |
-| `validation-regex` | Version validation regex pattern | No | `^[0-9]+\.[0-9]+(\.[0-9]+)?$` |
+| Name                | Description                                                           | Required | Default                       |
+|---------------------|-----------------------------------------------------------------------|----------|-------------------------------|
+| `language`          | Programming language name (node, python, php, go, dotnet)             | Yes      |                               |
+| `tool-versions-key` | Key name in .tool-versions file (nodejs, python, php, golang, dotnet) | Yes      |                               |
+| `dockerfile-image`  | Docker image name pattern (node, python, php, golang, dotnet)         | Yes      |                               |
+| `version-file`      | Language-specific version file (.nvmrc, .python-version, etc.)        | No       |                               |
+| `validation-regex`  | Version validation regex pattern                                      | No       | `^[0-9]+\.[0-9]+(\.[0-9]+)?$` |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `tool-versions-version` | Version found in .tool-versions |
-| `dockerfile-version` | Version found in Dockerfile |
-| `devcontainer-version` | Version found in devcontainer.json |
-| `version-file-version` | Version found in language-specific version file |
+| Name                    | Description                                     |
+|-------------------------|-------------------------------------------------|
+| `tool-versions-version` | Version found in .tool-versions                 |
+| `dockerfile-version`    | Version found in Dockerfile                     |
+| `devcontainer-version`  | Version found in devcontainer.json              |
+| `version-file-version`  | Version found in language-specific version file |
 
 ## Supported Files
 

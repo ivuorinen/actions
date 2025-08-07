@@ -10,9 +10,9 @@ branding:
 
 inputs:
   token:
-    description: 'GitHub token.'
+    description: 'GitHub token for authentication'
     required: false
-    default: '${{ github.token }}'
+    default: ${{ github.token }}
   username:
     description: 'GitHub username for commits.'
     default: 'github-actions'
@@ -45,6 +45,8 @@ runs:
       id: bot
       shell: bash
       run: |
+        set -euo pipefail
+
         echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
         echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
         echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
@@ -57,6 +59,8 @@ runs:
     - name: Configure Git
       shell: bash
       run: |
+        set -euo pipefail
+
         # Function to clean up Git config
         cleanup_git_config() {
           git config --local --unset-all "url.https://x-access-token:${TOKEN}@github.com/.insteadof" || true

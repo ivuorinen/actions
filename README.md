@@ -2,14 +2,60 @@
 
 ## Overview
 
-This project contains a collection of workflows and composable actions to streamline CI/CD processes and ensure code quality. The actions are grouped by purpose for easier discovery.
+This repository contains a collection of 40 reusable GitHub Actions designed to streamline CI/CD processes and ensure code quality.
+Each action is fully self-contained and can be used independently in any GitHub repository.
 
-## Setup & Caching
+### Key Features
+
+- **40 Production-Ready Actions** covering setup, linting, building, testing, and deployment
+- **Self-Contained Design** - each action works independently without dependencies
+- **External Usage Ready** - use any action as `ivuorinen/actions/action-name@main`
+- **Multi-Language Support** including Node.js, PHP, Python, Go, C#, and more
+- **Standardized Patterns** with consistent error handling and input/output interfaces
+- **Modular Build System** using Makefile for development and maintenance
+
+## Usage
+
+### Using Actions Externally
+
+All actions in this repository can be used in your workflows like any other GitHub Action:
+
+```yaml
+steps:
+  - name: Setup Node.js with Auto-Detection
+    uses: ivuorinen/actions/node-setup@main
+    with:
+      default-version: '20'
+
+  - name: Detect PHP Version
+    uses: ivuorinen/actions/php-version-detect@main
+    with:
+      default-version: '8.2'
+
+  - name: Universal Version Parser
+    uses: ivuorinen/actions/version-file-parser@main
+    with:
+      language: 'python'
+      tool-versions-key: 'python'
+      dockerfile-image: 'python'
+      version-file: '.python-version'
+      default-version: '3.12'
+```
+
+## Setup & Environment
+
+### Language Setup & Version Detection
 
 - [Node Setup][node-setup]: Sets up Node.js with caching and tooling.
 - [PHP Composer][php-composer]: Installs PHP dependencies using Composer.
-- [Dotnet Version Detect][dotnet-v-detect]: Detects the required .NET version from `global.json`.
+- [PHP Version Detect][php-version-detect]: Auto-detects PHP version from multiple sources.
+- [Python Version Detect][python-version-detect]: Detects Python version from configuration files.
+- [Python Version Detect v2][python-version-detect-v2]: Enhanced Python version detection.
 - [Go Version Detect][go-version-detect]: Detects the required Go version from configuration files.
+- [Dotnet Version Detect][dotnet-v-detect]: Detects the required .NET version from `global.json`.
+
+### Caching & Configuration
+
 - [Common Cache][common-cache]: Provides a consistent caching strategy for multiple languages.
 - [Set Git Config][set-git-config]: Configures Git user information for automated commits.
 
@@ -65,6 +111,57 @@ This project contains a collection of workflows and composable actions to stream
 - [Stale][stale]: Closes stale issues and pull requests automatically.
 - [Sync Labels][sync-labels]: Syncs repository labels from a YAML file.
 
+## Utility Actions
+
+The repository includes specialized utility actions for common functionality:
+
+- **[version-file-parser](version-file-parser/README.md)**: Universal version detection from multiple file sources
+  (.tool-versions, package.json, composer.json, pyproject.toml, go.mod, global.json, Dockerfile, devcontainer.json)
+- **[version-validator](version-validator/README.md)**: Version string validation and normalization using customizable regex patterns
+
+### Modular Composition Pattern
+
+Actions achieve modularity through composition:
+
+```yaml
+steps:
+  - name: Parse Version
+    id: parse-version
+    uses: ivuorinen/actions/version-file-parser@main
+    with:
+      language: 'node'
+      tool-versions-key: 'nodejs'
+      dockerfile-image: 'node'
+      version-file: '.nvmrc'
+      default-version: '20'
+
+  - name: Setup Node.js
+    uses: actions/setup-node@sha
+    with:
+      node-version: ${{ steps.parse-version.outputs.detected-version }}
+```
+
+## Development
+
+This repository uses a Makefile-based build system for development tasks:
+
+```bash
+# Full workflow - docs, format, and lint
+make all
+
+# Individual operations
+make docs          # Generate documentation for all actions
+make format        # Format all files (markdown, YAML, JSON)
+make lint          # Run all linters
+make check         # Quick syntax and tool checks
+
+# Development workflow
+make dev           # Format then lint (good for development)
+make ci            # CI workflow - check, docs, lint
+```
+
+For detailed development guidelines, see [CLAUDE.md](CLAUDE.md).
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) file for details.
@@ -94,11 +191,14 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE.md) fi
 [php-composer]: php-composer/README.md
 [php-laravel-phpunit]: php-laravel-phpunit/README.md
 [php-tests]: php-tests/README.md
+[php-version-detect]: php-version-detect/README.md
 [pr-lint]: pr-lint/README.md
 [pre-commit]: pre-commit/README.md
 [prettier-check]: prettier-check/README.md
 [prettier-fix]: prettier-fix/README.md
 [python-lint-fix]: python-lint-fix/README.md
+[python-version-detect]: python-version-detect/README.md
+[python-version-detect-v2]: python-version-detect-v2/README.md
 [release-monthly]: release-monthly/README.md
 [set-git-config]: set-git-config/README.md
 [stale]: stale/README.md
