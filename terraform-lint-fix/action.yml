@@ -41,6 +41,18 @@ inputs:
     description: 'Output format (compact, json, checkstyle, junit, sarif)'
     required: false
     default: 'sarif'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
 
 outputs:
   error-count:
@@ -56,6 +68,102 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate working directory
+        if [ ! -d "${{ inputs.working-directory }}" ]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Directory does not exist"
+          exit 1
+        fi
+
+        # Validate path security (prevent path traversal)
+        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate terraform version format
+        if [[ "${{ inputs.terraform-version }}" != "latest" ]]; then
+          if ! [[ "${{ inputs.terraform-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid terraform-version: '${{ inputs.terraform-version }}'. Expected semantic version (e.g., 1.5.0) or 'latest'"
+            exit 1
+          fi
+        fi
+
+        # Validate tflint version format
+        if [[ "${{ inputs.tflint-version }}" != "latest" ]]; then
+          if ! [[ "${{ inputs.tflint-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid tflint-version: '${{ inputs.tflint-version }}'. Expected semantic version (e.g., 0.47.0) or 'latest'"
+            exit 1
+          fi
+        fi
+
+        # Validate config file path security
+        if [[ "${{ inputs.config-file }}" == *".."* ]] || [[ "${{ inputs.config-file }}" == "/"* ]]; then
+          echo "::error::Invalid config-file path: '${{ inputs.config-file }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        case "${{ inputs.fail-on-error }}" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid fail-on-error value: '${{ inputs.fail-on-error }}'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        case "${{ inputs.auto-fix }}" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid auto-fix value: '${{ inputs.auto-fix }}'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        # Validate max-retries (positive integer)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer"
+          exit 1
+        fi
+
+        # Validate max-retries range
+        if [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Maximum allowed is 10"
+          exit 1
+        fi
+
+        # Validate output format
+        case "${{ inputs.format }}" in
+          compact|json|checkstyle|junit|sarif) ;;
+          *)
+            echo "::error::Invalid format: '${{ inputs.format }}'. Expected: compact, json, checkstyle, junit, or sarif"
+            exit 1
+            ;;
+        esac
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate token format if provided (basic GitHub token pattern)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[pousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
     - name: Check for Terraform Files
       id: check-files
       shell: bash
@@ -201,11 +309,11 @@ runs:
 
     - name: Set Git Config for Fixes
       if: steps.fix.outputs.fixed_count > 0
-      uses: ./set-git-config
+      uses: ivuorinen/actions/set-git-config@main
       with:
-        token: ${{ github.token }}
-        username: ${{ github.actor }}
-        email: ${{ github.actor }}@users.noreply.github.com
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Commit Fixes
       if: steps.fix.outputs.fixed_count > 0

@@ -12,14 +12,14 @@ Detects PHP version from project configuration files or defaults to a specified 
 
 ## Inputs
 
-| Name | Description | Required | Default |
-|------|-------------|----------|---------|
-| `default-version` | Default PHP version to use if no version is detected. | No | `8.3` |
+| Name              | Description                                           | Required | Default |
+|-------------------|-------------------------------------------------------|----------|---------|
+| `default-version` | Default PHP version to use if no version is detected. | No       | `8.3`   |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
+| Name          | Description                      |
+|---------------|----------------------------------|
 | `php-version` | Detected or default PHP version. |
 
 ## Detection Priority

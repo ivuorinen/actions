@@ -12,7 +12,7 @@ inputs:
   token:
     description: 'GitHub token with permission to create releases.'
     required: true
-    default: '${{ github.token }}'
+    default: ${{ github.token }}
   dry-run:
     description: 'Run in dry-run mode without creating the release.'
     required: false
@@ -64,6 +64,7 @@ runs:
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
+        token: ${{ inputs.token }}
         fetch-depth: 0 # Fetch all history for tag comparison
 
     - name: Create Release

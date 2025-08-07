@@ -79,26 +79,105 @@ runs:
 
         # Validate working directory
         if [ ! -d "${{ inputs.working-directory }}" ]; then
-          echo "::error::Working directory does not exist: ${{ inputs.working-directory }}"
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Directory does not exist"
           exit 1
         fi
 
-        # Validate glob pattern
-        if ! echo "${{ inputs.file-pattern }}" | grep -qE '^[*{}\[\].,a-zA-Z0-9/_-]+$'; then
-          echo "::error::Invalid file pattern format"
+        # Validate path security (prevent path traversal)
+        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate prettier version format
+        if [[ "${{ inputs.prettier-version }}" != "latest" ]]; then
+          if ! [[ "${{ inputs.prettier-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid prettier-version: '${{ inputs.prettier-version }}'. Expected semantic version (e.g., 3.0.0) or 'latest'"
+            exit 1
+          fi
+        fi
+
+        # Validate config file path security
+        if [[ "${{ inputs.config-file }}" == *".."* ]] || [[ "${{ inputs.config-file }}" == "/"* ]]; then
+          echo "::error::Invalid config-file path: '${{ inputs.config-file }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate ignore file path security
+        if [[ "${{ inputs.ignore-file }}" == *".."* ]] || [[ "${{ inputs.ignore-file }}" == "/"* ]]; then
+          echo "::error::Invalid ignore-file path: '${{ inputs.ignore-file }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate file pattern format (basic safety check)
+        if [[ "${{ inputs.file-pattern }}" == *".."* ]] || [[ "${{ inputs.file-pattern }}" == "/"* ]]; then
+          echo "::error::Invalid file-pattern: '${{ inputs.file-pattern }}'. Absolute paths and path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        case "${{ inputs.cache }}" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid cache value: '${{ inputs.cache }}'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        case "${{ inputs.fail-on-error }}" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid fail-on-error value: '${{ inputs.fail-on-error }}'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        case "${{ inputs.check-only }}" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid check-only value: '${{ inputs.check-only }}'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        # Validate report format
+        case "${{ inputs.report-format }}" in
+          json|sarif) ;;
+          *)
+            echo "::error::Invalid report-format: '${{ inputs.report-format }}'. Expected: json or sarif"
+            exit 1
+            ;;
+        esac
+
+        # Validate max-retries (positive integer)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer"
+          exit 1
+        fi
+
+        # Validate max-retries range
+        if [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Maximum allowed is 10"
           exit 1
         fi
 
         # Validate plugins format if provided
         if [ -n "${{ inputs.plugins }}" ]; then
-          if ! echo "${{ inputs.plugins }}" | grep -qE '^[a-zA-Z0-9/@._,-]+$'; then
-            echo "::error::Invalid plugins format"
+          # Check for basic npm package name format and prevent command injection
+          if ! [[ "${{ inputs.plugins }}" =~ ^[a-zA-Z0-9@/._,-]+$ ]]; then
+            echo "::error::Invalid plugins format: '${{ inputs.plugins }}'. Use comma-separated npm package names (e.g., plugin1,@scope/plugin2)"
+            exit 1
+          fi
+
+          # Check for suspicious patterns
+          if [[ "${{ inputs.plugins }}" == *";"* ]] || [[ "${{ inputs.plugins }}" == *"&&"* ]] || [[ "${{ inputs.plugins }}" == *"|"* ]]; then
+            echo "::error::Invalid plugins format: '${{ inputs.plugins }}'. Command injection patterns not allowed"
             exit 1
           fi
         fi
 
     - name: Setup Node.js
-      uses: ./node-setup
+      uses: ivuorinen/actions/node-setup@main
 
     - name: Set up Cache
       id: cache
