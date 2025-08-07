@@ -12,14 +12,14 @@ Detects Python version from project configuration files or defaults to a specifi
 
 ## Inputs
 
-| Name | Description | Required | Default |
-|------|-------------|----------|---------|
-| `default-version` | Default Python version to use if no version is detected. | No | `3.12` |
+| Name              | Description                                              | Required | Default |
+|-------------------|----------------------------------------------------------|----------|---------|
+| `default-version` | Default Python version to use if no version is detected. | No       | `3.12`  |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
+| Name             | Description                         |
+|------------------|-------------------------------------|
 | `python-version` | Detected or default Python version. |
 
 ## Detection Priority

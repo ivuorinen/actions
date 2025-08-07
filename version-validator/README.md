@@ -14,19 +14,19 @@ Validates and normalizes version strings using customizable regex patterns.
 
 ## Inputs
 
-| Name | Description | Required | Default |
-|------|-------------|----------|---------|
-| `version` | Version string to validate | Yes | |
-| `validation-regex` | Regex pattern for validation | No | `^[0-9]+\.[0-9]+(\.[0-9]+)?$` |
-| `language` | Language name for error messages | No | `version` |
+| Name               | Description                      | Required | Default                       |
+|--------------------|----------------------------------|----------|-------------------------------|
+| `version`          | Version string to validate       | Yes      |                               |
+| `validation-regex` | Regex pattern for validation     | No       | `^[0-9]+\.[0-9]+(\.[0-9]+)?$` |
+| `language`         | Language name for error messages | No       | `version`                     |
 
 ## Outputs
 
-| Name | Description |
-|------|-------------|
-| `is-valid` | Boolean indicating if version is valid (true/false) |
-| `validated-version` | Cleaned/normalized version string |
-| `error-message` | Error message if validation fails |
+| Name                | Description                                         |
+|---------------------|-----------------------------------------------------|
+| `is-valid`          | Boolean indicating if version is valid (true/false) |
+| `validated-version` | Cleaned/normalized version string                   |
+| `error-message`     | Error message if validation fails                   |
 
 ## Features
 

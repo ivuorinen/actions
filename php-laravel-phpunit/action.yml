@@ -25,6 +25,10 @@ inputs:
     description: 'Specify code-coverage driver, see https://github.com/marketplace/actions/setup-php-action#coverage-optional'
     required: false
     default: 'none'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
 
 outputs:
   php-version:
@@ -45,11 +49,11 @@ runs:
   steps:
     - name: Detect PHP Version
       id: php-version
-      uses: ./php-version-detect
+      uses: ivuorinen/actions/php-version-detect@main
       with:
         default-version: ${{ inputs.php-version }}
 
-    - uses: shivammathur/setup-php@0f7f1d08e3e32076e51cae65eb0b0c871405b16e # 2.34.1
+    - uses: shivammathur/setup-php@ccf2c627fe61b1b4d924adfcbd19d661a18133a0 # 2.35.2
       id: setup-php
       with:
         php-version: ${{ steps.php-version.outputs.php-version }}
@@ -57,6 +61,8 @@ runs:
         coverage: ${{ inputs.coverage }}
 
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: 'Check file existence'
       id: check_files
@@ -67,27 +73,41 @@ runs:
     - name: Copy .env
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+      run: |
+        set -euo pipefail
+
+        php -r "file_exists('.env') || copy('.env.example', '.env');"
 
     - name: Install Dependencies
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+      run: |
+        set -euo pipefail
+
+        composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
     - name: Generate key
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: php artisan key:generate
+      run: |
+        set -euo pipefail
+
+        php artisan key:generate
 
     - name: Directory Permissions
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: chmod -R 777 storage bootstrap/cache
+      run: |
+        set -euo pipefail
+
+        chmod -R 777 storage bootstrap/cache
 
     - name: Create Database
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
       run: |
+        set -euo pipefail
+
         mkdir -p database
         touch database/database.sqlite
 
@@ -97,4 +117,7 @@ runs:
       env:
         DB_CONNECTION: sqlite
         DB_DATABASE: database/database.sqlite
-      run: composer test
+      run: |
+        set -euo pipefail
+
+        composer test

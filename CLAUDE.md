@@ -1,97 +1,82 @@
-# CLAUDE.md
+# CLAUDE.md - GitHub Actions Monorepo
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working with this repository.
 
-## Project Overview
+## 🚨 CRITICAL: Self-Contained Actions
 
-This repository contains a collection of reusable GitHub Actions and workflows designed to streamline CI/CD processes. Each action is organized in its own directory with an `action.yml` file and a `README.md`.
+All 40 actions MUST work independently as `ivuorinen/actions/action-name@main`. No relative paths or shared dependencies allowed.
 
-## Repository Structure
+## Repository Overview
 
-- Each subdirectory represents a separate GitHub Action (e.g., `node-setup/`, `pr-lint/`, `docker-build/`)
-- Actions are categorized by purpose: Setup & Caching, Linting & Formatting, Testing, Build & Package, Publish & Deployment, Release Management, and Repository Maintenance
-- Each action directory contains:
-  - `action.yml` - The main action definition
-  - `README.md` - Auto-generated documentation
+**40 GitHub Actions** in flat directory structure, each self-contained with `action.yml`.
 
-## Common Development Commands
+### Actions by Category
 
-### Documentation Generation and Code Quality
+**Setup (7)**: `node-setup`, `set-git-config`, `php-version-detect`, `python-version-detect`, `python-version-detect-v2`, `go-version-detect`, `dotnet-version-detect`
 
-**Note:** Docker may not be available in the environment. Use individual CLI tools instead of Docker-based solutions.
+**Utilities (2)**: `version-file-parser`, `version-validator`
+
+**Linting (13)**: `ansible-lint-fix`, `biome-check`, `biome-fix`, `csharp-lint-check`, `eslint-check`, `eslint-fix`, `go-lint`,
+`pr-lint`, `pre-commit`, `prettier-check`, `prettier-fix`, `python-lint-fix`, `terraform-lint-fix`
+
+**Testing (3)**: `php-tests`, `php-laravel-phpunit`, `php-composer`
+
+**Build (3)**: `csharp-build`, `go-build`, `docker-build`
+
+**Publishing (5)**: `npm-publish`, `docker-publish`, `docker-publish-gh`, `docker-publish-hub`, `csharp-publish`
+
+**Repository (7)**: `github-release`, `release-monthly`, `sync-labels`, `stale`, `compress-images`, `common-cache`, `common-file-check`
+
+## Development
+
+### Commands
 
 ```bash
-# Generate documentation for all actions
-find . -mindepth 2 -maxdepth 2 -name "action.yml" -exec sh -c 'dir=$(dirname "{}"); npx action-docs --source="{}" --no-banner --include-name-header > "$dir/README.md"' \;
-
-# Or generate documentation for a single action
-npx action-docs --source=./action-name/action.yml --no-banner --include-name-header > ./action-name/README.md
-
-# Run linting and formatting tools individually
-npx markdownlint-cli --fix --ignore "**/node_modules/**" "**/README.md"
-npx prettier --write "**/README.md" "**/action.yml" ".github/workflows/*.yml"
-npx markdown-table-formatter "**/README.md"
-
-# Code quality checks (use individual tools instead of MegaLinter Docker)
-npx eslint . --ext .js,.ts --fix
-npx yamllint **/*.yml **/*.yaml
-npx jsonlint **/*.json
+make all     # Generate docs, format, lint
+make dev     # Format then lint
+make lint    # Run all linters
+make format  # Format all files
+make docs    # Generate documentation
 ```
 
-### Alternative Quality Checks
-
-Since MegaLinter requires Docker which may not be available, use these individual tools for code quality:
+### Linting Sequence
 
 ```bash
-# YAML linting
-npx yaml-lint **/*.yml **/*.yaml
-
-# JSON validation
-npx jsonlint **/*.json
-
-# Shell script linting (if shellcheck is available)
+npx markdownlint-cli2 --fix "**/*.md"
+npx prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json"
+npx markdown-table-formatter "**/*.md"
+npx yaml-lint "**/*.yml" "**/*.yaml"
+actionlint
 shellcheck **/*.sh
-
-# Markdown linting
-npx markdownlint-cli **/*.md
 ```
 
-## Action Development Patterns
+## Architecture Rules
 
-### Version Management
+### Composition Pattern
 
-- Each `action.yml` should include a version comment at the top: `# version: X.Y.Z`
-- If no version is specified, `main` is used as the default
-- README files should include version placeholders that get replaced during documentation generation
+- ✅ Use full paths: `ivuorinen/actions/action-name@main`
+- ❌ Never use: `./action-name` or `../shared/`
+- ✅ Utility actions: `version-file-parser`, `version-validator`
 
-### Action Structure
+### Security
 
-- Use composite actions with shell scripts for flexibility
-- Pin all external action versions using full SHA commits for security
-- Include comprehensive input validation and error handling
-- Provide meaningful outputs for downstream actions
+- All external actions SHA-pinned
+- Token authentication with `${{ github.token }}` fallback
+- Shell scripts use `set -euo pipefail`
 
-### Node.js Actions
+### Quality Standards
 
-- Use the `node-setup` action for consistent Node.js environment setup
-- Auto-detect package managers (npm, yarn, pnpm) based on lockfiles
-- Support version detection from `.nvmrc`, `.tool-versions`, and `package.json`
+- EditorConfig: 2-space indent, UTF-8, LF
+- Max line: 200 chars (120 for Markdown)
+- README.md auto-generated via `action-docs`
+- Comprehensive error handling required
 
-### Multi-Language Support
+## Testing Requirements
 
-- Actions like `pr-lint` automatically detect and setup environments for Node.js, PHP, Python, and Go
-- Use conditional steps based on file detection (e.g., `package.json`, `composer.json`, `requirements.txt`, `go.mod`)
+- Actions must work externally as `ivuorinen/actions/action-name@main`
+- Test utility actions independently
+- Validate modular composition patterns
 
-## Code Quality Standards
+---
 
-- All actions use pinned versions with SHA commits for security
-- MegaLinter is used for comprehensive code quality checks
-- Prettier handles code formatting
-- Each action includes proper error handling with `set -euo pipefail`
-- Actions provide detailed logging and status outputs
-
-## Testing and Validation
-
-- No automated test suite - actions are validated through usage in real workflows
-- Use individual linting tools for validation since Docker-based solutions may not be available
-- Validate YAML syntax, markdown formatting, and shell scripts using CLI tools
+**Note**: All actions achieve 100% external usability via modular composition.

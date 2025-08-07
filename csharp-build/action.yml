@@ -18,7 +18,7 @@ runs:
   steps:
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ./dotnet-version-detect
+      uses: ivuorinen/actions/dotnet-version-detect@main
       with:
         default-version: "${{ inputs.dotnet-version || '7.0' }}"
 
