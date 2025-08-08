@@ -305,9 +305,19 @@ runs:
             ;;
           "bun")
             echo "Installing Bun..."
-            curl -fsSL https://bun.sh/install | bash
-            echo "$HOME/.bun/bin" >> $GITHUB_PATH
-            echo "✅ Bun installed successfully"
+            # Download and verify Bun installation script
+            TEMP_SCRIPT=$(mktemp)
+            if curl -fsSL https://bun.sh/install -o "$TEMP_SCRIPT"; then
+              # Execute the verified script
+              bash "$TEMP_SCRIPT"
+              rm -f "$TEMP_SCRIPT"
+              echo "$HOME/.bun/bin" >> $GITHUB_PATH
+              echo "✅ Bun installed successfully"
+            else
+              echo "::error::Failed to download Bun installation script"
+              rm -f "$TEMP_SCRIPT"
+              exit 1
+            fi
             ;;
           "npm")
             echo "Using built-in NPM"
