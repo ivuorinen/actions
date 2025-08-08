@@ -21,6 +21,17 @@ inputs:
     required: false
     default: ${{ github.token }}
 
+outputs:
+  publish_status:
+    description: 'Overall publish status (success/failure)'
+    value: ${{ steps.publish-package.outputs.outcome == 'success' && 'success' || 'failure' }}
+  package_version:
+    description: 'Version of the published package'
+    value: ${{ steps.extract-version.outputs.version }}
+  package_url:
+    description: 'URL of the published package'
+    value: ${{ steps.publish-package.outputs.package_url }}
+
 runs:
   using: composite
   steps:
@@ -82,10 +93,30 @@ runs:
 
         dotnet pack --configuration Release --output ./artifacts
 
-    - name: Publish Package
+    - name: Extract Package Version
+      id: extract-version
       shell: bash
       run: |
         set -euo pipefail
+
+        # Find the generated .nupkg file and extract version
+        PACKAGE_FILE=$(find ./artifacts -name "*.nupkg" | head -n 1)
+        if [ -n "$PACKAGE_FILE" ]; then
+          # Extract version from filename (assumes standard naming: PackageName.Version.nupkg)
+          VERSION=$(basename "$PACKAGE_FILE" .nupkg | sed 's/.*\.\([0-9]\+\.[0-9]\+\.[0-9]\+.*\)$/\1/')
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+        else
+          echo "version=unknown" >> $GITHUB_OUTPUT
+        fi
+
+    - name: Publish Package
+      id: publish-package
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        PACKAGE_URL="https://github.com/${{ inputs.namespace }}/packages/nuget"
+        echo "package_url=$PACKAGE_URL" >> $GITHUB_OUTPUT
 
         # First attempt
         if ! dotnet nuget push ./artifacts/*.nupkg \
