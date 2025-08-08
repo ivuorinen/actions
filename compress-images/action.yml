@@ -43,7 +43,7 @@ inputs:
 
 outputs:
   images_compressed:
-    description: 'Number of images that were compressed'
+    description: 'Whether any images were compressed (boolean)'
     value: ${{ steps.calibre.outputs.markdown != '' && 'true' || 'false' }}
   size_saved:
     description: 'Total size saved from compression in bytes'
@@ -64,7 +64,12 @@ runs:
           exit 1
         fi
 
-        # Validate path security (prevent path traversal)
+        # Validate path security (prevent absolute paths and path traversal)
+        if [[ "${{ inputs.working-directory }}" == "/"* ]]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Absolute paths not allowed"
+          exit 1
+        fi
+
         if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
           echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal not allowed"
           exit 1
