@@ -89,6 +89,7 @@ runs:
         email: ${{ inputs.email }}
 
     - name: Node Setup
+      id: node-setup
       uses: ivuorinen/actions/node-setup@main
 
     - name: Cache Node Dependencies
@@ -97,23 +98,81 @@ runs:
       with:
         type: 'npm'
         paths: 'node_modules'
-        key-files: 'package-lock.json,yarn.lock'
-        key-prefix: 'biome-fix'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'biome-fix-${{ steps.node-setup.outputs.package-manager }}'
 
-    - name: Install Dependencies
+    - name: Install Biome
       if: steps.cache.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@main
-      with:
-        command: 'npm install -g biome'
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Installing Node.js dependencies (biome)'
-
-    - name: Run Biome Fix
       shell: bash
       run: |
         set -euo pipefail
 
-        biome fix .
+        package_manager="${{ steps.node-setup.outputs.package-manager }}"
+        max_retries="${{ inputs.max-retries }}"
+
+        echo "Installing Biome using $package_manager..."
+
+        for attempt in $(seq 1 $max_retries); do
+          echo "Attempt $attempt of $max_retries"
+
+          case "$package_manager" in
+            "pnpm")
+              if pnpm add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if yarn global add @biomejs/biome; then
+                echo "✅ Biome installed successfully with yarn"
+                exit 0
+              fi
+              ;;
+            "bun")
+              if bun add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm install -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt $max_retries ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install Biome after $max_retries attempts"
+        exit 1
+
+    - name: Run Biome Fix
+      id: fix
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "Running Biome fix..."
+
+        # Count files before fix
+        files_before=$(git status --porcelain | wc -l || echo "0")
+
+        # Run Biome fix
+        biome check --write . || true
+
+        # Count files after fix
+        files_after=$(git status --porcelain | wc -l || echo "0")
+        files_changed=$((files_after - files_before))
+
+        echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
+        echo "status=success" >> $GITHUB_OUTPUT
+
+        echo "✅ Biome fix completed. Files changed: $files_changed"
 
     - name: Push Fixes
       if: success()
