@@ -79,7 +79,17 @@ runs:
           exit 0
         fi
 
+    - name: Cache Python Dependencies
+      id: cache-pip
+      uses: ivuorinen/actions/common-cache@main
+      with:
+        type: 'pip'
+        paths: '~/.cache/pip'
+        key-files: 'requirements*.txt,pyproject.toml,setup.py,setup.cfg'
+        key-prefix: 'ansible-lint-fix'
+
     - name: Install ansible-lint
+      if: steps.cache-pip.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
