@@ -8,10 +8,11 @@ Builds the Go project.
 
 ### Inputs
 
-| name          | description                         | required | default |
-|---------------|-------------------------------------|----------|---------|
-| `go-version`  | <p>Go version to use.</p>           | `false`  | `""`    |
-| `destination` | <p>Build destination directory.</p> | `false`  | `./bin` |
+| name          | description                                                            | required | default |
+|---------------|------------------------------------------------------------------------|----------|---------|
+| `go-version`  | <p>Go version to use.</p>                                              | `false`  | `""`    |
+| `destination` | <p>Build destination directory.</p>                                    | `false`  | `./bin` |
+| `max-retries` | <p>Maximum number of retry attempts for go mod download operations</p> | `false`  | `3`     |
 
 ### Outputs
 
@@ -43,4 +44,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ./bin
+
+    max-retries:
+    # Maximum number of retry attempts for go mod download operations
+    #
+    # Required: false
+    # Default: 3
 ```
