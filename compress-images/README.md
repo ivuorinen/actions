@@ -20,10 +20,10 @@ Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedul
 
 ### Outputs
 
-| name                | description                                       |
-|---------------------|---------------------------------------------------|
-| `images_compressed` | <p>Number of images that were compressed</p>      |
-| `size_saved`        | <p>Total size saved from compression in bytes</p> |
+| name                | description                                         |
+|---------------------|-----------------------------------------------------|
+| `images_compressed` | <p>Whether any images were compressed (boolean)</p> |
+| `size_saved`        | <p>Total size saved from compression in bytes</p>   |
 
 ### Runs
 

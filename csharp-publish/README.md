@@ -8,11 +8,11 @@ Publishes a C# project to GitHub Packages.
 
 ### Inputs
 
-| name             | description                                        | required | default               |
-|------------------|----------------------------------------------------|----------|-----------------------|
-| `dotnet-version` | <p>Version of .NET SDK to use.</p>                 | `false`  | `""`                  |
-| `namespace`      | <p>GitHub namespace for the package.</p>           | `true`   | `ivuorinen`           |
-| `token`          | <p>GitHub token with package write permissions</p> | `false`  | `${{ github.token }}` |
+| name             | description                                        | required | default     |
+|------------------|----------------------------------------------------|----------|-------------|
+| `dotnet-version` | <p>Version of .NET SDK to use.</p>                 | `false`  | `""`        |
+| `namespace`      | <p>GitHub namespace for the package.</p>           | `true`   | `ivuorinen` |
+| `token`          | <p>GitHub token with package write permissions</p> | `false`  | `""`        |
 
 ### Outputs
 
@@ -47,5 +47,5 @@ This action is a `composite` action.
     # GitHub token with package write permissions
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 ```
