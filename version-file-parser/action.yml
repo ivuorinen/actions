@@ -104,7 +104,7 @@ runs:
         # Parse Dockerfile
         if [ -f Dockerfile ]; then
           echo "Checking Dockerfile for ${{ inputs.dockerfile-image }}..." >&2
-          version=$(grep -i "^FROM.*${{ inputs.dockerfile-image }}:" Dockerfile | head -1 | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p" || echo "")
+          version=$(grep -i "^FROM.*${{ inputs.dockerfile-image }}:" Dockerfile | head -1 | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -118,7 +118,7 @@ runs:
         if [ -f .devcontainer/devcontainer.json ]; then
           echo "Checking devcontainer.json for ${{ inputs.dockerfile-image }}..." >&2
           if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p" || echo "")
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
@@ -307,51 +307,10 @@ runs:
         fi
 
         # Determine final detected version with priority order
-        final_version=""
-
         # Priority order: version-file > config-file > tool-versions > dockerfile > devcontainer > default
-        for output in version-file-version config-file-version tool-versions-version dockerfile-version devcontainer-version; do
-          case "$output" in
-            "version-file-version")
-              if [ -n "${{ inputs.version-file }}" ] && [ -f "${{ inputs.version-file }}" ]; then
-                temp_version=$(grep "^version-file-version=" $GITHUB_OUTPUT | cut -d= -f2)
-                if [ -n "$temp_version" ]; then
-                  final_version="$temp_version"
-                  break
-                fi
-              fi
-              ;;
-            "config-file-version")
-              if [ -n "$config_version" ]; then
-                final_version="$config_version"
-                break
-              fi
-              ;;
-            "tool-versions-version")
-              temp_version=$(grep "^tool-versions-version=" $GITHUB_OUTPUT | cut -d= -f2)
-              if [ -n "$temp_version" ]; then
-                final_version="$temp_version"
-                break
-              fi
-              ;;
-            "dockerfile-version")
-              temp_version=$(grep "^dockerfile-version=" $GITHUB_OUTPUT | cut -d= -f2)
-              if [ -n "$temp_version" ]; then
-                final_version="$temp_version"
-                break
-              fi
-              ;;
-            "devcontainer-version")
-              temp_version=$(grep "^devcontainer-version=" $GITHUB_OUTPUT | cut -d= -f2)
-              if [ -n "$temp_version" ]; then
-                final_version="$temp_version"
-                break
-              fi
-              ;;
-          esac
-        done
+        final_version=$(grep -E "^(version-file|config-file|tool-versions|dockerfile|devcontainer)-version=" $GITHUB_OUTPUT | tac | awk -F= 'NF>1 && $2!="" {print $2; exit}')
 
-        # Use default version if nothing was detected
+        # If no version found from any source, use default
         if [ -z "$final_version" ] && [ -n "${{ inputs.default-version }}" ]; then
           final_version="${{ inputs.default-version }}"
           echo "Using default ${{ inputs.language }} version: $final_version" >&2
