@@ -65,7 +65,15 @@ runs:
         validate_version() {
           local version=$1
           local regex="${{ inputs.validation-regex }}"
-          if [[ $version =~ $regex ]]; then
+
+          # Safely validate regex before using it
+          if ! printf '%s' "$regex" | grep -E '^[^"\$`|;&<>(){}\[\]*?+^]+$' >/dev/null 2>&1; then
+            echo "::warning::Invalid regex pattern provided, using default validation" >&2
+            regex="^[0-9]+\.[0-9]+"
+          fi
+
+          # Use eval with proper error handling for regex test
+          if eval "[[ \"$version\" =~ $regex ]]" 2>/dev/null; then
             return 0
           fi
           return 1
@@ -279,6 +287,8 @@ runs:
 
             # Check .csproj files
             if [ -z "$config_version" ]; then
+              # Enable nullglob to handle case when no .csproj files exist
+              shopt -s nullglob
               for csproj in *.csproj; do
                 if [ -f "$csproj" ]; then
                   version=$(grep -o '<TargetFramework>net[0-9]\+\.[0-9]\+</TargetFramework>' "$csproj" | sed -n 's/.*net\([0-9]\+\.[0-9]\+\).*/\1/p' | head -1)
@@ -289,6 +299,8 @@ runs:
                   fi
                 fi
               done
+              # Disable nullglob after use
+              shopt -u nullglob
             fi
 
             # Detect package manager

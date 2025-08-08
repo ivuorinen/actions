@@ -160,20 +160,24 @@ runs:
 
         echo "Running Biome fix..."
 
-        # Count files before fix
-        files_before=$(git status --porcelain | wc -l || echo "0")
+        # Run Biome fix and capture exit code
+        biome_exit_code=0
+        biome check --write . || biome_exit_code=$?
 
-        # Run Biome fix
-        biome check --write . || true
+        # Count changed files using git diff
+        files_changed=$(git diff --name-only | wc -l)
 
-        # Count files after fix
-        files_after=$(git status --porcelain | wc -l || echo "0")
-        files_changed=$((files_after - files_before))
+        # Set status based on biome check result and changes
+        if [ $biome_exit_code -eq 0 ] && [ $files_changed -eq 0 ]; then
+          status="success"
+        else
+          status="failure"
+        fi
 
         echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
-        echo "status=success" >> $GITHUB_OUTPUT
+        echo "status=$status" >> $GITHUB_OUTPUT
 
-        echo "✅ Biome fix completed. Files changed: $files_changed"
+        echo "✅ Biome fix completed. Files changed: $files_changed, Status: $status"
 
     - name: Push Fixes
       if: success()
