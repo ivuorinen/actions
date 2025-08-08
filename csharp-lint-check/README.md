@@ -12,6 +12,14 @@ Runs linters like StyleCop or dotnet-format for C# code style checks.
 |------------------|------------------------------------|----------|---------|
 | `dotnet-version` | <p>Version of .NET SDK to use.</p> | `false`  | `""`    |
 
+### Outputs
+
+| name             | description                                  |
+|------------------|----------------------------------------------|
+| `lint_status`    | <p>Overall lint status (success/failure)</p> |
+| `errors_count`   | <p>Number of formatting errors found</p>     |
+| `warnings_count` | <p>Number of formatting warnings found</p>   |
+
 ### Runs
 
 This action is a `composite` action.

@@ -14,6 +14,15 @@ Run PHPUnit tests on the repository
 | `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
 | `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
 
+### Outputs
+
+| name            | description                                            |
+|-----------------|--------------------------------------------------------|
+| `test_status`   | <p>Test execution status (success/failure/skipped)</p> |
+| `tests_run`     | <p>Number of tests executed</p>                        |
+| `tests_passed`  | <p>Number of tests passed</p>                          |
+| `coverage_path` | <p>Path to coverage report</p>                         |
+
 ### Runs
 
 This action is a `composite` action.

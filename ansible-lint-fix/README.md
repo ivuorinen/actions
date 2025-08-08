@@ -14,6 +14,14 @@ Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report.
 | `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
 | `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
 
+### Outputs
+
+| name            | description                               |
+|-----------------|-------------------------------------------|
+| `files_changed` | <p>Number of files changed by linting</p> |
+| `lint_status`   | <p>Linting status (success/failure)</p>   |
+| `sarif_path`    | <p>Path to SARIF report file</p>          |
+
 ### Runs
 
 This action is a `composite` action.

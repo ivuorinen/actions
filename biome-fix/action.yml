@@ -22,6 +22,14 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  files_changed:
+    description: 'Number of files changed by formatting'
+    value: ${{ steps.fix.outputs.files_changed }}
+  fix_status:
+    description: 'Fix status (success/failure)'
+    value: ${{ steps.fix.outputs.status }}
+
 runs:
   using: composite
   steps:

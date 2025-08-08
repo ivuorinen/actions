@@ -14,6 +14,13 @@ Run Biome fix on the repository
 | `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
 | `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
 
+### Outputs
+
+| name            | description                                  |
+|-----------------|----------------------------------------------|
+| `files_changed` | <p>Number of files changed by formatting</p> |
+| `fix_status`    | <p>Fix status (success/failure)</p>          |
+
 ### Runs
 
 This action is a `composite` action.

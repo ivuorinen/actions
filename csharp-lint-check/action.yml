@@ -13,6 +13,17 @@ inputs:
     description: 'Version of .NET SDK to use.'
     required: false
 
+outputs:
+  lint_status:
+    description: 'Overall lint status (success/failure)'
+    value: ${{ steps.dotnet-format.outputs.outcome == 'success' && 'success' || 'failure' }}
+  errors_count:
+    description: 'Number of formatting errors found'
+    value: ${{ steps.dotnet-format.outputs.errors_count || '0' }}
+  warnings_count:
+    description: 'Number of formatting warnings found'
+    value: ${{ steps.dotnet-format.outputs.warnings_count || '0' }}
+
 runs:
   using: composite
   steps:
@@ -57,13 +68,31 @@ runs:
         dotnet tool install --global dotnet-format --version 7.0.1
 
     - name: Run dotnet-format
+      id: dotnet-format
       shell: bash
       run: |
         set -euo pipefail
 
+        # Initialize counters
+        errors_count=0
+        warnings_count=0
+
         if ! dotnet format --check --report sarif --report-file dotnet-format.sarif; then
+          # Parse SARIF file to count errors and warnings if it exists
+          if [ -f "dotnet-format.sarif" ]; then
+            if command -v jq >/dev/null 2>&1; then
+              errors_count=$(jq '[.runs[].results[]? | select(.level == "error" or (.level // "error") == "error")] | length' dotnet-format.sarif 2>/dev/null || echo "0")
+              warnings_count=$(jq '[.runs[].results[]? | select(.level == "warning")] | length' dotnet-format.sarif 2>/dev/null || echo "0")
+            fi
+          fi
+
+          echo "errors_count=$errors_count" >> $GITHUB_OUTPUT
+          echo "warnings_count=$warnings_count" >> $GITHUB_OUTPUT
           echo "::error::Code formatting issues found. Check the SARIF report for details."
           exit 1
+        else
+          echo "errors_count=0" >> $GITHUB_OUTPUT
+          echo "warnings_count=0" >> $GITHUB_OUTPUT
         fi
 
     - name: Upload SARIF Report

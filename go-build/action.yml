@@ -17,6 +17,23 @@ inputs:
     required: false
     default: './bin'
 
+outputs:
+  build_status:
+    description: 'Build completion status (success/failure)'
+    value: ${{ steps.build.outputs.status }}
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  go_version:
+    description: 'Version of Go used'
+    value: ${{ steps.detect-go-version.outputs.go-version }}
+  binary_path:
+    description: 'Path to built binaries'
+    value: ${{ inputs.destination }}
+  coverage_path:
+    description: 'Path to coverage report'
+    value: 'coverage.out'
+
 runs:
   using: composite
   steps:
@@ -41,6 +58,7 @@ runs:
         go mod verify
 
     - name: Build Go Project
+      id: build
       shell: bash
       run: |
         set -euo pipefail
@@ -49,6 +67,7 @@ runs:
         # Create destination directory
         mkdir -p "${{ inputs.destination }}"
 
+        build_success=true
         # Check if there are any main packages
         if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
           # Build all main packages
@@ -56,23 +75,45 @@ runs:
             echo "Building package in $main_dir..."
             cd "$main_dir"
             output_name=$(basename "$main_dir")
-            go build -ldflags="-s -w" -o "../${{ inputs.destination }}/$output_name" .
+            if ! go build -ldflags="-s -w" -o "../${{ inputs.destination }}/$output_name" .; then
+              build_success=false
+            fi
             cd - > /dev/null
           done
         else
           echo "No main packages found, building library..."
-          go build ./...
+          if ! go build ./...; then
+            build_success=false
+          fi
+        fi
+
+        if [ "$build_success" = true ]; then
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "Build completed successfully"
+        else
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "Build failed"
+          exit 1
         fi
 
     - name: Run Tests
+      id: test
       shell: bash
       run: |
         set -euo pipefail
         echo "Running Go tests..."
         if find . -name "*_test.go" | grep -q .; then
-          go test -v ./... -race -coverprofile=coverage.out
+          if go test -v ./... -race -coverprofile=coverage.out; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "Tests completed successfully"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "Tests failed"
+            exit 1
+          fi
         else
           echo "No test files found, skipping test execution."
+          echo "status=skipped" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Upload Build Artifacts

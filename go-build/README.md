@@ -13,6 +13,16 @@ Builds the Go project.
 | `go-version`  | <p>Go version to use.</p>           | `false`  | `""`    |
 | `destination` | <p>Build destination directory.</p> | `false`  | `./bin` |
 
+### Outputs
+
+| name            | description                                            |
+|-----------------|--------------------------------------------------------|
+| `build_status`  | <p>Build completion status (success/failure)</p>       |
+| `test_status`   | <p>Test execution status (success/failure/skipped)</p> |
+| `go_version`    | <p>Version of Go used</p>                              |
+| `binary_path`   | <p>Path to built binaries</p>                          |
+| `coverage_path` | <p>Path to coverage report</p>                         |
+
 ### Runs
 
 This action is a `composite` action.
