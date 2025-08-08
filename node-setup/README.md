@@ -4,7 +4,7 @@
 
 ### Description
 
-Sets up Node.js environment with advanced version management, caching, and tooling.
+Sets up Node.js env with advanced version management, caching, and tooling.
 
 ### Inputs
 

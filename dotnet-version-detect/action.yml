@@ -22,6 +22,27 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate default-version format
+        if ! [[ "${{ inputs.default-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+          echo "::error::Invalid default-version format: '${{ inputs.default-version }}'. Expected format: X.Y or X.Y.Z (e.g., 7.0, 8.0.100)"
+          exit 1
+        fi
+
+        # Check for reasonable version range (prevent malicious inputs)
+        major_version=$(echo "${{ inputs.default-version }}" | cut -d'.' -f1)
+        if [ "$major_version" -lt 3 ] || [ "$major_version" -gt 20 ]; then
+          echo "::error::Invalid default-version: '${{ inputs.default-version }}'. Major version should be between 3 and 20"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Parse .NET Version
       id: parse-version
       uses: ivuorinen/actions/version-file-parser@main

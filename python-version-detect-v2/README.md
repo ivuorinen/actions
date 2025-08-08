@@ -4,7 +4,7 @@
 
 ### Description
 
-Detects Python version from project configuration files using shared utilities.
+Detects Python version from project configuration files using enhanced detection logic.
 
 ### Inputs
 
