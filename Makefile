@@ -85,7 +85,7 @@ clean: ## Clean up temporary files and caches
 # Formatting targets
 format-markdown: ## Format markdown files
 	@echo "$(BLUE)📝 Formatting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" 2>/dev/null; then \
+	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" 2>/dev/null; then \
 		echo "$(GREEN)✅ Markdown formatted$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -110,7 +110,7 @@ format-tables: ## Format markdown tables
 # Linting targets
 lint-markdown: ## Lint markdown files
 	@echo "$(BLUE)🔍 Linting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" 2>/dev/null; then \
+	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" 2>/dev/null; then \
 		echo "$(GREEN)✅ Markdown linting passed$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown linting issues found$(RESET)" | tee -a $(LOG_FILE); \

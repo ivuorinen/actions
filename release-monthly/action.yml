@@ -71,7 +71,7 @@ runs:
       id: create-release
       shell: bash
       env:
-        GITHUB_TOKEN: '${{ inputs.token }}'
+        GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
 
@@ -157,7 +157,7 @@ runs:
       if: inputs.dry-run == 'false'
       shell: bash
       env:
-        GITHUB_TOKEN: '${{ inputs.token }}'
+        GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
 
