@@ -8,14 +8,17 @@ Lints and fixes Python files, commits changes, and uploads SARIF report.
 
 ### Inputs
 
-| name                | description                                                           | required | default |
-|---------------------|-----------------------------------------------------------------------|----------|---------|
-| `python-version`    | <p>Python version to use</p>                                          | `false`  | `3.11`  |
-| `flake8-version`    | <p>Flake8 version to use</p>                                          | `false`  | `7.0.0` |
-| `autopep8-version`  | <p>Autopep8 version to use</p>                                        | `false`  | `2.0.4` |
-| `max-retries`       | <p>Maximum number of retry attempts for installations and linting</p> | `false`  | `3`     |
-| `working-directory` | <p>Directory containing Python files to lint</p>                      | `false`  | `.`     |
-| `fail-on-error`     | <p>Whether to fail the action if linting errors are found</p>         | `false`  | `true`  |
+| name                | description                                                           | required | default                     |
+|---------------------|-----------------------------------------------------------------------|----------|-----------------------------|
+| `python-version`    | <p>Python version to use</p>                                          | `false`  | `3.11`                      |
+| `flake8-version`    | <p>Flake8 version to use</p>                                          | `false`  | `7.0.0`                     |
+| `autopep8-version`  | <p>Autopep8 version to use</p>                                        | `false`  | `2.0.4`                     |
+| `max-retries`       | <p>Maximum number of retry attempts for installations and linting</p> | `false`  | `3`                         |
+| `working-directory` | <p>Directory containing Python files to lint</p>                      | `false`  | `.`                         |
+| `fail-on-error`     | <p>Whether to fail the action if linting errors are found</p>         | `false`  | `true`                      |
+| `token`             | <p>GitHub token for authentication</p>                                | `false`  | `${{ github.token }}`       |
+| `username`          | <p>GitHub username for commits</p>                                    | `false`  | `github-actions`            |
+| `email`             | <p>GitHub email for commits</p>                                       | `false`  | `github-actions@github.com` |
 
 ### Outputs
 
@@ -69,4 +72,22 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ${{ github.token }}
+
+    username:
+    # GitHub username for commits
+    #
+    # Required: false
+    # Default: github-actions
+
+    email:
+    # GitHub email for commits
+    #
+    # Required: false
+    # Default: github-actions@github.com
 ```
