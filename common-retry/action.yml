@@ -172,7 +172,7 @@ runs:
 
           # Execute command with timeout
           exit_code=0
-          if timeout "$timeout_seconds" ${{ inputs.command }}; then
+          if timeout "$timeout_seconds" bash -c "${{ inputs.command }}"; then
             exit_code=0
           else
             exit_code=$?

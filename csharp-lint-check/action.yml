@@ -16,7 +16,7 @@ inputs:
 outputs:
   lint_status:
     description: 'Overall lint status (success/failure)'
-    value: ${{ steps.dotnet-format.outputs.outcome == 'success' && 'success' || 'failure' }}
+    value: ${{ steps.dotnet-format.outcome == 'success' && 'success' || 'failure' }}
   errors_count:
     description: 'Number of formatting errors found'
     value: ${{ steps.dotnet-format.outputs.errors_count || '0' }}
@@ -51,6 +51,7 @@ runs:
         echo "Input validation completed successfully"
 
     - name: Detect .NET SDK Version
+      id: detect-dotnet-version
       uses: ivuorinen/actions/dotnet-version-detect@main
       with:
         default-version: '7.0'

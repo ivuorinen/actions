@@ -59,7 +59,7 @@ runs:
       with:
         type: 'go'
         paths: '~/go/pkg/mod'
-        key-files: 'go.sum'
+        key-files: 'go.mod,go.sum'
         key-prefix: 'go-build'
 
     - name: Download Dependencies

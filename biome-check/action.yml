@@ -66,8 +66,9 @@ runs:
         fi
 
         # Validate username length
-        if [ ${#{{ inputs.username }}} -gt 39 ]; then
-          echo "::error::Username too long: ${#{{ inputs.username }}} characters. GitHub usernames are max 39 characters"
+        username="${{ inputs.username }}"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
           exit 1
         fi
 
