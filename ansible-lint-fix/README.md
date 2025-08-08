@@ -8,11 +8,12 @@ Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report.
 
 ### Inputs
 
-| name       | description                            | required | default                     |
-|------------|----------------------------------------|----------|-----------------------------|
-| `token`    | <p>GitHub token for authentication</p> | `false`  | `${{ github.token }}`       |
-| `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
-| `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
+| name          | description                                                        | required | default                     |
+|---------------|--------------------------------------------------------------------|----------|-----------------------------|
+| `token`       | <p>GitHub token for authentication</p>                             | `false`  | `${{ github.token }}`       |
+| `username`    | <p>GitHub username for commits</p>                                 | `false`  | `github-actions`            |
+| `email`       | <p>GitHub email for commits</p>                                    | `false`  | `github-actions@github.com` |
+| `max-retries` | <p>Maximum number of retry attempts for pip install operations</p> | `false`  | `3`                         |
 
 ### Outputs
 
@@ -48,4 +49,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: github-actions@github.com
+
+    max-retries:
+    # Maximum number of retry attempts for pip install operations
+    #
+    # Required: false
+    # Default: 3
 ```

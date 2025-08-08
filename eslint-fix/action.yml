@@ -21,6 +21,10 @@ inputs:
     description: 'GitHub email for commits'
     required: false
     default: 'github-actions@github.com'
+  max-retries:
+    description: 'Maximum number of retry attempts for npm install operations'
+    required: false
+    default: '3'
 
 outputs:
   files_changed:
@@ -67,6 +71,12 @@ runs:
           exit 1
         fi
 
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
         echo "Input validation completed successfully"
 
     - name: Checkout Repository
@@ -95,11 +105,11 @@ runs:
 
     - name: Install Dependencies
       if: steps.cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        npm install
+      uses: ivuorinen/actions/common-retry@main
+      with:
+        command: 'npm install'
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Installing Node.js dependencies'
 
     - name: Run ESLint Fix
       shell: bash

@@ -12,6 +12,10 @@ inputs:
   dotnet-version:
     description: 'Version of .NET SDK to use.'
     required: false
+  max-retries:
+    description: 'Maximum number of retry attempts for dotnet restore operations'
+    required: false
+    default: '3'
 
 outputs:
   build_status:
@@ -54,15 +58,20 @@ runs:
         key-prefix: 'csharp-build'
 
     - name: Restore Dependencies
+      if: steps.cache-nuget.outputs.cache-hit != 'true'
+      uses: ivuorinen/actions/common-retry@main
+      with:
+        command: |
+          echo "Restoring .NET dependencies..."
+          dotnet restore --verbosity normal
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Restoring .NET dependencies'
+
+    - name: Skip Restore (Cache Hit)
+      if: steps.cache-nuget.outputs.cache-hit == 'true'
       shell: bash
       run: |
-        set -euo pipefail
-        echo "Restoring .NET dependencies..."
-        if [[ "${{ steps.cache-nuget.outputs.cache-hit }}" != 'true' ]]; then
-          dotnet restore --verbosity normal
-        else
-          echo "Cache hit - skipping dotnet restore"
-        fi
+        echo "Cache hit - skipping dotnet restore"
 
     - name: Build Solution
       id: build

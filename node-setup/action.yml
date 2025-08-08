@@ -38,6 +38,10 @@ inputs:
   force-version:
     description: 'Force specific Node.js version regardless of config files'
     required: false
+  max-retries:
+    description: 'Maximum number of retry attempts for package manager operations'
+    required: false
+    default: '3'
 
 outputs:
   node-version:
@@ -117,6 +121,12 @@ runs:
           fi
         fi
 
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
         # Validate boolean inputs
         if [[ "${{ inputs.cache }}" != "true" ]] && [[ "${{ inputs.cache }}" != "false" ]]; then
           echo "::error::Invalid cache value: '${{ inputs.cache }}'. Must be 'true' or 'false'"
@@ -174,31 +184,35 @@ runs:
         key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml'
         restore-keys: '${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}-'
 
+    - name: Install PNPM Globally
+      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true' && (steps.version.outputs.package-manager || inputs.package-manager) == 'pnpm'
+      uses: ivuorinen/actions/common-retry@main
+      with:
+        command: 'npm install -g pnpm'
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Installing PNPM globally'
+
     - name: Install Dependencies
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        package_manager="${{ steps.version.outputs.package-manager || inputs.package-manager }}"
-        echo "Installing dependencies using $package_manager..."
-
-        case "$package_manager" in
-          "pnpm")
-            if ! command -v pnpm >/dev/null 2>&1; then
-              npm install -g pnpm
-            fi
-            pnpm install --frozen-lockfile
-            ;;
-          "yarn")
-            yarn install --frozen-lockfile
-            ;;
-          "npm"|*)
-            npm ci
-            ;;
-        esac
-
-        echo "✅ Dependencies installed successfully"
+      uses: ivuorinen/actions/common-retry@main
+      with:
+        command: |
+          package_manager="${{ steps.version.outputs.package-manager || inputs.package-manager }}"
+          echo "Installing dependencies using $package_manager..."
+          case "$package_manager" in
+            "pnpm")
+              pnpm install --frozen-lockfile
+              ;;
+            "yarn")
+              yarn install --frozen-lockfile
+              ;;
+            "npm"|*)
+              npm ci
+              ;;
+          esac
+          echo "✅ Dependencies installed successfully"
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Installing Node.js dependencies'
 
     - name: Set Final Outputs
       shell: bash
