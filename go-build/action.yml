@@ -16,6 +16,10 @@ inputs:
     description: 'Build destination directory.'
     required: false
     default: './bin'
+  max-retries:
+    description: 'Maximum number of retry attempts for go mod download operations'
+    required: false
+    default: '3'
 
 outputs:
   build_status:
@@ -60,12 +64,14 @@ runs:
 
     - name: Download Dependencies
       if: steps.cache-go.outputs.cache-hit != 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-        echo "Downloading Go dependencies..."
-        go mod download
-        go mod verify
+      uses: ivuorinen/actions/common-retry@main
+      with:
+        command: |
+          echo "Downloading Go dependencies..."
+          go mod download
+          go mod verify
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Downloading Go modules'
 
     - name: Build Go Project
       id: build

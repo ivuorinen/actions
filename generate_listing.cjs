@@ -60,6 +60,7 @@ const CATEGORIES = {
   'compress-images': 'Repository',
   'common-cache': 'Repository',
   'common-file-check': 'Repository',
+  'common-retry': 'Repository',
 };
 
 // Language support mappings
