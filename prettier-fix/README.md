@@ -14,6 +14,13 @@ Run Prettier to fix code style violations
 | `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
 | `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
 
+### Outputs
+
+| name            | description                                |
+|-----------------|--------------------------------------------|
+| `files_changed` | <p>Number of files changed by Prettier</p> |
+| `format_status` | <p>Formatting status (success/failure)</p> |
+
 ### Runs
 
 This action is a `composite` action.

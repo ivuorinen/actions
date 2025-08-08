@@ -22,6 +22,20 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  tests_run:
+    description: 'Number of tests executed'
+    value: ${{ steps.test.outputs.tests_run }}
+  tests_passed:
+    description: 'Number of tests passed'
+    value: ${{ steps.test.outputs.tests_passed }}
+  coverage_path:
+    description: 'Path to coverage report'
+    value: 'coverage.xml'
+
 runs:
   using: composite
   steps:

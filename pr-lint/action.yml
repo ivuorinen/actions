@@ -24,6 +24,14 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  validation_status:
+    description: 'Overall validation status (success/failure)'
+    value: ${{ steps.ml.outputs.has_updated_sources == '1' && 'failure' || 'success' }}
+  errors_found:
+    description: 'Number of linting errors found'
+    value: ${{ steps.ml.outputs.has_updated_sources }}
+
 runs:
   using: composite
   steps:
