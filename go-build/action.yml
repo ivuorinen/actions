@@ -29,7 +29,7 @@ runs:
     - name: Setup Go
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
-        go-version: '${{ steps.detect-go-version.outputs.go-version }}'
+        go-version: ${{ steps.detect-go-version.outputs.go-version }}
         cache: true
 
     - name: Download Dependencies

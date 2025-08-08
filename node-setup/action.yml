@@ -56,6 +56,88 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate default-version format
+        if [[ -n "${{ inputs.default-version }}" ]]; then
+          if ! [[ "${{ inputs.default-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "::error::Invalid default-version format: '${{ inputs.default-version }}'. Expected format: X or X.Y or X.Y.Z (e.g., 22, 20.9, 18.17.1)"
+            exit 1
+          fi
+
+          # Check for reasonable version range (prevent malicious inputs)
+          major_version=$(echo "${{ inputs.default-version }}" | cut -d'.' -f1)
+          if [ "$major_version" -lt 14 ] || [ "$major_version" -gt 30 ]; then
+            echo "::error::Invalid default-version: '${{ inputs.default-version }}'. Node.js major version should be between 14 and 30"
+            exit 1
+          fi
+        fi
+
+        # Validate force-version format if provided
+        if [[ -n "${{ inputs.force-version }}" ]]; then
+          if ! [[ "${{ inputs.force-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "::error::Invalid force-version format: '${{ inputs.force-version }}'. Expected format: X or X.Y or X.Y.Z (e.g., 22, 20.9, 18.17.1)"
+            exit 1
+          fi
+
+          # Check for reasonable version range
+          major_version=$(echo "${{ inputs.force-version }}" | cut -d'.' -f1)
+          if [ "$major_version" -lt 14 ] || [ "$major_version" -gt 30 ]; then
+            echo "::error::Invalid force-version: '${{ inputs.force-version }}'. Node.js major version should be between 14 and 30"
+            exit 1
+          fi
+        fi
+
+        # Validate package-manager
+        case "${{ inputs.package-manager }}" in
+          "npm"|"yarn"|"pnpm")
+            # Valid package managers
+            ;;
+          *)
+            echo "::error::Invalid package-manager: '${{ inputs.package-manager }}'. Must be one of: npm, yarn, pnpm"
+            exit 1
+            ;;
+        esac
+
+        # Validate registry-url format (basic URL validation)
+        if [[ "${{ inputs.registry-url }}" != "https://"* ]] && [[ "${{ inputs.registry-url }}" != "http://"* ]]; then
+          echo "::error::Invalid registry-url: '${{ inputs.registry-url }}'. Must be a valid HTTP/HTTPS URL"
+          exit 1
+        fi
+
+        # Validate node-mirror format if provided
+        if [[ -n "${{ inputs.node-mirror }}" ]]; then
+          if [[ "${{ inputs.node-mirror }}" != "https://"* ]] && [[ "${{ inputs.node-mirror }}" != "http://"* ]]; then
+            echo "::error::Invalid node-mirror: '${{ inputs.node-mirror }}'. Must be a valid HTTP/HTTPS URL"
+            exit 1
+          fi
+        fi
+
+        # Validate boolean inputs
+        if [[ "${{ inputs.cache }}" != "true" ]] && [[ "${{ inputs.cache }}" != "false" ]]; then
+          echo "::error::Invalid cache value: '${{ inputs.cache }}'. Must be 'true' or 'false'"
+          exit 1
+        fi
+
+        if [[ "${{ inputs.install }}" != "true" ]] && [[ "${{ inputs.install }}" != "false" ]]; then
+          echo "::error::Invalid install value: '${{ inputs.install }}'. Must be 'true' or 'false'"
+          exit 1
+        fi
+
+        # Validate auth token format if provided (basic check for NPM tokens)
+        if [[ -n "${{ inputs.token }}" ]]; then
+          if [[ "${{ inputs.token }}" == *";"* ]] || [[ "${{ inputs.token }}" == *"&&"* ]] || [[ "${{ inputs.token }}" == *"|"* ]]; then
+            echo "::error::Invalid token format: command injection patterns not allowed"
+            exit 1
+          fi
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Parse Node.js Version
       id: version
       uses: ivuorinen/actions/version-file-parser@main

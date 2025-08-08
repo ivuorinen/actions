@@ -22,6 +22,34 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate default-version format
+        if ! [[ "${{ inputs.default-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+          echo "::error::Invalid default-version format: '${{ inputs.default-version }}'. Expected format: X.Y or X.Y.Z (e.g., 1.22, 1.21.5)"
+          exit 1
+        fi
+
+        # Check for reasonable version range (prevent malicious inputs)
+        major_version=$(echo "${{ inputs.default-version }}" | cut -d'.' -f1)
+        if [ "$major_version" -ne 1 ]; then
+          echo "::error::Invalid default-version: '${{ inputs.default-version }}'. Go major version should be 1"
+          exit 1
+        fi
+
+        # Check minor version range
+        minor_version=$(echo "${{ inputs.default-version }}" | cut -d'.' -f2)
+        if [ "$minor_version" -lt 16 ] || [ "$minor_version" -gt 30 ]; then
+          echo "::error::Invalid default-version: '${{ inputs.default-version }}'. Go minor version should be between 16 and 30"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Parse Go Version
       id: parse-version
       uses: ivuorinen/actions/version-file-parser@main
