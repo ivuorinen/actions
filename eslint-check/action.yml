@@ -190,6 +190,7 @@ runs:
                   eslint@${{ inputs.eslint-version }} \
                   @typescript-eslint/parser \
                   @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
                   eslint-plugin-import \
                   eslint-config-prettier \
                   typescript; then
@@ -201,6 +202,7 @@ runs:
                   eslint@${{ inputs.eslint-version }} \
                   @typescript-eslint/parser \
                   @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
                   eslint-plugin-import \
                   eslint-config-prettier \
                   typescript; then
@@ -212,6 +214,7 @@ runs:
                   eslint@${{ inputs.eslint-version }} \
                   @typescript-eslint/parser \
                   @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
                   eslint-plugin-import \
                   eslint-config-prettier \
                   typescript; then
@@ -314,21 +317,24 @@ runs:
         # Run ESLint
         echo "Running ESLint with ${{ steps.node-setup.outputs.package-manager }}..."
 
+        # Build ESLint command based on package manager
         case "${{ steps.node-setup.outputs.package-manager }}" in
           "pnpm")
-            pnpm exec eslint \
+            eslint_cmd="pnpm exec eslint"
             ;;
           "yarn")
-            yarn eslint \
+            eslint_cmd="yarn eslint"
             ;;
           "bun")
-            bunx eslint \
+            eslint_cmd="bunx eslint"
             ;;
           "npm"|*)
-            npx eslint \
+            eslint_cmd="npx eslint"
             ;;
-        esac \
-          $ext_pattern \
+        esac
+
+        # Execute ESLint with all arguments
+        $eslint_cmd $ext_pattern \
           --config ${{ inputs.config-file }} \
           --ignore-path ${{ inputs.ignore-file }} \
           ${{ inputs.cache == 'true' && '--cache' || '' }} \
