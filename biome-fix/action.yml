@@ -81,7 +81,17 @@ runs:
     - name: Node Setup
       uses: ivuorinen/actions/node-setup@main
 
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ivuorinen/actions/common-cache@main
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock'
+        key-prefix: 'biome-fix'
+
     - name: Install Dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
