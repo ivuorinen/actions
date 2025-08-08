@@ -166,8 +166,18 @@ runs:
         fi
         echo "result=found" >> $GITHUB_OUTPUT
 
-    - name: Install Dependencies
+    - name: Cache Python Dependencies
       if: steps.check-files.outputs.result == 'found'
+      id: cache-pip
+      uses: ivuorinen/actions/common-cache@main
+      with:
+        type: 'pip'
+        paths: '~/.cache/pip'
+        key-files: 'requirements*.txt,pyproject.toml,setup.py,setup.cfg'
+        key-prefix: 'python-lint-fix'
+
+    - name: Install Dependencies
+      if: steps.check-files.outputs.result == 'found' && steps.cache-pip.outputs.cache-hit != 'true'
       id: install
       shell: bash
       run: |
@@ -207,6 +217,19 @@ runs:
         # Verify installations
         flake8 --version || exit 1
         autopep8 --version || exit 1
+
+    - name: Activate Virtual Environment (Cache Hit)
+      if: steps.check-files.outputs.result == 'found' && steps.cache-pip.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Create virtual environment if it doesn't exist from cache
+        if [ ! -d ".venv" ]; then
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install flake8==${{ inputs.flake8-version }} autopep8==${{ inputs.autopep8-version }}
+        fi
 
     - name: Run flake8
       if: steps.check-files.outputs.result == 'found'

@@ -49,7 +49,17 @@ runs:
         go-version: ${{ steps.detect-go-version.outputs.go-version }}
         cache: true
 
+    - name: Cache Go Dependencies
+      id: cache-go
+      uses: ivuorinen/actions/common-cache@main
+      with:
+        type: 'go'
+        paths: '~/go/pkg/mod'
+        key-files: 'go.sum'
+        key-prefix: 'go-build'
+
     - name: Download Dependencies
+      if: steps.cache-go.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail

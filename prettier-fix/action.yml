@@ -81,7 +81,17 @@ runs:
     - name: Node Setup
       uses: ivuorinen/actions/node-setup@main
 
+    - name: Cache npm Dependencies
+      id: cache-npm
+      uses: ivuorinen/actions/common-cache@main
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock'
+        key-prefix: 'prettier-fix'
+
     - name: Install Dependencies
+      if: steps.cache-npm.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail

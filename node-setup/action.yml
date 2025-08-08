@@ -166,16 +166,13 @@ runs:
     - name: Cache Dependencies
       if: inputs.cache == 'true'
       id: deps-cache
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: ivuorinen/actions/common-cache@main
       with:
-        path: |
-          ~/.npm
-          ~/.yarn/cache
-          ~/.pnpm-store
-          node_modules
-        key: ${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}-${{ hashFiles('**/package-lock.json', '**/yarn.lock', '**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}-
+        type: 'npm'
+        paths: '~/.npm,~/.yarn/cache,~/.pnpm-store,node_modules'
+        key-prefix: 'node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml'
+        restore-keys: '${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}-'
 
     - name: Install Dependencies
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
