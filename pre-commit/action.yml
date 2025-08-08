@@ -30,12 +30,9 @@ inputs:
     default: 'github-actions@github.com'
 
 outputs:
-  hooks_run:
-    description: 'List of pre-commit hooks that were executed'
-    value: ${{ steps.pre-commit.outputs.hooks_run }}
   hooks_passed:
     description: 'Whether all pre-commit hooks passed (true/false)'
-    value: ${{ steps.pre-commit.outputs.outcome == 'success' }}
+    value: ${{ steps.pre-commit.outcome == 'success' }}
   files_changed:
     description: 'Whether any files were changed by pre-commit hooks'
     value: ${{ steps.push-fixes.outputs.changes_detected }}
