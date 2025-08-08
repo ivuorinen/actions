@@ -20,7 +20,6 @@ Runs pre-commit on the repository and pushes the fixes back to the repository
 
 | name            | description                                               |
 |-----------------|-----------------------------------------------------------|
-| `hooks_run`     | <p>List of pre-commit hooks that were executed</p>        |
 | `hooks_passed`  | <p>Whether all pre-commit hooks passed (true/false)</p>   |
 | `files_changed` | <p>Whether any files were changed by pre-commit hooks</p> |
 

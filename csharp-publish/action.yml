@@ -24,7 +24,7 @@ inputs:
 outputs:
   publish_status:
     description: 'Overall publish status (success/failure)'
-    value: ${{ steps.publish-package.outputs.outcome == 'success' && 'success' || 'failure' }}
+    value: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
   package_version:
     description: 'Version of the published package'
     value: ${{ steps.extract-version.outputs.version }}
@@ -56,13 +56,14 @@ runs:
         fi
 
         # Validate GitHub token format (basic validation)
-        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+        if [[ -n "${{ inputs.token }}" ]]; then
           if ! [[ "${{ inputs.token }}" =~ ^(gh[pousr]_[a-zA-Z0-9]{36}|gho_[a-zA-Z0-9]{36})$ ]]; then
             echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
           fi
         fi
 
     - name: Detect .NET SDK Version
+      id: detect-dotnet-version
       uses: ivuorinen/actions/dotnet-version-detect@main
       with:
         default-version: '7.0'

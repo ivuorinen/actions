@@ -223,6 +223,7 @@ runs:
                   eslint@${{ inputs.eslint-version }} \
                   @typescript-eslint/parser \
                   @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
                   eslint-plugin-import \
                   eslint-config-prettier \
                   typescript; then
