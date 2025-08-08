@@ -14,6 +14,14 @@ Run Biome check on the repository
 | `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
 | `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
 
+### Outputs
+
+| name             | description                           |
+|------------------|---------------------------------------|
+| `check_status`   | <p>Check status (success/failure)</p> |
+| `errors_count`   | <p>Number of errors found</p>         |
+| `warnings_count` | <p>Number of warnings found</p>       |
+
 ### Runs
 
 This action is a `composite` action.

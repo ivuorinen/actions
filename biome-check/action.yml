@@ -22,6 +22,17 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  check_status:
+    description: 'Check status (success/failure)'
+    value: ${{ steps.check.outputs.status }}
+  errors_count:
+    description: 'Number of errors found'
+    value: ${{ steps.check.outputs.errors }}
+  warnings_count:
+    description: 'Number of warnings found'
+    value: ${{ steps.check.outputs.warnings }}
+
 runs:
   using: composite
   steps:

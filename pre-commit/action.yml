@@ -29,6 +29,17 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  hooks_run:
+    description: 'List of pre-commit hooks that were executed'
+    value: ${{ steps.pre-commit.outputs.hooks_run }}
+  hooks_passed:
+    description: 'Whether all pre-commit hooks passed (true/false)'
+    value: ${{ steps.pre-commit.outputs.outcome == 'success' }}
+  files_changed:
+    description: 'Whether any files were changed by pre-commit hooks'
+    value: ${{ steps.push-fixes.outputs.changes_detected }}
+
 runs:
   using: composite
   steps:
@@ -115,11 +126,13 @@ runs:
       shell: bash
 
     - name: Run pre-commit
+      id: pre-commit
       uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
       with:
         extra_args: --config ${{ inputs.pre-commit-config }} ${{ steps.set-option.outputs.option }}
 
     - name: Push pre-commit fixes
+      id: push-fixes
       if: always() # Push changes even when pre-commit fails
       uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6.0.1
       with:
