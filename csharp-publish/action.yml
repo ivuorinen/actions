@@ -72,12 +72,25 @@ runs:
       with:
         dotnet-version: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
 
+    - name: Cache NuGet packages
+      id: cache-nuget
+      uses: ivuorinen/actions/common-cache@main
+      with:
+        type: 'nuget'
+        paths: '~/.nuget/packages'
+        key-files: '**/*.csproj,**/*.props,**/*.targets'
+        key-prefix: 'csharp-publish'
+
     - name: Restore Dependencies
       shell: bash
       run: |
         set -euo pipefail
 
-        dotnet restore
+        if [[ "${{ steps.cache-nuget.outputs.cache-hit }}" != 'true' ]]; then
+          dotnet restore
+        else
+          echo "Cache hit - skipping dotnet restore"
+        fi
 
     - name: Build Solution
       shell: bash
