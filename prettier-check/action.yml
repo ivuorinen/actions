@@ -177,6 +177,7 @@ runs:
         fi
 
     - name: Setup Node.js
+      id: node-setup
       uses: ivuorinen/actions/node-setup@main
 
     - name: Set up Cache
@@ -186,8 +187,8 @@ runs:
       with:
         type: 'npm'
         paths: 'node_modules/.cache/prettier,.prettier-cache'
-        key-prefix: 'prettier'
-        key-files: 'package.json,package-lock.json,yarn.lock,${{ inputs.config-file }}'
+        key-prefix: 'prettier-${{ steps.node-setup.outputs.package-manager }}'
+        key-files: 'package.json,package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb,${{ inputs.config-file }}'
         restore-keys: '${{ runner.os }}-prettier-'
 
     - name: Install Dependencies

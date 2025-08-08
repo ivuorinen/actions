@@ -160,12 +160,22 @@ runs:
             fi
 
             # Detect package manager
-            if [ -f pnpm-lock.yaml ]; then
+            if [ -f bun.lockb ]; then
+              detected_package_manager="bun"
+            elif [ -f pnpm-lock.yaml ]; then
               detected_package_manager="pnpm"
             elif [ -f yarn.lock ]; then
               detected_package_manager="yarn"
             elif [ -f package-lock.json ]; then
               detected_package_manager="npm"
+            elif [ -f package.json ] && command -v jq >/dev/null 2>&1; then
+              # Check packageManager field in package.json
+              pkg_manager=$(jq -r '.packageManager // empty' package.json 2>/dev/null | sed 's/@.*//')
+              if [ -n "$pkg_manager" ]; then
+                detected_package_manager="$pkg_manager"
+              else
+                detected_package_manager="npm"
+              fi
             else
               detected_package_manager="npm"
             fi

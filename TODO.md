@@ -89,18 +89,16 @@ This document outlines planned improvements and tasks for this GitHub Actions mo
   - Better multi-arch support and buildx optimization
   - **Impact**: Enables ARM64 and other architecture support
 
-- [ ] **Add Performance Monitoring** `[Feature]` `[Medium Effort]`
-  - Add timing outputs to long-running actions
-  - Create performance dashboards
-  - **Impact**: Better visibility into action performance
-
 ### Language-Specific Improvements
 
-- [ ] **Enhance Node.js Support** `[Feature]` `[Medium Effort]`
-  - Add support for Bun package manager
-  - Improve Yarn Berry/PnP support
-  - Add Node.js feature detection (ESM, TypeScript)
-  - **Target**: `node-setup`, `eslint-*`, `prettier-*` actions
+- [x] **Enhance Node.js Support** `[Feature]` `[Medium Effort]` ✅
+  - ✅ Added Corepack support for automatic package manager version management
+  - ✅ Added Bun package manager support to node-setup and related actions
+  - ✅ Improved Yarn Berry/PnP support with .yarnrc.yml detection and immutable installs
+  - ✅ Added Node.js feature detection (ESM, TypeScript, frameworks: Next.js, React, Vue, Svelte, Angular)
+  - ✅ Updated package manager detection priority: bun.lockb → pnpm-lock.yaml → yarn.lock → package-lock.json → packageManager field
+  - ✅ Enhanced eslint-check, eslint-fix, prettier-check, prettier-fix, biome-check, biome-fix actions
+  - **Impact**: Modern Node.js tooling support achieved with automatic package manager detection
 
 - [ ] **Improve PHP Action Robustness** `[Quality]` `[Medium Effort]`
   - Add Composer version detection and management

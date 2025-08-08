@@ -152,6 +152,7 @@ runs:
         fi
 
     - name: Setup Node.js
+      id: node-setup
       uses: ivuorinen/actions/node-setup@main
 
     - name: Cache Node Dependencies
@@ -160,8 +161,8 @@ runs:
       with:
         type: 'npm'
         paths: 'node_modules'
-        key-files: 'package-lock.json,yarn.lock'
-        key-prefix: 'eslint-check'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'eslint-check-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Dependencies
       if: steps.cache.outputs.cache-hit != 'true'
@@ -171,26 +172,64 @@ runs:
 
         cd ${{ inputs.working-directory }}
 
-        # Install ESLint and required dependencies
-        echo "Installing ESLint dependencies..."
+        package_manager="${{ steps.node-setup.outputs.package-manager }}"
+        max_attempts=${{ inputs.max-retries }}
+
+        echo "Installing ESLint dependencies using $package_manager..."
 
         # Function to install with retries
         install_with_retries() {
           local attempt=1
-          local max_attempts=${{ inputs.max-retries }}
 
           while [ $attempt -le $max_attempts ]; do
             echo "Installation attempt $attempt of $max_attempts"
 
-            if npm install \
-              eslint@${{ inputs.eslint-version }} \
-              @typescript-eslint/parser \
-              @typescript-eslint/eslint-plugin \
-              eslint-plugin-import \
-              eslint-config-prettier \
-              typescript; then
-              return 0
-            fi
+            case "$package_manager" in
+              "pnpm")
+                if pnpm add -D \
+                  eslint@${{ inputs.eslint-version }} \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+              "yarn")
+                if yarn add -D \
+                  eslint@${{ inputs.eslint-version }} \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+              "bun")
+                if bun add -D \
+                  eslint@${{ inputs.eslint-version }} \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+              "npm"|*)
+                if npm install \
+                  eslint@${{ inputs.eslint-version }} \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+            esac
 
             attempt=$((attempt + 1))
             if [ $attempt -le $max_attempts ]; then
@@ -272,8 +311,22 @@ runs:
         done
 
         # Run ESLint
-        echo "Running ESLint..."
-        npx eslint \
+        echo "Running ESLint with ${{ steps.node-setup.outputs.package-manager }}..."
+
+        case "${{ steps.node-setup.outputs.package-manager }}" in
+          "pnpm")
+            pnpm exec eslint \
+            ;;
+          "yarn")
+            yarn eslint \
+            ;;
+          "bun")
+            bunx eslint \
+            ;;
+          "npm"|*)
+            npx eslint \
+            ;;
+        esac \
           $ext_pattern \
           --config ${{ inputs.config-file }} \
           --ignore-path ${{ inputs.ignore-file }} \

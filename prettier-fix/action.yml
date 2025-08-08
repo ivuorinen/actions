@@ -89,6 +89,7 @@ runs:
         email: ${{ inputs.email }}
 
     - name: Node Setup
+      id: node-setup
       uses: ivuorinen/actions/node-setup@main
 
     - name: Cache npm Dependencies
@@ -97,23 +98,103 @@ runs:
       with:
         type: 'npm'
         paths: 'node_modules'
-        key-files: 'package-lock.json,yarn.lock'
-        key-prefix: 'prettier-fix'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'prettier-fix-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Dependencies
       if: steps.cache-npm.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@main
-      with:
-        command: 'npm install'
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Installing Node.js dependencies'
-
-    - name: Run Prettier Fix
       shell: bash
       run: |
         set -euo pipefail
 
-        npx prettier --write .
+        package_manager="${{ steps.node-setup.outputs.package-manager }}"
+        max_retries="${{ inputs.max-retries }}"
+
+        echo "Installing dependencies using $package_manager..."
+
+        for attempt in $(seq 1 $max_retries); do
+          echo "Attempt $attempt of $max_retries"
+
+          case "$package_manager" in
+            "pnpm")
+              if pnpm install --frozen-lockfile; then
+                echo "✅ Dependencies installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if [ -f ".yarnrc.yml" ]; then
+                if yarn install --immutable; then
+                  echo "✅ Dependencies installed successfully with Yarn Berry"
+                  exit 0
+                fi
+              else
+                if yarn install --frozen-lockfile; then
+                  echo "✅ Dependencies installed successfully with Yarn Classic"
+                  exit 0
+                fi
+              fi
+              ;;
+            "bun")
+              if bun install --frozen-lockfile; then
+                echo "✅ Dependencies installed successfully with Bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm ci; then
+                echo "✅ Dependencies installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt $max_retries ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install dependencies after $max_retries attempts"
+        exit 1
+
+    - name: Run Prettier Fix
+      id: format
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        package_manager="${{ steps.node-setup.outputs.package-manager }}"
+
+        echo "Running Prettier fix with $package_manager..."
+
+        # Count files before fix
+        files_before=$(git status --porcelain | wc -l || echo "0")
+
+        # Run Prettier fix based on package manager
+        case "$package_manager" in
+          "pnpm")
+            pnpm exec prettier --write .
+            ;;
+          "yarn")
+            yarn prettier --write .
+            ;;
+          "bun")
+            bunx prettier --write .
+            ;;
+          "npm"|*)
+            npx prettier --write .
+            ;;
+        esac
+
+        # Count files after fix
+        files_after=$(git status --porcelain | wc -l || echo "0")
+        files_changed=$((files_after - files_before))
+
+        echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
+        echo "status=success" >> $GITHUB_OUTPUT
+
+        echo "✅ Prettier fix completed. Files changed: $files_changed"
 
     - name: Push Fixes
       if: always()
