@@ -22,6 +22,17 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  files_changed:
+    description: 'Number of files changed by ESLint'
+    value: ${{ steps.lint.outputs.files_changed }}
+  lint_status:
+    description: 'Linting status (success/failure)'
+    value: ${{ steps.lint.outputs.status }}
+  errors_fixed:
+    description: 'Number of errors fixed'
+    value: ${{ steps.lint.outputs.errors_fixed }}
+
 runs:
   using: composite
   steps:

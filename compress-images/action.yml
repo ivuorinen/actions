@@ -41,6 +41,14 @@ inputs:
     required: false
     default: 'node_modules/**,dist/**,build/**'
 
+outputs:
+  images_compressed:
+    description: 'Number of images that were compressed'
+    value: ${{ steps.calibre.outputs.markdown != '' && 'true' || 'false' }}
+  size_saved:
+    description: 'Total size saved from compression in bytes'
+    value: ${{ steps.calibre.outputs.markdown }}
+
 runs:
   using: composite
   steps:

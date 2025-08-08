@@ -13,6 +13,23 @@ inputs:
     description: 'Version of .NET SDK to use.'
     required: false
 
+outputs:
+  build_status:
+    description: 'Build completion status (success/failure)'
+    value: ${{ steps.build.outputs.status }}
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  dotnet_version:
+    description: 'Version of .NET SDK used'
+    value: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+  artifacts_path:
+    description: 'Path to build artifacts'
+    value: '**/bin/Release/**/*'
+  test_results_path:
+    description: 'Path to test results'
+    value: '**/*.trx'
+
 runs:
   using: composite
   steps:
@@ -35,24 +52,41 @@ runs:
         dotnet restore --verbosity normal
 
     - name: Build Solution
+      id: build
       shell: bash
       run: |
         set -euo pipefail
         echo "Building .NET solution..."
-        dotnet build --configuration Release --no-restore --verbosity normal
+        if dotnet build --configuration Release --no-restore --verbosity normal; then
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "Build completed successfully"
+        else
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "Build failed"
+          exit 1
+        fi
 
     - name: Run Tests
+      id: test
       shell: bash
       run: |
         set -euo pipefail
         echo "Running .NET tests..."
         if find . -name "*.csproj" -exec grep -l "Microsoft.NET.Test" {} \; | head -1 | grep -q .; then
-          dotnet test --configuration Release --no-build \
+          if dotnet test --configuration Release --no-build \
             --collect:"XPlat Code Coverage" \
             --logger "trx;LogFileName=test-results.trx" \
-            --verbosity normal
+            --verbosity normal; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "Tests completed successfully"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "Tests failed"
+            exit 1
+          fi
         else
           echo "No test projects found, skipping test execution."
+          echo "status=skipped" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Upload Test Results
