@@ -14,9 +14,9 @@ inputs:
     required: false
     default: '22'
   package-manager:
-    description: 'Node.js package manager to use (npm, yarn, pnpm)'
+    description: 'Node.js package manager to use (npm, yarn, pnpm, bun, auto)'
     required: false
-    default: 'npm'
+    default: 'auto'
   registry-url:
     description: 'Custom NPM registry URL'
     required: false
@@ -49,13 +49,22 @@ outputs:
     value: ${{ steps.setup.outputs.node-version }}
   package-manager:
     description: 'Selected package manager'
-    value: ${{ steps.version.outputs.package-manager || inputs.package-manager }}
+    value: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
   cache-hit:
     description: 'Indicates if there was a cache hit'
     value: ${{ steps.deps-cache.outputs.cache-hit }}
   node-path:
     description: 'Path to Node.js installation'
     value: ${{ steps.setup.outputs.node-path }}
+  esm-support:
+    description: 'Whether ESM modules are supported'
+    value: ${{ steps.package-manager-resolution.outputs.esm-support }}
+  typescript-support:
+    description: 'Whether TypeScript is configured'
+    value: ${{ steps.package-manager-resolution.outputs.typescript-support }}
+  detected-frameworks:
+    description: 'Comma-separated list of detected frameworks'
+    value: ${{ steps.package-manager-resolution.outputs.detected-frameworks }}
 
 runs:
   using: composite
@@ -98,11 +107,11 @@ runs:
 
         # Validate package-manager
         case "${{ inputs.package-manager }}" in
-          "npm"|"yarn"|"pnpm")
+          "npm"|"yarn"|"pnpm"|"bun"|"auto")
             # Valid package managers
             ;;
           *)
-            echo "::error::Invalid package-manager: '${{ inputs.package-manager }}'. Must be one of: npm, yarn, pnpm"
+            echo "::error::Invalid package-manager: '${{ inputs.package-manager }}'. Must be one of: npm, yarn, pnpm, bun, auto"
             exit 1
             ;;
         esac
@@ -159,13 +168,103 @@ runs:
         validation-regex: '^[0-9]+(\.[0-9]+)*$'
         default-version: ${{ inputs.force-version || inputs.default-version }}
 
+    - name: Resolve Package Manager
+      id: package-manager-resolution
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        input_pm="${{ inputs.package-manager }}"
+        detected_pm="${{ steps.version.outputs.package-manager }}"
+        final_pm=""
+
+        if [ "$input_pm" = "auto" ]; then
+          if [ -n "$detected_pm" ]; then
+            final_pm="$detected_pm"
+            echo "Auto-detected package manager: $final_pm"
+          else
+            final_pm="npm"
+            echo "No package manager detected, using default: $final_pm"
+          fi
+        else
+          final_pm="$input_pm"
+          echo "Using specified package manager: $final_pm"
+        fi
+
+        echo "final-package-manager=$final_pm" >> $GITHUB_OUTPUT
+        echo "Final package manager: $final_pm"
+
+        # Node.js feature detection
+        echo "Detecting Node.js features..."
+
+        # Detect ESM support
+        esm_support="false"
+        if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
+          pkg_type=$(jq -r '.type // "commonjs"' package.json 2>/dev/null)
+          if [ "$pkg_type" = "module" ]; then
+            esm_support="true"
+          fi
+        fi
+        echo "esm-support=$esm_support" >> $GITHUB_OUTPUT
+        echo "ESM support: $esm_support"
+
+        # Detect TypeScript
+        typescript_support="false"
+        if [ -f tsconfig.json ] || [ -f package.json ]; then
+          if [ -f tsconfig.json ]; then
+            typescript_support="true"
+          elif command -v jq >/dev/null 2>&1; then
+            if jq -e '.devDependencies.typescript or .dependencies.typescript' package.json >/dev/null 2>&1; then
+              typescript_support="true"
+            fi
+          fi
+        fi
+        echo "typescript-support=$typescript_support" >> $GITHUB_OUTPUT
+        echo "TypeScript support: $typescript_support"
+
+        # Detect frameworks
+        frameworks=""
+        if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
+          detected_frameworks=()
+          if jq -e '.dependencies.next or .devDependencies.next' package.json >/dev/null 2>&1; then
+            detected_frameworks+=("next")
+          fi
+          if jq -e '.dependencies.react or .devDependencies.react' package.json >/dev/null 2>&1; then
+            detected_frameworks+=("react")
+          fi
+          if jq -e '.dependencies.vue or .devDependencies.vue' package.json >/dev/null 2>&1; then
+            detected_frameworks+=("vue")
+          fi
+          if jq -e '.dependencies.svelte or .devDependencies.svelte' package.json >/dev/null 2>&1; then
+            detected_frameworks+=("svelte")
+          fi
+          if jq -e '.dependencies."@angular/core" or .devDependencies."@angular/core"' package.json >/dev/null 2>&1; then
+            detected_frameworks+=("angular")
+          fi
+
+          if [ ${#detected_frameworks[@]} -gt 0 ]; then
+            frameworks=$(IFS=','; echo "${detected_frameworks[*]}")
+          fi
+        fi
+        echo "detected-frameworks=$frameworks" >> $GITHUB_OUTPUT
+        echo "Detected frameworks: $frameworks"
+
     - name: Setup Node.js
       id: setup
       uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
       with:
         node-version: ${{ steps.version.outputs.detected-version }}
         registry-url: ${{ inputs.registry-url }}
-        cache: ${{ steps.version.outputs.package-manager || inputs.package-manager }}
+        cache: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
+
+    - name: Enable Corepack
+      id: corepack
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Enabling Corepack for package manager management..."
+        corepack enable
+        echo "✅ Corepack enabled successfully"
 
     - name: Set Auth Token
       if: inputs.token != ''
@@ -179,32 +278,68 @@ runs:
       uses: ivuorinen/actions/common-cache@main
       with:
         type: 'npm'
-        paths: '~/.npm,~/.yarn/cache,~/.pnpm-store,node_modules'
-        key-prefix: 'node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}'
-        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml'
-        restore-keys: '${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.version.outputs.package-manager || inputs.package-manager }}-'
+        paths: '~/.npm,~/.yarn/cache,~/.pnpm-store,~/.bun/install/cache,node_modules'
+        key-prefix: 'node-${{ steps.version.outputs.detected-version }}-${{ steps.package-manager-resolution.outputs.final-package-manager }}'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb,.yarnrc.yml'
+        restore-keys: '${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.package-manager-resolution.outputs.final-package-manager }}-'
 
-    - name: Install PNPM Globally
-      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true' && (steps.version.outputs.package-manager || inputs.package-manager) == 'pnpm'
-      uses: ivuorinen/actions/common-retry@main
-      with:
-        command: 'npm install -g pnpm'
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Installing PNPM globally'
+    - name: Install Package Managers
+      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        package_manager="${{ steps.package-manager-resolution.outputs.final-package-manager }}"
+        echo "Setting up package manager: $package_manager"
+
+        case "$package_manager" in
+          "pnpm")
+            echo "Installing PNPM via Corepack..."
+            corepack prepare pnpm@latest --activate
+            echo "✅ PNPM installed successfully"
+            ;;
+          "yarn")
+            echo "Installing Yarn via Corepack..."
+            corepack prepare yarn@stable --activate
+            echo "✅ Yarn installed successfully"
+            ;;
+          "bun")
+            echo "Installing Bun..."
+            curl -fsSL https://bun.sh/install | bash
+            echo "$HOME/.bun/bin" >> $GITHUB_PATH
+            echo "✅ Bun installed successfully"
+            ;;
+          "npm")
+            echo "Using built-in NPM"
+            ;;
+          *)
+            echo "::warning::Unknown package manager: $package_manager, using NPM"
+            ;;
+        esac
 
     - name: Install Dependencies
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
       uses: ivuorinen/actions/common-retry@main
       with:
         command: |
-          package_manager="${{ steps.version.outputs.package-manager || inputs.package-manager }}"
+          package_manager="${{ steps.package-manager-resolution.outputs.final-package-manager }}"
           echo "Installing dependencies using $package_manager..."
           case "$package_manager" in
             "pnpm")
               pnpm install --frozen-lockfile
               ;;
             "yarn")
-              yarn install --frozen-lockfile
+              # Check for Yarn Berry/PnP configuration
+              if [ -f ".yarnrc.yml" ]; then
+                echo "Detected Yarn Berry configuration"
+                yarn install --immutable
+              else
+                echo "Using Yarn Classic"
+                yarn install --frozen-lockfile
+              fi
+              ;;
+            "bun")
+              bun install --frozen-lockfile
               ;;
             "npm"|*)
               npm ci
@@ -219,6 +354,6 @@ runs:
       run: |
         {
           echo "node-version=${{ steps.version.outputs.detected-version }}"
-          echo "package-manager=${{ steps.version.outputs.package-manager || inputs.package-manager }}"
+          echo "package-manager=${{ steps.package-manager-resolution.outputs.final-package-manager }}"
           echo "node-path=$(which node)"
         } >> $GITHUB_OUTPUT

@@ -1,12 +1,16 @@
-# Common Retry
+# ivuorinen/actions/common-retry
 
-Standardized retry utility for network operations and flaky commands.
+## Common Retry
 
-## Inputs
+### Description
+
+Standardized retry utility for network operations and flaky commands
+
+### Inputs
 
 | name                | description                                                         | required | default             |
 |---------------------|---------------------------------------------------------------------|----------|---------------------|
-| `command`           | <p>Command to execute with retry logic</p>                          | `true`   |                     |
+| `command`           | <p>Command to execute with retry logic</p>                          | `true`   | `""`                |
 | `max-retries`       | <p>Maximum number of retry attempts</p>                             | `false`  | `3`                 |
 | `retry-delay`       | <p>Initial delay between retries in seconds</p>                     | `false`  | `5`                 |
 | `backoff-strategy`  | <p>Backoff strategy (linear, exponential, fixed)</p>                | `false`  | `exponential`       |
@@ -17,7 +21,7 @@ Standardized retry utility for network operations and flaky commands.
 | `retry-codes`       | <p>Comma-separated list of exit codes that should trigger retry</p> | `false`  | `1,2,126,127`       |
 | `description`       | <p>Human-readable description of the operation for logging</p>      | `false`  | `Command execution` |
 
-## Outputs
+### Outputs
 
 | name        | description                                       |
 |-------------|---------------------------------------------------|
@@ -26,73 +30,72 @@ Standardized retry utility for network operations and flaky commands.
 | `exit-code` | <p>Final exit code of the command</p>             |
 | `duration`  | <p>Total execution duration in seconds</p>        |
 
-## Runs
+### Runs
 
 This action is a `composite` action.
 
-## Usage
-
-### Basic Retry
+### Usage
 
 ```yaml
 - uses: ivuorinen/actions/common-retry@main
   with:
-    command: 'npm install'
-    description: 'Installing Node.js dependencies'
-```
+    command:
+    # Command to execute with retry logic
+    #
+    # Required: true
+    # Default: ""
 
-### Custom Retry Configuration
+    max-retries:
+    # Maximum number of retry attempts
+    #
+    # Required: false
+    # Default: 3
 
-```yaml
-- uses: ivuorinen/actions/common-retry@main
-  with:
-    command: 'curl -sSL https://example.com/api/data'
-    max-retries: 5
-    retry-delay: 10
-    backoff-strategy: 'exponential'
-    timeout: 60
-    description: 'Fetching API data'
-```
+    retry-delay:
+    # Initial delay between retries in seconds
+    #
+    # Required: false
+    # Default: 5
 
-### Package Installation with Custom Success Codes
+    backoff-strategy:
+    # Backoff strategy (linear, exponential, fixed)
+    #
+    # Required: false
+    # Default: exponential
 
-```yaml
-- uses: ivuorinen/actions/common-retry@main
-  with:
-    command: 'pip install -r requirements.txt'
-    max-retries: 3
-    success-codes: '0'
-    retry-codes: '1,2,23' # Network-related pip errors
-    description: 'Installing Python dependencies'
-```
+    timeout:
+    # Timeout for each attempt in seconds
+    #
+    # Required: false
+    # Default: 300
 
-## Backoff Strategies
+    working-directory:
+    # Working directory to execute command in
+    #
+    # Required: false
+    # Default: .
 
-- **`fixed`**: Same delay between each retry
-- **`linear`**: Delay increases linearly (5s, 10s, 15s...)
-- **`exponential`**: Delay doubles each time (5s, 10s, 20s...) - Default
+    shell:
+    # Shell to use for command execution
+    #
+    # Required: false
+    # Default: bash
 
-## Common Use Cases
+    success-codes:
+    # Comma-separated list of success exit codes
+    #
+    # Required: false
+    # Default: 0
 
-### Network Operations
+    retry-codes:
+    # Comma-separated list of exit codes that should trigger retry
+    #
+    # Required: false
+    # Default: 1,2,126,127
 
-- Package installations (`npm install`, `pip install`, `composer install`)
-- API calls and downloads
-- Docker operations
-
-### Example with Outputs
-
-```yaml
-- id: retry-install
-  uses: ivuorinen/actions/common-retry@main
-  with:
-    command: 'npm install'
-    max-retries: 3
-    description: 'Installing Node.js dependencies'
-
-- name: Check Results
-  run: |
-    echo "Success: ${{ steps.retry-install.outputs.success }}"
-    echo "Attempts: ${{ steps.retry-install.outputs.attempts }}"
-    echo "Duration: ${{ steps.retry-install.outputs.duration }}s"
+    description:
+    # Human-readable description of the operation for logging
+    #
+    # Required: false
+    # Default: Command execution
 ```

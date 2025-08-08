@@ -92,6 +92,7 @@ runs:
         email: ${{ inputs.email }}
 
     - name: Node Setup
+      id: node-setup
       uses: ivuorinen/actions/node-setup@main
 
     - name: Cache Node Dependencies
@@ -100,23 +101,85 @@ runs:
       with:
         type: 'npm'
         paths: 'node_modules'
-        key-files: 'package-lock.json,yarn.lock'
-        key-prefix: 'biome-check'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'biome-check-${{ steps.node-setup.outputs.package-manager }}'
 
-    - name: Install Dependencies
+    - name: Install Biome
       if: steps.cache.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@main
-      with:
-        command: 'npm install -g biome'
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Installing Node.js dependencies (biome)'
-
-    - name: Run Biome Check
       shell: bash
       run: |
         set -euo pipefail
 
-        biome check . --json > biome-report.json
+        package_manager="${{ steps.node-setup.outputs.package-manager }}"
+        max_retries="${{ inputs.max-retries }}"
+
+        echo "Installing Biome using $package_manager..."
+
+        for attempt in $(seq 1 $max_retries); do
+          echo "Attempt $attempt of $max_retries"
+
+          case "$package_manager" in
+            "pnpm")
+              if pnpm add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if yarn global add @biomejs/biome; then
+                echo "✅ Biome installed successfully with yarn"
+                exit 0
+              fi
+              ;;
+            "bun")
+              if bun add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm install -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt $max_retries ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install Biome after $max_retries attempts"
+        exit 1
+
+    - name: Run Biome Check
+      id: check
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        echo "Running Biome check..."
+
+        # Run Biome check with JSON output
+        if biome check . --reporter=json > biome-report.json 2>&1; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "warnings=0" >> $GITHUB_OUTPUT
+        else
+          # Parse JSON output for errors and warnings count
+          errors=$(jq '.diagnostics | length' biome-report.json 2>/dev/null || echo "0")
+          warnings="0"  # Biome doesn't separate warnings in JSON output
+
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "errors=$errors" >> $GITHUB_OUTPUT
+          echo "warnings=$warnings" >> $GITHUB_OUTPUT
+
+          echo "::error::Biome check found $errors issues"
+        fi
+
+        echo "✅ Biome check completed"
 
     - name: Upload Biome Results
       uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
