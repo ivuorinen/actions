@@ -8,9 +8,10 @@ Builds and tests C# projects.
 
 ### Inputs
 
-| name             | description                        | required | default |
-|------------------|------------------------------------|----------|---------|
-| `dotnet-version` | <p>Version of .NET SDK to use.</p> | `false`  | `""`    |
+| name             | description                                                           | required | default |
+|------------------|-----------------------------------------------------------------------|----------|---------|
+| `dotnet-version` | <p>Version of .NET SDK to use.</p>                                    | `false`  | `""`    |
+| `max-retries`    | <p>Maximum number of retry attempts for dotnet restore operations</p> | `false`  | `3`     |
 
 ### Outputs
 
@@ -36,4 +37,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    max-retries:
+    # Maximum number of retry attempts for dotnet restore operations
+    #
+    # Required: false
+    # Default: 3
 ```

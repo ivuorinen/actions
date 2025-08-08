@@ -18,6 +18,7 @@ Sets up Node.js env with advanced version management, caching, and tooling.
 | `install`         | <p>Automatically install dependencies</p>                                | `false`  | `true`                       |
 | `node-mirror`     | <p>Custom Node.js binary mirror</p>                                      | `false`  | `""`                         |
 | `force-version`   | <p>Force specific Node.js version regardless of config files</p>         | `false`  | `""`                         |
+| `max-retries`     | <p>Maximum number of retry attempts for package manager operations</p>   | `false`  | `3`                          |
 
 ### Outputs
 
@@ -84,4 +85,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ""
+
+    max-retries:
+    # Maximum number of retry attempts for package manager operations
+    #
+    # Required: false
+    # Default: 3
 ```
