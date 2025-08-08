@@ -14,6 +14,14 @@ inputs:
     required: false
     default: ${{ github.token }}
 
+outputs:
+  staled_issues_count:
+    description: 'Number of issues marked as stale'
+    value: ${{ steps.stale.outputs.staled-issues-prs }}
+  closed_issues_count:
+    description: 'Number of issues closed'
+    value: ${{ steps.stale.outputs.closed-issues-prs }}
+
 runs:
   using: composite
   steps:
@@ -33,6 +41,7 @@ runs:
         echo "Input validation completed successfully"
 
     - name: 🚀 Run stale
+      id: stale
       uses: actions/stale@3a9db7e6a41a89f618792c92c0e97cc736e1b13f # v10.0.0
       with:
         repo-token: ${{ inputs.token }}

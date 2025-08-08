@@ -22,6 +22,14 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  files_changed:
+    description: 'Number of files changed by Prettier'
+    value: ${{ steps.format.outputs.files_changed }}
+  format_status:
+    description: 'Formatting status (success/failure)'
+    value: ${{ steps.format.outputs.status }}
+
 runs:
   using: 'composite'
   steps:

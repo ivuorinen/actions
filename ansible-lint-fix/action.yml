@@ -22,6 +22,17 @@ inputs:
     required: false
     default: 'github-actions@github.com'
 
+outputs:
+  files_changed:
+    description: 'Number of files changed by linting'
+    value: ${{ steps.lint.outputs.files_changed }}
+  lint_status:
+    description: 'Linting status (success/failure)'
+    value: ${{ steps.lint.outputs.status }}
+  sarif_path:
+    description: 'Path to SARIF report file'
+    value: 'ansible-lint.sarif'
+
 runs:
   using: composite
   steps:
