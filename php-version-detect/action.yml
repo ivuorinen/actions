@@ -29,7 +29,7 @@ runs:
         set -euo pipefail
 
         # Validate default-version format
-        if ! [[ "${{ inputs.default-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+        if ! [[ "${{ inputs.default-version }}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
           echo "::error::Invalid default-version format: '${{ inputs.default-version }}'. Expected format: X.Y or X.Y.Z (e.g., 8.2, 8.3.1)"
           exit 1
         fi

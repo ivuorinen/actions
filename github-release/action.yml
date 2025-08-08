@@ -44,8 +44,9 @@ runs:
         fi
 
         # Validate changelog content (if provided)
-        if [[ -n "${{ inputs.changelog }}" ]] && [[ ${#inputs.changelog} -gt 10000 ]]; then
-          echo "::warning::Changelog is very long (${#inputs.changelog} characters). Consider using shorter release notes."
+        changelog="${{ inputs.changelog }}"
+        if [[ -n "$changelog" ]] && [[ ${#changelog} -gt 10000 ]]; then
+          echo "::warning::Changelog is very long (${#changelog} characters). Consider using shorter release notes."
         fi
 
         # Check if gh CLI is available
