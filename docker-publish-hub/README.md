@@ -21,15 +21,25 @@ Publishes a Docker image to Docker Hub with enhanced security and reliability fe
 | `sbom`                   | <p>Generate Software Bill of Materials</p>                                       | `false`  | `true`                    |
 | `max-retries`            | <p>Maximum number of retry attempts for publishing</p>                           | `false`  | `3`                       |
 | `retry-delay`            | <p>Delay in seconds between retries</p>                                          | `false`  | `10`                      |
+| `buildx-version`         | <p>Specific Docker Buildx version to use</p>                                     | `false`  | `latest`                  |
+| `cache-mode`             | <p>Cache mode for build layers (min, max, or inline)</p>                         | `false`  | `max`                     |
+| `auto-detect-platforms`  | <p>Automatically detect and build for all available platforms</p>                | `false`  | `false`                   |
+| `scan-image`             | <p>Scan published image for vulnerabilities</p>                                  | `false`  | `true`                    |
+| `sign-image`             | <p>Sign the published image with cosign</p>                                      | `false`  | `false`                   |
+| `verbose`                | <p>Enable verbose logging</p>                                                    | `false`  | `false`                   |
 
 ### Outputs
 
-| name         | description                               |
-|--------------|-------------------------------------------|
-| `image-name` | <p>Full image name including registry</p> |
-| `digest`     | <p>The digest of the published image</p>  |
-| `tags`       | <p>List of published tags</p>             |
-| `repo-url`   | <p>Docker Hub repository URL</p>          |
+| name              | description                               |
+|-------------------|-------------------------------------------|
+| `image-name`      | <p>Full image name including registry</p> |
+| `digest`          | <p>The digest of the published image</p>  |
+| `tags`            | <p>List of published tags</p>             |
+| `repo-url`        | <p>Docker Hub repository URL</p>          |
+| `scan-results`    | <p>Vulnerability scan results</p>         |
+| `platform-matrix` | <p>Build status per platform</p>          |
+| `build-time`      | <p>Total build time in seconds</p>        |
+| `signature`       | <p>Image signature if signing enabled</p> |
 
 ### Runs
 
@@ -105,4 +115,40 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 10
+
+    buildx-version:
+    # Specific Docker Buildx version to use
+    #
+    # Required: false
+    # Default: latest
+
+    cache-mode:
+    # Cache mode for build layers (min, max, or inline)
+    #
+    # Required: false
+    # Default: max
+
+    auto-detect-platforms:
+    # Automatically detect and build for all available platforms
+    #
+    # Required: false
+    # Default: false
+
+    scan-image:
+    # Scan published image for vulnerabilities
+    #
+    # Required: false
+    # Default: true
+
+    sign-image:
+    # Sign the published image with cosign
+    #
+    # Required: false
+    # Default: false
+
+    verbose:
+    # Enable verbose logging
+    #
+    # Required: false
+    # Default: false
 ```
