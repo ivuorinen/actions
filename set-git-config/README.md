@@ -10,7 +10,7 @@ Sets Git configuration for actions.
 
 | name         | description                            | required | default                     |
 |--------------|----------------------------------------|----------|-----------------------------|
-| `token`      | <p>GitHub token.</p>                   | `false`  | `${{ github.token }}`       |
+| `token`      | <p>GitHub token for authentication</p> | `false`  | `${{ github.token }}`       |
 | `username`   | <p>GitHub username for commits.</p>    | `false`  | `github-actions`            |
 | `email`      | <p>GitHub email for commits.</p>       | `false`  | `github-actions@github.com` |
 | `is_fiximus` | <p>Whether to use the Fiximus bot.</p> | `false`  | `false`                     |
@@ -34,7 +34,7 @@ This action is a `composite` action.
 - uses: ivuorinen/actions/set-git-config@main
   with:
     token:
-    # GitHub token.
+    # GitHub token for authentication
     #
     # Required: false
     # Default: ${{ github.token }}
