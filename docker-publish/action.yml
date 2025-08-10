@@ -17,11 +17,51 @@ inputs:
     description: 'Is this a nightly build? (true or false)'
     required: false
     default: 'false'
+  platforms:
+    description: 'Platforms to build for (comma-separated)'
+    required: false
+    default: 'linux/amd64,linux/arm64,linux/arm/v7'
+  auto-detect-platforms:
+    description: 'Automatically detect and build for all available platforms'
+    required: false
+    default: 'false'
+  scan-image:
+    description: 'Scan images for vulnerabilities'
+    required: false
+    default: 'true'
+  sign-image:
+    description: 'Sign images with cosign'
+    required: false
+    default: 'false'
+  cache-mode:
+    description: 'Cache mode for build layers (min, max, or inline)'
+    required: false
+    default: 'max'
+  buildx-version:
+    description: 'Specific Docker Buildx version to use'
+    required: false
+    default: 'latest'
+  verbose:
+    description: 'Enable verbose logging'
+    required: false
+    default: 'false'
 
 outputs:
   registry:
     description: 'Registry where image was published'
     value: ${{ steps.dest.outputs.reg }}
+  tags:
+    description: 'Tags that were published'
+    value: ${{ steps.tags.outputs.all-tags }}
+  build-time:
+    description: 'Total build time in seconds'
+    value: ${{ steps.build.outputs.build-time }}
+  platform-matrix:
+    description: 'Build status per platform'
+    value: ${{ steps.build.outputs.platform-matrix }}
+  scan-results:
+    description: 'Vulnerability scan results if scanning enabled'
+    value: ${{ steps.build.outputs.scan-results }}
 
 runs:
   using: composite
@@ -83,21 +123,44 @@ runs:
         echo "Publishing to: ${{ inputs.registry }}"
 
     - name: Build Multi-Arch Docker Image
+      id: build
       uses: ivuorinen/actions/docker-build@main
       with:
         tag: ${{ steps.tags.outputs.all-tags }}
+        architectures: ${{ inputs.platforms }}
+        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
+        scan-image: ${{ inputs.scan-image }}
+        sign-image: ${{ inputs.sign-image }}
+        cache-mode: ${{ inputs.cache-mode }}
+        buildx-version: ${{ inputs.buildx-version }}
+        verbose: ${{ inputs.verbose }}
+        push: 'false' # Don't push during build, let publish actions handle it
 
     - name: Publish to Docker Hub
       if: contains(steps.dest.outputs.reg, 'dockerhub')
       uses: ivuorinen/actions/docker-publish-hub@main
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
+        platforms: ${{ inputs.platforms }}
+        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
+        scan-image: ${{ inputs.scan-image }}
+        sign-image: ${{ inputs.sign-image }}
+        cache-mode: ${{ inputs.cache-mode }}
+        buildx-version: ${{ inputs.buildx-version }}
+        verbose: ${{ inputs.verbose }}
 
     - name: Publish to GitHub Packages
       if: contains(steps.dest.outputs.reg, 'github')
       uses: ivuorinen/actions/docker-publish-gh@main
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
+        platforms: ${{ inputs.platforms }}
+        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
+        scan-image: ${{ inputs.scan-image }}
+        sign-image: ${{ inputs.sign-image }}
+        cache-mode: ${{ inputs.cache-mode }}
+        buildx-version: ${{ inputs.buildx-version }}
+        verbose: ${{ inputs.verbose }}
 
     - name: Verify Publications
       id: verify

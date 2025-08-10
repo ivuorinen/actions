@@ -233,6 +233,8 @@ process-action-%: ## Process a specific action (internal target)
 	if [ -f "./$$action/action.yml" ]; then \
 		echo "$(BLUE)🔍 Processing $$action...$(RESET)"; \
 		rm "./$$action/README.md" && $(MAKE) "./$$action/README.md"; \
+		$(SED_CMD) "s|PROJECT|$$repo|g; s|VERSION|$$version|g; s|\*\*\*||g" "$$action/README.md"; \
+		[ -f "$$action/README.md.bak" ] && rm "$$action/README.md.bak" || true; \
 	fi
 
 # Process all actions in parallel

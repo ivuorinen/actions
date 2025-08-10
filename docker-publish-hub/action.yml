@@ -48,6 +48,30 @@ inputs:
     description: 'Delay in seconds between retries'
     required: false
     default: '10'
+  buildx-version:
+    description: 'Specific Docker Buildx version to use'
+    required: false
+    default: 'latest'
+  cache-mode:
+    description: 'Cache mode for build layers (min, max, or inline)'
+    required: false
+    default: 'max'
+  auto-detect-platforms:
+    description: 'Automatically detect and build for all available platforms'
+    required: false
+    default: 'false'
+  scan-image:
+    description: 'Scan published image for vulnerabilities'
+    required: false
+    default: 'true'
+  sign-image:
+    description: 'Sign the published image with cosign'
+    required: false
+    default: 'false'
+  verbose:
+    description: 'Enable verbose logging'
+    required: false
+    default: 'false'
 
 outputs:
   image-name:
@@ -62,6 +86,18 @@ outputs:
   repo-url:
     description: 'Docker Hub repository URL'
     value: ${{ steps.metadata.outputs.repo-url }}
+  scan-results:
+    description: 'Vulnerability scan results'
+    value: ${{ steps.scan.outputs.results }}
+  platform-matrix:
+    description: 'Build status per platform'
+    value: ${{ steps.publish.outputs.platform-matrix }}
+  build-time:
+    description: 'Total build time in seconds'
+    value: ${{ steps.publish.outputs.build-time }}
+  signature:
+    description: 'Image signature if signing enabled'
+    value: ${{ steps.sign.outputs.signature }}
 
 runs:
   using: composite
@@ -112,7 +148,12 @@ runs:
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       with:
+        version: ${{ inputs.buildx-version }}
         platforms: ${{ inputs.platforms }}
+        buildkitd-flags: --debug
+        driver-opts: |
+          network=host
+          image=moby/buildkit:${{ inputs.buildx-version }}
 
     - name: Prepare Metadata
       id: metadata
@@ -180,6 +221,24 @@ runs:
             --full-description "$(cat ${{ inputs.readme-file }})"
         fi
 
+    - name: Detect Available Platforms
+      id: detect-platforms
+      if: inputs.auto-detect-platforms == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Get available platforms from buildx
+        available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed 's/,$//')
+
+        if [ -n "$available_platforms" ]; then
+          echo "platforms=${available_platforms}" >> $GITHUB_OUTPUT
+          echo "Detected platforms: ${available_platforms}"
+        else
+          echo "platforms=${{ inputs.platforms }}" >> $GITHUB_OUTPUT
+          echo "Using default platforms: ${{ inputs.platforms }}"
+        fi
+
     - name: Publish Image
       id: publish
       shell: bash
@@ -188,6 +247,25 @@ runs:
       run: |
         set -euo pipefail
 
+        # Track build start time
+        build_start=$(date +%s)
+
+        # Determine platforms
+        if [ "${{ inputs.auto-detect-platforms }}" == "true" ] && [ -n "${{ steps.detect-platforms.outputs.platforms }}" ]; then
+          platforms="${{ steps.detect-platforms.outputs.platforms }}"
+        else
+          platforms="${{ inputs.platforms }}"
+        fi
+
+        # Initialize platform matrix tracking
+        platform_matrix="{}"
+
+        # Prepare verbose flag
+        verbose_flag=""
+        if [ "${{ inputs.verbose }}" == "true" ]; then
+          verbose_flag="--progress=plain"
+        fi
+
         attempt=1
         max_attempts=${{ inputs.max-retries }}
 
@@ -195,19 +273,39 @@ runs:
           echo "Publishing attempt $attempt of $max_attempts"
 
           if docker buildx build \
-            --platform=${{ inputs.platforms }} \
+            --platform=${platforms} \
             --tag ${{ steps.metadata.outputs.tags }} \
             --push \
+            --cache-from type=registry,ref=${{ inputs.username }}/buildcache:latest \
+            --cache-to type=registry,ref=${{ inputs.username }}/buildcache:latest,mode=${{ inputs.cache-mode }} \
             ${{ inputs.provenance == 'true' && '--provenance=true' || '' }} \
             ${{ inputs.sbom == 'true' && '--sbom=true' || '' }} \
+            ${verbose_flag} \
+            --metadata-file=/tmp/build-metadata.json \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            --label "org.opencontainers.image.version=${{ inputs.tags }}" \
             .; then
 
             # Get image digest
-            digest=$(docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${TAGS[0]} --raw)
+            IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+            digest=$(docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${TAGS[0]} --raw | jq -r '.digest // "unknown"' || echo "unknown")
             echo "digest=${digest}" >> $GITHUB_OUTPUT
+
+            # Calculate build time
+            build_end=$(date +%s)
+            build_time=$((build_end - build_start))
+            echo "build-time=${build_time}" >> $GITHUB_OUTPUT
+
+            # Build platform matrix
+            IFS=',' read -ra PLATFORM_ARRAY <<< "${platforms}"
+            platform_matrix="{"
+            for p in "${PLATFORM_ARRAY[@]}"; do
+              platform_matrix="${platform_matrix}\"${p}\":\"success\","
+            done
+            platform_matrix="${platform_matrix%,}}"
+            echo "platform-matrix=${platform_matrix}" >> $GITHUB_OUTPUT
 
             break
           fi
@@ -221,6 +319,62 @@ runs:
             exit 1
           fi
         done
+
+    - name: Scan Published Image
+      id: scan
+      if: inputs.scan-image == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Install Trivy
+        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
+        sudo apt-get update && sudo apt-get install -y trivy
+
+        # Get first tag for scanning
+        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+
+        # Scan the published image
+        trivy image \
+          --severity HIGH,CRITICAL \
+          --format json \
+          --output /tmp/scan-results.json \
+          ${{ steps.metadata.outputs.full-name }}:${TAGS[0]}
+
+        # Output results
+        scan_results=$(cat /tmp/scan-results.json | jq -c '.')
+        echo "results=${scan_results}" >> $GITHUB_OUTPUT
+
+        # Check for critical vulnerabilities
+        critical_count=$(cat /tmp/scan-results.json | jq '.Results[].Vulnerabilities[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
+        if [ "$critical_count" -gt 0 ]; then
+          echo "::warning::Found $critical_count critical vulnerabilities in published image"
+        fi
+
+    - name: Sign Published Image
+      id: sign
+      if: inputs.sign-image == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Install cosign
+        curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
+        sudo mv cosign-linux-amd64 /usr/local/bin/cosign
+        sudo chmod +x /usr/local/bin/cosign
+
+        # Sign all tags
+        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+        for tag in "${TAGS[@]}"; do
+          echo "Signing ${{ steps.metadata.outputs.full-name }}:${tag}"
+
+          # Using keyless signing with OIDC
+          export COSIGN_EXPERIMENTAL=1
+          cosign sign --yes ${{ steps.metadata.outputs.full-name }}:${tag}
+        done
+
+        echo "signature=signed" >> $GITHUB_OUTPUT
 
     - name: Verify Publication
       id: verify
@@ -237,13 +391,30 @@ runs:
           fi
         done
 
+        # Determine platforms to verify
+        if [ "${{ inputs.auto-detect-platforms }}" == "true" ] && [ -n "${{ steps.detect-platforms.outputs.platforms }}" ]; then
+          platforms="${{ steps.detect-platforms.outputs.platforms }}"
+        else
+          platforms="${{ inputs.platforms }}"
+        fi
+
         # Verify platforms
-        IFS=',' read -ra PLATFORMS <<< "${{ inputs.platforms }}"
+        IFS=',' read -ra PLATFORMS <<< "${platforms}"
         for platform in "${PLATFORMS[@]}"; do
           if ! docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${TAGS[0]} | grep -q "$platform"; then
             echo "::warning::Platform $platform not found in published image"
           fi
         done
+
+        # Verify signature if signing was enabled
+        if [ "${{ inputs.sign-image }}" == "true" ]; then
+          export COSIGN_EXPERIMENTAL=1
+          for tag in "${TAGS[@]}"; do
+            if ! cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" ${{ steps.metadata.outputs.full-name }}:${tag} >/dev/null 2>&1; then
+              echo "::warning::Could not verify signature for ${tag}"
+            fi
+          done
+        fi
 
     - name: Clean up
       if: always()
