@@ -35,10 +35,10 @@ This repository contains **41 reusable GitHub Actions** for CI/CD automation.
 |  📝  | [`csharp-build`][csharp-build]                         | Build      | Builds and tests C# projects.                                   | Auto-detection, Outputs                      |
 |  📝  | [`csharp-lint-check`][csharp-lint-check]               | Linting    | Runs linters like StyleCop or dotnet-format for C# code styl... | Auto-detection, Outputs                      |
 |  📦  | [`csharp-publish`][csharp-publish]                     | Publishing | Publishes a C# project to GitHub Packages.                      | Auto-detection, Token auth, Outputs          |
-|  📦  | [`docker-build`][docker-build]                         | Build      | Builds a Docker image for multiple architectures with enhanc... | Caching, Token auth, Outputs                 |
-|  ☁️  | [`docker-publish`][docker-publish]                     | Publishing | Publish a Docker image to GitHub Packages and Docker Hub.       | Outputs                                      |
-|  📦  | [`docker-publish-gh`][docker-publish-gh]               | Publishing | Publishes a Docker image to GitHub Packages with advanced se... | Token auth, Outputs                          |
-|  📦  | [`docker-publish-hub`][docker-publish-hub]             | Publishing | Publishes a Docker image to Docker Hub with enhanced securit... | Outputs                                      |
+|  📦  | [`docker-build`][docker-build]                         | Build      | Builds a Docker image for multiple architectures with enhanc... | Caching, Auto-detection, Token auth, Outputs |
+|  ☁️  | [`docker-publish`][docker-publish]                     | Publishing | Publish a Docker image to GitHub Packages and Docker Hub.       | Auto-detection, Outputs                      |
+|  📦  | [`docker-publish-gh`][docker-publish-gh]               | Publishing | Publishes a Docker image to GitHub Packages with advanced se... | Caching, Auto-detection, Token auth, Outputs |
+|  📦  | [`docker-publish-hub`][docker-publish-hub]             | Publishing | Publishes a Docker image to Docker Hub with enhanced securit... | Caching, Auto-detection, Outputs             |
 |  📝  | [`dotnet-version-detect`][dotnet-version-detect]       | Setup      | Detects .NET SDK version from global.json or defaults to a s... | Auto-detection, Outputs                      |
 |  ✅   | [`eslint-check`][eslint-check]                         | Linting    | Run ESLint check on the repository with advanced configurati... | Caching, Outputs                             |
 |  📝  | [`eslint-fix`][eslint-fix]                             | Linting    | Fixes ESLint violations in a project.                           | Token auth, Outputs                          |
@@ -116,21 +116,21 @@ This repository contains **41 reusable GitHub Actions** for CI/CD automation.
 
 #### 🏗️ Build (3 actions)
 
-| Action                            | Description                                           | Languages | Features                         |
-|:----------------------------------|:------------------------------------------------------|:----------|:---------------------------------|
-| 📝 [`csharp-build`][csharp-build] | Builds and tests C# projects.                         | C#, .NET  | Auto-detection, Outputs          |
-| 📦 [`docker-build`][docker-build] | Builds a Docker image for multiple architectures w... | Docker    | Caching, Token auth, Outputs     |
-| 📦 [`go-build`][go-build]         | Builds the Go project.                                | Go        | Caching, Auto-detection, Outputs |
+| Action                            | Description                                           | Languages | Features                                     |
+|:----------------------------------|:------------------------------------------------------|:----------|:---------------------------------------------|
+| 📝 [`csharp-build`][csharp-build] | Builds and tests C# projects.                         | C#, .NET  | Auto-detection, Outputs                      |
+| 📦 [`docker-build`][docker-build] | Builds a Docker image for multiple architectures w... | Docker    | Caching, Auto-detection, Token auth, Outputs |
+| 📦 [`go-build`][go-build]         | Builds the Go project.                                | Go        | Caching, Auto-detection, Outputs             |
 
 #### 🚀 Publishing (5 actions)
 
-| Action                                        | Description                                           | Languages    | Features                            |
-|:----------------------------------------------|:------------------------------------------------------|:-------------|:------------------------------------|
-| 📦 [`csharp-publish`][csharp-publish]         | Publishes a C# project to GitHub Packages.            | C#, .NET     | Auto-detection, Token auth, Outputs |
-| ☁️ [`docker-publish`][docker-publish]         | Publish a Docker image to GitHub Packages and Dock... | Docker       | Outputs                             |
-| 📦 [`docker-publish-gh`][docker-publish-gh]   | Publishes a Docker image to GitHub Packages with a... | Docker       | Token auth, Outputs                 |
-| 📦 [`docker-publish-hub`][docker-publish-hub] | Publishes a Docker image to Docker Hub with enhanc... | Docker       | Outputs                             |
-| 📦 [`npm-publish`][npm-publish]               | Publishes the package to the NPM registry with con... | Node.js, npm | Outputs                             |
+| Action                                        | Description                                           | Languages    | Features                                     |
+|:----------------------------------------------|:------------------------------------------------------|:-------------|:---------------------------------------------|
+| 📦 [`csharp-publish`][csharp-publish]         | Publishes a C# project to GitHub Packages.            | C#, .NET     | Auto-detection, Token auth, Outputs          |
+| ☁️ [`docker-publish`][docker-publish]         | Publish a Docker image to GitHub Packages and Dock... | Docker       | Auto-detection, Outputs                      |
+| 📦 [`docker-publish-gh`][docker-publish-gh]   | Publishes a Docker image to GitHub Packages with a... | Docker       | Caching, Auto-detection, Token auth, Outputs |
+| 📦 [`docker-publish-hub`][docker-publish-hub] | Publishes a Docker image to Docker Hub with enhanc... | Docker       | Caching, Auto-detection, Outputs             |
+| 📦 [`npm-publish`][npm-publish]               | Publishes the package to the NPM registry with con... | Node.js, npm | Outputs                                      |
 
 #### 📦 Repository (8 actions)
 
@@ -159,10 +159,10 @@ This repository contains **41 reusable GitHub Actions** for CI/CD automation.
 | [`csharp-build`][csharp-build]                         |    -    |       ✅        |     -      |    ✅    |
 | [`csharp-lint-check`][csharp-lint-check]               |    -    |       ✅        |     -      |    ✅    |
 | [`csharp-publish`][csharp-publish]                     |    -    |       ✅        |     ✅      |    ✅    |
-| [`docker-build`][docker-build]                         |    ✅    |       -        |     ✅      |    ✅    |
-| [`docker-publish`][docker-publish]                     |    -    |       -        |     -      |    ✅    |
-| [`docker-publish-gh`][docker-publish-gh]               |    -    |       -        |     ✅      |    ✅    |
-| [`docker-publish-hub`][docker-publish-hub]             |    -    |       -        |     -      |    ✅    |
+| [`docker-build`][docker-build]                         |    ✅    |       ✅        |     ✅      |    ✅    |
+| [`docker-publish`][docker-publish]                     |    -    |       ✅        |     -      |    ✅    |
+| [`docker-publish-gh`][docker-publish-gh]               |    ✅    |       ✅        |     ✅      |    ✅    |
+| [`docker-publish-hub`][docker-publish-hub]             |    ✅    |       ✅        |     -      |    ✅    |
 | [`dotnet-version-detect`][dotnet-version-detect]       |    -    |       ✅        |     -      |    ✅    |
 | [`eslint-check`][eslint-check]                         |    ✅    |       -        |     -      |    ✅    |
 | [`eslint-fix`][eslint-fix]                             |    -    |       -        |     ✅      |    ✅    |

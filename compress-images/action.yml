@@ -45,8 +45,8 @@ outputs:
   images_compressed:
     description: 'Whether any images were compressed (boolean)'
     value: ${{ steps.calibre.outputs.markdown != '' && 'true' || 'false' }}
-  size_saved:
-    description: 'Total size saved from compression in bytes'
+  compression_report:
+    description: 'Markdown report of compression results'
     value: ${{ steps.calibre.outputs.markdown }}
 
 runs:
