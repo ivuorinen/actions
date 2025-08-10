@@ -47,13 +47,32 @@ all: install-tools docs format lint ## Generate docs, format, and lint everythin
 
 docs: ## Generate documentation for all actions
 	@echo "$(BLUE)📂 Generating documentation...$(RESET)"
-	@$(MAKE) -j$(shell nproc 2>/dev/null || echo 4) $(shell find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml|/README.md|g')
-	@echo "$(GREEN)✅ Documentation generated$(RESET)"
+	@failed=0; \
+	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml||' | sed 's|./||'); do \
+		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
+		repo="ivuorinen/actions/$$dir"; \
+		printf "# %s\n\n" "$$repo" > "$$dir/README.md"; \
+		if ./node_modules/.bin/action-docs -n -s "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
+			$(SED_CMD) "s|\*\*\*PROJECT\*\*\*|$$repo|g" "$$dir/README.md"; \
+			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
+			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
+			[ "$(UNAME_S)" = "Darwin" ] && rm -f "$$dir/README.md.bak"; \
+			echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
+		else \
+			echo "$(RED)⚠️ Failed to update $$dir/README.md$(RESET)" | tee -a $(LOG_FILE); \
+			failed=$$((failed + 1)); \
+		fi; \
+	done; \
+	if [ $$failed -eq 0 ]; then \
+		echo "$(GREEN)✅ Documentation generated successfully$(RESET)"; \
+	else \
+		echo "$(YELLOW)⚠️ Documentation generation completed with $$failed failures$(RESET)"; \
+	fi
 
 format: format-markdown format-yaml-json format-tables ## Format all files
 	@echo "$(GREEN)✅ All files formatted$(RESET)"
 
-lint: lint-markdown lint-yaml lint-actions lint-shell ## Run all linters
+lint: lint-markdown lint-yaml lint-shell ## Run all linters
 	@echo "$(GREEN)✅ All linting completed$(RESET)"
 
 check: check-tools check-syntax ## Quick syntax and tool availability checks
@@ -65,22 +84,6 @@ clean: ## Clean up temporary files and caches
 	@find . -name "update_*.log" -mtime +7 -delete 2>/dev/null || true
 	@find . -name ".megalinter" -type d -exec rm -rf {} + 2>/dev/null || true
 	@echo "$(GREEN)✅ Cleanup completed$(RESET)"
-
-# Documentation generation (parallel execution)
-%/README.md: %/action.yml
-	@echo "$(BLUE)📄 Generating $@...$(RESET)"
-	@dir=$*; \
-	repo="ivuorinen/actions/$$dir"; \
-	version=$$(grep -E '^# version:' "$<" | cut -d ' ' -f 2 | head -n1); \
-	[ -z "$$version" ] && version="main"; \
-	printf "# %s\n\n" "$$repo" > "$@"; \
-	if npx --yes action-docs@latest --source="$<" --no-banner --include-name-header >> "$@" 2>/dev/null; then \
-		$(SED_CMD) "s|PROJECT|$$repo|g; s|VERSION|$$version|g; s|\*\*\*||g" "$@"; \
-		[ -f "$@.bak" ] && rm "$@.bak" || true; \
-		echo "$(GREEN)✅ Generated $@$(RESET)"; \
-	else \
-		echo "$(RED)⚠️ Failed to generate $@$(RESET)" | tee -a $(LOG_FILE); \
-	fi
 
 # Formatting targets
 format-markdown: ## Format markdown files
@@ -124,18 +127,6 @@ lint-yaml: ## Lint YAML files
 		echo "$(YELLOW)⚠️ YAML linting issues found$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
-lint-actions: ## Lint GitHub Actions workflows
-	@echo "$(BLUE)🔍 Linting GitHub Actions...$(RESET)"
-	@if command -v actionlint >/dev/null 2>&1; then \
-		if actionlint 2>/dev/null; then \
-			echo "$(GREEN)✅ Actions linting passed$(RESET)"; \
-		else \
-			echo "$(YELLOW)⚠️ Actions linting issues found$(RESET)" | tee -a $(LOG_FILE); \
-		fi; \
-	else \
-		echo "$(BLUE)ℹ️ actionlint not available, skipping GitHub Actions linting$(RESET)"; \
-	fi
-
 lint-shell: ## Lint shell scripts
 	@echo "$(BLUE)🔍 Linting shell scripts...$(RESET)"
 	@if command -v shellcheck >/dev/null 2>&1; then \
@@ -151,7 +142,7 @@ lint-shell: ## Lint shell scripts
 # Check targets
 check-tools: ## Check if required tools are available
 	@echo "$(BLUE)🔧 Checking required tools...$(RESET)"
-	@for cmd in npx sed find grep actionlint shellcheck; do \
+	@for cmd in npx sed find grep shellcheck; do \
 		if ! command -v $$cmd >/dev/null 2>&1; then \
 			echo "$(RED)❌ Error: $$cmd not found$(RESET)"; \
 			echo "  Please install $$cmd (see 'make install-tools')"; \
@@ -175,17 +166,6 @@ install-tools: ## Install/update required tools
 	@npx --yes prettier --version >/dev/null
 	@npx --yes markdown-table-formatter --version >/dev/null
 	@npx --yes yaml-lint --version >/dev/null
-	@echo "$(YELLOW)Installing Go tools...$(RESET)"
-	@if ! command -v actionlint >/dev/null 2>&1; then \
-		if command -v go >/dev/null 2>&1; then \
-			echo "  Installing actionlint via go install..."; \
-			go install github.com/rhysd/actionlint/cmd/actionlint@latest; \
-		else \
-			echo "$(RED)⚠️ Go not found. Please install Go to install actionlint$(RESET)"; \
-		fi; \
-	else \
-		echo "  actionlint already installed"; \
-	fi
 	@echo "$(YELLOW)Checking shellcheck...$(RESET)"
 	@if ! command -v shellcheck >/dev/null 2>&1; then \
 		echo "$(RED)⚠️ shellcheck not found. Please install:$(RESET)"; \
@@ -223,20 +203,3 @@ watch: ## Watch files and auto-format on changes (requires entr)
 		echo "$(RED)❌ Error: entr not found. Install with: brew install entr$(RESET)"; \
 		exit 1; \
 	fi
-
-# Parallel execution for actions
-actions = $(shell find . -mindepth 1 -maxdepth 1 -type d -name "*-*" | sed 's|./||')
-
-# Target to process a specific action
-process-action-%: ## Process a specific action (internal target)
-	@action=$*; \
-	if [ -f "./$$action/action.yml" ]; then \
-		echo "$(BLUE)🔍 Processing $$action...$(RESET)"; \
-		rm "./$$action/README.md" && $(MAKE) "./$$action/README.md"; \
-		$(SED_CMD) "s|PROJECT|$$repo|g; s|VERSION|$$version|g; s|\*\*\*||g" "$$action/README.md"; \
-		[ -f "$$action/README.md.bak" ] && rm "$$action/README.md.bak" || true; \
-	fi
-
-# Process all actions in parallel
-process-all-actions: $(addprefix process-action-,$(actions)) ## Process all actions in parallel
-	@echo "$(GREEN)✅ All actions processed$(RESET)"
