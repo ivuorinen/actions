@@ -87,3 +87,5 @@ shellcheck **/*.sh
 ---
 
 **Note**: All actions achieve 100% external usability via modular composition.
+
+- `npx action-docs --update-readme` doesn't actually update the readme files.

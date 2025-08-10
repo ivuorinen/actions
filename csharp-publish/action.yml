@@ -23,7 +23,7 @@ inputs:
 outputs:
   publish_status:
     description: 'Overall publish status (success/failure)'
-    value: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
+    value: ${{ steps.set-status.outputs.status }}
   package_version:
     description: 'Version of the published package'
     value: ${{ steps.extract-version.outputs.version }}
@@ -70,7 +70,7 @@ runs:
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
-        dotnet-version: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+        dotnet-version: ${{ inputs.dotnet-version || steps.detect-dotnet-version.outputs.dotnet-version }}
 
     - name: Cache NuGet packages
       id: cache-nuget
@@ -125,14 +125,13 @@ runs:
     - name: Publish Package
       id: publish-package
       shell: bash
+      env:
+        API_KEY: ${{ inputs.token || github.token }}
       run: |
         set -euo pipefail
 
         PACKAGE_URL="https://github.com/${{ inputs.namespace }}/packages/nuget"
         echo "package_url=$PACKAGE_URL" >> $GITHUB_OUTPUT
-
-        # Use provided token or fallback to github.token
-        API_KEY="${{ inputs.token || github.token }}"
 
         # First attempt
         if ! dotnet nuget push ./artifacts/*.nupkg \
@@ -150,3 +149,10 @@ runs:
             --skip-duplicate \
             --no-symbols
         fi
+
+    - name: Set publish status output
+      if: always()
+      id: set-status
+      shell: bash
+      run: |
+        echo "status=${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}" >> $GITHUB_OUTPUT
