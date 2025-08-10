@@ -190,12 +190,16 @@ runs:
 
         # Count files after fix
         files_after=$(git status --porcelain | wc -l || echo "0")
-        files_changed=$((files_after - files_before))
+
+        # Calculate absolute difference and set status
+        delta=$((files_after - files_before))
+        files_changed=${delta#-}  # Remove negative sign if present
+        status=$([ "$files_changed" -eq 0 ] && echo success || echo changes_made)
 
         echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
-        echo "status=success" >> $GITHUB_OUTPUT
+        echo "status=$status" >> $GITHUB_OUTPUT
 
-        echo "✅ Prettier fix completed. Files changed: $files_changed"
+        echo "✅ Prettier fix completed. Files changed: $files_changed, Status: $status"
 
     - name: Push Fixes
       if: always()
