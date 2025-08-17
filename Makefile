@@ -52,7 +52,7 @@ docs: ## Generate documentation for all actions
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		repo="ivuorinen/actions/$$dir"; \
 		printf "# %s\n\n" "$$repo" > "$$dir/README.md"; \
-		if npx action-docs -n -s "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
+		if npx --yes action-docs -n -s "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
 			$(SED_CMD) "s|\*\*\*PROJECT\*\*\*|$$repo|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \

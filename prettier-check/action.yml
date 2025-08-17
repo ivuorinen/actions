@@ -178,11 +178,11 @@ runs:
 
     - name: Setup Node.js
       id: node-setup
-      uses: ivuorinen/actions/node-setup@main
+      uses: ../node-setup
 
     - name: Set up Cache
       id: cache
-      uses: ivuorinen/actions/common-cache@main
+      uses: ../common-cache
       if: inputs.cache == 'true'
       with:
         type: 'npm'

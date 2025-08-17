@@ -309,7 +309,7 @@ runs:
 
     - name: Set Git Config for Fixes
       if: steps.fix.outputs.fixed_count > 0
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ../set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}

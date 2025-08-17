@@ -43,7 +43,7 @@ runs:
   steps:
     - name: Detect Go Version
       id: detect-go-version
-      uses: ivuorinen/actions/go-version-detect@main
+      uses: ../go-version-detect
       with:
         default-version: "${{ inputs.go-version || '1.21' }}"
 
@@ -55,7 +55,7 @@ runs:
 
     - name: Cache Go Dependencies
       id: cache-go
-      uses: ivuorinen/actions/common-cache@main
+      uses: ../common-cache
       with:
         type: 'go'
         paths: '~/go/pkg/mod'
@@ -64,7 +64,7 @@ runs:
 
     - name: Download Dependencies
       if: steps.cache-go.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@main
+      uses: ../common-retry
       with:
         command: |
           echo "Downloading Go dependencies..."

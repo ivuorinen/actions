@@ -2,10 +2,6 @@
 
 Guidance for Claude Code (claude.ai/code) when working with this repository.
 
-## 퉰5 Project Status: Excellent
-
-All 40 actions work independently as `ivuorinen/actions/action-name@main`. Self-contained architecture achieved with zero dependencies.
-
 ## Repository Overview
 
 **40 GitHub Actions** in flat directory structure, each self-contained with `action.yml`.
@@ -59,12 +55,6 @@ shellcheck **/*.sh
 
 ## Architecture Rules
 
-### Composition Pattern
-
-- ✅ Use full paths: `ivuorinen/actions/action-name@main`
-- ❌ Never use: `./action-name` or `../shared/`
-- ✅ Utility actions: `version-file-parser`, `version-validator`
-
 ### Security
 
 - All external actions SHA-pinned
@@ -80,9 +70,7 @@ shellcheck **/*.sh
 
 ## Testing Requirements
 
-- Actions must work externally as `ivuorinen/actions/action-name@main`
 - Test utility actions independently
-- Validate modular composition patterns
 
 ---
 
