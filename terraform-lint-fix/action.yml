@@ -345,7 +345,7 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Remove temporary files

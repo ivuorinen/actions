@@ -2,12 +2,14 @@
 
 ## Overview
 
-This repository contains a collection of 40 reusable GitHub Actions designed to streamline CI/CD processes and ensure code quality.
+This repository contains a collection of reusable GitHub Actions
+designed to streamline CI/CD processes and ensure code quality.
+
 Each action is fully self-contained and can be used independently in any GitHub repository.
 
 ### Key Features
 
-- **40 Production-Ready Actions** covering setup, linting, building, testing, and deployment
+- **Over 40 Production-Ready Actions** covering setup, linting, building, testing, and deployment
 - **Self-Contained Design** - each action works independently without dependencies
 - **External Usage Ready** - use any action as `ivuorinen/actions/action-name@main`
 - **Multi-Language Support** including Node.js, PHP, Python, Go, C#, and more
