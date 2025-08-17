@@ -137,7 +137,7 @@ runs:
         fi
     - name: Detect Python Version
       id: python-version
-      uses: ivuorinen/actions/python-version-detect@main
+      uses: ../python-version-detect
       with:
         default-version: ${{ inputs.python-version }}
 
@@ -169,7 +169,7 @@ runs:
     - name: Cache Python Dependencies
       if: steps.check-files.outputs.result == 'found'
       id: cache-pip
-      uses: ivuorinen/actions/common-cache@main
+      uses: ../common-cache
       with:
         type: 'pip'
         paths: '~/.cache/pip'
@@ -292,7 +292,7 @@ runs:
 
     - name: Set Git Config for Fixes
       if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ../set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}

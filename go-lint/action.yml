@@ -184,7 +184,7 @@ runs:
     - name: Set up Cache
       id: cache
       if: inputs.cache == 'true'
-      uses: ivuorinen/actions/common-cache@main
+      uses: ../common-cache
       with:
         type: 'go'
         paths: '~/.cache/golangci-lint,~/.cache/go-build'

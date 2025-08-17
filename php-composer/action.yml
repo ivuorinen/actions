@@ -241,7 +241,7 @@ runs:
 
     - name: Cache Composer packages
       id: composer-cache
-      uses: ivuorinen/actions/common-cache@main
+      uses: ../common-cache
       with:
         type: 'composer'
         paths: 'vendor,~/.composer/cache${{ inputs.cache-directories != "" && format(",{0}", inputs.cache-directories) || "" }}'
@@ -261,7 +261,7 @@ runs:
         composer clear-cache
 
     - name: Install Dependencies
-      uses: ivuorinen/actions/common-retry@main
+      uses: ../common-retry
       with:
         command: 'composer install ${{ inputs.args }}'
         max-retries: ${{ inputs.max-retries }}

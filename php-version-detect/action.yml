@@ -54,7 +54,7 @@ runs:
 
     - name: Parse PHP Version
       id: parse-version
-      uses: ivuorinen/actions/version-file-parser@main
+      uses: ../version-file-parser
       with:
         language: 'php'
         tool-versions-key: 'php'

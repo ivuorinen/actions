@@ -45,7 +45,7 @@ runs:
 
     - name: Parse .NET Version
       id: parse-version
-      uses: ivuorinen/actions/version-file-parser@main
+      uses: ../version-file-parser
       with:
         language: 'dotnet'
         tool-versions-key: 'dotnet'
