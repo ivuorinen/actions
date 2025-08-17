@@ -65,7 +65,7 @@ runs:
         fi
 
         # Validate path security (prevent absolute paths and path traversal)
-        if [[ "${{ inputs.working-directory }}" == "/"* ]]; then
+        if [[ "${{ inputs.working-directory }}" == "/"* ]] || [[ "${{ inputs.working-directory }}" == "~"* ]] || [[ "${{ inputs.working-directory }}" =~ ^[A-Za-z]:[/\\] ]]; then
           echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Absolute paths not allowed"
           exit 1
         fi
@@ -98,7 +98,7 @@ runs:
         fi
 
         # Validate ignore paths format (prevent command injection)
-        if [[ "${{ inputs.ignore-paths }}" == *";"* ]] || [[ "${{ inputs.ignore-paths }}" == *"&&"* ]] || [[ "${{ inputs.ignore-paths }}" == *"|"* ]]; then
+        if [[ "${{ inputs.ignore-paths }}" == *";"* ]] || [[ "${{ inputs.ignore-paths }}" == *"&&"* ]] || [[ "${{ inputs.ignore-paths }}" == *"|"* ]] || [[ "${{ inputs.ignore-paths }}" == *'`'* ]] || [[ "${{ inputs.ignore-paths }}" == *'$('* ]] || [[ "${{ inputs.ignore-paths }}" == *'${'* ]] || [[ "${{ inputs.ignore-paths }}" == *"<"* ]] || [[ "${{ inputs.ignore-paths }}" == *">"* ]]; then
           echo "::error::Invalid ignore-paths: '${{ inputs.ignore-paths }}'. Command injection patterns not allowed"
           exit 1
         fi

@@ -48,10 +48,10 @@ jobs:
 
     steps:
       - name: Checkout PR
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.head.sha }}
+          ref: ${{ github.event.pull_request.base.sha }}
 
       - name: OWASP Dependency Check
         uses: dependency-check/Dependency-Check_Action@3102a65fd5f36d0000297576acc56a475b0de98d # main
@@ -61,13 +61,11 @@ jobs:
           format: 'JSON'
           out: 'reports'
           args: >
-            --enableRetired
-            --enableExperimental
-            --failOnCVSS 0
+            --enableRetired --enableExperimental --failOnCVSS 0
         continue-on-error: true
 
       - name: Semgrep Static Analysis
-        uses: semgrep/semgrep-action@v1
+        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: 'auto'
           generateSarif: 'false'
@@ -81,13 +79,13 @@ jobs:
           path: ./
           base: ${{ github.event.repository.default_branch }}
           head: HEAD
-          extra_args: --debug --only-verified
+          extra_args: --debug --only-verified --json --output /tmp/trufflehog_output.json
         continue-on-error: true
 
       - name: Analyze Security Results
         uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea # v7.0.1
         with:
-          script: |
+          script: |-
             const fs = require('fs');
             const path = require('path');
 

@@ -93,7 +93,7 @@ runs:
       shell: bash
       env:
         NPM_TOKEN: ${{ inputs.npm_token }}
-      run: |
+      run: |-
         set -euo pipefail
 
         pkg_version=$(node -p "require('./package.json').version")

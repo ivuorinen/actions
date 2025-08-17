@@ -352,17 +352,16 @@ runs:
           echo "::warning::Found $critical_count critical vulnerabilities in published image"
         fi
 
+    - name: Install Cosign
+      if: inputs.sign-image == 'true'
+      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+
     - name: Sign Published Image
       id: sign
       if: inputs.sign-image == 'true'
       shell: bash
       run: |
         set -euo pipefail
-
-        # Install cosign
-        curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
-        sudo mv cosign-linux-amd64 /usr/local/bin/cosign
-        sudo chmod +x /usr/local/bin/cosign
 
         # Sign all tags
         IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
@@ -419,7 +418,7 @@ runs:
     - name: Clean up
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Remove temporary files and cleanup Docker cache

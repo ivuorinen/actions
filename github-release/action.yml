@@ -77,7 +77,7 @@ runs:
       id: create-release-custom
       if: ${{ inputs.changelog != '' }}
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         gh release create ${{ inputs.version }} \

@@ -58,7 +58,7 @@ runs:
 
     - name: Configure Git
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Function to clean up Git config
