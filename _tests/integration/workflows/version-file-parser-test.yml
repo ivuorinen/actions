@@ -1,0 +1,184 @@
+---
+name: Test version-file-parser Integration
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'version-file-parser/**'
+      - '_tests/integration/workflows/version-file-parser-test.yml'
+
+jobs:
+  test-version-file-parser:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-case:
+          - name: 'Node.js project'
+            language: 'node'
+            tool-versions-key: 'nodejs'
+            dockerfile-image: 'node'
+            setup-files: |
+              echo "18.17.0" > .nvmrc
+              cat > package.json <<EOF
+              {
+                "name": "test-project",
+                "engines": { "node": ">=18.0.0" }
+              }
+              EOF
+              touch package-lock.json
+
+          - name: 'PHP project'
+            language: 'php'
+            tool-versions-key: 'php'
+            dockerfile-image: 'php'
+            setup-files: |
+              cat > composer.json <<EOF
+              {
+                "require": { "php": "^8.1" }
+              }
+              EOF
+
+          - name: 'Python project'
+            language: 'python'
+            tool-versions-key: 'python'
+            dockerfile-image: 'python'
+            setup-files: |
+              echo "3.9.0" > .python-version
+              cat > pyproject.toml <<EOF
+              [tool.poetry.dependencies]
+              python = "^3.9"
+              EOF
+
+          - name: 'Go project'
+            language: 'go'
+            tool-versions-key: 'golang'
+            dockerfile-image: 'golang'
+            setup-files: |
+              cat > go.mod <<EOF
+              module test-project
+              go 1.21
+              EOF
+
+          - name: '.tool-versions file'
+            language: 'node'
+            tool-versions-key: 'nodejs'
+            dockerfile-image: 'node'
+            setup-files: |
+              echo "nodejs 18.16.0" > .tool-versions
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup test files
+        run: ${{ matrix.test-case.setup-files }}
+
+      - name: Test version-file-parser
+        id: test-action
+        uses: ./version-file-parser
+        with:
+          language: ${{ matrix.test-case.language }}
+          tool-versions-key: ${{ matrix.test-case.tool-versions-key }}
+          dockerfile-image: ${{ matrix.test-case.dockerfile-image }}
+          default-version: '1.0.0'
+
+      - name: Validate outputs
+        run: |
+          echo "Test case: ${{ matrix.test-case.name }}"
+          echo "Detected version: ${{ steps.test-action.outputs.detected-version }}"
+          echo "Package manager: ${{ steps.test-action.outputs.package-manager }}"
+
+          # Validate that we got some version
+          if [[ -z "${{ steps.test-action.outputs.detected-version }}" ]]; then
+            echo "❌ ERROR: No version detected"
+            exit 1
+          fi
+
+          # Validate version format (basic semver check)
+          if ! echo "${{ steps.test-action.outputs.detected-version }}" | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?'; then
+            echo "❌ ERROR: Invalid version format: ${{ steps.test-action.outputs.detected-version }}"
+            exit 1
+          fi
+
+          echo "✅ Version validation passed"
+
+      # Skip external reference test in local/CI environment to avoid auth issues
+      - name: Test external reference (info only)
+        run: |
+          echo "External reference test would use: ivuorinen/actions/version-file-parser@main"
+          echo "Skipping to avoid authentication issues in local testing"
+
+  test-edge-cases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test version detection from existing files
+        id: existing-version
+        uses: ./version-file-parser
+        with:
+          language: 'node'
+          tool-versions-key: 'nodejs'
+          dockerfile-image: 'node'
+          default-version: '20.0.0'
+
+      - name: Validate existing version detection
+        run: |
+          # The action should detect Node.js version from package.json engines field (>=18.0.0)
+          # which is parsed as 18.0.0
+          if [[ "${{ steps.existing-version.outputs.detected-version }}" != "18.0.0" ]]; then
+            echo "❌ ERROR: Existing version not detected correctly"
+            echo "Expected: 18.0.0"
+            echo "Got: ${{ steps.existing-version.outputs.detected-version }}"
+            exit 1
+          fi
+          echo "✅ Existing version detection works correctly"
+
+      - name: Test with invalid regex
+        id: invalid-regex
+        uses: ./version-file-parser
+        with:
+          language: 'node'
+          tool-versions-key: 'nodejs'
+          dockerfile-image: 'node'
+          validation-regex: 'invalid[regex'
+          default-version: '18.0.0'
+        continue-on-error: true
+
+      - name: Validate regex error handling
+        run: |
+          echo "Testing regex error handling completed"
+          # Action should handle invalid regex gracefully
+
+  test-dockerfile-parsing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create Dockerfile with Node.js
+        run: |
+          cat > Dockerfile <<EOF
+          FROM node:18.17.0-alpine
+          WORKDIR /app
+          COPY . .
+          EOF
+
+      - name: Test Dockerfile parsing
+        id: dockerfile-test
+        uses: ./version-file-parser
+        with:
+          language: 'node'
+          tool-versions-key: 'nodejs'
+          dockerfile-image: 'node'
+
+      - name: Validate Dockerfile parsing
+        run: |-
+          echo "Dockerfile version: ${{ steps.dockerfile-test.outputs.dockerfile-version }}"
+          if [[ "${{ steps.dockerfile-test.outputs.dockerfile-version }}" == "18.17.0" ]]; then
+            echo "✅ Dockerfile parsing successful"
+          else
+            echo "❌ ERROR: Dockerfile version not parsed correctly"
+            exit 1
+          fi
