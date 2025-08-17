@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs lint format check clean install-tools
+.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -39,6 +39,7 @@ help: ## Show this help message
 	@echo "  make docs         # Generate documentation only"
 	@echo "  make lint         # Run all linters"
 	@echo "  make format       # Format all files"
+	@echo "  make test         # Run all tests (unit + integration)"
 	@echo "  make check        # Quick syntax checks"
 
 # Main targets
@@ -63,16 +64,21 @@ docs: ## Generate documentation for all actions
 			failed=$$((failed + 1)); \
 		fi; \
 	done; \
-	if [ $$failed -eq 0 ]; then \
-		echo "$(GREEN)✅ Documentation generated successfully$(RESET)"; \
-	else \
-		echo "$(YELLOW)⚠️ Documentation generation completed with $$failed failures$(RESET)"; \
-	fi
+	[ $$failed -eq 0 ] && echo "$(GREEN)✅ All documentation updated successfully$(RESET)" || { echo "$(RED)❌ $$failed documentation updates failed$(RESET)"; exit 1; }
 
-format: format-markdown format-yaml-json format-tables ## Format all files
+update-validators: ## Update validation rules for all actions
+	@echo "$(BLUE)🔧 Updating validation rules...$(RESET)"
+	@cd validate-inputs && python3 scripts/update-validators.py
+	@echo "$(GREEN)✅ Validation rules updated$(RESET)"
+
+update-validators-dry: ## Preview validation rules changes (dry run)
+	@echo "$(BLUE)🔍 Previewing validation rules changes...$(RESET)"
+	@cd validate-inputs && python3 scripts/update-validators.py --dry-run
+
+format: format-markdown format-yaml-json format-tables format-python ## Format all files
 	@echo "$(GREEN)✅ All files formatted$(RESET)"
 
-lint: lint-markdown lint-yaml lint-shell ## Run all linters
+lint: lint-markdown lint-yaml lint-shell lint-python ## Run all linters
 	@echo "$(GREEN)✅ All linting completed$(RESET)"
 
 check: check-tools check-syntax ## Quick syntax and tool availability checks
@@ -119,6 +125,18 @@ format-tables: ## Format markdown tables
 		echo "$(YELLOW)⚠️ Table formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
+format-python: ## Format Python files with ruff
+	@echo "$(BLUE)🐍 Formatting Python files...$(RESET)"
+	@if command -v uv >/dev/null 2>&1; then \
+		if uvx ruff format . --no-cache; then \
+			echo "$(GREEN)✅ Python files formatted$(RESET)"; \
+		else \
+			echo "$(YELLOW)⚠️ Python formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		fi; \
+	else \
+		echo "$(BLUE)ℹ️ uv not available, skipping Python formatting$(RESET)"; \
+	fi
+
 # Linting targets
 lint-markdown: ## Lint markdown files
 	@echo "$(BLUE)🔍 Linting markdown...$(RESET)"
@@ -146,6 +164,18 @@ lint-shell: ## Lint shell scripts
 		fi; \
 	else \
 		echo "$(BLUE)ℹ️ shellcheck not available, skipping shell script linting$(RESET)"; \
+	fi
+
+lint-python: ## Lint Python files with ruff
+	@echo "$(BLUE)🔍 Linting Python files...$(RESET)"
+	@if command -v uv >/dev/null 2>&1; then \
+		if uvx ruff check . --no-cache; then \
+			echo "$(GREEN)✅ Python linting passed$(RESET)"; \
+		else \
+			echo "$(YELLOW)⚠️ Python linting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		fi; \
+	else \
+		echo "$(BLUE)ℹ️ uv not available, skipping Python linting$(RESET)"; \
 	fi
 
 # Check targets
@@ -194,12 +224,31 @@ install-tools: ## Install/update required tools
 	else \
 		echo "  yamlfmt already installed"; \
 	fi
-	@echo "$(GREEN)✅ Tools ready$(RESET)"
+	@echo "$(YELLOW)Checking uv...$(RESET)"
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "$(RED)⚠️ uv not found. Please install:$(RESET)"; \
+		echo "  macOS: brew install uv"; \
+		echo "  Linux: curl -LsSf https://astral.sh/uv/install.sh | sh"; \
+		echo "  Or see: https://docs.astral.sh/uv/getting-started/installation/"; \
+		exit 1; \
+	else \
+		echo "  uv already installed"; \
+	fi
+	@echo "$(YELLOW)Installing Python dependencies...$(RESET)"
+	@uv pip install PyYAML pytest pytest-cov ruff
+	@echo "  Python dependencies installed"
+	@echo "$(GREEN)✅ All tools installed/updated$(RESET)"
 
 # Development targets
 dev: ## Development workflow - format then lint
 	@$(MAKE) format
 	@$(MAKE) lint
+
+dev-python: ## Python development workflow - format, lint, test
+	@echo "$(BLUE)🐍 Running Python development workflow...$(RESET)"
+	@$(MAKE) format-python
+	@$(MAKE) lint-python
+	@$(MAKE) test-python
 
 ci: check docs lint ## CI workflow - check, docs, lint (no formatting)
 	@echo "$(GREEN)✅ CI workflow completed$(RESET)"
@@ -214,6 +263,74 @@ stats: ## Show repository statistics
 	@echo "Total files: $(shell find . -type f | wc -l)"
 
 # Watch mode for development
+# Testing targets
+test: test-python test-update-validators test-actions ## Run all tests (Python + Update validators + GitHub Actions)
+	@echo "$(GREEN)✅ All tests completed$(RESET)"
+
+test-actions: ## Run GitHub Actions tests (unit + integration)
+	@echo "$(BLUE)🧪 Running GitHub Actions tests...$(RESET)"
+	@if ./_tests/run-tests.sh --type all --format console; then \
+		echo "$(GREEN)✅ All GitHub Actions tests passed$(RESET)"; \
+	else \
+		echo "$(RED)❌ Some GitHub Actions tests failed$(RESET)"; \
+		exit 1; \
+	fi
+
+test-python: ## Run Python validation tests
+	@echo "$(BLUE)🐍 Running Python tests...$(RESET)"
+	@if command -v uv >/dev/null 2>&1; then \
+		if uv run pytest -v --tb=short; then \
+			echo "$(GREEN)✅ Python tests passed$(RESET)"; \
+		else \
+			echo "$(RED)❌ Python tests failed$(RESET)"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(BLUE)ℹ️ uv not available, skipping Python tests$(RESET)"; \
+	fi
+
+test-python-coverage: ## Run Python tests with coverage
+	@echo "$(BLUE)📊 Running Python tests with coverage...$(RESET)"
+	@if command -v uv >/dev/null 2>&1; then \
+		uv run pytest --cov=validate-inputs --cov-report=term-missing; \
+	else \
+		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
+	fi
+
+test-update-validators: ## Run tests for update-validators.py script
+	@echo "$(BLUE)🔧 Running update-validators.py tests...$(RESET)"
+	@if command -v uv >/dev/null 2>&1; then \
+		if uv run pytest validate-inputs/tests/test_update_validators.py -v --tb=short; then \
+			echo "$(GREEN)✅ Update-validators tests passed$(RESET)"; \
+		else \
+			echo "$(RED)❌ Update-validators tests failed$(RESET)"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(BLUE)ℹ️ uv not available, skipping update-validators tests$(RESET)"; \
+	fi
+
+test-unit: ## Run unit tests only
+	@echo "$(BLUE)🔬 Running unit tests...$(RESET)"
+	@./_tests/run-tests.sh --type unit --format console
+
+test-integration: ## Run integration tests only
+	@echo "$(BLUE)🔗 Running integration tests...$(RESET)"
+	@./_tests/run-tests.sh --type integration --format console
+
+test-coverage: ## Run tests with coverage reporting
+	@echo "$(BLUE)📊 Running tests with coverage...$(RESET)"
+	@./_tests/run-tests.sh --type all --coverage --format console
+
+test-action: ## Run tests for specific action (usage: make test-action ACTION=node-setup)
+	@if [ -z "$(ACTION)" ]; then \
+		echo "$(RED)❌ Error: ACTION parameter required$(RESET)"; \
+		echo "Usage: make test-action ACTION=node-setup"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)🎯 Running tests for action: $(ACTION)$(RESET)"
+	@./_tests/run-tests.sh --action $(ACTION) --format console
+
 watch: ## Watch files and auto-format on changes (requires entr)
 	@if command -v entr >/dev/null 2>&1; then \
 		echo "$(BLUE)👀 Watching for changes... (press Ctrl+C to stop)$(RESET)"; \

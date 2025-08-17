@@ -71,8 +71,12 @@
 [._]ss[a-gi-z]
 [._]sw[a-p]
 megalinter-reports/
-./update_*
+node_modules/
+out/
+tags
+_tests/.tmp
+_tests/coverage
 _tests/reports
-*.pyc
+__pycache__
+.coverage.*
 .coverage
-node_modules

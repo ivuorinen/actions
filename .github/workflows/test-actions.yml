@@ -10,7 +10,7 @@ on:
       - fix/*
     paths:
       - '*/action.yml'
-      - 'tests/**'
+      - '_tests/**'
       - 'Makefile'
       - '.github/workflows/test-actions.yml'
   pull_request:
@@ -18,7 +18,7 @@ on:
       - main
     paths:
       - '*/action.yml'
-      - 'tests/**'
+      - '_tests/**'
       - 'Makefile'
       - '.github/workflows/test-actions.yml'
   workflow_dispatch:
@@ -83,7 +83,7 @@ jobs:
         if: always()
         with:
           name: unit-test-results
-          path: tests/reports/unit/
+          path: _tests/reports/unit/
           retention-days: 7
 
   integration-tests:
@@ -124,7 +124,7 @@ jobs:
         run: |
           if [[ "${{ github.event.inputs.test-type }}" == "integration" || "${{ github.event.inputs.test-type }}" == "all" || -z "${{ github.event.inputs.test-type }}" ]]; then
             if [[ -n "${{ github.event.inputs.action-filter }}" ]]; then
-              ./tests/run-tests.sh --type integration --action "${{ github.event.inputs.action-filter }}"
+              ./_tests/run-tests.sh --type integration --action "${{ github.event.inputs.action-filter }}"
             else
               make test-integration
             fi
@@ -137,7 +137,7 @@ jobs:
         if: always()
         with:
           name: integration-test-results
-          path: tests/reports/integration/
+          path: _tests/reports/integration/
           retention-days: 7
 
   coverage:
@@ -178,16 +178,16 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report
-          path: tests/coverage/
+          path: _tests/coverage/
           retention-days: 30
 
       - name: Comment coverage summary
         if: github.event_name == 'pull_request'
         run: |
-          if [[ -f tests/coverage/summary.json ]]; then
-            coverage=$(jq -r '.coverage_percent' tests/coverage/summary.json)
-            tested_actions=$(jq -r '.tested_actions' tests/coverage/summary.json)
-            total_actions=$(jq -r '.total_actions' tests/coverage/summary.json)
+          if [[ -f _tests/coverage/summary.json ]]; then
+            coverage=$(jq -r '.coverage_percent' _tests/coverage/summary.json)
+            tested_actions=$(jq -r '.tested_actions' _tests/coverage/summary.json)
+            total_actions=$(jq -r '.total_actions' _tests/coverage/summary.json)
 
             cat > coverage_comment.md <<EOF
           ## 📊 Test Coverage Report
@@ -235,7 +235,7 @@ jobs:
           changed_actions=""
 
           for file in $changed_files; do
-            if [[ $file == */action.yml && $file != tests/* ]]; then
+            if [[ $file == */action.yml && $file != _tests/* ]]; then
               action_name=$(dirname "$file")
               if [[ -d "$action_name" ]]; then
                 changed_actions="$changed_actions $action_name"
@@ -288,8 +288,8 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y shellcheck
 
-          # Scan all shell scripts in tests/
-          find tests/ -name "*.sh" -exec shellcheck {} \; || {
+          # Scan all shell scripts in _tests/
+          find _tests/ -name "*.sh" -exec shellcheck {} \; || {
             echo "❌ Shell script security issues found"
             exit 1
           }

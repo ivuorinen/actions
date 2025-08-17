@@ -42,67 +42,14 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Validate pre-commit config file path security
-        if [[ "${{ inputs.pre-commit-config }}" == *".."* ]] || [[ "${{ inputs.pre-commit-config }}" == "/"* ]]; then
-          echo "::error::Invalid pre-commit-config path: '${{ inputs.pre-commit-config }}'. Path traversal not allowed"
-          exit 1
-        fi
-
-        # Validate pre-commit config file extension
-        if [[ "${{ inputs.pre-commit-config }}" != *.yaml ]] && [[ "${{ inputs.pre-commit-config }}" != *.yml ]]; then
-          echo "::error::Invalid pre-commit-config: '${{ inputs.pre-commit-config }}'. Must be a .yaml or .yml file"
-          exit 1
-        fi
-
-        # Validate base branch format if provided
-        if [[ -n "${{ inputs.base-branch }}" ]]; then
-          # Prevent command injection and validate basic branch name format
-          if [[ "${{ inputs.base-branch }}" == *";"* ]] || [[ "${{ inputs.base-branch }}" == *"&&"* ]] || [[ "${{ inputs.base-branch }}" == *"|"* ]]; then
-            echo "::error::Invalid base-branch: '${{ inputs.base-branch }}'. Command injection patterns not allowed"
-            exit 1
-          fi
-
-          # Validate branch name format (basic git branch naming rules)
-          if [[ "${{ inputs.base-branch }}" == *".."* ]] || [[ "${{ inputs.base-branch }}" == *"~"* ]] || [[ "${{ inputs.base-branch }}" == *"^"* ]]; then
-            echo "::error::Invalid base-branch: '${{ inputs.base-branch }}'. Invalid git branch name characters"
-            exit 1
-          fi
-
-          # Check for valid branch name characters
-          if ! [[ "${{ inputs.base-branch }}" =~ ^[a-zA-Z0-9/_.-]+$ ]]; then
-            echo "::error::Invalid base-branch: '${{ inputs.base-branch }}'. Branch name contains invalid characters"
-            exit 1
-          fi
-
-          # Prevent branch names starting or ending with special characters
-          if [[ "${{ inputs.base-branch }}" == "."* ]] || [[ "${{ inputs.base-branch }}" == *"." ]] || [[ "${{ inputs.base-branch }}" == "-"* ]] || [[ "${{ inputs.base-branch }}" == "/"* ]] || [[ "${{ inputs.base-branch }}" == *"/" ]]; then
-            echo "::error::Invalid base-branch: '${{ inputs.base-branch }}'. Branch name cannot start/end with '.', '-', or '/'"
-            exit 1
-          fi
-        fi
-
-        # Validate email format (basic check)
-        if [[ "${{ inputs.commit_email }}" != *"@"* ]] || [[ "${{ inputs.commit_email }}" != *"."* ]]; then
-          echo "::error::Invalid commit_email format: '${{ inputs.commit_email }}'. Expected valid email address"
-          exit 1
-        fi
-
-        # Validate commit user format (prevent command injection)
-        if [[ "${{ inputs.commit_user }}" == *";"* ]] || [[ "${{ inputs.commit_user }}" == *"&&"* ]] || [[ "${{ inputs.commit_user }}" == *"|"* ]]; then
-          echo "::error::Invalid commit_user: '${{ inputs.commit_user }}'. Command injection patterns not allowed"
-          exit 1
-        fi
-
-        # Validate token format if provided (basic GitHub token pattern)
-        if [[ -n "${{ inputs.token }}" ]]; then
-          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
-          fi
-        fi
+      uses: ../validate-inputs
+      with:
+        action-type: 'pre-commit'
+        token: ${{ inputs.token }}
+        pre-commit-config: ${{ inputs.pre-commit-config }}
+        base-branch: ${{ inputs.base-branch }}
+        email: ${{ inputs.commit_email }}
+        username: ${{ inputs.commit_user }}
     - name: Set Git Config
       uses: ../set-git-config
       with:
