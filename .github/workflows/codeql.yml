@@ -4,9 +4,11 @@ name: 'CodeQL'
 
 on:
   push:
-    branches: ['main']
+    branches:
+      - 'main'
   pull_request:
-    branches: ['main']
+    branches:
+      - 'main'
   schedule:
     - cron: '30 1 * * 0' # Run at 1:30 AM UTC every Sunday
   merge_group:
@@ -25,9 +27,11 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        language: ['actions', 'javascript'] # Add languages used in your actions
+        language:
+          - 'actions'
+          - 'javascript'
 
-    steps:
+    steps: # Add languages used in your actions
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
