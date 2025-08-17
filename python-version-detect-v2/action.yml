@@ -55,7 +55,7 @@ runs:
 
     - name: Parse Python Version
       id: parse-version
-      uses: ivuorinen/actions/version-file-parser@main
+      uses: ../version-file-parser
       with:
         language: 'python'
         tool-versions-key: 'python'
