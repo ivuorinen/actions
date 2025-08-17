@@ -36,30 +36,12 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Validate .NET version format if provided
-        if [[ -n "${{ inputs.dotnet-version }}" ]]; then
-          if ! [[ "${{ inputs.dotnet-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$ ]]; then
-            echo "::error::Invalid dotnet-version format: '${{ inputs.dotnet-version }}'. Expected formats: X, X.Y, X.Y.Z, or with optional prerelease (e.g., 8, 7.0, 8.0.100, 7.0.0-rc.1)"
-            exit 1
-          fi
-        fi
-
-        # Validate namespace format (GitHub username/org name)
-        if ! [[ "${{ inputs.namespace }}" =~ ^[a-zA-Z0-9]([a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$ ]]; then
-          echo "::error::Invalid namespace format: '${{ inputs.namespace }}'. Must be a valid GitHub username/organization name (1-39 characters, alphanumeric and hyphens, no leading/trailing hyphens)"
-          exit 1
-        fi
-
-        # Validate GitHub token format (basic validation)
-        if [[ -n "${{ inputs.token }}" ]]; then
-          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
-          fi
-        fi
+      uses: ../validate-inputs
+      with:
+        action-type: 'csharp-publish'
+        token: ${{ inputs.token }}
+        namespace: ${{ inputs.namespace }}
+        dotnet-version: ${{ inputs.dotnet-version }}
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version

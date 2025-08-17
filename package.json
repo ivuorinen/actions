@@ -13,7 +13,11 @@
     "format:prettier": "prettier --write '**/*.{md,yml,yaml,json,cjs}'",
     "format:tables": "markdown-table-formatter '**/*.md'",
     "format:markdown": "markdownlint-cli2 --fix '**/*.md' '#node_modules'",
-    "docs": "make docs && make format"
+    "docs": "make docs && make format",
+    "test": "make test",
+    "test:unit": "make test-unit",
+    "test:integration": "make test-integration",
+    "test:coverage": "make test-coverage"
   },
   "devDependencies": {
     "action-docs": "^2.4.1",
