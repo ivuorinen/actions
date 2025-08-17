@@ -73,7 +73,7 @@ runs:
     #   │                       Git Checkout                       │
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Checkout Code
-      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         token: ${{ inputs.token }}
 
@@ -132,7 +132,7 @@ runs:
 
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
-      uses: shivammathur/setup-php@ccf2c627fe61b1b4d924adfcbd19d661a18133a0 # 2.35.2
+      uses: shivammathur/setup-php@20529878ed81ef8e78ddf08b480401e6101a850f # 2.35.3
       with:
         php-version: ${{ steps.php-version.outputs.php-version }}
         tools: composer

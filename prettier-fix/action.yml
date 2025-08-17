@@ -78,7 +78,7 @@ runs:
         echo "Input validation completed successfully"
 
     - name: Checkout Repository
-      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         token: ${{ inputs.token }}
 
@@ -193,8 +193,8 @@ runs:
 
         # Calculate absolute difference and set status
         delta=$((files_after - files_before))
-        files_changed=${delta#-}  # Remove negative sign if present
-        status=$([ "$files_changed" -eq 0 ] && echo success || echo changes_made)
+        files_changed=$((delta < 0 ? -delta : delta))  # Ensure non-negative
+        status=$([ "$files_changed" -eq 0 ] && echo success || echo failure)
 
         echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
         echo "status=$status" >> $GITHUB_OUTPUT

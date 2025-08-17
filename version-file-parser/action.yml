@@ -58,7 +58,7 @@ runs:
     - name: Parse Version Files
       id: parse
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Function to validate version format

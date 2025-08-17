@@ -21,6 +21,7 @@ Builds a Docker image for multiple architectures with enhanced security and reli
 | `max-retries`           | <p>Maximum number of retry attempts for build and push operations</p>               | `false`  | `3`                                                 |
 | `token`                 | <p>GitHub token for authentication</p>                                              | `false`  | `${{ github.token }}`                               |
 | `buildx-version`        | <p>Specific Docker Buildx version to use</p>                                        | `false`  | `latest`                                            |
+| `buildkit-version`      | <p>Specific BuildKit version to use</p>                                             | `false`  | `v0.11.0`                                           |
 | `cache-mode`            | <p>Cache mode for build layers (min, max, or inline)</p>                            | `false`  | `max`                                               |
 | `build-contexts`        | <p>Additional build contexts in format name=path,name2=path2</p>                    | `false`  | `""`                                                |
 | `network`               | <p>Network mode for build (host, none, or default)</p>                              | `false`  | `default`                                           |
@@ -124,6 +125,12 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: latest
+
+    buildkit-version:
+    # Specific BuildKit version to use
+    #
+    # Required: false
+    # Default: v0.11.0
 
     cache-mode:
     # Cache mode for build layers (min, max, or inline)
