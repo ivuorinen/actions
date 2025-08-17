@@ -114,7 +114,7 @@ runs:
       id: execute
       shell: ${{ inputs.shell }}
       working-directory: ${{ inputs.working-directory }}
-      run: |
+      run: |-
         set -euo pipefail
 
         # Parse success and retry codes

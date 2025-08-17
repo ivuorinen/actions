@@ -158,7 +158,7 @@ runs:
 
     - name: Setup PHP
       id: php
-      uses: shivammathur/setup-php@ccf2c627fe61b1b4d924adfcbd19d661a18133a0 # 2.35.2
+      uses: shivammathur/setup-php@20529878ed81ef8e78ddf08b480401e6101a850f # 2.35.3
       with:
         php-version: ${{ inputs.php }}
         extensions: ${{ inputs.extensions }}
@@ -288,6 +288,6 @@ runs:
     - name: Generate Optimized Autoloader
       if: success()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
         composer dump-autoload --optimize --classmap-authoritative

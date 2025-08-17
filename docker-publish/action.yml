@@ -45,6 +45,12 @@ inputs:
     description: 'Enable verbose logging'
     required: false
     default: 'false'
+  dockerhub-username:
+    description: 'Docker Hub username for authentication'
+    required: false
+  dockerhub-password:
+    description: 'Docker Hub password or access token for authentication'
+    required: false
 
 outputs:
   registry:
@@ -62,6 +68,15 @@ outputs:
   scan-results:
     description: 'Vulnerability scan results if scanning enabled'
     value: ${{ steps.build.outputs.scan-results }}
+  image-id:
+    description: 'Published image ID'
+    value: ${{ steps.publish-dockerhub.outputs.image-id || steps.publish-github.outputs.image-id }}
+  image-digest:
+    description: 'Published image digest'
+    value: ${{ steps.publish-dockerhub.outputs.digest || steps.publish-github.outputs.digest }}
+  repository:
+    description: 'Repository where image was published'
+    value: ${{ steps.publish-dockerhub.outputs.repository || steps.publish-github.outputs.repository }}
 
 runs:
   using: composite
@@ -137,6 +152,7 @@ runs:
         push: 'false' # Don't push during build, let publish actions handle it
 
     - name: Publish to Docker Hub
+      id: publish-dockerhub
       if: contains(steps.dest.outputs.reg, 'dockerhub')
       uses: ivuorinen/actions/docker-publish-hub@main
       with:
@@ -148,8 +164,11 @@ runs:
         cache-mode: ${{ inputs.cache-mode }}
         buildx-version: ${{ inputs.buildx-version }}
         verbose: ${{ inputs.verbose }}
+        username: ${{ inputs.dockerhub-username }}
+        password: ${{ inputs.dockerhub-password }}
 
     - name: Publish to GitHub Packages
+      id: publish-github
       if: contains(steps.dest.outputs.reg, 'github')
       uses: ivuorinen/actions/docker-publish-gh@main
       with:
@@ -220,7 +239,7 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         echo "Cleaning up..."

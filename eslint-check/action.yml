@@ -377,7 +377,7 @@ runs:
     - name: Cache Cleanup
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         cd ${{ inputs.working-directory }}

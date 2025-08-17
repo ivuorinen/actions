@@ -71,7 +71,7 @@ runs:
     - name: Check for Files
       id: check-files
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         if find . -name "${{ inputs.file-pattern }}" | grep -q .; then

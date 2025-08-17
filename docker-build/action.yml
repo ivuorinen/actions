@@ -49,6 +49,10 @@ inputs:
     description: 'Specific Docker Buildx version to use'
     required: false
     default: 'latest'
+  buildkit-version:
+    description: 'Specific BuildKit version to use'
+    required: false
+    default: 'v0.11.0'
   cache-mode:
     description: 'Cache mode for build layers (min, max, or inline)'
     required: false
@@ -184,7 +188,7 @@ runs:
         buildkitd-flags: --debug
         driver-opts: |
           network=${{ inputs.network }}
-          image=moby/buildkit:${{ inputs.buildx-version }}
+          image=moby/buildkit:${{ inputs.buildkit-version }}
 
     - name: Detect Available Platforms
       id: detect-platforms
@@ -453,6 +457,10 @@ runs:
           echo "::warning::Found $critical_count critical vulnerabilities in image"
         fi
 
+    - name: Install Cosign
+      if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
+      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+
     - name: Sign Image
       id: sign
       if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
@@ -460,14 +468,9 @@ runs:
       run: |
         set -euo pipefail
 
-        # Install cosign
-        curl -O -L "https://github.com/sigstore/cosign/releases/latest/download/cosign-linux-amd64"
-        sudo mv cosign-linux-amd64 /usr/local/bin/cosign
-        sudo chmod +x /usr/local/bin/cosign
-
         # Sign the image (using keyless signing with OIDC)
         export COSIGN_EXPERIMENTAL=1
-        cosign sign ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
+        cosign sign --yes ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
 
         echo "signature=signed" >> $GITHUB_OUTPUT
 
@@ -500,7 +503,7 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Cleanup temporary files

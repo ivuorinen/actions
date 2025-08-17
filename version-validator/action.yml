@@ -75,7 +75,7 @@ runs:
     - name: Validate Version
       id: validate
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         input_version="${{ inputs.version }}"

@@ -158,7 +158,7 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
-      run: |
+      run: |-
         set -euo pipefail
 
         # Verify the release was created

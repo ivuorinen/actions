@@ -1,0 +1,349 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Test GitHub Actions
+
+on:
+  push:
+    branches:
+      - main
+      - feat/*
+      - fix/*
+    paths:
+      - '*/action.yml'
+      - 'tests/**'
+      - 'Makefile'
+      - '.github/workflows/test-actions.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '*/action.yml'
+      - 'tests/**'
+      - 'Makefile'
+      - '.github/workflows/test-actions.yml'
+  workflow_dispatch:
+    inputs:
+      test-type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - unit
+          - integration
+      action-filter:
+        description: 'Filter tests by action name (optional)'
+        required: false
+        type: string
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Install ShellSpec
+        shell: bash
+        run: curl -fsSL https://git.io/shellspec | sh -s -- --yes
+
+      - name: Verify ShellSpec installation
+        shell: bash
+        run: shellspec --version
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          if [[ "${{ github.event.inputs.test-type }}" == "unit" || "${{ github.event.inputs.test-type }}" == "all" || -z "${{ github.event.inputs.test-type }}" ]]; then
+            if [[ -n "${{ github.event.inputs.action-filter }}" ]]; then
+              make test-action ACTION="${{ github.event.inputs.action-filter }}"
+            else
+              make test-unit
+            fi
+          else
+            echo "Skipping unit tests (test-type: ${{ github.event.inputs.test-type }})"
+          fi
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: unit-test-results
+          path: tests/reports/unit/
+          retention-days: 7
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event.inputs.test-type != 'unit'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Install nektos/act
+        shell: bash
+        run: |
+          curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+      - name: Verify act installation
+        shell: bash
+        run: act --version
+
+      - name: Install ShellSpec
+        shell: bash
+        run: curl -fsSL https://git.io/shellspec | sh -s -- --yes
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          if [[ "${{ github.event.inputs.test-type }}" == "integration" || "${{ github.event.inputs.test-type }}" == "all" || -z "${{ github.event.inputs.test-type }}" ]]; then
+            if [[ -n "${{ github.event.inputs.action-filter }}" ]]; then
+              ./tests/run-tests.sh --type integration --action "${{ github.event.inputs.action-filter }}"
+            else
+              make test-integration
+            fi
+          else
+            echo "Skipping integration tests (test-type: ${{ github.event.inputs.test-type }})"
+          fi
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: integration-test-results
+          path: tests/reports/integration/
+          retention-days: 7
+
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs:
+      - unit-tests
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Install testing tools
+        shell: bash
+        run: |
+          curl -fsSL https://git.io/shellspec | sh -s -- --yes
+
+          # Install kcov for coverage (if available)
+          sudo apt-get update
+          sudo apt-get install -y kcov || echo "kcov not available, coverage will be basic"
+
+      - name: Generate coverage report
+        run: make test-coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-report
+          path: tests/coverage/
+          retention-days: 30
+
+      - name: Comment coverage summary
+        if: github.event_name == 'pull_request'
+        run: |
+          if [[ -f tests/coverage/summary.json ]]; then
+            coverage=$(jq -r '.coverage_percent' tests/coverage/summary.json)
+            tested_actions=$(jq -r '.tested_actions' tests/coverage/summary.json)
+            total_actions=$(jq -r '.total_actions' tests/coverage/summary.json)
+
+            cat > coverage_comment.md <<EOF
+          ## 📊 Test Coverage Report
+
+          - **Action Coverage**: ${coverage}% (${tested_actions}/${total_actions} actions)
+          - **Generated**: $(date)
+
+          EOF
+
+            echo "Coverage: ${coverage}%"
+          fi
+
+  test-changed-actions:
+    name: Test Changed Actions
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    if: github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        shell: bash
+        run: npm ci
+
+      - name: Install ShellSpec
+        shell: bash
+        run: curl -fsSL https://git.io/shellspec | sh -s -- --yes
+
+      - name: Detect changed actions
+        id: changed-actions
+        shell: bash
+        run: |
+          # Get list of changed action.yml files
+          changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          changed_actions=""
+
+          for file in $changed_files; do
+            if [[ $file == */action.yml && $file != tests/* ]]; then
+              action_name=$(dirname "$file")
+              if [[ -d "$action_name" ]]; then
+                changed_actions="$changed_actions $action_name"
+              fi
+            fi
+          done
+
+          changed_actions=$(echo "$changed_actions" | tr ' ' '\n' | sort -u | tr '\n' ' ')
+          echo "changed-actions=$changed_actions" >> "$GITHUB_OUTPUT"
+          echo "Changed actions: $changed_actions"
+
+      - name: Test changed actions
+        if: steps.changed-actions.outputs.changed-actions != ''
+        shell: bash
+        run: |
+          for action in ${{ steps.changed-actions.outputs.changed-actions }}; do
+            echo "Testing changed action: $action"
+            if ! make test-action ACTION="$action"; then
+              echo "❌ Tests failed for action: $action"
+              exit 1
+            fi
+            echo "✅ Tests passed for action: $action"
+          done
+
+      - name: No changed actions
+        if: steps.changed-actions.outputs.changed-actions == ''
+        run: echo "No actions were changed in this PR"
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Scan for secrets
+        uses: trufflesecurity/trufflehog@main
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Scan shell scripts
+        shell: bash
+        run: |
+          # Install shellcheck if not available
+          sudo apt-get update
+          sudo apt-get install -y shellcheck
+
+          # Scan all shell scripts in tests/
+          find tests/ -name "*.sh" -exec shellcheck {} \; || {
+            echo "❌ Shell script security issues found"
+            exit 1
+          }
+
+          echo "✅ Shell script security scan passed"
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    needs:
+      - unit-tests
+      - integration-tests
+    if: always()
+
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          pattern: '*-test-results'
+          merge-multiple: true
+          path: test-results/
+
+      - name: Generate test summary
+        shell: bash
+        run: |
+          {
+            echo "## 🧪 Test Results Summary"
+            echo ""
+
+            # Unit tests
+            if [[ -d test-results/unit ]]; then
+              unit_count=$(find test-results/unit -name "*.txt" | wc -l)
+              echo "- **Unit Tests**: $unit_count action(s) tested"
+            fi
+
+            # Integration tests
+            if [[ -d test-results/integration ]]; then
+              integration_count=$(find test-results/integration -name "*.txt" | wc -l)
+              echo "- **Integration Tests**: $integration_count action(s) tested"
+            fi
+
+            echo ""
+            echo "**Status**: ${{ needs.unit-tests.result == 'success' && (needs.integration-tests.result == 'success' || needs.integration-tests.result == 'skipped') && '✅ All tests passed' || '❌ Some tests failed' }}"
+
+            # Job status details
+            echo ""
+            echo "### Job Details"
+            echo "- Unit Tests: ${{ needs.unit-tests.result }}"
+            echo "- Integration Tests: ${{ needs.integration-tests.result }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if tests failed
+        if: needs.unit-tests.result == 'failure' || needs.integration-tests.result == 'failure'
+        shell: bash
+        run: |-
+          echo "❌ One or more test jobs failed"
+          exit 1

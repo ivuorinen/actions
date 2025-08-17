@@ -52,7 +52,7 @@ docs: ## Generate documentation for all actions
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		repo="ivuorinen/actions/$$dir"; \
 		printf "# %s\n\n" "$$repo" > "$$dir/README.md"; \
-		if ./node_modules/.bin/action-docs -n -s "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
+		if npx action-docs -n -s "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
 			$(SED_CMD) "s|\*\*\*PROJECT\*\*\*|$$repo|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
@@ -96,10 +96,19 @@ format-markdown: ## Format markdown files
 
 format-yaml-json: ## Format YAML and JSON files
 	@echo "$(BLUE)✨ Formatting YAML/JSON...$(RESET)"
-	@if npx --yes prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json" 2>/dev/null; then \
-		echo "$(GREEN)✅ YAML/JSON formatted$(RESET)"; \
+	@if command -v yamlfmt >/dev/null 2>&1; then \
+		if yamlfmt . 2>/dev/null; then \
+			echo "$(GREEN)✅ YAML formatted with yamlfmt$(RESET)"; \
+		else \
+			echo "$(YELLOW)⚠️ YAML formatting issues found with yamlfmt$(RESET)" | tee -a $(LOG_FILE); \
+		fi; \
 	else \
-		echo "$(YELLOW)⚠️ YAML/JSON formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		echo "$(BLUE)ℹ️ yamlfmt not available, skipping$(RESET)"; \
+	fi
+	@if npx --yes prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json" 2>/dev/null; then \
+		echo "$(GREEN)✅ YAML/JSON formatted with prettier$(RESET)"; \
+	else \
+		echo "$(YELLOW)⚠️ YAML/JSON formatting issues found with prettier$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
 format-tables: ## Format markdown tables
@@ -149,6 +158,9 @@ check-tools: ## Check if required tools are available
 			exit 1; \
 		fi; \
 	done
+	@if ! command -v yamlfmt >/dev/null 2>&1; then \
+		echo "$(YELLOW)⚠️ yamlfmt not found (optional for YAML formatting)$(RESET)"; \
+	fi
 	@echo "$(GREEN)✅ All required tools available$(RESET)"
 
 check-syntax: ## Check syntax of shell scripts and YAML files
@@ -173,6 +185,14 @@ install-tools: ## Install/update required tools
 		echo "  Linux: apt-get install shellcheck"; \
 	else \
 		echo "  shellcheck already installed"; \
+	fi
+	@echo "$(YELLOW)Checking yamlfmt...$(RESET)"
+	@if ! command -v yamlfmt >/dev/null 2>&1; then \
+		echo "$(RED)⚠️ yamlfmt not found. Please install:$(RESET)"; \
+		echo "  macOS: brew install yamlfmt"; \
+		echo "  Linux: go install github.com/google/yamlfmt/cmd/yamlfmt@latest"; \
+	else \
+		echo "  yamlfmt already installed"; \
 	fi
 	@echo "$(GREEN)✅ Tools ready$(RESET)"
 

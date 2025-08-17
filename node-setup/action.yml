@@ -381,7 +381,7 @@ runs:
 
     - name: Set Final Outputs
       shell: bash
-      run: |
+      run: |-
         {
           echo "node-version=${{ steps.version.outputs.detected-version }}"
           echo "package-manager=${{ steps.package-manager-resolution.outputs.final-package-manager }}"

@@ -19,6 +19,8 @@ Publish a Docker image to GitHub Packages and Docker Hub.
 | `cache-mode`            | <p>Cache mode for build layers (min, max, or inline)</p>          | `false`  | `max`                                  |
 | `buildx-version`        | <p>Specific Docker Buildx version to use</p>                      | `false`  | `latest`                               |
 | `verbose`               | <p>Enable verbose logging</p>                                     | `false`  | `false`                                |
+| `dockerhub-username`    | <p>Docker Hub username for authentication</p>                     | `false`  | `""`                                   |
+| `dockerhub-password`    | <p>Docker Hub password or access token for authentication</p>     | `false`  | `""`                                   |
 
 ### Outputs
 
@@ -29,6 +31,9 @@ Publish a Docker image to GitHub Packages and Docker Hub.
 | `build-time`      | <p>Total build time in seconds</p>                    |
 | `platform-matrix` | <p>Build status per platform</p>                      |
 | `scan-results`    | <p>Vulnerability scan results if scanning enabled</p> |
+| `image-id`        | <p>Published image ID</p>                             |
+| `image-digest`    | <p>Published image digest</p>                         |
+| `repository`      | <p>Repository where image was published</p>           |
 
 ### Runs
 
@@ -92,4 +97,16 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: false
+
+    dockerhub-username:
+    # Docker Hub username for authentication
+    #
+    # Required: false
+    # Default: ""
+
+    dockerhub-password:
+    # Docker Hub password or access token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

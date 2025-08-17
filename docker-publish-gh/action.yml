@@ -161,6 +161,9 @@ runs:
           image_name="${{ inputs.image-name }}"
         fi
 
+        # Output image name for reuse
+        echo "image-name=${image_name}" >> $GITHUB_OUTPUT
+
         # Construct full image name with registry
         full_name="${{ inputs.registry }}/${{ github.repository_owner }}/${image_name}"
         echo "full-name=${full_name}" >> $GITHUB_OUTPUT
@@ -211,6 +214,10 @@ runs:
       run: |
         set -euo pipefail
 
+        # Normalize repository owner to lowercase for GHCR compatibility
+        REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        export REPO_OWNER_LOWER
+
         # Track build start time
         build_start=$(date +%s)
 
@@ -240,8 +247,8 @@ runs:
             --platform=${platforms} \
             --tag ${{ steps.metadata.outputs.tags }} \
             --push \
-            --cache-from type=registry,ref=${{ inputs.registry }}/${{ github.repository_owner }}/cache:buildcache \
-            --cache-to type=registry,ref=${{ inputs.registry }}/${{ github.repository_owner }}/cache:buildcache,mode=${{ inputs.cache-mode }} \
+            --cache-from type=registry,ref=${{ inputs.registry }}/${{ env.REPO_OWNER_LOWER }}/cache:buildcache \
+            --cache-to type=registry,ref=${{ inputs.registry }}/${{ env.REPO_OWNER_LOWER }}/cache:buildcache,mode=${{ inputs.cache-mode }} \
             ${{ inputs.provenance == 'true' && '--provenance=true' || '' }} \
             ${{ inputs.sbom == 'true' && '--sbom=true' || '' }} \
             ${verbose_flag} \
@@ -277,7 +284,7 @@ runs:
             fi
 
             if [[ "${{ inputs.sbom }}" == "true" ]]; then
-              sbom_path="${{ inputs.registry }}/${{ github.repository_owner }}/${image_name}.sbom"
+              sbom_path="${{ inputs.registry }}/${{ github.repository_owner }}/${{ steps.metadata.outputs.image-name }}.sbom"
               echo "sbom=${sbom_path}" >> $GITHUB_OUTPUT
             fi
 
@@ -388,7 +395,7 @@ runs:
     - name: Clean up
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Remove temporary files and cleanup Docker cache

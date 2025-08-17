@@ -193,8 +193,8 @@ runs:
 
         # Calculate absolute difference and set status
         delta=$((files_after - files_before))
-        files_changed=${delta#-}  # Remove negative sign if present
-        status=$([ "$files_changed" -eq 0 ] && echo success || echo changes_made)
+        files_changed=$((delta < 0 ? -delta : delta))  # Ensure non-negative
+        status=$([ "$files_changed" -eq 0 ] && echo success || echo failure)
 
         echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
         echo "status=$status" >> $GITHUB_OUTPUT

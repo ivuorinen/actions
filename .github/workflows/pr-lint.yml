@@ -191,7 +191,7 @@ jobs:
       - name: Cleanup
         if: always()
         shell: bash
-        run: |
+        run: |-
           # Remove temporary files but keep reports
           find . -type f -name "megalinter.*" ! -name "megalinter-reports" -delete || true
           find . -type d -name ".megalinter" -exec rm -rf {} + || true
