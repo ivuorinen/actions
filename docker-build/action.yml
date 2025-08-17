@@ -140,35 +140,20 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
+      uses: ../validate-inputs
+      with:
+        action-type: 'docker-build'
+        image-name: ${{ inputs.image-name }}
+        tag: ${{ inputs.tag }}
+        architectures: ${{ inputs.architectures }}
+        dockerfile: ${{ inputs.dockerfile }}
+        build-args: ${{ inputs.build-args }}
+        buildx-version: ${{ inputs.buildx-version }}
+        parallel-builds: ${{ inputs.parallel-builds }}
+
+    - name: Check Dockerfile Exists
       shell: bash
       run: |
-        set -euo pipefail
-
-        # Validate image name
-        if [ -n "${{ inputs.image-name }}" ]; then
-          if ! [[ "${{ inputs.image-name }}" =~ ^[a-z0-9]+([._-][a-z0-9]+)*$ ]]; then
-            echo "::error::Invalid image name format: '${{ inputs.image-name }}'. Must contain only lowercase letters, digits, periods, hyphens, and underscores (e.g., 'my-app', 'registry.io/my-app')"
-            exit 1
-          fi
-        fi
-
-        # Validate tag
-        if ! [[ "${{ inputs.tag }}" =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?|latest|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
-          echo "::error::Invalid tag format: '${{ inputs.tag }}'. Expected semantic version (e.g., '1.2.3', 'v1.2.3-alpha'), 'latest', or valid Docker tag"
-          exit 1
-        fi
-
-        # Validate architectures
-        IFS=',' read -ra ARCHS <<< "${{ inputs.architectures }}"
-        for arch in "${ARCHS[@]}"; do
-          arch=$(echo "$arch" | xargs)  # Trim whitespace
-          if ! [[ "$arch" =~ ^linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x)$ ]]; then
-            echo "::error::Invalid architecture format: '$arch'. Supported: linux/amd64, linux/arm64, linux/arm/v7, linux/arm/v6, linux/386, linux/ppc64le, linux/s390x"
-            exit 1
-          fi
-        done
-
-        # Validate Dockerfile existence
         if [ ! -f "${{ inputs.dockerfile }}" ]; then
           echo "::error::Dockerfile not found at ${{ inputs.dockerfile }}"
           exit 1

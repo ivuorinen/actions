@@ -9,11 +9,12 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 ### Key Features
 
-- **Over 40 Production-Ready Actions** covering setup, linting, building, testing, and deployment
+- **Production-Ready Actions** covering setup, linting, building, testing, and deployment
 - **Self-Contained Design** - each action works independently without dependencies
 - **External Usage Ready** - use any action as `ivuorinen/actions/action-name@main`
 - **Multi-Language Support** including Node.js, PHP, Python, Go, C#, and more
 - **Standardized Patterns** with consistent error handling and input/output interfaces
+- **Comprehensive Testing** with dual testing framework (ShellSpec + pytest)
 - **Modular Build System** using Makefile for development and maintenance
 
 <!--LISTING-->
@@ -66,6 +67,7 @@ This repository contains **41 reusable GitHub Actions** for CI/CD automation.
 |  📦  | [`stale`][stale]                                       | Repository | A GitHub Action to close stale issues and pull requests.        | Token auth, Outputs                          |
 | 🏷️  | [`sync-labels`][sync-labels]                           | Repository | Sync labels from a YAML file to a GitHub repository             | Token auth, Outputs                          |
 | 🖥️  | [`terraform-lint-fix`][terraform-lint-fix]             | Linting    | Lints and fixes Terraform files with advanced validation and... | Token auth, Outputs                          |
+| 🛡️  | [`validate-inputs`][validate-inputs]                   | Other      | Centralized Python-based input validation for GitHub Actions... | Token auth, Outputs                          |
 |  📦  | [`version-file-parser`][version-file-parser]           | Utilities  | Universal parser for common version detection files (.tool-v... | Auto-detection, Outputs                      |
 |  ✅   | [`version-validator`][version-validator]               | Utilities  | Validates and normalizes version strings using customizable ... | Auto-detection, Outputs                      |
 
@@ -190,6 +192,7 @@ This repository contains **41 reusable GitHub Actions** for CI/CD automation.
 | [`stale`][stale]                                       |    -    |       -        |     ✅      |    ✅    |
 | [`sync-labels`][sync-labels]                           |    -    |       -        |     ✅      |    ✅    |
 | [`terraform-lint-fix`][terraform-lint-fix]             |    -    |       -        |     ✅      |    ✅    |
+| [`validate-inputs`][validate-inputs]                   |    -    |       -        |     ✅      |    ✅    |
 | [`version-file-parser`][version-file-parser]           |    -    |       ✅        |     -      |    ✅    |
 | [`version-validator`][version-validator]               |    -    |       ✅        |     -      |    ✅    |
 
@@ -266,6 +269,7 @@ All actions can be used independently in your workflows:
 [stale]: stale/README.md
 [sync-labels]: sync-labels/README.md
 [terraform-lint-fix]: terraform-lint-fix/README.md
+[validate-inputs]: validate-inputs/README.md
 [version-file-parser]: version-file-parser/README.md
 [version-validator]: version-validator/README.md
 
@@ -338,6 +342,44 @@ make check         # Quick syntax and tool checks
 # Development workflow
 make dev           # Format then lint (good for development)
 make ci            # CI workflow - check, docs, lint
+```
+
+### Python Development
+
+For Python development (validation system), use these specialized commands:
+
+```bash
+# Python development workflow
+make dev-python         # Format, lint, and test Python code
+make test-python        # Run Python unit tests
+make test-python-coverage  # Run tests with coverage reporting
+
+# Individual Python operations
+make format-python      # Format Python files with ruff
+make lint-python        # Lint Python files with ruff
+```
+
+The Python validation system (`validate-inputs/`) includes:
+
+- **CalVer and SemVer Support**: Flexible version validation for different schemes
+- **Comprehensive Test Suite**: Extensive test cases covering all validation types
+- **Security Features**: Command injection and path traversal protection
+- **Performance**: Efficient Python regex engine vs multiple bash processes
+
+### Testing
+
+```bash
+# Run all tests (Python + GitHub Actions)
+make test
+
+# Run specific test types
+make test-python           # Python validation tests only
+make test-actions          # GitHub Actions tests only
+make test-action ACTION=node-setup  # Test specific action
+
+# Coverage reporting
+make test-coverage         # All tests with coverage
+make test-python-coverage  # Python tests with coverage
 ```
 
 For detailed development guidelines, see [CLAUDE.md](CLAUDE.md).

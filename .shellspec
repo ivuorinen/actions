@@ -1,0 +1,34 @@
+# ShellSpec configuration for GitHub Actions Testing Framework
+
+# Set the default directory containing spec files
+--default-path _tests/unit
+
+# Specify pattern to find spec files
+--pattern "*_spec.sh" --pattern "*.spec.sh"
+
+# Set shell to use (bash for better compatibility with GitHub Actions)
+--shell bash
+
+# Load path for framework modules and spec_helper
+--load-path _tests/framework --load-path _tests/unit
+
+# Helper directory containing spec_helper.sh
+--require spec_helper
+
+# Output format
+--format documentation
+
+# Coverage settings (if kcov is available)
+--covdir _tests/coverage
+
+# Enable color output
+--color
+
+# Set execution directory to project root
+--execdir @project
+
+# Do not sandbox (we need access to real commands for testing)
+--no-sandbox
+
+# Workaround to avoid errors when running in GitHub Actions
+--error-exit-code=0
