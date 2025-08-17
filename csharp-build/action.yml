@@ -39,7 +39,7 @@ runs:
   steps:
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/dotnet-version-detect@main
+      uses: ../dotnet-version-detect
       with:
         default-version: "${{ inputs.dotnet-version || '7.0' }}"
 
@@ -50,7 +50,7 @@ runs:
 
     - name: Cache NuGet packages
       id: cache-nuget
-      uses: ivuorinen/actions/common-cache@main
+      uses: ../common-cache
       with:
         type: 'nuget'
         paths: '~/.nuget/packages'
@@ -59,7 +59,7 @@ runs:
 
     - name: Restore Dependencies
       if: steps.cache-nuget.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@main
+      uses: ../common-retry
       with:
         command: |
           echo "Restoring .NET dependencies..."

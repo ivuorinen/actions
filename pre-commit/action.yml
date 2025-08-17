@@ -104,7 +104,7 @@ runs:
           fi
         fi
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ../set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.commit_user }}

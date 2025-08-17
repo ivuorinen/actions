@@ -49,7 +49,7 @@ runs:
   steps:
     - name: Detect PHP Version
       id: php-version
-      uses: ivuorinen/actions/php-version-detect@main
+      uses: ../php-version-detect
       with:
         default-version: ${{ inputs.php-version }}
 
