@@ -252,7 +252,7 @@ runs:
         echo "secrets=${secrets}" >> $GITHUB_OUTPUT
 
     - name: Login to GitHub Container Registry
-      if: ${{ inputs.push == 'true' }}
+      if: ${{ inputs.push == 'true' || inputs.token != '' }}
       uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
       with:
         registry: ghcr.io
@@ -280,15 +280,17 @@ runs:
           cache_to="--cache-to ${{ inputs.cache-export }}"
         fi
 
-        # Registry cache configuration for better performance
-        normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
-        registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
-        cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
+        # Registry cache configuration for better performance (only if authenticated)
+        if [ "${{ inputs.push }}" == "true" ] || [ -n "${{ inputs.token }}" ]; then
+          normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
+          registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
+          cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
 
-        # Set cache mode
-        cache_mode="${{ inputs.cache-mode }}"
-        if [ -z "$cache_to" ]; then
-          cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=${cache_mode}"
+          # Set cache mode
+          cache_mode="${{ inputs.cache-mode }}"
+          if [ -z "$cache_to" ]; then
+            cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=${cache_mode}"
+          fi
         fi
 
         # Also include local cache as fallback
@@ -314,6 +316,13 @@ runs:
           platforms="${{ steps.detect-platforms.outputs.platforms }}"
         else
           platforms="${{ inputs.architectures }}"
+        fi
+
+        # For local load (push=false), restrict to single platform
+        if [ "${{ inputs.push }}" != "true" ]; then
+          # Extract first platform only for local load
+          platforms=$(echo "$platforms" | cut -d',' -f1)
+          echo "Local build mode: restricting to single platform: $platforms"
         fi
 
         # Initialize platform matrix tracking
@@ -346,6 +355,9 @@ runs:
         while [ $attempt -le $max_attempts ]; do
           echo "Build attempt $attempt of $max_attempts"
 
+          # Build command with platform restriction for local load
+          build_action="${{ inputs.push == 'true' && '--push' || '--load' }}"
+
           if docker buildx build \
             --platform=${platforms} \
             --tag ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} \
@@ -355,7 +367,7 @@ runs:
             ${{ steps.cache.outputs.from }} \
             ${{ steps.cache.outputs.to }} \
             --file ${{ inputs.dockerfile }} \
-            ${{ inputs.push == 'true' && '--push' || '--load' }} \
+            ${build_action} \
             --provenance=true \
             ${sbom_flag} \
             ${verbose_flag} \

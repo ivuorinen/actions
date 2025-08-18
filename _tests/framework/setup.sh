@@ -294,7 +294,7 @@ run_action_step() {
 
 # Check if required tools are available
 check_required_tools() {
-  local tools=("git" "jq" "curl")
+  local tools=("git" "jq" "curl" "python3" "tar" "make")
   local missing_tools=()
 
   for tool in "${tools[@]}"; do

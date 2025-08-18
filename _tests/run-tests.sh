@@ -232,7 +232,7 @@ run_unit_tests() {
       fi
 
       # Show summary if verbose or on failure
-      if [[ $test_result -ne 0 || ${BASH_OPTS:-} == *"x"* ]]; then
+      if [[ $test_result -ne 0 || ${BASHOPTS:-} == *"xtrace"* || $- == *x* ]]; then
         echo "--- Test output for $action ---"
         cat "$output_file"
         echo "--- End test output ---"
@@ -365,7 +365,8 @@ generate_test_report() {
     generate_json_report
     ;;
   "junit")
-    generate_junit_report
+    log_warning "JUnit report format not yet implemented, using JSON instead"
+    generate_json_report
     ;;
   "console" | *)
     generate_console_report

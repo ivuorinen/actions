@@ -51,7 +51,11 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
-          ref: ${{ github.event.pull_request.base.sha }}
+          ref: ${{ github.event.pull_request.head.sha }}
+
+      - name: Fetch PR Base
+        run: |
+          git fetch origin ${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}
 
       - name: OWASP Dependency Check
         uses: dependency-check/Dependency-Check_Action@3102a65fd5f36d0000297576acc56a475b0de98d # main
@@ -68,13 +72,13 @@ jobs:
         uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: 'auto'
-          generateSarif: 'false'
+          generateSarif: 'true'
         env:
-          SEMGREP_APP_TOKEN: ${{ secrets.SEMGREP_APP_TOKEN }}
+          SEMGREP_APP_TOKEN: ${{ github.event_name != 'pull_request_target' && secrets.SEMGREP_APP_TOKEN || '' }}
         continue-on-error: true
 
       - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@main
+        uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503
         with:
           path: ./
           base: ${{ github.event.repository.default_branch }}
@@ -101,7 +105,7 @@ jobs:
             const { execSync } = require('child_process');
             try {
               const changedWorkflows = execSync(
-                `git diff --name-only origin/${{ github.event.repository.default_branch }}...HEAD | grep -E "\.github/workflows/.*\.yml$" || true`,
+                `git diff --name-only origin/${{ github.event.repository.default_branch }}...${{ github.event.pull_request.head.sha }} | grep -E "\.github/workflows/.*\.ya?ml$" || true`,
                 { encoding: 'utf8' }
               ).trim().split('\n').filter(Boolean);
 
@@ -164,25 +168,25 @@ jobs:
               console.log('No OWASP results found');
             }
 
-            // Parse Semgrep results
+            // Parse Semgrep SARIF results
             try {
-              const semgrepOutput = execSync('semgrep --config=auto --json . || true', { encoding: 'utf8' });
-              if (semgrepOutput.trim()) {
-                const semgrepResults = JSON.parse(semgrepOutput);
-                if (semgrepResults.results) {
-                  semgrepResults.results.forEach(result => {
+              if (fs.existsSync('semgrep.sarif')) {
+                const sarifContent = JSON.parse(fs.readFileSync('semgrep.sarif', 'utf8'));
+                if (sarifContent.runs && sarifContent.runs[0] && sarifContent.runs[0].results) {
+                  sarifContent.runs[0].results.forEach(result => {
+                    const rule = sarifContent.runs[0].tool.driver.rules.find(r => r.id === result.ruleId);
                     findings.vulnerabilities.push({
-                      file: result.path,
-                      line: result.start?.line || 0,
-                      rule: result.check_id,
-                      severity: result.extra?.severity || 'INFO',
-                      message: result.extra?.message || result.message
+                      file: result.locations[0]?.physicalLocation?.artifactLocation?.uri || 'Unknown',
+                      line: result.locations[0]?.physicalLocation?.region?.startLine || 0,
+                      rule: result.ruleId,
+                      severity: result.level?.toUpperCase() || 'INFO',
+                      message: result.message?.text || rule?.shortDescription?.text || 'No description'
                     });
                   });
                 }
               }
             } catch (error) {
-              console.log('Semgrep analysis completed');
+              console.log('Semgrep SARIF parsing completed');
             }
 
             // Parse TruffleHog results (they output to stdout)
@@ -286,11 +290,11 @@ jobs:
             }
 
             // Generate final comment
-            let comment;
+            let comment = '## ✅ Security Analysis\n\n';
             if (sections.length === 0) {
-              comment = '## ✅ Security Analysis\n\nNo security issues detected in this PR.';
+              comment += 'No security issues detected in this PR.';
             } else {
-              comment = sections.join('\n\n');
+              comment += sections.join('\n\n');
             }
 
             // Find existing security comment

@@ -24,31 +24,25 @@ validate_version() {
   fi
 }
 
-# Strict semantic version validation - requires full x.y.z format
+# Strict semantic version validation - SemVer 2.0.0 compliant
 validate_full_semantic_version() {
   local value="$1"
   # Remove v prefix if present
   value="${value#v}"
 
-  # Check for basic x.y.z format first
-  if [[ $value =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-    echo "success"
-    return
-  fi
+  # SemVer 2.0.0 compliant regex
+  # Major.Minor.Patch with optional prerelease and build metadata
+  # Numeric identifiers must not have leading zeros unless they are zero
+  local semver_regex='^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)'
+  semver_regex+='(-((0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*)'
+  semver_regex+='(\.(0|[1-9][0-9]*|[0-9]*[a-zA-Z-][0-9a-zA-Z-]*))*))?'
+  semver_regex+='(\+([0-9a-zA-Z-]+(\.[0-9a-zA-Z-]+)*))?$'
 
-  # Check for x.y.z-prerelease format
-  if [[ $value =~ ^[0-9]+\.[0-9]+\.[0-9]+-[a-zA-Z0-9]+$ ]]; then
+  if [[ $value =~ $semver_regex ]]; then
     echo "success"
-    return
+  else
+    echo "failure"
   fi
-
-  # Check for x.y.z+build format
-  if [[ $value =~ ^[0-9]+\.[0-9]+\.[0-9]+\+[a-zA-Z0-9]+$ ]]; then
-    echo "success"
-    return
-  fi
-
-  echo "failure"
 }
 
 # Go version validation - specific 1.x.x format with bounds checking
@@ -149,7 +143,9 @@ validate_docker_tags() {
   IFS=',' read -ra tag_array <<<"$value"
   for tag in "${tag_array[@]}"; do
     tag=$(echo "$tag" | tr -d '[:space:]') # Remove whitespace
-    if ! [[ $tag =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?|latest|nightly|nightly-[0-9]{8}-[0-9]{4}|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
+    # Docker tag spec: start with alnum/underscore, then alphanumeric/underscore/dash/period, max 128 chars
+    # Also accept common special tags
+    if ! [[ $tag =~ ^([A-Za-z0-9_][A-Za-z0-9_.-]{0,127}|latest|nightly|nightly-[0-9]{8}-[0-9]{4})$ ]]; then
       echo "failure"
       return
     fi
@@ -169,12 +165,11 @@ validate_docker_platforms() {
   fi
 }
 
-# Docker Hub username validation - specific length and character requirements
+# Docker Hub username validation - Docker Hub rules: 4-30 chars, lowercase letters/digits/hyphens, start/end with alphanumeric
 validate_docker_hub_username() {
   local value="$1"
-  if [[ ${#value} -ge 4 && ${#value} -le 30 && $value =~ ^[a-zA-Z0-9][a-zA-Z0-9_-]*[a-zA-Z0-9]$ ]]; then
-    echo "success"
-  elif [[ ${#value} -eq 1 && $value =~ ^[a-zA-Z0-9]$ ]]; then
+  # Length check and pattern validation
+  if [[ ${#value} -ge 4 && ${#value} -le 30 && $value =~ ^[a-z0-9][a-z0-9-]*[a-z0-9]$ ]]; then
     echo "success"
   else
     echo "failure"
