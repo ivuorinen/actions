@@ -17,7 +17,7 @@ inputs:
 outputs:
   staled_issues_count:
     description: 'Number of issues marked as stale'
-    value: ${{ steps.stale.outputs.staled-issues-prs }}
+    value: ${{ steps.stale.outputs.stale-issues-prs }}
   closed_issues_count:
     description: 'Number of issues closed'
     value: ${{ steps.stale.outputs.closed-issues-prs }}
@@ -31,11 +31,10 @@ runs:
       run: |
         set -euo pipefail
 
-        # Validate GitHub token format (basic validation)
-        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
-          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
-          fi
+        # Check for obvious token misconfigurations
+        token="${{ inputs.token }}"
+        if [[ -z "$token" ]] || [[ "$token" == *'${{'* ]] || [[ "$token" == 'secrets.'* ]]; then
+          echo "::warning::GitHub token appears to be unevaluated or misconfigured. Please provide a valid token."
         fi
 
         echo "Input validation completed successfully"
