@@ -34,7 +34,7 @@ class ActionValidator:
     # GitHub token patterns (using the same pattern as in the actions)
     GITHUB_TOKEN_PATTERNS = {
         "classic": r"^gh[efpousr]_[a-zA-Z0-9]{36}$",
-        "fine_grained": r"^github_pat_[a-zA-Z0-9_]{82}$",
+        "fine_grained": r"^github_pat_[a-zA-Z0-9_]{50,255}$",
         "installation_token": r"^ghs_[a-zA-Z0-9]{36}$",
     }
 
@@ -86,7 +86,7 @@ class ActionValidator:
 
         return (
             False,
-            "Invalid GitHub token format. Expected: gh[efpousr]_* (36 chars), github_pat_* (82 chars), or ghs_* (36 chars)",
+            "Invalid GitHub token format. Expected: gh[efpousr]_* (36 chars), github_pat_* (50-255 chars), or ghs_* (36 chars)",
         )
 
     def validate_namespace_with_lookahead(self, namespace: str) -> Tuple[bool, str]:
