@@ -69,27 +69,96 @@ runs:
       run: |
         set -euo pipefail
 
-        # Validate PHP version
-        if ! [[ "${{ inputs.php }}" =~ ^([5-9]\.[0-9]+|[1-9][0-9]+\.[0-9]+)$ ]]; then
-          echo "::error::Invalid PHP version format: ${{ inputs.php }}"
+        # Validate PHP version format
+        if ! [[ "${{ inputs.php }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+          echo "::error::Invalid PHP version format: '${{ inputs.php }}'. Expected format: X.Y or X.Y.Z (e.g., 8.4, 8.4.1)"
           exit 1
+        fi
+
+        # Validate PHP version is supported (5.6 minimum, reasonable upper bound)
+        php_major_minor=$(echo "${{ inputs.php }}" | cut -d. -f1,2)
+        # Use sort -V for version comparison (no bc dependency)
+        if [[ $(printf "%s\n5.6" "$php_major_minor" | sort -V | head -n1) != "5.6" ]]; then
+          echo "::error::PHP version too old: '${{ inputs.php }}'. Minimum supported version is 5.6"
+          exit 1
+        fi
+        if [[ $(printf "8.5\n%s" "$php_major_minor" | sort -V | head -n1) != "8.5" ]]; then
+          echo "::warning::PHP version may be unsupported: '${{ inputs.php }}'. Latest stable version is around 8.4"
+        fi
+
+        # Validate extensions format (comma-separated list)
+        if [[ -n "${{ inputs.extensions }}" ]]; then
+          if ! [[ "${{ inputs.extensions }}" =~ ^[a-zA-Z0-9]+(,[[:space:]]*[a-zA-Z0-9]+)*$ ]]; then
+            echo "::error::Invalid extensions format: '${{ inputs.extensions }}'. Expected comma-separated list (e.g., mbstring, xml, zip)"
+            exit 1
+          fi
+        fi
+
+        # Validate tools format (comma-separated list with optional versions)
+        if [[ -n "${{ inputs.tools }}" ]]; then
+          if ! [[ "${{ inputs.tools }}" =~ ^[a-zA-Z0-9:v.-]+(,[[:space:]]*[a-zA-Z0-9:v.-]+)*$ ]]; then
+            echo "::error::Invalid tools format: '${{ inputs.tools }}'. Expected comma-separated list with optional versions (e.g., composer:v2, phpunit:^9.0)"
+            exit 1
+          fi
         fi
 
         # Validate Composer version
-        if ! [[ "${{ inputs.composer-version }}" =~ ^[12]$ ]]; then
-          echo "::error::Invalid Composer version: ${{ inputs.composer-version }}"
-          exit 1
+        case "${{ inputs.composer-version }}" in
+          1|2)
+            ;;
+          *)
+            echo "::error::Invalid composer-version: '${{ inputs.composer-version }}'. Allowed values: 1, 2"
+            exit 1
+            ;;
+        esac
+
+        # Validate stability option
+        case "${{ inputs.stability }}" in
+          stable|RC|beta|alpha|dev)
+            ;;
+          *)
+            echo "::error::Invalid stability: '${{ inputs.stability }}'. Allowed values: stable, RC, beta, alpha, dev"
+            exit 1
+            ;;
+        esac
+
+        # Validate cache directories format if provided (comma-separated paths)
+        if [[ -n "${{ inputs.cache-directories }}" ]]; then
+          IFS=',' read -ra DIRS <<< "${{ inputs.cache-directories }}"
+          for dir in "${DIRS[@]}"; do
+            # Trim whitespace
+            dir=$(echo "$dir" | xargs)
+
+            # Check for path traversal
+            if [[ "$dir" == *".."* ]] || [[ "$dir" == /* ]]; then
+              echo "::error::Invalid cache directory path: '$dir'. Path traversal or absolute paths not allowed"
+              exit 1
+            fi
+
+            # Check for valid directory name
+            if ! [[ "$dir" =~ ^[a-zA-Z0-9._/-]+$ ]]; then
+              echo "::error::Invalid cache directory name: '$dir'. Must contain only alphanumeric characters, periods, hyphens, underscores, and forward slashes"
+              exit 1
+            fi
+          done
         fi
 
-        # Validate stability
-        if ! [[ "${{ inputs.stability }}" =~ ^(stable|RC|beta|alpha|dev)$ ]]; then
-          echo "::error::Invalid stability option: ${{ inputs.stability }}"
+        # Validate GitHub token format (basic validation)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
+          fi
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
     - name: Setup PHP
       id: php
-      uses: shivammathur/setup-php@9e72090525849c5e82e596468b86eb55e9cc5401 # v2
+      uses: shivammathur/setup-php@20529878ed81ef8e78ddf08b480401e6101a850f # 2.35.3
       with:
         php-version: ${{ inputs.php }}
         extensions: ${{ inputs.extensions }}
@@ -172,54 +241,32 @@ runs:
 
     - name: Cache Composer packages
       id: composer-cache
-      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      uses: ../common-cache
       with:
-        path: |
-          vendor
-          ~/.composer/cache
-          ${{ inputs.cache-directories }}
-        key: ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-${{ steps.hash.outputs.lock }}
+        type: 'composer'
+        paths: 'vendor,~/.composer/cache${{ inputs.cache-directories != "" && format(",{0}", inputs.cache-directories) || "" }}'
+        key-prefix: 'php-${{ inputs.php }}-composer-${{ inputs.composer-version }}'
+        key-files: 'composer.lock,composer.json'
         restore-keys: |
           ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-
           ${{ runner.os }}-php-${{ inputs.php }}-composer-
           ${{ runner.os }}-php-${{ inputs.php }}-
 
-    - name: Install Dependencies
+    - name: Clear Composer Cache Before Final Attempt
+      if: steps.composer-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
+        echo "Clearing Composer cache to ensure clean installation..."
+        composer clear-cache
 
-        # Function to run composer with retries
-        run_composer() {
-          local attempt=1
-          local max_attempts=${{ inputs.max-retries }}
-
-          while [ $attempt -le $max_attempts ]; do
-            echo "Composer install attempt $attempt of $max_attempts"
-
-            if composer install ${{ inputs.args }}; then
-              return 0
-            fi
-
-            attempt=$((attempt + 1))
-            if [ $attempt -le $max_attempts ]; then
-              echo "Composer install failed, waiting 30 seconds before retry..."
-              sleep 30
-
-              # Clear composer cache if retry needed
-              if [ $attempt -eq $max_attempts ]; then
-                echo "Clearing Composer cache before final attempt..."
-                composer clear-cache
-              fi
-            fi
-          done
-
-          echo "::error::Composer install failed after $max_attempts attempts"
-          return 1
-        }
-
-        # Run Composer install with retry logic
-        run_composer
+    - name: Install Dependencies
+      uses: ../common-retry
+      with:
+        command: 'composer install ${{ inputs.args }}'
+        max-retries: ${{ inputs.max-retries }}
+        retry-delay: '30'
+        description: 'Installing PHP dependencies via Composer'
 
     - name: Verify Installation
       shell: bash
@@ -241,6 +288,6 @@ runs:
     - name: Generate Optimized Autoloader
       if: success()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
         composer dump-autoload --optimize --classmap-authoritative

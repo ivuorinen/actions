@@ -8,27 +8,176 @@ branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  max-retries:
+    description: 'Maximum number of retry attempts for npm install operations'
+    required: false
+    default: '3'
+
+outputs:
+  files_changed:
+    description: 'Number of files changed by formatting'
+    value: ${{ steps.fix.outputs.files_changed }}
+  fix_status:
+    description: 'Fix status (success/failure)'
+    value: ${{ steps.fix.outputs.status }}
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="${{ inputs.username }}"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Checkout Repository
-      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ../set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Node Setup
-      uses: ivuorinen/actions/node-setup@main
+      id: node-setup
+      uses: ../node-setup
 
-    - name: Install Dependencies
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ../common-cache
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'biome-fix-${{ steps.node-setup.outputs.package-manager }}'
+
+    - name: Install Biome
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        npm install -g biome
+        set -euo pipefail
+
+        package_manager="${{ steps.node-setup.outputs.package-manager }}"
+        max_retries="${{ inputs.max-retries }}"
+
+        echo "Installing Biome using $package_manager..."
+
+        for attempt in $(seq 1 $max_retries); do
+          echo "Attempt $attempt of $max_retries"
+
+          case "$package_manager" in
+            "pnpm")
+              if pnpm add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if yarn global add @biomejs/biome; then
+                echo "✅ Biome installed successfully with yarn"
+                exit 0
+              fi
+              ;;
+            "bun")
+              if bun add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm install -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt $max_retries ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install Biome after $max_retries attempts"
+        exit 1
 
     - name: Run Biome Fix
+      id: fix
       shell: bash
       run: |
-        biome fix .
+        set -euo pipefail
+
+        echo "Running Biome fix..."
+
+        # Run Biome fix and capture exit code
+        biome_exit_code=0
+        biome check --write . || biome_exit_code=$?
+
+        # Count changed files using git diff
+        files_changed=$(git diff --name-only | wc -l)
+
+        # Set status based on biome check result and changes
+        if [ $biome_exit_code -eq 0 ] && [ $files_changed -eq 0 ]; then
+          status="success"
+        else
+          status="failure"
+        fi
+
+        echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
+        echo "status=$status" >> $GITHUB_OUTPUT
+
+        echo "✅ Biome fix completed. Files changed: $files_changed, Status: $status"
 
     - name: Push Fixes
       if: success()

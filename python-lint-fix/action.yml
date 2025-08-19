@@ -33,6 +33,18 @@ inputs:
     description: 'Whether to fail the action if linting errors are found'
     required: false
     default: 'true'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
 
 outputs:
   lint-result:
@@ -48,10 +60,91 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate Python version format
+        if ! [[ "${{ inputs.python-version }}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+          echo "::error::Invalid python-version: '${{ inputs.python-version }}'. Expected format: X.Y or X.Y.Z (e.g., 3.11, 3.11.5)"
+          exit 1
+        fi
+
+        # Validate flake8 version format (semantic versioning)
+        if ! [[ "${{ inputs.flake8-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid flake8-version: '${{ inputs.flake8-version }}'. Expected semantic version (e.g., 7.0.0)"
+          exit 1
+        fi
+
+        # Validate autopep8 version format (semantic versioning)
+        if ! [[ "${{ inputs.autopep8-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid autopep8-version: '${{ inputs.autopep8-version }}'. Expected semantic version (e.g., 2.0.4)"
+          exit 1
+        fi
+
+        # Validate working directory
+        if [ ! -d "${{ inputs.working-directory }}" ]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Directory does not exist"
+          exit 1
+        fi
+
+        # Validate path security (prevent path traversal)
+        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate max-retries (positive integer)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer"
+          exit 1
+        fi
+
+        # Validate max-retries range
+        if [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Maximum allowed is 10"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        case "${{ inputs.fail-on-error }}" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid fail-on-error value: '${{ inputs.fail-on-error }}'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate token format if provided (basic GitHub token pattern)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
+    - name: Detect Python Version
+      id: python-version
+      uses: ../python-version-detect
+      with:
+        default-version: ${{ inputs.python-version }}
+
     - name: Setup Python
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
       with:
-        python-version: ${{ inputs.python-version }}
+        python-version: ${{ steps.python-version.outputs.python-version }}
         cache: 'pip'
         cache-dependency-path: |
           **/requirements.txt
@@ -73,8 +166,18 @@ runs:
         fi
         echo "result=found" >> $GITHUB_OUTPUT
 
-    - name: Install Dependencies
+    - name: Cache Python Dependencies
       if: steps.check-files.outputs.result == 'found'
+      id: cache-pip
+      uses: ../common-cache
+      with:
+        type: 'pip'
+        paths: '~/.cache/pip'
+        key-files: 'requirements*.txt,pyproject.toml,setup.py,setup.cfg'
+        key-prefix: 'python-lint-fix'
+
+    - name: Install Dependencies
+      if: steps.check-files.outputs.result == 'found' && steps.cache-pip.outputs.cache-hit != 'true'
       id: install
       shell: bash
       run: |
@@ -114,6 +217,19 @@ runs:
         # Verify installations
         flake8 --version || exit 1
         autopep8 --version || exit 1
+
+    - name: Activate Virtual Environment (Cache Hit)
+      if: steps.check-files.outputs.result == 'found' && steps.cache-pip.outputs.cache-hit == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Create virtual environment if it doesn't exist from cache
+        if [ ! -d ".venv" ]; then
+          python -m venv .venv
+          source .venv/bin/activate
+          pip install flake8==${{ inputs.flake8-version }} autopep8==${{ inputs.autopep8-version }}
+        fi
 
     - name: Run flake8
       if: steps.check-files.outputs.result == 'found'
@@ -175,11 +291,15 @@ runs:
         rm /tmp/changed_files
 
     - name: Set Git Config for Fixes
-      if: steps.fix.outputs.fixed_count > 0
-      uses: ivuorinen/actions/set-git-config@main
+      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
+      uses: ../set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Commit Fixes
-      if: steps.fix.outputs.fixed_count > 0
+      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
       shell: bash
       run: |
         set -euo pipefail
@@ -221,7 +341,7 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Remove virtual environment

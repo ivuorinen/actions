@@ -8,15 +8,84 @@ branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+
+outputs:
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  tests_run:
+    description: 'Number of tests executed'
+    value: ${{ steps.test.outputs.tests_run }}
+  tests_passed:
+    description: 'Number of tests passed'
+    value: ${{ steps.test.outputs.tests_passed }}
+  coverage_path:
+    description: 'Path to coverage report'
+    value: 'coverage.xml'
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="${{ inputs.username }}"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ../set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Composer Install
-      uses: ivuorinen/actions/php-composer@main
+      uses: ../php-composer
 
     - name: Run PHPUnit Tests
       shell: bash
-      run: vendor/bin/phpunit --verbose
+      run: |-
+        set -euo pipefail
+
+        vendor/bin/phpunit --verbose

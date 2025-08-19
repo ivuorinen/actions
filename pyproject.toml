@@ -1,0 +1,251 @@
+# Python dependencies and tool configuration for GitHub Actions repository
+# This is not a Python package, just dependency and tool management
+
+[project]
+name = "ivuorinen-actions"
+version = "1.0.0"
+description = "Reusable GitHub Actions with Python validation and testing framework"
+authors = [{name = "Ismo Vuorinen", email = "ismo@ivuorinen.net"}]
+requires-python = ">=3.8"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.1.0",
+]
+
+# Build configuration - include only specific validation files
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["validate-inputs"]
+
+[tool.ruff]
+# Ruff configuration for Python linting and formatting
+target-version = "py38"
+line-length = 100
+indent-width = 4
+
+[tool.ruff.lint]
+# Enable comprehensive rule sets
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # Pyflakes
+    "I",   # isort (import sorting)
+    "N",   # pep8-naming
+    "D",   # pydocstyle (docstrings)
+    "UP",  # pyupgrade
+    "YTT", # flake8-2020
+    "ANN", # flake8-annotations
+    "S",   # flake8-bandit (security)
+    "BLE", # flake8-blind-except
+    "FBT", # flake8-boolean-trap
+    "B",   # flake8-bugbear
+    "A",   # flake8-builtins
+    "COM", # flake8-commas
+    "C4",  # flake8-comprehensions
+    "DTZ", # flake8-datetimez
+    "T10", # flake8-debugger
+    "EM",  # flake8-errmsg
+    "EXE", # flake8-executable
+    "FA",  # flake8-future-annotations
+    "ISC", # flake8-implicit-str-concat
+    "ICN", # flake8-import-conventions
+    "G",   # flake8-logging-format
+    "INP", # flake8-no-pep420
+    "PIE", # flake8-pie
+    "T20", # flake8-print
+    "PYI", # flake8-pyi
+    "PT",  # flake8-pytest-style
+    "Q",   # flake8-quotes
+    "RSE", # flake8-raise
+    "RET", # flake8-return
+    "SLF", # flake8-self
+    "SLOT", # flake8-slots
+    "SIM", # flake8-simplify
+    "TID", # flake8-tidy-imports
+    "TCH", # flake8-type-checking
+    "INT", # flake8-gettext
+    "ARG", # flake8-unused-arguments
+    "PTH", # flake8-use-pathlib
+    "ERA", # eradicate (commented code)
+    "PD",  # pandas-vet
+    "PGH", # pygrep-hooks
+    "PL",  # Pylint
+    "TRY", # tryceratops
+    "FLY", # flynt
+    "NPY", # NumPy-specific rules
+    "AIR", # Airflow
+    "PERF", # Perflint
+    "FURB", # refurb
+    "LOG", # flake8-logging
+    "RUF", # Ruff-specific rules
+]
+
+ignore = [
+    # Allow print statements (GitHub Actions logging)
+    "T201",
+    # Allow sys.exit calls
+    "TRY301",
+    # Allow broad exception catches (needed for GitHub Actions error handling)
+    "BLE001",
+    # Allow f-strings in logging (GitHub Actions uses print)
+    "G002",
+    # Allow TODO comments
+    "FIX002",
+    # Ignore rule that conflicts with formatter
+    "COM812",
+    # Allow subprocess calls (shell=False is default)
+    "S603",
+    # Allow hardcoded passwords (we're validating them, not storing)
+    "S105",
+    # Allow magic values in comparisons (version/date validation)
+    "PLR2004",
+    # Allow too many branches/statements (validation logic is complex)
+    "PLR0912",
+    "PLR0915",
+    # Allow long functions (validation methods are necessarily complex)
+    "PLR0913",
+    # Allow long lines for error messages and regex patterns
+    "E501",
+    # Allow simple patterns instead of suggesting complex optimizations
+    "SIM110",
+    "PERF102",
+    # Allow mutable class attributes for pattern dictionaries
+    "RUF012",
+    # Allow direct file operations for GitHub Actions output
+    "SIM115",
+    "PTH123",
+    "PTH110",
+    # Allow boolean parameters and complex return statements for validation logic
+    "FBT001",
+    "FBT002",
+    "PLR0911",
+    # Allow unused loop variables
+    "B007",
+    # Allow imports where needed for conditional logic
+    "PLC0415",
+    # Allow simple if/else patterns instead of complex suggestions
+    "TRY300",
+    "PIE810",
+    # Allow loop variable reassignment in data processing
+    "PLW2901",
+    # Allow unused variables in complex validation logic
+    "F841",
+    # Allow executable files without shebangs
+    "EXE002",
+    # Allow implicit namespace packages
+    "INP001",
+    # Allow future annotations suggestion
+    "FA100",
+    # Docstring requirements - relaxed for action scripts
+    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
+    # Annotations not required for simple scripts
+    "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204", "ANN205", "ANN206",
+]
+
+# Allow fix for all auto-fixable rules
+fixable = ["ALL"]
+unfixable = []
+
+# Allow unused variables when they start with underscore
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[tool.ruff.lint.per-file-ignores]
+# Test files can have additional relaxed rules
+"**/_tests/**" = [
+    "S101",    # Allow assert statements in tests
+    "PLR2004", # Allow magic values in tests
+    "ANN",     # No annotations required in tests
+    "D",       # No docstrings required in tests
+]
+"**/tests/**" = [
+    "S101",    # Allow assert statements in tests
+    "PLR2004", # Allow magic values in tests
+    "ANN",     # No annotations required in tests
+    "D",       # No docstrings required in tests
+    "PTH108",  # Allow os.unlink in tests
+    "RET504",  # Allow unnecessary assignments in tests
+    "PT006",   # Allow string parametrize arguments in pytest
+]
+
+# Scripts can have relaxed import rules
+"**/scripts/**" = [
+    "INP001",  # Allow implicit namespace packages
+    "T201",    # Allow print statements in scripts
+    "D415",    # Allow docstrings without periods
+    "PERF401", # Allow simple loops instead of comprehensions
+    "DTZ005",  # Allow datetime.now() without timezone
+    "RET504",  # Allow unnecessary assignments for clarity
+    "PERF203", # Allow try-except in loops for error handling
+]
+
+[tool.ruff.lint.isort]
+# Import organization
+known-first-party = ["validator", "validation", "framework"]
+force-single-line = false
+force-sort-within-sections = true
+single-line-exclusions = ["typing"]
+
+[tool.ruff.lint.pydocstyle]
+# Docstring style configuration
+convention = "google"
+
+[tool.ruff.format]
+# Formatting configuration
+quote-style = "double"
+indent-style = "space"
+# skip-string-normalization = false  # Removed - no longer supported in recent ruff versions
+line-ending = "auto"
+
+# Respect magic trailing commas
+skip-magic-trailing-comma = false
+
+[tool.pytest.ini_options]
+# Pytest configuration
+testpaths = ["validate-inputs/tests"]
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "--strict-markers",
+    "--strict-config",
+    "--ignore-glob=**/__pycache__/**",
+    "--ignore-glob=**/.*",
+]
+markers = [
+    "slow: marks tests as slow",
+    "integration: marks tests as integration tests",
+    "unit: marks tests as unit tests",
+    "no_coverage: skip in coverage mode",
+]
+
+[tool.coverage.run]
+# Coverage configuration - focus on application code only
+source = ["validate-inputs"]
+omit = [
+    "**/_tests/*",
+    "*/site-packages/*",
+]
+
+[tool.coverage.report]
+# Coverage reporting
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
+    "raise NotImplementedError",
+    "if 0:",
+    "if __name__ == .__main__.:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
+]

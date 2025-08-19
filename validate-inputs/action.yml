@@ -1,0 +1,150 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: 'Validate Action Inputs'
+description: 'Centralized Python-based input validation for GitHub Actions with PCRE regex support'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: 'shield'
+  color: 'green'
+
+inputs:
+  action-type:
+    description: 'Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)'
+    required: true
+
+  # Common inputs that can be validated across actions
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+  namespace:
+    description: 'Namespace/username for validation'
+    required: false
+  email:
+    description: 'Email address for validation'
+    required: false
+  username:
+    description: 'Username for validation'
+    required: false
+
+  # Version-related inputs
+  dotnet-version:
+    description: '.NET version string'
+    required: false
+  terraform-version:
+    description: 'Terraform version string'
+    required: false
+  tflint-version:
+    description: 'TFLint version string'
+    required: false
+  node-version:
+    description: 'Node.js version string'
+    required: false
+  force-version:
+    description: 'Force version override'
+    required: false
+  default-version:
+    description: 'Default version fallback'
+    required: false
+
+  # Docker-related inputs
+  image-name:
+    description: 'Docker image name'
+    required: false
+  tag:
+    description: 'Docker image tag'
+    required: false
+  architectures:
+    description: 'Target architectures'
+    required: false
+  dockerfile:
+    description: 'Dockerfile path'
+    required: false
+  context:
+    description: 'Docker build context'
+    required: false
+  build-args:
+    description: 'Docker build arguments'
+    required: false
+  buildx-version:
+    description: 'Docker Buildx version'
+    required: false
+
+  # Numeric inputs
+  max-retries:
+    description: 'Maximum retry attempts'
+    required: false
+  image-quality:
+    description: 'Image quality percentage'
+    required: false
+  png-quality:
+    description: 'PNG quality percentage'
+    required: false
+  parallel-builds:
+    description: 'Number of parallel builds'
+    required: false
+
+  # File/path inputs
+  pre-commit-config:
+    description: 'Pre-commit configuration file path'
+    required: false
+  base-branch:
+    description: 'Base branch name'
+    required: false
+
+  # Boolean inputs
+  dry-run:
+    description: 'Dry run mode'
+    required: false
+  is_fiximus:
+    description: 'Use Fiximus bot'
+    required: false
+
+  # Release inputs
+  prefix:
+    description: 'Release tag prefix'
+    required: false
+
+outputs:
+  validation-status:
+    description: 'Overall validation status (success/failure)'
+    value: ${{ steps.validate.outputs.status }}
+  error-message:
+    description: 'Validation error message if failed'
+    value: ${{ steps.validate.outputs.error }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Action Inputs with Python
+      id: validate
+      shell: bash
+      run: python3 validator.py
+      env:
+        INPUT_ACTION_TYPE: ${{ inputs.action-type }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_NAMESPACE: ${{ inputs.namespace }}
+        INPUT_EMAIL: ${{ inputs.email }}
+        INPUT_USERNAME: ${{ inputs.username }}
+        INPUT_DOTNET_VERSION: ${{ inputs.dotnet-version }}
+        INPUT_TERRAFORM_VERSION: ${{ inputs.terraform-version }}
+        INPUT_TFLINT_VERSION: ${{ inputs.tflint-version }}
+        INPUT_NODE_VERSION: ${{ inputs.node-version }}
+        INPUT_FORCE_VERSION: ${{ inputs.force-version }}
+        INPUT_DEFAULT_VERSION: ${{ inputs.default-version }}
+        INPUT_IMAGE_NAME: ${{ inputs.image-name }}
+        INPUT_TAG: ${{ inputs.tag }}
+        INPUT_ARCHITECTURES: ${{ inputs.architectures }}
+        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_BUILD_ARGS: ${{ inputs.build-args }}
+        INPUT_BUILDX_VERSION: ${{ inputs.buildx-version }}
+        INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_IMAGE_QUALITY: ${{ inputs.image-quality }}
+        INPUT_PNG_QUALITY: ${{ inputs.png-quality }}
+        INPUT_PARALLEL_BUILDS: ${{ inputs.parallel-builds }}
+        INPUT_PRE_COMMIT_CONFIG: ${{ inputs.pre-commit-config }}
+        INPUT_BASE_BRANCH: ${{ inputs.base-branch }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_IS_FIXIMUS: ${{ inputs.is_fiximus }}
+        INPUT_PREFIX: ${{ inputs.prefix }}

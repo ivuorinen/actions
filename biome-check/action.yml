@@ -8,27 +8,179 @@ branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  max-retries:
+    description: 'Maximum number of retry attempts for npm install operations'
+    required: false
+    default: '3'
+
+outputs:
+  check_status:
+    description: 'Check status (success/failure)'
+    value: ${{ steps.check.outputs.status }}
+  errors_count:
+    description: 'Number of errors found'
+    value: ${{ steps.check.outputs.errors }}
+  warnings_count:
+    description: 'Number of warnings found'
+    value: ${{ steps.check.outputs.warnings }}
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="${{ inputs.username }}"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Checkout Repository
-      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ../set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Node Setup
-      uses: ivuorinen/actions/node-setup@main
+      id: node-setup
+      uses: ../node-setup
 
-    - name: Install Dependencies
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ../common-cache
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'biome-check-${{ steps.node-setup.outputs.package-manager }}'
+
+    - name: Install Biome
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
-        npm install -g biome
+        set -euo pipefail
+
+        package_manager="${{ steps.node-setup.outputs.package-manager }}"
+        max_retries="${{ inputs.max-retries }}"
+
+        echo "Installing Biome using $package_manager..."
+
+        for attempt in $(seq 1 $max_retries); do
+          echo "Attempt $attempt of $max_retries"
+
+          case "$package_manager" in
+            "pnpm")
+              if pnpm add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if yarn global add @biomejs/biome; then
+                echo "✅ Biome installed successfully with yarn"
+                exit 0
+              fi
+              ;;
+            "bun")
+              if bun add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm install -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt $max_retries ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install Biome after $max_retries attempts"
+        exit 1
 
     - name: Run Biome Check
+      id: check
       shell: bash
       run: |
-        biome check . --json > biome-report.json
+        set -euo pipefail
+
+        echo "Running Biome check..."
+
+        # Run Biome check with JSON output
+        if biome check . --reporter=json > biome-report.json 2>&1; then
+          echo "status=success" >> $GITHUB_OUTPUT
+          echo "errors=0" >> $GITHUB_OUTPUT
+          echo "warnings=0" >> $GITHUB_OUTPUT
+        else
+          # Parse JSON output for errors and warnings count
+          errors=$(jq '.diagnostics | length' biome-report.json 2>/dev/null || echo "0")
+          warnings="0"  # Biome doesn't separate warnings in JSON output
+
+          echo "status=failure" >> $GITHUB_OUTPUT
+          echo "errors=$errors" >> $GITHUB_OUTPUT
+          echo "warnings=$warnings" >> $GITHUB_OUTPUT
+
+          echo "::error::Biome check found $errors issues"
+        fi
+
+        echo "✅ Biome check completed"
 
     - name: Upload Biome Results
       uses: github/codeql-action/upload-sarif@df559355d593797519d70b90fc8edd5db049e7a2 # v3.29.9

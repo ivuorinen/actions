@@ -16,19 +16,128 @@ inputs:
     description: 'Build destination directory.'
     required: false
     default: './bin'
+  max-retries:
+    description: 'Maximum number of retry attempts for go mod download operations'
+    required: false
+    default: '3'
+
+outputs:
+  build_status:
+    description: 'Build completion status (success/failure)'
+    value: ${{ steps.build.outputs.status }}
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  go_version:
+    description: 'Version of Go used'
+    value: ${{ steps.detect-go-version.outputs.go-version }}
+  binary_path:
+    description: 'Path to built binaries'
+    value: ${{ inputs.destination }}
+  coverage_path:
+    description: 'Path to coverage report'
+    value: 'coverage.out'
 
 runs:
   using: composite
   steps:
     - name: Detect Go Version
-      uses: ivuorinen/actions/go-version-detect@main
+      id: detect-go-version
+      uses: ../go-version-detect
+      with:
+        default-version: "${{ inputs.go-version || '1.21' }}"
 
     - name: Setup Go
       uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
       with:
-        go-version: '${{ steps.detect-go-version.outputs.go-version }}'
+        go-version: ${{ steps.detect-go-version.outputs.go-version }}
+        cache: true
+
+    - name: Cache Go Dependencies
+      id: cache-go
+      uses: ../common-cache
+      with:
+        type: 'go'
+        paths: '~/go/pkg/mod'
+        key-files: 'go.mod,go.sum'
+        key-prefix: 'go-build'
+
+    - name: Download Dependencies
+      if: steps.cache-go.outputs.cache-hit != 'true'
+      uses: ../common-retry
+      with:
+        command: |
+          echo "Downloading Go dependencies..."
+          go mod download
+          go mod verify
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Downloading Go modules'
 
     - name: Build Go Project
+      id: build
       shell: bash
       run: |
-        go build -o ${{ inputs.destination }} ./...
+        set -euo pipefail
+        echo "Building Go project..."
+
+        # Create destination directory
+        mkdir -p "${{ inputs.destination }}"
+
+        build_success=true
+        # Check if there are any main packages
+        if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
+          # Build all main packages
+          for main_dir in $(find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u); do
+            echo "Building package in $main_dir..."
+            cd "$main_dir"
+            output_name=$(basename "$main_dir")
+            if ! go build -ldflags="-s -w" -o "../${{ inputs.destination }}/$output_name" .; then
+              build_success=false
+            fi
+            cd - > /dev/null
+          done
+        else
+          echo "No main packages found, building library..."
+          if ! go build ./...; then
+            build_success=false
+          fi
+        fi
+
+        if [ "$build_success" = true ]; then
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "Build completed successfully"
+        else
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "Build failed"
+          exit 1
+        fi
+
+    - name: Run Tests
+      id: test
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Running Go tests..."
+        if find . -name "*_test.go" | grep -q .; then
+          if go test -v ./... -race -coverprofile=coverage.out; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "Tests completed successfully"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "Tests failed"
+            exit 1
+          fi
+        else
+          echo "No test files found, skipping test execution."
+          echo "status=skipped" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Upload Build Artifacts
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: go-build-artifacts
+        path: |
+          ${{ inputs.destination }}/*
+          coverage.out
+        if-no-files-found: ignore

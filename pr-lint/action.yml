@@ -1,24 +1,81 @@
 # MegaLinter GitHub Action configuration file
 # More info at https://megalinter.io
 ---
-name: MegaLinter
-description: Run MegaLinter on the repository
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+name: PR Lint
+description: Runs MegaLinter against pull requests
 author: Ismo Vuorinen
 
 branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+
+outputs:
+  validation_status:
+    description: 'Overall validation status (success/failure)'
+    value: ${{ steps.ml.outputs.has_updated_sources == '1' && 'failure' || 'success' }}
+  errors_found:
+    description: 'Number of linting errors found'
+    value: ${{ steps.ml.outputs.has_updated_sources }}
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
+          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
+          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="${{ inputs.username }}"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     #   ╭──────────────────────────────────────────────────────────╮
     #   │                       Git Checkout                       │
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Checkout Code
-      uses: actions/checkout@08eba0b27e820071cde6df949e0beb9ba4906955 # v4.3.0
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
-        token: ${{ github.token }}
+        token: ${{ inputs.token }}
 
         # If you use VALIDATE_ALL_CODEBASE = true, you can remove this line to
         # improve performance
@@ -29,7 +86,11 @@ runs:
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Setup Git Config
       id: git-config
-      uses: ivuorinen/actions/set-git-config@fa0232d3c4ba16d087b606296435354a69c01756 # 25.8.11
+      uses: ../set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     #   ╭──────────────────────────────────────────────────────────╮
     #   │               Install packages for linting               │
@@ -40,95 +101,113 @@ runs:
       id: detect-node
       shell: bash
       run: |
+        set -euo pipefail
+
         if [ -f package.json ]; then
           echo "found=true" >> $GITHUB_OUTPUT
         fi
 
-    - name: Setup Node.js and run tests
+    - name: Setup Node.js environment
       if: steps.detect-node.outputs.found == 'true'
-      uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
-
-    - name: Install Node.js dependencies
-      if: steps.detect-node.outputs.found == 'true'
-      shell: bash
-      run: |
-        if [ -f pnpm-lock.yaml ]; then
-          npm install -g pnpm
-          pnpm install
-        elif [ -f yarn.lock ]; then
-          npm install -g yarn
-          yarn install
-        elif [ -f package-lock.json ]; then
-          if ! npm ci; then
-            echo "::warning ::npm ci failed – falling back to npm install (lockfile drift?)"
-            npm install
-          fi
-        else
-          echo "No supported lockfile found, skipping Node.js dependencies installation."
-        fi
+      uses: ../node-setup
+      with:
+        install: true
+        cache: true
 
     # PHP tests if composer.json exists
     - name: Detect composer.json
       id: detect-php
       shell: bash
       run: |
+        set -euo pipefail
+
         if [ -f composer.json ]; then
           echo "found=true" >> $GITHUB_OUTPUT
         fi
 
+    - name: Detect PHP Version
+      if: steps.detect-php.outputs.found == 'true'
+      id: php-version
+      uses: ../php-version-detect
+
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
-      uses: shivammathur/setup-php@9e72090525849c5e82e596468b86eb55e9cc5401 # master
+      uses: shivammathur/setup-php@20529878ed81ef8e78ddf08b480401e6101a850f # 2.35.3
       with:
+        php-version: ${{ steps.php-version.outputs.php-version }}
         tools: composer
         coverage: none
       env:
-        GITHUB_TOKEN: ${{ github.token }}
+        GITHUB_TOKEN: ${{ inputs.token }}
 
     - name: Setup problem matchers for PHP
       if: steps.detect-php.outputs.found == 'true'
       shell: bash
-      run: echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+      run: |
+        set -euo pipefail
+
+        echo "::add-matcher::${{ runner.tool_cache }}/php.json"
 
     - name: Install PHP dependencies
       if: steps.detect-php.outputs.found == 'true'
       shell: bash
-      run: composer install --no-progress --prefer-dist --no-interaction
+      run: |
+        set -euo pipefail
+
+        composer install --no-progress --prefer-dist --no-interaction
 
     # Python tests if requirements.txt exists
     - name: Detect requirements.txt
       id: detect-python
       shell: bash
       run: |
+        set -euo pipefail
+
         if [ -f requirements.txt ]; then
           echo "found=true" >> $GITHUB_OUTPUT
         fi
+
+    - name: Detect Python Version
+      if: steps.detect-python.outputs.found == 'true'
+      id: python-version
+      uses: ../python-version-detect
 
     - name: Setup Python
       if: steps.detect-python.outputs.found == 'true'
       uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
       with:
+        python-version: ${{ steps.python-version.outputs.python-version }}
         cache: 'pip'
 
     - name: Install Python dependencies
       if: steps.detect-python.outputs.found == 'true'
       shell: bash
-      run: pip install -r requirements.txt
+      run: |
+        set -euo pipefail
+
+        pip install -r requirements.txt
 
     # Go tests if go.mod exists
     - name: Detect go.mod
       id: detect-go
       shell: bash
       run: |
+        set -euo pipefail
+
         if [ -f go.mod ]; then
           echo "found=true" >> $GITHUB_OUTPUT
         fi
+
+    - name: Detect Go Version
+      if: steps.detect-go.outputs.found == 'true'
+      id: go-version
+      uses: ../go-version-detect
 
     - name: Setup Go
       if: steps.detect-go.outputs.found == 'true'
       uses: actions/setup-go@d35c59abb061a4a6fb18e82ac0862c26744d6ab5 # v5.5.0
       with:
-        go-version-file: 'go.mod'
+        go-version: ${{ steps.go-version.outputs.go-version }}
         cache: true
 
     #   ╭──────────────────────────────────────────────────────────╮
@@ -161,7 +240,7 @@ runs:
             contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
           }}
 
-        GITHUB_TOKEN: ${{ steps.git-config.outputs.token || github.token }}
+        GITHUB_TOKEN: ${{ steps.git-config.outputs.token || inputs.token }}
 
         # Apply linter fixes configuration
         #
@@ -198,6 +277,8 @@ runs:
     - name: Set APPLY_FIXES_IF var
       shell: bash
       run: |
+        set -euo pipefail
+
         printf 'APPLY_FIXES_IF=%s\n' "${{
           steps.ml.outputs.has_updated_sources == 1 &&
           (
@@ -214,6 +295,8 @@ runs:
     - name: Set APPLY_FIXES_IF_* vars
       shell: bash
       run: |
+        set -euo pipefail
+
         printf 'APPLY_FIXES_IF_PR=%s\n' "${{
           env.APPLY_FIXES_IF == 'true' &&
           env.APPLY_FIXES_MODE == 'pull_request'
@@ -231,7 +314,7 @@ runs:
       id: cpr
       if: env.APPLY_FIXES_IF_PR == 'true'
       with:
-        token: ${{ steps.git-config.outputs.token || github.token }}
+        token: ${{ steps.git-config.outputs.token || inputs.token }}
         commit-message: '[MegaLinter] Apply linters automatic fixes'
         title: '[MegaLinter] Apply linters automatic fixes'
         labels: bot
@@ -240,6 +323,8 @@ runs:
       if: env.APPLY_FIXES_IF_PR == 'true'
       shell: bash
       run: |
+        set -euo pipefail
+
         echo "PR Number - ${{ steps.cpr.outputs.pull-request-number }}"
         echo "PR URL - ${{ steps.cpr.outputs.pull-request-url }}"
 
@@ -248,7 +333,10 @@ runs:
     - name: Prepare commit
       if: env.APPLY_FIXES_IF_COMMIT == 'true'
       shell: bash
-      run: sudo chown -Rc $UID .git/
+      run: |
+        set -euo pipefail
+
+        sudo chown -Rc $UID .git/
 
     - name: Commit and push applied linter fixes
       uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6.0.1
