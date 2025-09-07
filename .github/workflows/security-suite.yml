@@ -87,7 +87,7 @@ jobs:
             --enableExperimental
             --failOnCVSS 7
       - name: Upload OWASP Results
-        uses: github/codeql-action/upload-sarif@3c3833e0f8c1c83d449a7478aa59c036a9165498 # v3.29.11
+        uses: github/codeql-action/upload-sarif@f1f6e5f6af878fb37288ce1c627459e94dbf7d01 # v3.30.1
         with:
           sarif_file: reports/dependency-check-report.sarif
           category: owasp-dependency-check
@@ -119,7 +119,7 @@ jobs:
         with:
           args: --all-projects --sarif-file-output=snyk-results.sarif
       - name: Upload Snyk Results
-        uses: github/codeql-action/upload-sarif@3c3833e0f8c1c83d449a7478aa59c036a9165498 # v3.29.11
+        uses: github/codeql-action/upload-sarif@f1f6e5f6af878fb37288ce1c627459e94dbf7d01 # v3.30.1
         with:
           sarif_file: snyk-results.sarif
           category: snyk
@@ -146,7 +146,7 @@ jobs:
           results_format: sarif
           publish_results: true
       - name: Upload Scorecard Results
-        uses: github/codeql-action/upload-sarif@3c3833e0f8c1c83d449a7478aa59c036a9165498 # v3.29.11
+        uses: github/codeql-action/upload-sarif@f1f6e5f6af878fb37288ce1c627459e94dbf7d01 # v3.30.1
         with:
           sarif_file: scorecard-results.sarif
           category: scorecard
