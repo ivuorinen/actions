@@ -57,7 +57,7 @@ runs:
         fi
 
         # Validate username format (prevent command injection)
-        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
+        if [[ "${{ inputs.username }}" =~ [;&|] ]]; then
           echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
           exit 1
         fi

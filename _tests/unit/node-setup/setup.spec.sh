@@ -11,7 +11,7 @@ Describe "node-setup action"
 
   Context "when validating inputs"
     It "accepts valid Node.js version"
-      When call test_input_validation "$ACTION_DIR" "node-version" "18.17.0" "success"
+      When call test_input_validation "$ACTION_DIR" "default-version" "18.17.0" "success"
       The status should be success
     End
 
@@ -41,12 +41,12 @@ Describe "node-setup action"
     End
 
     It "rejects malformed Node.js version"
-      When call test_input_validation "$ACTION_DIR" "node-version" "not-a-version" "failure"
+      When call test_input_validation "$ACTION_DIR" "default-version" "not-a-version" "failure"
       The status should be success
     End
 
     It "rejects command injection in inputs"
-      When call test_input_validation "$ACTION_DIR" "node-version" "18.0.0; rm -rf /" "failure"
+      When call test_input_validation "$ACTION_DIR" "default-version" "18.0.0; rm -rf /" "failure"
       The status should be success
     End
   End
@@ -84,7 +84,7 @@ Describe "node-setup action"
       create_mock_node_repo
 
       # Mock action output based on package.json
-      echo "node-version=18.0.0" >> "$GITHUB_OUTPUT"
+      echo "node-version=18.0.0" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "node-version" "18.0.0"
       The status should be success
@@ -92,10 +92,10 @@ Describe "node-setup action"
 
     It "detects version from .nvmrc file"
       create_mock_node_repo
-      echo "18.17.1" > .nvmrc
+      echo "18.17.1" >.nvmrc
 
       # Mock action output
-      echo "node-version=18.17.1" >> "$GITHUB_OUTPUT"
+      echo "node-version=18.17.1" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "node-version" "18.17.1"
       The status should be success
@@ -106,7 +106,7 @@ Describe "node-setup action"
       # Remove engines field simulation
 
       # Mock default version output
-      echo "node-version=20.0.0" >> "$GITHUB_OUTPUT"
+      echo "node-version=20.0.0" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "node-version" "20.0.0"
       The status should be success
@@ -121,7 +121,7 @@ Describe "node-setup action"
       create_mock_node_repo
       touch bun.lockb
 
-      echo "package-manager=bun" >> "$GITHUB_OUTPUT"
+      echo "package-manager=bun" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "package-manager" "bun"
       The status should be success
@@ -131,7 +131,7 @@ Describe "node-setup action"
       create_mock_node_repo
       touch pnpm-lock.yaml
 
-      echo "package-manager=pnpm" >> "$GITHUB_OUTPUT"
+      echo "package-manager=pnpm" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "package-manager" "pnpm"
       The status should be success
@@ -141,7 +141,7 @@ Describe "node-setup action"
       create_mock_node_repo
       touch yarn.lock
 
-      echo "package-manager=yarn" >> "$GITHUB_OUTPUT"
+      echo "package-manager=yarn" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "package-manager" "yarn"
       The status should be success
@@ -151,7 +151,7 @@ Describe "node-setup action"
       create_mock_node_repo
       touch package-lock.json
 
-      echo "package-manager=npm" >> "$GITHUB_OUTPUT"
+      echo "package-manager=npm" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "package-manager" "npm"
       The status should be success
@@ -170,7 +170,7 @@ Describe "node-setup action"
     "node": ">=18.0.0"
   }
 }
-EOF
+      EOF
 
       echo "package-manager=pnpm" >> "$GITHUB_OUTPUT"
 
@@ -193,10 +193,10 @@ EOF
   "version": "1.0.0",
   "packageManager": "yarn@3.6.0"
 }
-EOF
+      EOF
 
       # Mock Corepack enabled output
-      echo "corepack-enabled=true" >> "$GITHUB_OUTPUT"
+      echo "corepack-enabled=true" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "corepack-enabled" "true"
       The status should be success
@@ -213,7 +213,7 @@ EOF
       mkdir -p node_modules
 
       # Mock cache hit
-      echo "cache-hit=true" >> "$GITHUB_OUTPUT"
+      echo "cache-hit=true" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "cache-hit" "true"
       The status should be success
@@ -224,7 +224,7 @@ EOF
       touch package-lock.json
 
       # Mock cache miss
-      echo "cache-hit=false" >> "$GITHUB_OUTPUT"
+      echo "cache-hit=false" >>"$GITHUB_OUTPUT"
 
       When call shellspec_validate_action_output "cache-hit" "false"
       The status should be success

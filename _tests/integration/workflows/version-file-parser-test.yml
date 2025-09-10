@@ -123,6 +123,18 @@ jobs:
           dockerfile-image: 'node'
           default-version: '20.0.0'
 
+      - name: Setup test files (package.json engines)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > package.json <<'EOF'
+          {
+            "name": "edge-case",
+            "engines": { "node": ">=18.0.0" }
+          }
+          EOF
+          echo "18.17.0" > .nvmrc
+
       - name: Validate existing version detection
         run: |
           # The action should detect Node.js version from package.json engines field (>=18.0.0)
@@ -150,6 +162,11 @@ jobs:
         run: |
           echo "Testing regex error handling completed"
           # Action should handle invalid regex gracefully
+          if [ "${{ steps.invalid-regex.outcome }}" != "failure" ]; then
+            echo "::error::Expected invalid-regex step to fail, but it was: ${{ steps.invalid-regex.outcome }}"
+            exit 1
+          fi
+          echo "✅ Invalid regex properly failed as expected"
 
   test-dockerfile-parsing:
     runs-on: ubuntu-latest

@@ -77,7 +77,7 @@ validate_dotnet_version() {
     if [[ $major_version =~ ^[0-9]+$ && $((major_version)) -ge 3 && $((major_version)) -le 20 ]]; then
       # Special case: version 20.x should only allow 20.0, not 20.1+
       if [[ $((major_version)) -eq 20 ]]; then
-        [[ $value =~ ^20(\.0(\..*)?)?$ ]] && echo "success" || echo "failure"
+        [[ $value =~ ^20(\.0(\.0)?)?$ ]] && echo "success" || echo "failure"
       else
         echo "success"
       fi

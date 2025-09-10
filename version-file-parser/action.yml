@@ -64,16 +64,10 @@ runs:
         # Function to validate version format
         validate_version() {
           local version=$1
-          local regex="${{ inputs.validation-regex }}"
+          local regex='${{ inputs.validation-regex }}'
 
-          # Safely validate regex before using it
-          if ! printf '%s' "$regex" | grep -E '^[^"\$`|;&<>(){}\[\]*?+^]+$' >/dev/null 2>&1; then
-            echo "::warning::Invalid regex pattern provided, using default validation" >&2
-            regex="^[0-9]+\.[0-9]+"
-          fi
-
-          # Use eval with proper error handling for regex test
-          if eval "[[ \"$version\" =~ $regex ]]" 2>/dev/null; then
+          # Validate version using safe regex matching
+          if [[ $version =~ ${regex} ]]; then
             return 0
           fi
           return 1
@@ -81,7 +75,7 @@ runs:
 
         # Function to clean version string
         clean_version() {
-          echo "$1" | tr -d 'v' | tr -d ' ' | tr -d '\n'
+          echo "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
         }
 
         # Initialize outputs
@@ -99,7 +93,7 @@ runs:
         # Parse .tool-versions file
         if [ -f .tool-versions ]; then
           echo "Checking .tool-versions for ${{ inputs.tool-versions-key }}..." >&2
-          version=$(grep -F "${{ inputs.tool-versions-key }}" .tool-versions | grep "^${{ inputs.tool-versions-key }}[[:space:]]" | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n' || echo "")
+          version=$(grep -F -e "${{ inputs.tool-versions-key }} " .tool-versions | sed 's/#.*//' | awk '{print $2}' | tr -d ' ' | tr -d '\n' || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -142,7 +136,7 @@ runs:
         # Parse language-specific version file
         if [ -n "${{ inputs.version-file }}" ] && [ -f "${{ inputs.version-file }}" ]; then
           echo "Checking ${{ inputs.version-file }}..." >&2
-          version=$(cat "${{ inputs.version-file }}" | head -1)
+          version=$(tr -d '\r' < "${{ inputs.version-file }}" | head -1)
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -262,7 +256,7 @@ runs:
           "go")
             # Check go.mod
             if [ -f go.mod ]; then
-              version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1)
+              version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1 || echo "")
               if [ -n "$version" ] && validate_version "$version"; then
                 echo "Found Go version in go.mod: $version" >&2
                 config_version="$version"
@@ -278,7 +272,7 @@ runs:
           "dotnet")
             # Check global.json
             if [ -f global.json ] && command -v jq >/dev/null 2>&1; then
-              version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null)
+              version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null || echo "")
               if [ -n "$version" ] && validate_version "$version"; then
                 echo "Found .NET version in global.json: $version" >&2
                 config_version="$version"

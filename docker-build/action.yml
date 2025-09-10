@@ -246,7 +246,26 @@ runs:
         if [ -n "${{ inputs.secrets }}" ]; then
           IFS=',' read -ra SECRETS <<< "${{ inputs.secrets }}"
           for secret in "${SECRETS[@]}"; do
-            secrets="$secrets --secret $secret"
+            # Trim whitespace
+            secret=$(echo "$secret" | xargs)
+
+            if [[ "$secret" == *"="* ]]; then
+              # Parse id=src format
+              id="${secret%%=*}"
+              src="${secret#*=}"
+
+              # Validate id and src are not empty
+              if [[ -z "$id" || -z "$src" ]]; then
+                echo "::error::Invalid secret format: '$secret'. Expected 'id=src' where both id and src are non-empty"
+                exit 1
+              fi
+
+              secrets="$secrets --secret id=$id,src=$src"
+            else
+              # Handle legacy format - treat as id only (error for now)
+              echo "::error::Invalid secret format: '$secret'. Expected 'id=src' format for Buildx compatibility"
+              exit 1
+            fi
           done
         fi
         echo "secrets=${secrets}" >> $GITHUB_OUTPUT
@@ -384,8 +403,11 @@ runs:
 
             # Parse metadata
             if [ -f /tmp/build-metadata.json ]; then
-              metadata=$(cat /tmp/build-metadata.json)
-              echo "metadata=${metadata}" >> $GITHUB_OUTPUT
+              {
+                echo "metadata<<EOF"
+                cat /tmp/build-metadata.json
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
 
               # Extract SBOM location
               sbom_location=$(echo "$metadata" | jq -r '.sbom.location // ""')
@@ -449,7 +471,7 @@ runs:
         echo "results=${scan_results}" >> $GITHUB_OUTPUT
 
         # Check for critical vulnerabilities
-        critical_count=$(cat /tmp/scan-results.json | jq '.Results[].Vulnerabilities[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
+        critical_count=$(cat /tmp/scan-results.json | jq '.Results[] | (.Vulnerabilities // [])[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
         if [ "$critical_count" -gt 0 ]; then
           echo "::warning::Found $critical_count critical vulnerabilities in image"
         fi

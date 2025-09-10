@@ -43,7 +43,7 @@ inputs:
   retry-codes:
     description: 'Comma-separated list of exit codes that should trigger retry'
     required: false
-    default: '1,2,126,127'
+    default: '1,2,124,126,127'
   description:
     description: 'Human-readable description of the operation for logging'
     required: false
@@ -96,9 +96,9 @@ runs:
           exit 1
         fi
 
-        # Validate shell
-        if ! [[ "${{ inputs.shell }}" =~ ^(bash|sh)$ ]]; then
-          echo "::error::Invalid shell: '${{ inputs.shell }}'. Must be bash or sh"
+        # Validate shell (only bash supported due to script features)
+        if ! [[ "${{ inputs.shell }}" =~ ^bash$ ]]; then
+          echo "::error::Invalid shell: '${{ inputs.shell }}'. Must be bash (sh not supported due to pipefail requirement)"
           exit 1
         fi
 

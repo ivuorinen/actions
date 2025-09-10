@@ -8,11 +8,11 @@ Validates and normalizes version strings using customizable regex patterns
 
 ### Inputs
 
-| name               | description                             | required | default                       |
-|--------------------|-----------------------------------------|----------|-------------------------------|
-| `version`          | <p>Version string to validate</p>       | `true`   | `""`                          |
-| `validation-regex` | <p>Regex pattern for validation</p>     | `false`  | `^[0-9]+\.[0-9]+(\.[0-9]+)?$` |
-| `language`         | <p>Language name for error messages</p> | `false`  | `version`                     |
+| name               | description                             | required | default                                                            |
+|--------------------|-----------------------------------------|----------|--------------------------------------------------------------------|
+| `version`          | <p>Version string to validate</p>       | `true`   | `""`                                                               |
+| `validation-regex` | <p>Regex pattern for validation</p>     | `false`  | `^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$` |
+| `language`         | <p>Language name for error messages</p> | `false`  | `version`                                                          |
 
 ### Outputs
 
@@ -41,7 +41,7 @@ This action is a `composite` action.
     # Regex pattern for validation
     #
     # Required: false
-    # Default: ^[0-9]+\.[0-9]+(\.[0-9]+)?$
+    # Default: ^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$
 
     language:
     # Language name for error messages

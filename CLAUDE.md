@@ -4,7 +4,7 @@ Guidance for Claude Code (claude.ai/code) when working with this repository.
 
 ## Repository Overview
 
-**40 GitHub Actions** in flat directory structure, each self-contained with `action.yml`.
+**41 GitHub Actions** in a flat directory structure, each self-contained with an `action.yml`.
 
 **Recent Achievements (August 2025):**
 
@@ -31,7 +31,7 @@ Guidance for Claude Code (claude.ai/code) when working with this repository.
 
 **Publishing (5)**: `npm-publish`, `docker-publish`, `docker-publish-gh`, `docker-publish-hub`, `csharp-publish`
 
-**Repository (7)**: `github-release`, `release-monthly`, `sync-labels`, `stale`, `compress-images`, `common-cache`, `common-file-check`
+**Repository (8)**: `github-release`, `release-monthly`, `sync-labels`, `stale`, `compress-images`, `common-cache`, `common-file-check`, `common-retry`
 
 ## Development
 
@@ -58,7 +58,7 @@ npx prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json"
 npx markdown-table-formatter "**/*.md"
 npx yaml-lint "**/*.yml" "**/*.yaml"
 actionlint
-shellcheck **/*.sh
+find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} +  # Excludes shellspec files
 uv run ruff check --fix validate-inputs/
 uv run ruff format validate-inputs/
 ```

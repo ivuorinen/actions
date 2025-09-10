@@ -50,5 +50,5 @@ runs:
         language: 'dotnet'
         tool-versions-key: 'dotnet'
         dockerfile-image: 'dotnet'
-        validation-regex: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+        validation-regex: '^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'
         default-version: ${{ inputs.default-version }}

@@ -87,6 +87,7 @@ select = [
     "FURB", # refurb
     "LOG", # flake8-logging
     "RUF", # Ruff-specific rules
+    "C90", # mccabe complexity
 ]
 
 ignore = [
@@ -108,9 +109,9 @@ ignore = [
     "S105",
     # Allow magic values in comparisons (version/date validation)
     "PLR2004",
-    # Allow too many branches/statements (validation logic is complex)
-    "PLR0912",
-    "PLR0915",
+    # Temporarily enable complexity detection - to be re-enabled after fixes
+    # "PLR0912", # too-many-branches
+    # "PLR0915", # too-many-statements
     # Allow long functions (validation methods are necessarily complex)
     "PLR0913",
     # Allow long lines for error messages and regex patterns
@@ -194,6 +195,15 @@ force-single-line = false
 force-sort-within-sections = true
 single-line-exclusions = ["typing"]
 
+[tool.ruff.lint.mccabe]
+# Complexity thresholds
+max-complexity = 10
+
+[tool.ruff.lint.pylint]
+# Pylint complexity settings
+max-branches = 12
+max-statements = 50
+
 [tool.ruff.lint.pydocstyle]
 # Docstring style configuration
 convention = "google"
@@ -202,7 +212,6 @@ convention = "google"
 # Formatting configuration
 quote-style = "double"
 indent-style = "space"
-# skip-string-normalization = false  # Removed - no longer supported in recent ruff versions
 line-ending = "auto"
 
 # Respect magic trailing commas

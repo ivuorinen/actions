@@ -38,7 +38,7 @@ outputs:
     value: ${{ inputs.package-version }}
   npm_token:
     description: 'NPM token.'
-    value: ${{ inputs.token }}
+    value: ${{ inputs.npm_token }}
 
 runs:
   using: composite
@@ -87,7 +87,9 @@ runs:
       run: |
         set -euo pipefail
 
-        echo "//${{ inputs.registry-url }}/:_authToken=${{ inputs.npm_token }}" > ~/.npmrc
+        registry_host="$(echo "${{ inputs.registry-url }}" | sed -E 's#^https?://##; s#/$##')"
+        echo "//${registry_host}/:_authToken=${{ inputs.npm_token }}" > ~/.npmrc
+        echo "always-auth=true" >> ~/.npmrc
 
     - name: Publish Package
       shell: bash
@@ -97,8 +99,12 @@ runs:
         set -euo pipefail
 
         pkg_version=$(node -p "require('./package.json').version")
-        if [ "$pkg_version" != "${{ inputs.package-version }}" ]; then
-          echo "::error::Version mismatch: package.json ($pkg_version) != input (${{ inputs.package-version }})"
+        input_version="${{ inputs.package-version }}"
+        # Strip leading v/V and whitespace from input version
+        sanitized_version=$(echo "$input_version" | sed 's/^[[:space:]]*[vV]//' | sed 's/[[:space:]]*$//')
+
+        if [ "$pkg_version" != "$sanitized_version" ]; then
+          echo "::error::Version mismatch: package.json ($pkg_version) != input (sanitized: $sanitized_version, original: $input_version)"
           exit 1
         fi
 

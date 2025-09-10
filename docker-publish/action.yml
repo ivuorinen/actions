@@ -197,10 +197,21 @@ runs:
           echo "Checking ${registry} publication..."
           case "${registry}" in
             "dockerhub")
-              # Use docker manifest inspect for more reliable verification
-              image_name="docker.io/${{ github.repository }}"
-              IFS=',' read -ra TAGS <<< "${{ steps.tags.outputs.all-tags }}"
+              # Get actual image name from publish step output or fallback to repo-based name
+              image_name="${{ steps.publish-dockerhub.outputs.image-name }}"
+              if [[ -z "$image_name" ]]; then
+                image_name="docker.io/${{ github.repository }}"
+              fi
+
+              # Get tags from publish step or fallback to metadata
+              tags="${{ steps.publish-dockerhub.outputs.tags }}"
+              if [[ -z "$tags" ]]; then
+                tags="${{ steps.tags.outputs.all-tags }}"
+              fi
+
+              IFS=',' read -ra TAGS <<< "$tags"
               for tag in "${TAGS[@]}"; do
+                tag=$(echo "$tag" | xargs) # trim whitespace
                 if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
                   echo "::error::Failed to verify Docker Hub publication for ${tag}"
                   success=false
@@ -212,10 +223,21 @@ runs:
               fi
               ;;
             "github")
-              # Use docker manifest inspect for GitHub Container Registry
-              image_name="ghcr.io/${{ github.repository }}"
-              IFS=',' read -ra TAGS <<< "${{ steps.tags.outputs.all-tags }}"
+              # Get actual image name from publish step output or fallback to repo-based name
+              image_name="${{ steps.publish-github.outputs.image-name }}"
+              if [[ -z "$image_name" ]]; then
+                image_name="ghcr.io/${{ github.repository }}"
+              fi
+
+              # Get tags from publish step or fallback to metadata
+              tags="${{ steps.publish-github.outputs.tags }}"
+              if [[ -z "$tags" ]]; then
+                tags="${{ steps.tags.outputs.all-tags }}"
+              fi
+
+              IFS=',' read -ra TAGS <<< "$tags"
               for tag in "${TAGS[@]}"; do
+                tag=$(echo "$tag" | xargs) # trim whitespace
                 if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
                   echo "::error::Failed to verify GitHub Packages publication for ${tag}"
                   success=false

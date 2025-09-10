@@ -18,7 +18,7 @@ Standardized retry utility for network operations and flaky commands
 | `working-directory` | <p>Working directory to execute command in</p>                      | `false`  | `.`                 |
 | `shell`             | <p>Shell to use for command execution</p>                           | `false`  | `bash`              |
 | `success-codes`     | <p>Comma-separated list of success exit codes</p>                   | `false`  | `0`                 |
-| `retry-codes`       | <p>Comma-separated list of exit codes that should trigger retry</p> | `false`  | `1,2,126,127`       |
+| `retry-codes`       | <p>Comma-separated list of exit codes that should trigger retry</p> | `false`  | `1,2,124,126,127`   |
 | `description`       | <p>Human-readable description of the operation for logging</p>      | `false`  | `Command execution` |
 
 ### Outputs
@@ -91,7 +91,7 @@ This action is a `composite` action.
     # Comma-separated list of exit codes that should trigger retry
     #
     # Required: false
-    # Default: 1,2,126,127
+    # Default: 1,2,124,126,127
 
     description:
     # Human-readable description of the operation for logging

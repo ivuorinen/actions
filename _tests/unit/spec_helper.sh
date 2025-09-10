@@ -891,7 +891,14 @@ validate_action_yml_quiet() {
 # Export all new simplified helpers (functions are moved above)
 export -f validate_action_yml_quiet
 
-# Set up cleanup trap for temp directory
-trap 'rm -rf "$TEMP_DIR"' EXIT
+# Set up cleanup trap for temp directory, preserving any existing EXIT trap
+_existing_exit_trap=$(trap -p EXIT | cut -d"'" -f2 2>/dev/null || echo "")
+if [[ -n "$_existing_exit_trap" ]]; then
+  # shellcheck disable=SC2064
+  trap "$_existing_exit_trap; rm -rf \"\$TEMP_DIR\"" EXIT
+else
+  trap 'rm -rf "$TEMP_DIR"' EXIT
+fi
+unset _existing_exit_trap
 
 log_success "ShellSpec spec helper loaded successfully"

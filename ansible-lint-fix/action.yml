@@ -108,6 +108,7 @@ runs:
         description: 'Installing Python dependencies (ansible-lint)'
 
     - name: Run ansible-lint
+      id: lint
       shell: bash
       run: |
         set -euo pipefail

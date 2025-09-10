@@ -54,7 +54,7 @@ runs:
       id: detect-dotnet-version
       uses: ../dotnet-version-detect
       with:
-        default-version: '7.0'
+        default-version: ${{ inputs.dotnet-version || '7.0' }}
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0

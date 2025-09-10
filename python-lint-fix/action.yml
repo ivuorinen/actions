@@ -36,7 +36,6 @@ inputs:
   token:
     description: 'GitHub token for authentication'
     required: false
-    default: ${{ github.token }}
   username:
     description: 'GitHub username for commits'
     required: false

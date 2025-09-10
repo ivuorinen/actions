@@ -94,7 +94,7 @@ runs:
       run: |
         set -euo pipefail
         echo "Running .NET tests..."
-        if find . -name "*.csproj" -exec grep -l "Microsoft.NET.Test" {} \; | head -1 | grep -q .; then
+        if find . -name "*.csproj" | xargs grep -lE "(Microsoft\.NET\.Test\.Sdk|xunit|nunit)" | head -1 | grep -q .; then
           if dotnet test --configuration Release --no-build \
             --collect:"XPlat Code Coverage" \
             --logger "trx;LogFileName=test-results.trx" \

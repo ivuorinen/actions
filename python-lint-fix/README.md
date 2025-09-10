@@ -16,7 +16,7 @@ Lints and fixes Python files, commits changes, and uploads SARIF report.
 | `max-retries`       | <p>Maximum number of retry attempts for installations and linting</p> | `false`  | `3`                         |
 | `working-directory` | <p>Directory containing Python files to lint</p>                      | `false`  | `.`                         |
 | `fail-on-error`     | <p>Whether to fail the action if linting errors are found</p>         | `false`  | `true`                      |
-| `token`             | <p>GitHub token for authentication</p>                                | `false`  | `${{ github.token }}`       |
+| `token`             | <p>GitHub token for authentication</p>                                | `false`  | `""`                        |
 | `username`          | <p>GitHub username for commits</p>                                    | `false`  | `github-actions`            |
 | `email`             | <p>GitHub email for commits</p>                                       | `false`  | `github-actions@github.com` |
 
@@ -77,7 +77,7 @@ This action is a `composite` action.
     # GitHub token for authentication
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 
     username:
     # GitHub username for commits
