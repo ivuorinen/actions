@@ -29,6 +29,3 @@
 
 # Do not sandbox (we need access to real commands for testing)
 --no-sandbox
-
-# Workaround to avoid errors when running in GitHub Actions
---error-exit-code=0

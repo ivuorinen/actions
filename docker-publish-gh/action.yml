@@ -185,7 +185,7 @@ runs:
         password: ${{ inputs.token }}
 
     - name: Set up Cosign
-      if: inputs.provenance == 'true'
+      if: inputs.provenance == 'true' || inputs.sign-image == 'true'
       uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
 
     - name: Detect Available Platforms
@@ -243,9 +243,17 @@ runs:
         while [ $attempt -le $max_attempts ]; do
           echo "Publishing attempt $attempt of $max_attempts"
 
+          # Prepare tag arguments from comma-separated tags
+          tag_args=""
+          IFS=',' read -ra TAGS <<< "${{ steps.metadata.outputs.tags }}"
+          for tag in "${TAGS[@]}"; do
+            tag=$(echo "$tag" | xargs) # trim whitespace
+            tag_args="$tag_args --tag $tag"
+          done
+
           if docker buildx build \
             --platform=${platforms} \
-            --tag ${{ steps.metadata.outputs.tags }} \
+            $tag_args \
             --push \
             --cache-from type=registry,ref=${{ inputs.registry }}/${{ env.REPO_OWNER_LOWER }}/cache:buildcache \
             --cache-to type=registry,ref=${{ inputs.registry }}/${{ env.REPO_OWNER_LOWER }}/cache:buildcache,mode=${{ inputs.cache-mode }} \

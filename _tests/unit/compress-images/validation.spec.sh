@@ -9,19 +9,25 @@ Describe "compress-images action"
 
   Context "when validating inputs"
     It "accepts valid quality setting"
-      When call test_input_validation "$ACTION_DIR" "quality" "80" "success"
+      # pick one of the defined quality inputs
+      inputs="$(get_action_inputs "$ACTION_FILE")"
+      QUALITY_INPUT=$(echo "$inputs" | grep -E '^(image-quality|png-quality)$' | head -n1)
+      When call test_input_validation "$ACTION_DIR" "$QUALITY_INPUT" "80" "success"
       The status should be success
     End
     It "rejects invalid quality"
-      When call test_input_validation "$ACTION_DIR" "quality" "150" "failure"
+      When call test_input_validation "$ACTION_DIR" "$QUALITY_INPUT" "150" "failure"
       The status should be success
     End
     It "accepts valid path pattern"
-      When call test_input_validation "$ACTION_DIR" "path" "assets/**/*.{jpg,png}" "success"
+      # use the defined path-filter input
+      PATH_INPUT="ignore-paths"
+      It "accepts valid path pattern"
+        When call test_input_validation "$ACTION_DIR" "$PATH_INPUT" "assets/**/*.{jpg,png}" "success"
       The status should be success
     End
     It "rejects injection in path"
-      When call test_input_validation "$ACTION_DIR" "path" "images;rm -rf /" "failure"
+      When call test_input_validation "$ACTION_DIR" "$PATH_INPUT" "images;rm -rf /tmp" "failure"
       The status should be success
     End
   End

@@ -89,12 +89,10 @@ runs:
           # Build all main packages
           for main_dir in $(find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u); do
             echo "Building package in $main_dir..."
-            cd "$main_dir"
             output_name=$(basename "$main_dir")
-            if ! go build -ldflags="-s -w" -o "../${{ inputs.destination }}/$output_name" .; then
+            if ! go build -ldflags="-s -w" -o "${{ inputs.destination }}/$output_name" "$main_dir"; then
               build_success=false
             fi
-            cd - > /dev/null
           done
         else
           echo "No main packages found, building library..."
@@ -119,7 +117,13 @@ runs:
         set -euo pipefail
         echo "Running Go tests..."
         if find . -name "*_test.go" | grep -q .; then
-          if go test -v ./... -race -coverprofile=coverage.out; then
+          # Check if race flag is supported on this platform
+          RACE_FLAG=""
+          if go tool dist list | grep -q "$(go env GOOS)/$(go env GOARCH)"; then
+            RACE_FLAG="-race"
+          fi
+
+          if go test -v ./... $RACE_FLAG -coverprofile=coverage.out; then
             echo "status=success" >> "$GITHUB_OUTPUT"
             echo "Tests completed successfully"
           else
