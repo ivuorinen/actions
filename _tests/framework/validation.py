@@ -13,10 +13,11 @@ Features:
 - Complex pattern detection and validation
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 import re
 import sys
-from typing import Dict, List, Tuple
 
 
 class ActionValidator:
@@ -25,9 +26,9 @@ class ActionValidator:
     # Common regex patterns that require PCRE features
     COMPLEX_PATTERNS = {
         "lookahead": r"\(\?\=",
-        "lookbehind": r"\(\?\<[\=\!]",
+        "lookbehind": r"\(\?\<=",
         "negative_lookahead": r"\(\?\!",
-        "named_groups": r"\(\?\P\<\w+\>",
+        "named_groups": r"\(\?P<\w+>",
         "conditional": r"\(\?\(",
     }
 
@@ -56,7 +57,7 @@ class ActionValidator:
                 return True
         return False
 
-    def validate_github_token(self, token: str, action_dir: str = "") -> Tuple[bool, str]:
+    def validate_github_token(self, token: str, action_dir: str = "") -> tuple[bool, str]:
         """
         Validate GitHub token format using proper PCRE patterns.
 
@@ -68,7 +69,8 @@ class ActionValidator:
             Tuple of (is_valid, error_message)
         """
         # Actions that require tokens shouldn't accept empty values
-        if action_dir in ["csharp-publish", "eslint-fix", "pr-lint", "pre-commit"]:
+        action_name = Path(action_dir).name
+        if action_name in ["csharp-publish", "eslint-fix", "pr-lint", "pre-commit"]:
             if not token or token.strip() == "":
                 return False, "Token cannot be empty"
         # Other actions may accept empty tokens (they'll use defaults)
@@ -89,7 +91,7 @@ class ActionValidator:
             "Invalid GitHub token format. Expected: gh[efpousr]_* (36 chars), github_pat_* (50-255 chars), or ghs_* (36 chars)",
         )
 
-    def validate_namespace_with_lookahead(self, namespace: str) -> Tuple[bool, str]:
+    def validate_namespace_with_lookahead(self, namespace: str) -> tuple[bool, str]:
         """
         Validate namespace using the original lookahead pattern from csharp-publish.
 
@@ -113,7 +115,7 @@ class ActionValidator:
             "Invalid namespace format. Must be 1-39 characters, alphanumeric and hyphens, no trailing hyphens",
         )
 
-    def validate_input_pattern(self, input_value: str, pattern: str) -> Tuple[bool, str]:
+    def validate_input_pattern(self, input_value: str, pattern: str) -> tuple[bool, str]:
         """
         Validate an input value against a regex pattern using Python's re module.
 
@@ -131,7 +133,7 @@ class ActionValidator:
         except re.error as e:
             return False, f"Invalid regex pattern: {pattern} - {e!s}"
 
-    def validate_security_patterns(self, input_value: str) -> Tuple[bool, str]:
+    def validate_security_patterns(self, input_value: str) -> tuple[bool, str]:
         """
         Check for common security injection patterns.
 
@@ -163,7 +165,7 @@ class ActionValidator:
         return True, ""
 
 
-def extract_validation_patterns(action_file: str) -> Dict[str, List[str]]:
+def extract_validation_patterns(action_file: str) -> dict[str, list[str]]:
     """
     Extract validation patterns from an action.yml file.
 
@@ -191,8 +193,9 @@ def extract_validation_patterns(action_file: str) -> Dict[str, List[str]]:
 
             # Extract regex patterns from the validation script
             regex_matches = re.findall(
-                r'\[\[\s*["\']?\$\{\{\s*inputs\.(\w+(?:-\w+)*)\s*\}\}["\']?\s*=~\s*([^\]]+)\]\]',
+                r'\[\[\s*["\']?\$\{\{\s*inputs\.(\w+(?:-\w+)*)\s*\}\}["\']?\s*=~\s*(.+?)\]\]',
                 validation_script,
+                re.DOTALL | re.IGNORECASE,
             )
 
             for input_name, pattern in regex_matches:
@@ -208,8 +211,8 @@ def extract_validation_patterns(action_file: str) -> Dict[str, List[str]]:
     return patterns
 
 
-def main():
-    """Command-line interface for the validation module."""
+def _parse_command_line_args():
+    """Parse and validate command line arguments."""
     if len(sys.argv) < 4:
         print(
             "Usage: python3 validation.py <action_dir> <input_name> <input_value> [expected_result]",
@@ -217,102 +220,132 @@ def main():
         print("Expected result: 'success' or 'failure' (default: auto-detect)")
         sys.exit(1)
 
-    action_dir = sys.argv[1]
-    input_name = sys.argv[2]
-    input_value = sys.argv[3]
-    expected_result = sys.argv[4] if len(sys.argv) > 4 else None
+    return {
+        "action_dir": sys.argv[1],
+        "input_name": sys.argv[2],
+        "input_value": sys.argv[3],
+        "expected_result": sys.argv[4] if len(sys.argv) > 4 else None,
+    }
 
-    # Handle both absolute and relative paths
+
+def _resolve_action_file_path(action_dir: str) -> str:
+    """Resolve the path to the action.yml file."""
     action_dir_path = Path(action_dir)
     if not action_dir_path.is_absolute():
         # If relative, assume we're in _tests/framework and actions are at ../../
         script_dir = Path(__file__).resolve().parent
         project_root = script_dir.parent.parent
-        action_file = str(project_root / action_dir / "action.yml")
-    else:
-        action_file = f"{action_dir}/action.yml"
-    validator = ActionValidator()
+        return str(project_root / action_dir / "action.yml")
+    return f"{action_dir}/action.yml"
 
-    # Extract validation patterns from the action file
-    patterns = extract_validation_patterns(action_file)
 
-    # Perform validation
-    is_valid = True
-    error_message = ""
+def _validate_docker_build_input(input_name: str, input_value: str) -> tuple[bool, str]:
+    """Handle special validation for docker-build inputs."""
+    if input_name == "build-args" and input_value == "":
+        return True, ""
+    # All other docker-build inputs pass through centralized validation
+    return True, ""
 
-    # 1. Security validation (always performed)
-    security_valid, security_error = validator.validate_security_patterns(input_value)
-    if not security_valid:
-        is_valid = False
-        error_message = security_error
 
-    # 2. Input-specific validation
+def _validate_special_inputs(
+    input_name: str, input_value: str, action_dir: str, validator: ActionValidator
+) -> tuple[bool, str, bool]:
+    """Handle special input validation cases."""
+    action_name = Path(action_dir).name
+
+    if action_name == "docker-build":
+        is_valid, error_message = _validate_docker_build_input(input_name, input_value)
+        return is_valid, error_message, True
+
+    if input_name == "token" and action_name in [
+        "csharp-publish",
+        "eslint-fix",
+        "pr-lint",
+        "pre-commit",
+    ]:
+        # Special handling for GitHub tokens
+        token_valid, token_error = validator.validate_github_token(input_value, action_dir)
+        return token_valid, token_error, True
+
+    if input_name == "namespace" and action_name == "csharp-publish":
+        # Special handling for namespace with lookahead
+        ns_valid, ns_error = validator.validate_namespace_with_lookahead(input_value)
+        return ns_valid, ns_error, True
+
+    return True, "", False
+
+
+def _validate_with_patterns(
+    input_name: str, input_value: str, patterns: dict, validator: ActionValidator
+) -> tuple[bool, str, bool]:
+    """Validate input using extracted patterns."""
+    if input_name not in patterns:
+        return True, "", False
+
+    for pattern in patterns[input_name]:
+        pattern_valid, pattern_error = validator.validate_input_pattern(
+            input_value,
+            pattern,
+        )
+        if not pattern_valid:
+            return False, pattern_error, True
+
+    return True, "", True
+
+
+def _handle_test_mode(expected_result: str, is_valid: bool) -> None:
+    """Handle test mode output and exit."""
+    if (expected_result == "success" and is_valid) or (
+        expected_result == "failure" and not is_valid
+    ):
+        sys.exit(0)  # Test expectation met
+    sys.exit(1)  # Test expectation not met
+
+
+def _handle_validation_mode(is_valid: bool, error_message: str) -> None:
+    """Handle validation mode output and exit."""
     if is_valid:
-        # Check if there are specific validation patterns for this input
-        has_specific_validation = False
-
-        # For docker-build, use the centralized validation system
-        # Extract just the action name from the path
-        action_name = Path(action_dir).name
-        if action_name == "docker-build":
-            # Docker-build uses validate-inputs action - simulate its behavior
-            # Empty build-args should be valid (it's an optional input)
-            if input_name == "build-args" and input_value == "":
-                is_valid = True
-                has_specific_validation = True
-            # All other docker-build inputs pass through centralized validation
-            # which already handled security checks above
-            else:
-                has_specific_validation = True
-
-        elif input_name == "token":
-            # Special handling for GitHub tokens (only for actions that actually validate tokens)
-            if action_dir in ["csharp-publish", "eslint-fix", "pr-lint", "pre-commit"]:
-                token_valid, token_error = validator.validate_github_token(input_value, action_dir)
-                if not token_valid:
-                    is_valid = False
-                    error_message = token_error
-                has_specific_validation = True
-        elif input_name == "namespace" and action_dir == "csharp-publish":
-            # Special handling for namespace with lookahead
-            ns_valid, ns_error = validator.validate_namespace_with_lookahead(input_value)
-            if not ns_valid:
-                is_valid = False
-                error_message = ns_error
-            has_specific_validation = True
-        elif input_name in patterns:
-            # Use extracted patterns
-            for pattern in patterns[input_name]:
-                if validator.is_complex_pattern(pattern):
-                    pattern_valid, pattern_error = validator.validate_input_pattern(
-                        input_value,
-                        pattern,
-                    )
-                    if not pattern_valid:
-                        is_valid = False
-                        error_message = pattern_error
-                        break
-            has_specific_validation = True
-
-        # For actions without specific validation, only apply basic security checks
-        # which have already been performed above
-
-    # Output result
-    if expected_result:
-        # Test mode: return success if expectation matches result
-        if (expected_result == "success" and is_valid) or (
-            expected_result == "failure" and not is_valid
-        ):
-            sys.exit(0)  # Test expectation met
-        else:
-            sys.exit(1)  # Test expectation not met
-    # Validation mode: return based on validation result
-    elif is_valid:
         print("VALID")
         sys.exit(0)
-    else:
-        print(f"INVALID: {error_message}")
-        sys.exit(1)
+    print(f"INVALID: {error_message}")
+    sys.exit(1)
+
+
+def main():
+    """Command-line interface for the validation module."""
+    # Parse command line arguments
+    args = _parse_command_line_args()
+
+    # Resolve action file path
+    action_file = _resolve_action_file_path(args["action_dir"])
+
+    # Initialize validator and extract patterns
+    validator = ActionValidator()
+    patterns = extract_validation_patterns(action_file)
+
+    # Perform security validation (always performed)
+    security_valid, security_error = validator.validate_security_patterns(args["input_value"])
+    if not security_valid:
+        if args["expected_result"]:
+            _handle_test_mode(expected_result=args["expected_result"], is_valid=False)
+        _handle_validation_mode(is_valid=False, error_message=security_error)
+
+    # Perform input-specific validation
+    # Check special input cases first
+    is_valid, error_message, has_validation = _validate_special_inputs(
+        args["input_name"], args["input_value"], args["action_dir"], validator
+    )
+
+    # If no special validation, try pattern-based validation
+    if not has_validation:
+        is_valid, error_message, has_validation = _validate_with_patterns(
+            args["input_name"], args["input_value"], patterns, validator
+        )
+
+    # Handle output based on mode
+    if args["expected_result"]:
+        _handle_test_mode(args["expected_result"], is_valid)
+    _handle_validation_mode(is_valid, error_message)
 
 
 if __name__ == "__main__":

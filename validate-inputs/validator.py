@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+from __future__ import annotations
+
 import os
 from pathlib import Path
 import re
@@ -151,6 +153,95 @@ class ActionValidator:
         self.errors.append(f'Invalid {version_type} version format: "{version}"')
         return False
 
+    def _validate_yyyy_mm_dd_calver(self, clean_version: str) -> bool:
+        """Validate YYYY.MM.DD CalVer format with date validation."""
+        import re
+
+        match = re.match(r"^([0-9]{4})\.([0-9]{1,2})\.([0-9]{1,2})$", clean_version)
+        if not match:
+            return False
+
+        year, month, day = match.groups()
+        year, month, day = int(year), int(month), int(day)
+
+        # If it looks like a date (day 1-31), validate as date
+        if not (1 <= month <= 12 and 1 <= day <= 31):
+            if not (1 <= month <= 12):
+                self.errors.append(f"Invalid month: {month}")
+            return False
+
+        # Validate day ranges for specific months
+        if (month in [1, 3, 5, 7, 8, 10, 12] and day <= 31) or (
+            month in [4, 6, 9, 11] and day <= 30
+        ):
+            return True
+        if month == 2 and day <= 29:  # Feb with basic leap year tolerance
+            return True
+
+        # Invalid day for the month
+        self.errors.append(f"Invalid day for month {month}: {day}")
+        return False
+
+    def _validate_yyyy_mm_patch_format(self, clean_version: str) -> bool:
+        """Validate YYYY.MM.PATCH format (e.g., 2024.3.100)."""
+        import re
+
+        match = re.match(r"^([0-9]{4})\.([0-9]{1,2})\.([0-9]{3,})$", clean_version)
+        if match:
+            _, month, _ = match.groups()
+            return 1 <= int(month) <= 12
+        return False
+
+    def _validate_yyyy_0m_0d_format(self, clean_version: str) -> bool:
+        """Validate YYYY.0M.0D format (e.g., 2024.03.05)."""
+        import re
+
+        match = re.match(r"^([0-9]{4})\.0([0-9])\.0([0-9])$", clean_version)
+        if match:
+            _, month, day = match.groups()
+            return 1 <= int(month) <= 9 and 1 <= int(day) <= 9
+        return False
+
+    def _validate_yy_mm_micro_format(self, clean_version: str) -> bool:
+        """Validate YY.MM.MICRO format (e.g., 24.3.1)."""
+        import re
+
+        match = re.match(r"^([0-9]{2})\.([0-9]{1,2})\.([0-9]+)$", clean_version)
+        if match:
+            _, month, _ = match.groups()
+            return 1 <= int(month) <= 12
+        return False
+
+    def _validate_yyyy_mm_format(self, clean_version: str) -> bool:
+        """Validate YYYY.MM format (e.g., 2024.3)."""
+        import re
+
+        match = re.match(r"^([0-9]{4})\.([0-9]{1,2})$", clean_version)
+        if match:
+            _, month = match.groups()
+            return 1 <= int(month) <= 12
+        return False
+
+    def _validate_yyyy_mm_dd_format(self, clean_version: str) -> bool:
+        """Validate YYYY-MM-DD format (e.g., 2024-03-15)."""
+        import re
+
+        match = re.match(r"^([0-9]{4})\-([0-9]{2})\-([0-9]{2})$", clean_version)
+        if match:
+            _, month, day = match.groups()
+            return 1 <= int(month) <= 12 and 1 <= int(day) <= 31
+        return False
+
+    def _validate_other_calver_formats(self, clean_version: str) -> bool:
+        """Validate other CalVer formats (YYYY.MM.PATCH, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, YYYY-MM-DD)."""
+        return (
+            self._validate_yyyy_mm_patch_format(clean_version)
+            or self._validate_yyyy_0m_0d_format(clean_version)
+            or self._validate_yy_mm_micro_format(clean_version)
+            or self._validate_yyyy_mm_format(clean_version)
+            or self._validate_yyyy_mm_dd_format(clean_version)
+        )
+
     def validate_calver(self, version: str) -> bool:
         """Validate CalVer (Calendar Versioning) strings."""
         if not version or version.strip() == "":
@@ -159,64 +250,13 @@ class ActionValidator:
         # Remove common prefixes for validation
         clean_version = version.lstrip("v")
 
-        # Check specific CalVer patterns with proper date validation
-        import re
+        # Try YYYY.MM.DD format first (with date validation)
+        if self._validate_yyyy_mm_dd_calver(clean_version):
+            return True
 
-        # YYYY.MM.DD format (e.g., 2024.3.15) - treat as date if third component looks like a day (1-31)
-        match = re.match(r"^([0-9]{4})\.([0-9]{1,2})\.([0-9]{1,2})$", clean_version)
-        if match:
-            year, month, day = match.groups()
-            year, month, day = int(year), int(month), int(day)
-            # If it looks like a date (day 1-31), validate as date
-            if 1 <= month <= 12 and 1 <= day <= 31:
-                # Validate day ranges for specific months
-                if (month in [1, 3, 5, 7, 8, 10, 12] and day <= 31) or (
-                    month in [4, 6, 9, 11] and day <= 30
-                ):
-                    return True
-                if month == 2 and day <= 29:  # Feb with basic leap year tolerance
-                    return True
-                # Invalid day for the month
-                self.errors.append(f"Invalid day for month {month}: {day}")
-                return False
-            # Invalid month
-            self.errors.append(f"Invalid month: {month}")
-            return False
-
-        # YYYY.MM.PATCH format (e.g., 2024.3.100) - for larger patch numbers
-        match = re.match(r"^([0-9]{4})\.([0-9]{1,2})\.([0-9]{3,})$", clean_version)
-        if match:
-            year, month, patch = match.groups()
-            if 1 <= int(month) <= 12:
-                return True
-
-        # YYYY.0M.0D format (e.g., 2024.03.05)
-        match = re.match(r"^([0-9]{4})\.0([0-9])\.0([0-9])$", clean_version)
-        if match:
-            year, month, day = match.groups()
-            if 1 <= int(month) <= 9 and 1 <= int(day) <= 9:
-                return True
-
-        # YY.MM.MICRO format (e.g., 24.3.1)
-        match = re.match(r"^([0-9]{2})\.([0-9]{1,2})\.([0-9]+)$", clean_version)
-        if match:
-            year, month, micro = match.groups()
-            if 1 <= int(month) <= 12:
-                return True
-
-        # YYYY.MM format (e.g., 2024.3)
-        match = re.match(r"^([0-9]{4})\.([0-9]{1,2})$", clean_version)
-        if match:
-            year, month = match.groups()
-            if 1 <= int(month) <= 12:
-                return True
-
-        # YYYY-MM-DD format (e.g., 2024-03-15)
-        match = re.match(r"^([0-9]{4})\-([0-9]{2})\-([0-9]{2})$", clean_version)
-        if match:
-            year, month, day = match.groups()
-            if 1 <= int(month) <= 12 and 1 <= int(day) <= 31:
-                return True
+        # Try other CalVer formats
+        if self._validate_other_calver_formats(clean_version):
+            return True
 
         self.errors.append(
             f'Invalid CalVer format: "{version}". Expected formats like YYYY.MM.PATCH, YY.MM.MICRO, or YYYY.MM.DD',
@@ -447,6 +487,109 @@ class ActionValidator:
 
         return True
 
+    def _validate_required_inputs(self, inputs: dict, required_inputs: list) -> bool:
+        """Validate that all required inputs are present and non-empty."""
+        valid = True
+        for req_input in required_inputs:
+            if not inputs.get(req_input, "").strip():
+                self.errors.append(f"Required input '{req_input}' is missing or empty")
+                valid = False
+        return valid
+
+    def _get_validator_for_input(self, input_name: str, conventions: dict, overrides: dict) -> str:
+        """Get the appropriate validator for an input based on conventions and overrides."""
+        return overrides.get(input_name) or conventions.get(input_name)
+
+    def _validate_basic_input_types(
+        self, value: str, validator: str, required: bool
+    ) -> tuple[bool, bool]:
+        """Validate basic input types. Returns (handled, valid) tuple."""
+        if validator == "github_token":
+            return True, self.validate_github_token(value, required)
+        if validator == "namespace_with_lookahead":
+            return True, self.validate_namespace_with_lookahead(value)
+        if validator == "email":
+            return True, self.validate_email(value)
+        if validator == "username":
+            return True, self.validate_username(value)
+        return False, True
+
+    def _validate_docker_input_types(self, value: str, validator: str) -> tuple[bool, bool]:
+        """Validate Docker-related input types. Returns (handled, valid) tuple."""
+        if validator == "docker_image_name":
+            return True, self.validate_docker_image_name(value)
+        if validator == "docker_tag":
+            return True, self.validate_docker_tag(value)
+        if validator == "docker_architectures":
+            return True, self.validate_architectures(value)
+        return False, True
+
+    def _validate_misc_input_types(
+        self, input_name: str, value: str, validator: str
+    ) -> tuple[bool, bool]:
+        """Validate miscellaneous input types. Returns (handled, valid) tuple."""
+        if validator == "file_path":
+            return True, self.validate_file_path(value, input_name)
+        if validator == "branch_name":
+            return True, self.validate_branch_name(value)
+        if validator == "boolean":
+            return True, self.validate_boolean(value, input_name)
+        if validator == "prefix":
+            return True, self.validate_prefix(value)
+        return False, True
+
+    def _validate_single_input(
+        self, input_name: str, value: str, validator: str, required: bool
+    ) -> bool:
+        """Apply validation to a single input based on its validator type."""
+        # Try basic input types first
+        handled, valid = self._validate_basic_input_types(value, validator, required)
+        if handled:
+            return valid
+
+        # Try Docker input types
+        handled, valid = self._validate_docker_input_types(value, validator)
+        if handled:
+            return valid
+
+        # Try miscellaneous input types
+        handled, valid = self._validate_misc_input_types(input_name, value, validator)
+        if handled:
+            return valid
+
+        # Default to version types validation
+        return self._validate_version_types(value, validator, input_name)
+
+    def _validate_version_types(self, value: str, validator: str, input_name: str) -> bool:
+        """Handle validation for version-type validators."""
+        if validator.startswith("dotnet_version"):
+            return self.validate_version(value, "dotnet")
+        if validator.startswith("terraform_version"):
+            return self.validate_version(value, "terraform")
+        if validator.startswith("semantic_version"):
+            return self.validate_version(value, "semantic")
+        if validator.startswith("node_version"):
+            return self.validate_version(value, "node")
+        if validator.startswith("calver_version"):
+            return self.validate_calver(value)
+        if validator.startswith("flexible_version"):
+            return self.validate_calver_or_semver(value)
+        if validator.startswith("numeric_range_"):
+            return self._validate_numeric_range_from_name(value, validator, input_name)
+        return True  # Unknown validator type, skip validation
+
+    def _validate_numeric_range_from_name(
+        self, value: str, validator: str, input_name: str
+    ) -> bool:
+        """Parse numeric range validator and apply validation."""
+        # Parse range from validator name: numeric_range_1_10 -> min=1, max=10
+        parts = validator.split("_")
+        if len(parts) >= 4:
+            min_val = int(parts[2])
+            max_val = int(parts[3])
+            return self.validate_numeric_range(value, min_val, max_val, input_name)
+        return True
+
     def validate_with_rules(self, inputs: dict) -> bool:
         """Apply validation based on loaded rules."""
         if not self.rules:
@@ -458,10 +601,7 @@ class ActionValidator:
         required_inputs = self.rules.get("required_inputs", [])
 
         # Validate required inputs are present
-        for req_input in required_inputs:
-            if not inputs.get(req_input, "").strip():
-                self.errors.append(f"Required input '{req_input}' is missing or empty")
-                valid = False
+        valid &= self._validate_required_inputs(inputs, required_inputs)
 
         # Apply convention-based validation
         for input_name, value in inputs.items():
@@ -470,164 +610,179 @@ class ActionValidator:
                 continue
 
             # Get validator from conventions or overrides
-            validator = overrides.get(input_name) or conventions.get(input_name)
+            validator = self._get_validator_for_input(input_name, conventions, overrides)
             if not validator:
                 continue  # No specific validation defined
 
             # Apply appropriate validation based on convention
             required = input_name in required_inputs
-
-            if validator == "github_token":
-                valid &= self.validate_github_token(value, required)
-            elif validator == "namespace_with_lookahead":
-                valid &= self.validate_namespace_with_lookahead(value)
-            elif validator == "email":
-                valid &= self.validate_email(value)
-            elif validator == "username":
-                valid &= self.validate_username(value)
-            elif validator == "docker_image_name":
-                valid &= self.validate_docker_image_name(value)
-            elif validator == "docker_tag":
-                valid &= self.validate_docker_tag(value)
-            elif validator == "docker_architectures":
-                valid &= self.validate_architectures(value)
-            elif validator == "file_path":
-                valid &= self.validate_file_path(value, input_name)
-            elif validator == "branch_name":
-                valid &= self.validate_branch_name(value)
-            elif validator == "boolean":
-                valid &= self.validate_boolean(value, input_name)
-            elif validator == "prefix":
-                valid &= self.validate_prefix(value)
-            elif validator.startswith("dotnet_version"):
-                valid &= self.validate_version(value, "dotnet")
-            elif validator.startswith("terraform_version"):
-                valid &= self.validate_version(value, "terraform")
-            elif validator.startswith("semantic_version"):
-                valid &= self.validate_version(value, "semantic")
-            elif validator.startswith("node_version"):
-                valid &= self.validate_version(value, "node")
-            elif validator.startswith("calver_version"):
-                valid &= self.validate_calver(value)
-            elif validator.startswith("flexible_version"):
-                valid &= self.validate_calver_or_semver(value)
-            elif validator.startswith("numeric_range_"):
-                # Parse range from validator name: numeric_range_1_10 -> min=1, max=10
-                parts = validator.split("_")
-                if len(parts) >= 4:
-                    min_val = int(parts[2])
-                    max_val = int(parts[3])
-                    valid &= self.validate_numeric_range(value, min_val, max_val, input_name)
+            valid &= self._validate_single_input(input_name, value, validator, required)
 
         return valid
 
-    def validate_for_action_type(self) -> bool:
-        """Main validation method that routes to action-specific validation."""
+    def _validate_csharp_publish_inputs(self, inputs: dict) -> bool:
+        """Validate inputs for csharp_publish action."""
         valid = True
+        valid &= self.validate_github_token(inputs.get("token", ""), required=True)
+        valid &= self.validate_namespace_with_lookahead(inputs.get("namespace", ""))
+        valid &= self.validate_version(inputs.get("dotnet-version", ""), "dotnet")
+        return valid
 
-        # Get all environment variables for inputs
-        inputs = {
+    def _validate_docker_build_inputs(self, inputs: dict) -> bool:
+        """Validate inputs for docker_build action."""
+        valid = True
+        valid &= self.validate_docker_image_name(inputs.get("image-name", ""))
+        valid &= self.validate_docker_tag(inputs.get("tag", ""))
+        valid &= self.validate_architectures(inputs.get("architectures", ""))
+        valid &= self.validate_file_path(inputs.get("dockerfile", ""), "dockerfile")
+        valid &= self.validate_version(inputs.get("buildx-version", ""), "semantic")
+        valid &= self.validate_numeric_range(
+            inputs.get("parallel-builds", ""),
+            0,
+            16,
+            "parallel-builds",
+        )
+        return valid
+
+    def _validate_lint_action_inputs(self, inputs: dict) -> bool:
+        """Validate inputs for linting actions (eslint_fix, pr_lint, pre_commit)."""
+        valid = True
+        valid &= self.validate_github_token(inputs.get("token", ""), required=True)
+        valid &= self.validate_email(inputs.get("email", ""))
+        valid &= self.validate_username(inputs.get("username", ""))
+        valid &= self.validate_numeric_range(
+            inputs.get("max-retries", ""),
+            1,
+            10,
+            "max-retries",
+        )
+        return valid
+
+    def _validate_pre_commit_specific_inputs(self, inputs: dict) -> bool:
+        """Validate pre_commit specific inputs."""
+        valid = True
+        valid &= self.validate_file_path(
+            inputs.get("pre-commit-config", ""),
+            "pre-commit-config",
+        )
+        valid &= self.validate_branch_name(inputs.get("base-branch", ""))
+        # Validate file extension
+        config_file = inputs.get("pre-commit-config", "")
+        if config_file and not (config_file.endswith(".yaml") or config_file.endswith(".yml")):
+            self.errors.append(
+                f'Invalid pre-commit-config: "{config_file}". Must be a .yaml or .yml file',
+            )
+            valid = False
+        return valid
+
+    def _validate_terraform_inputs(self, inputs: dict) -> bool:
+        """Validate inputs for terraform_lint_fix action."""
+        valid = True
+        valid &= self.validate_github_token(inputs.get("token", ""))
+        valid &= self.validate_version(inputs.get("terraform-version", ""), "terraform")
+        valid &= self.validate_version(inputs.get("tflint-version", ""), "terraform")
+        valid &= self.validate_numeric_range(
+            inputs.get("max-retries", ""),
+            1,
+            10,
+            "max-retries",
+        )
+        return valid
+
+    def _validate_node_setup_inputs(self, inputs: dict) -> bool:
+        """Validate inputs for node_setup action."""
+        valid = True
+        valid &= self.validate_version(inputs.get("default-version", ""), "node")
+        valid &= self.validate_version(inputs.get("force-version", ""), "node")
+        valid &= self.validate_numeric_range(
+            inputs.get("max-retries", ""),
+            1,
+            10,
+            "max-retries",
+        )
+        return valid
+
+    def _validate_compress_images_inputs(self, inputs: dict) -> bool:
+        """Validate inputs for compress_images action."""
+        valid = True
+        valid &= self.validate_github_token(inputs.get("token", ""))
+        valid &= self.validate_numeric_range(
+            inputs.get("image-quality", ""),
+            1,
+            100,
+            "image-quality",
+        )
+        valid &= self.validate_numeric_range(
+            inputs.get("png-quality", ""),
+            1,
+            100,
+            "png-quality",
+        )
+        return valid
+
+    def _validate_release_monthly_inputs(self, inputs: dict) -> bool:
+        """Validate inputs for release_monthly action."""
+        valid = True
+        valid &= self.validate_github_token(inputs.get("token", ""), required=True)
+        valid &= self.validate_boolean(inputs.get("dry-run", ""), "dry-run")
+        valid &= self.validate_prefix(inputs.get("prefix", ""))
+        return valid
+
+    def _get_input_environment_variables(self) -> dict:
+        """Extract input environment variables."""
+        return {
             key[6:].lower().replace("_", "-"): value
             for key, value in os.environ.items()
             if key.startswith("INPUT_") and key != "INPUT_ACTION_TYPE"
         }
 
-        # Try rules-based validation first
+    def _apply_rules_based_validation(self, inputs: dict) -> bool:
+        """Apply rules-based validation if rules are available."""
         if self.rules:
             print("::debug::Using rules-based validation")
-            valid &= self.validate_with_rules(inputs)
-        else:
-            print("::debug::Using hardcoded validation logic")
-            # Fallback to hardcoded action-specific validation
-            if self.action_type == "csharp_publish":
-                valid &= self.validate_github_token(inputs.get("token", ""), required=True)
-                valid &= self.validate_namespace_with_lookahead(inputs.get("namespace", ""))
-                valid &= self.validate_version(inputs.get("dotnet-version", ""), "dotnet")
+            return self.validate_with_rules(inputs)
+        return True
 
-            elif self.action_type == "docker_build":
-                valid &= self.validate_docker_image_name(inputs.get("image-name", ""))
-                valid &= self.validate_docker_tag(inputs.get("tag", ""))
-                valid &= self.validate_architectures(inputs.get("architectures", ""))
-                valid &= self.validate_file_path(inputs.get("dockerfile", ""), "dockerfile")
-                valid &= self.validate_version(inputs.get("buildx-version", ""), "semantic")
-                valid &= self.validate_numeric_range(
-                    inputs.get("parallel-builds", ""),
-                    0,
-                    16,
-                    "parallel-builds",
-                )
+    def _apply_hardcoded_validation(self, inputs: dict) -> bool:
+        """Apply hardcoded action-specific validation."""
+        print("::debug::Using hardcoded validation logic")
+        if self.action_type == "csharp_publish":
+            return self._validate_csharp_publish_inputs(inputs)
+        if self.action_type == "docker_build":
+            return self._validate_docker_build_inputs(inputs)
+        if self.action_type in ["eslint_fix", "pr_lint", "pre_commit"]:
+            return self._validate_lint_action_inputs(inputs)
+        if self.action_type == "pre_commit":
+            return self._validate_pre_commit_specific_inputs(inputs)
+        if self.action_type == "terraform_lint_fix":
+            return self._validate_terraform_inputs(inputs)
+        if self.action_type == "node_setup":
+            return self._validate_node_setup_inputs(inputs)
+        if self.action_type == "compress_images":
+            return self._validate_compress_images_inputs(inputs)
+        if self.action_type == "release_monthly":
+            return self._validate_release_monthly_inputs(inputs)
+        return True
 
-            elif self.action_type in ["eslint_fix", "pr_lint", "pre_commit"]:
-                valid &= self.validate_github_token(inputs.get("token", ""), required=True)
-                valid &= self.validate_email(inputs.get("email", ""))
-                valid &= self.validate_username(inputs.get("username", ""))
-                valid &= self.validate_numeric_range(
-                    inputs.get("max-retries", ""),
-                    1,
-                    10,
-                    "max-retries",
-                )
-
-            elif self.action_type == "pre_commit":
-                valid &= self.validate_file_path(
-                    inputs.get("pre-commit-config", ""),
-                    "pre-commit-config",
-                )
-                valid &= self.validate_branch_name(inputs.get("base-branch", ""))
-                # Validate file extension
-                config_file = inputs.get("pre-commit-config", "")
-                if config_file and not (
-                    config_file.endswith(".yaml") or config_file.endswith(".yml")
-                ):
-                    self.errors.append(
-                        f'Invalid pre-commit-config: "{config_file}". Must be a .yaml or .yml file',
-                    )
-                    valid = False
-
-            elif self.action_type == "terraform_lint_fix":
-                valid &= self.validate_github_token(inputs.get("token", ""))
-                valid &= self.validate_version(inputs.get("terraform-version", ""), "terraform")
-                valid &= self.validate_version(inputs.get("tflint-version", ""), "terraform")
-                valid &= self.validate_numeric_range(
-                    inputs.get("max-retries", ""),
-                    1,
-                    10,
-                    "max-retries",
-                )
-
-            elif self.action_type == "node_setup":
-                valid &= self.validate_version(inputs.get("default-version", ""), "node")
-                valid &= self.validate_version(inputs.get("force-version", ""), "node")
-                valid &= self.validate_numeric_range(
-                    inputs.get("max-retries", ""),
-                    1,
-                    10,
-                    "max-retries",
-                )
-
-            elif self.action_type == "compress_images":
-                valid &= self.validate_github_token(inputs.get("token", ""))
-                valid &= self.validate_numeric_range(
-                    inputs.get("image-quality", ""),
-                    1,
-                    100,
-                    "image-quality",
-                )
-                valid &= self.validate_numeric_range(
-                    inputs.get("png-quality", ""),
-                    1,
-                    100,
-                    "png-quality",
-                )
-
-            elif self.action_type == "release_monthly":
-                valid &= self.validate_github_token(inputs.get("token", ""), required=True)
-                valid &= self.validate_boolean(inputs.get("dry-run", ""), "dry-run")
-                valid &= self.validate_prefix(inputs.get("prefix", ""))
-
-        # Apply security validation to all inputs
+    def _apply_security_validation(self, inputs: dict) -> bool:
+        """Apply security validation to all inputs."""
+        valid = True
         for name, value in inputs.items():
             valid &= self.validate_security_patterns(value, name)
+        return valid
+
+    def validate_for_action_type(self) -> bool:
+        """Main validation method that routes to action-specific validation."""
+        inputs = self._get_input_environment_variables()
+
+        # Apply rules-based validation if available, otherwise use hardcoded validation
+        if self.rules:
+            valid = self._apply_rules_based_validation(inputs)
+        else:
+            valid = self._apply_hardcoded_validation(inputs)
+
+        # Apply security validation to all inputs
+        valid &= self._apply_security_validation(inputs)
 
         return valid
 

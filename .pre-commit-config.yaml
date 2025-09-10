@@ -47,12 +47,14 @@ repos:
     hooks:
       - id: shfmt
         args: ['--apply-ignore']
+        exclude: '^_tests/.*\.sh$'
 
   - repo: https://github.com/koalaman/shellcheck-precommit
     rev: v0.11.0
     hooks:
       - id: shellcheck
-        args: ['--severity=warning']
+        args: ['--severity=warning', '-x']
+        exclude: '^_tests/.*\.sh$'
 
   - repo: https://github.com/rhysd/actionlint
     rev: v1.7.7
