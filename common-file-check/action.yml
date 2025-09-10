@@ -35,7 +35,7 @@ runs:
         fi
 
         # Validate file pattern format (basic glob pattern validation)
-        pattern="${{ inputs.file-pattern }}"
+        pattern='${{ inputs.file-pattern }}'
 
         # Check for path traversal attempts
         if [[ "$pattern" == *".."* ]]; then

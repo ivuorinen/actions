@@ -82,13 +82,14 @@ runs:
           echo "::error::PHP version too old: '${{ inputs.php }}'. Minimum supported version is 5.6"
           exit 1
         fi
-        if [[ $(printf "8.5\n%s" "$php_major_minor" | sort -V | head -n1) != "8.5" ]]; then
+
+        if [[ "$(printf '%s\n' "$php_major_minor" '8.5' | sort -V | tail -n1)" == "$php_major_minor" ]] && [[ "$php_major_minor" != "8.5" ]]; then
           echo "::warning::PHP version may be unsupported: '${{ inputs.php }}'. Latest stable version is around 8.4"
         fi
 
         # Validate extensions format (comma-separated list)
         if [[ -n "${{ inputs.extensions }}" ]]; then
-          if ! [[ "${{ inputs.extensions }}" =~ ^[a-zA-Z0-9]+(,[[:space:]]*[a-zA-Z0-9]+)*$ ]]; then
+          if ! [[ "${{ inputs.extensions }}" =~ ^[a-zA-Z0-9_]+(,[[:space:]]*[a-zA-Z0-9_]+)*$ ]]; then
             echo "::error::Invalid extensions format: '${{ inputs.extensions }}'. Expected comma-separated list (e.g., mbstring, xml, zip)"
             exit 1
           fi

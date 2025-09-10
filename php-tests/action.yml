@@ -84,8 +84,33 @@ runs:
       uses: ../php-composer
 
     - name: Run PHPUnit Tests
+      id: test
       shell: bash
       run: |-
         set -euo pipefail
 
-        vendor/bin/phpunit --verbose
+        # Run PHPUnit and capture results
+        phpunit_exit_code=0
+        phpunit_output=$(vendor/bin/phpunit --verbose 2>&1) || phpunit_exit_code=$?
+
+        echo "$phpunit_output"
+
+        # Parse test results from output
+        tests_run=$(echo "$phpunit_output" | grep -E "Tests:|tests" | head -1 | grep -oE '[0-9]+' | head -1 || echo "0")
+        tests_passed=$(echo "$phpunit_output" | grep -oE 'OK.*[0-9]+ tests' | grep -oE '[0-9]+' || echo "0")
+
+        # Determine status
+        if [ $phpunit_exit_code -eq 0 ]; then
+          status="success"
+        else
+          status="failure"
+        fi
+
+        # Output results
+        echo "tests_run=$tests_run" >> $GITHUB_OUTPUT
+        echo "tests_passed=$tests_passed" >> $GITHUB_OUTPUT
+        echo "status=$status" >> $GITHUB_OUTPUT
+        echo "coverage_path=coverage" >> $GITHUB_OUTPUT
+
+        # Exit with original code to maintain test failure behavior
+        exit $phpunit_exit_code
