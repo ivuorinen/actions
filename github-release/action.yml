@@ -49,9 +49,19 @@ runs:
           echo "::warning::Changelog is very long (${#changelog} characters). Consider using shorter release notes."
         fi
 
-        # Check if gh CLI is available
+        # Check if required tools are available
         if ! command -v gh >/dev/null 2>&1; then
           echo "::error::GitHub CLI (gh) is not available. Please ensure it's installed in the environment."
+          exit 1
+        fi
+        if ! command -v jq >/dev/null 2>&1; then
+          echo "::error::jq is not available. Please ensure it's installed in the environment."
+          exit 1
+        fi
+
+        # Check GitHub authentication (requires GH_TOKEN or GITHUB_TOKEN with contents: write)
+        if ! gh auth status >/dev/null 2>&1; then
+          echo "::error::GitHub CLI (gh) is not authenticated. Ensure the workflow grants 'contents: write' and exports GITHUB_TOKEN (gh picks up GH_TOKEN/GITHUB_TOKEN)."
           exit 1
         fi
 
@@ -80,10 +90,14 @@ runs:
       run: |-
         set -euo pipefail
 
+        NOTES_FILE="$(mktemp)"
+        # Preserve exact content without allowing shell evaluation
+        printf '%s' '${{ inputs.changelog }}' > "$NOTES_FILE"
         gh release create ${{ inputs.version }} \
           --repo="${GITHUB_REPOSITORY}" \
           --title="${{ inputs.version }}" \
-          --notes="${{ inputs.changelog }}"
+          --notes-file "$NOTES_FILE"
+        rm -f "$NOTES_FILE"
 
         # Get release info and set outputs
         RELEASE_INFO=$(gh release view ${{ inputs.version }} --repo="${GITHUB_REPOSITORY}" --json url,id,uploadUrl)

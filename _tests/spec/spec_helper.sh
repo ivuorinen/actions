@@ -919,6 +919,6 @@ test_input_validation() {
 export -f test_input_validation
 
 # Set up cleanup trap for temp directory
-trap 'rm -rf "$TEMP_DIR"' EXIT
+trap 'cleanup_framework_temp; rm -rf "$TEMP_DIR"' EXIT
 
 log_success "ShellSpec spec helper loaded successfully"

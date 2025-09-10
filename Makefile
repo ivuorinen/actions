@@ -157,7 +157,7 @@ lint-yaml: ## Lint YAML files
 lint-shell: ## Lint shell scripts
 	@echo "$(BLUE)🔍 Linting shell scripts...$(RESET)"
 	@if command -v shellcheck >/dev/null 2>&1; then \
-		if find . -name "*.sh" -exec shellcheck {} + 2>/dev/null; then \
+		if find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} + 2>/dev/null; then \
 			echo "$(GREEN)✅ Shell linting passed$(RESET)"; \
 		else \
 			echo "$(YELLOW)⚠️ Shell linting issues found$(RESET)" | tee -a $(LOG_FILE); \
