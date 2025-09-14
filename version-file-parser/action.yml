@@ -66,8 +66,8 @@ runs:
           local version=$1
           local regex='${{ inputs.validation-regex }}'
 
-          # Validate version using safe regex matching
-          if [[ $version =~ ${regex} ]]; then
+          # Validate version using safe regex matching with quoted variable
+          if [[ $version =~ ^${regex}$ ]]; then
             return 0
           fi
           return 1
@@ -106,7 +106,7 @@ runs:
         # Parse Dockerfile
         if [ -f Dockerfile ]; then
           echo "Checking Dockerfile for ${{ inputs.dockerfile-image }}..." >&2
-          version=$(grep -i "^FROM.*${{ inputs.dockerfile-image }}:" Dockerfile | head -1 | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+          version=$(grep -iF "FROM" Dockerfile | grep -F "${{ inputs.dockerfile-image }}:" | head -1 | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -225,10 +225,22 @@ runs:
           "python")
             # Check pyproject.toml
             if [ -f pyproject.toml ]; then
-              version=$(grep -E '^python[[:space:]]*=' pyproject.toml | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
-              if [ -n "$version" ] && validate_version "$version"; then
-                echo "Found Python version in pyproject.toml: $version" >&2
-                config_version="$version"
+              # Try PEP 621 requires-python first
+              if command -v jq >/dev/null 2>&1 && grep -q '^\[project\]' pyproject.toml; then
+                # Convert TOML to JSON for PEP 621 parsing (basic approach)
+                version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+                if [ -n "$version" ] && validate_version "$version"; then
+                  echo "Found Python version in pyproject.toml [project] requires-python: $version" >&2
+                  config_version="$version"
+                fi
+              fi
+              # Fallback to legacy python field if no PEP 621 version found
+              if [ -z "$config_version" ]; then
+                version=$(grep -E '^python[[:space:]]*=' pyproject.toml | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+                if [ -n "$version" ] && validate_version "$version"; then
+                  echo "Found Python version in pyproject.toml: $version" >&2
+                  config_version="$version"
+                fi
               fi
             fi
 
