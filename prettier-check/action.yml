@@ -188,7 +188,7 @@ runs:
         type: 'npm'
         paths: 'node_modules/.cache/prettier,.prettier-cache'
         key-prefix: 'prettier-${{ steps.node-setup.outputs.package-manager }}'
-        key-files: 'package.json,package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb,${{ inputs.config-file }}'
+        key-files: package.json,package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb,${{ inputs.config-file }}
         restore-keys: '${{ runner.os }}-prettier-'
 
     - name: Install Dependencies
