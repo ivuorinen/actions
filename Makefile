@@ -43,7 +43,7 @@ help: ## Show this help message
 	@echo "  make check        # Quick syntax checks"
 
 # Main targets
-all: install-tools docs format lint ## Generate docs, format, and lint everything
+all: install-tools update-validators docs format lint ## Generate docs, format, and lint everything
 	@echo "$(GREEN)✅ All tasks completed successfully$(RESET)"
 
 docs: ## Generate documentation for all actions

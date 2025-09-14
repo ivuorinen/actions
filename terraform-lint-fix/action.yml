@@ -94,13 +94,6 @@ runs:
           exit 0
         fi
 
-        # Validate Terraform file syntax
-        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
-          if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
-            echo "::warning::Invalid Terraform syntax in $file"
-          fi
-        done
-
         echo "found=true" >> $GITHUB_OUTPUT
 
     - name: Setup Terraform
@@ -109,6 +102,18 @@ runs:
       with:
         terraform_version: ${{ inputs.terraform-version }}
         terraform_wrapper: false
+
+    - name: Validate Terraform Syntax
+      if: steps.check-files.outputs.found == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Validating Terraform file syntax..."
+        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
+          if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
+            echo "::warning::Invalid Terraform syntax in $file"
+          fi
+        done
 
     - name: Install TFLint
       if: steps.check-files.outputs.found == 'true'
