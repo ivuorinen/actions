@@ -41,6 +41,7 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
+    container: ghcr.io/ivuorinen/actions:testing-tools
     timeout-minutes: 10
 
     steps:
@@ -65,13 +66,11 @@ jobs:
         shell: bash
         run: npm ci
 
-      - name: Install ShellSpec
+      - name: Verify pre-installed tools
         shell: bash
-        run: curl -fsSL https://git.io/shellspec | sh -s -- --yes
-
-      - name: Verify ShellSpec installation
-        shell: bash
-        run: shellspec --version
+        run: |
+          shellspec --version
+          jq --version
 
       - name: Run unit tests
         shell: bash
@@ -86,6 +85,18 @@ jobs:
             echo "Skipping unit tests (test-type: ${{ github.event.inputs.test-type }})"
           fi
 
+      - name: Generate SARIF report
+        shell: bash
+        run: ./_tests/run-tests.sh --type unit --format sarif
+        if: always()
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@cc03f5b14c79b01a0fed8c2a5fd62433c9fbd4a5 # v3.29.4
+        if: always()
+        with:
+          sarif_file: _tests/reports/test-results.sarif
+          category: github-actions-tests
+
       - name: Upload unit test results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         if: always()
@@ -97,6 +108,7 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
+    container: ghcr.io/ivuorinen/actions:testing-tools
     timeout-minutes: 20
     if: github.event.inputs.test-type != 'unit'
 
@@ -120,18 +132,11 @@ jobs:
         shell: bash
         run: npm ci
 
-      - name: Install nektos/act
+      - name: Verify pre-installed tools
         shell: bash
         run: |
-          curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
-
-      - name: Verify act installation
-        shell: bash
-        run: act --version
-
-      - name: Install ShellSpec
-        shell: bash
-        run: curl -fsSL https://git.io/shellspec | sh -s -- --yes
+          act --version
+          shellspec --version
 
       - name: Run integration tests
         shell: bash
@@ -157,6 +162,7 @@ jobs:
   coverage:
     name: Test Coverage
     runs-on: ubuntu-latest
+    container: ghcr.io/ivuorinen/actions:testing-tools
     timeout-minutes: 15
     needs:
       - unit-tests
@@ -176,15 +182,12 @@ jobs:
         shell: bash
         run: npm ci
 
-      - name: Install testing tools
+      - name: Verify pre-installed tools
         shell: bash
         run: |
-          curl -fsSL https://git.io/shellspec | sh -s -- --yes
-
-          # Install kcov for coverage (if available)
-          sudo apt-get update
-          sudo apt-get install -y kcov || echo "kcov not available, coverage will be basic"
-          sudo apt-get install -y jq || echo "jq not available; PR coverage comment may be skipped"
+          shellspec --version
+          kcov --version
+          jq --version
 
       - name: Generate coverage report
         run: make test-coverage
@@ -218,6 +221,7 @@ jobs:
   test-changed-actions:
     name: Test Changed Actions
     runs-on: ubuntu-latest
+    container: ghcr.io/ivuorinen/actions:testing-tools
     timeout-minutes: 15
     if: github.event_name == 'pull_request'
 
@@ -237,16 +241,29 @@ jobs:
         shell: bash
         run: npm ci
 
-      - name: Install ShellSpec
+      - name: Verify pre-installed tools
         shell: bash
-        run: curl -fsSL https://git.io/shellspec | sh -s -- --yes
+        run: shellspec --version
 
       - name: Detect changed actions
         id: changed-actions
         shell: bash
         run: |
+          # Set base SHA for comparison (works with forked PRs)
+          BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          if [[ -z "$BASE_SHA" ]]; then
+            BASE_SHA="origin/${{ github.base_ref }}"
+          fi
+
+          echo "Comparing against base: $BASE_SHA"
+
+          # Fetch the base SHA to ensure it's available (important for forked PRs)
+          if [[ "$BASE_SHA" != origin/* ]]; then
+            git fetch origin "$BASE_SHA"
+          fi
+
           # Get list of changed action.yml files
-          changed_files=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          changed_files=$(git diff --name-only "$BASE_SHA"...HEAD)
           changed_actions=""
 
           for file in $changed_files; do
@@ -299,9 +316,8 @@ jobs:
       - name: Scan shell scripts
         shell: bash
         run: |
-          # Install shellcheck if not available
-          sudo apt-get update
-          sudo apt-get install -y shellcheck
+          # Verify shellcheck is pre-installed
+          shellcheck --version
 
           # Scan all shell scripts in _tests/
           find _tests/ -name "*.sh" -exec shellcheck -x {} \; || {

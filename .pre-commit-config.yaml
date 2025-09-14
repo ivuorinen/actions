@@ -1,5 +1,13 @@
 ---
 repos:
+  - repo: local
+    hooks:
+      - id: generate-docs-format-lint
+        name: Generate docs, format, and lint
+        entry: bash -c 'make all'
+        language: system
+        types: [markdown, python, yaml]
+        files: ^(docs/|README\.md$|CONTRIBUTING\.md|CHANGELOG\.md|.*\.py|.*\.yaml|.*\.yml)$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

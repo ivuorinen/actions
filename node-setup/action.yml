@@ -255,7 +255,7 @@ runs:
       with:
         node-version: ${{ steps.version.outputs.detected-version }}
         registry-url: ${{ inputs.registry-url }}
-        cache: ${{ steps.package-manager-resolution.outputs.final-package-manager != 'bun' && steps.package-manager-resolution.outputs.final-package-manager || '' }}
+        cache: false
 
     - name: Enable Corepack
       id: corepack

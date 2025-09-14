@@ -78,4 +78,4 @@ out/
 reports/**/*.xml
 tags
 tests/reports/**/*.json
-uv.lock
+!uv.lock

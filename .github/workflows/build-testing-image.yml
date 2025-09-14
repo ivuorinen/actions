@@ -1,0 +1,110 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Build Testing Docker Image
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '_tools/docker-testing-tools/**'
+      - '.github/workflows/build-testing-image.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '_tools/docker-testing-tools/**'
+      - '.github/workflows/build-testing-image.yml'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Docker image tag'
+        required: false
+        default: 'latest'
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-and-push:
+    name: Build and Push Testing Image
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@988b5a0280414f521da01fcc63a27aeeb4b104db # v3.6.1
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@8e5442c4ef9f78752691e2d8f8d19755c6f78e81 # v5.5.1
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/actions
+          tags: |
+            type=ref,event=branch,suffix=-testing-tools
+            type=ref,event=pr,suffix=-testing-tools
+            type=raw,value=testing-tools,enable={{is_default_branch}}
+            type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@5cd11c3a4ced054e52742c5fd54dca954e0edd85 # v6.7.0
+        with:
+          context: _tools/docker-testing-tools
+          file: _tools/docker-testing-tools/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          platforms: linux/amd64,linux/arm64
+
+      - name: Test image
+        if: github.event_name != 'pull_request'
+        run: |
+          # Test the built image works correctly
+          docker run --rm ghcr.io/${{ github.repository_owner }}/actions:testing-tools shellspec --version
+          docker run --rm ghcr.io/${{ github.repository_owner }}/actions:testing-tools act --version
+          docker run --rm ghcr.io/${{ github.repository_owner }}/actions:testing-tools trivy --version
+
+      - name: Generate image summary
+        if: github.event_name != 'pull_request'
+        run: |
+          {
+            echo "## 🐋 Docker Image Built Successfully"
+            echo ""
+            echo "**Image**: \`ghcr.io/${{ github.repository_owner }}/actions:testing-tools\`"
+            echo "**Tags**: ${{ steps.meta.outputs.tags }}"
+            echo ""
+            echo "### Usage in GitHub Actions"
+            echo ""
+            echo "\`\`\`yaml"
+            echo "jobs:"
+            echo "  test:"
+            echo "    runs-on: ubuntu-latest"
+            echo "    container: ghcr.io/${{ github.repository_owner }}/actions:testing-tools"
+            echo "    steps:"
+            echo "      - uses: actions/checkout@v5"
+            echo "      - run: shellspec _tests/unit/your-action/"
+            echo "\`\`\`"
+            echo ""
+            echo "### Pre-installed Tools"
+            echo "- ShellSpec ${{ env.SHELLSPEC_VERSION || '0.28.1' }}"
+            echo "- nektos/act (latest)"
+            echo "- Trivy security scanner (latest)"
+            echo "- TruffleHog secrets scanner (latest)"
+            echo "- actionlint (latest)"
+            echo "- shellcheck, jq, kcov, GitHub CLI"
+            echo "- Node.js LTS, Python 3, build tools"
+          } >> "$GITHUB_STEP_SUMMARY"
