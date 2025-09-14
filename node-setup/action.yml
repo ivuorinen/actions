@@ -166,7 +166,7 @@ runs:
         dockerfile-image: 'node'
         version-file: '.nvmrc'
         validation-regex: '^[0-9]+(\.[0-9]+)*$'
-        default-version: ${{ inputs.force-version || inputs.default-version }}
+        default-version: ${{ inputs.force-version != '' && inputs.force-version || inputs.default-version }}
 
     - name: Resolve Package Manager
       id: package-manager-resolution
