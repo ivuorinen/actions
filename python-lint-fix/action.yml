@@ -211,6 +211,7 @@ runs:
 
         # Install dependencies with retry logic
         install_with_retry flake8 ${{ inputs.flake8-version }}
+        install_with_retry flake8-sarif 0.6.0
         install_with_retry autopep8 ${{ inputs.autopep8-version }}
 
         # Verify installations
@@ -227,7 +228,7 @@ runs:
         if [ ! -d ".venv" ]; then
           python -m venv .venv
           source .venv/bin/activate
-          pip install flake8==${{ inputs.flake8-version }} autopep8==${{ inputs.autopep8-version }}
+          pip install flake8==${{ inputs.flake8-version }} flake8-sarif==0.6.0 autopep8==${{ inputs.autopep8-version }}
         fi
 
     - name: Run flake8
