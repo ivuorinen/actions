@@ -21,7 +21,7 @@ validate_action_yml() {
 
   # Check if it's valid YAML
   if ! yq eval '.' "$action_file" >/dev/null 2>&1; then
-    if ! python3 -c "import yaml; yaml.safe_load(open('$action_file'))" 2>/dev/null; then
+    if ! python3 "_tests/shared/validation_core.py" --validate-yaml "$action_file" 2>/dev/null; then
       [[ $quiet_mode == "false" ]] && log_error "Invalid YAML in action file: $action_file"
       return 1
     fi
@@ -31,58 +31,29 @@ validate_action_yml() {
   return 0
 }
 
-# Extract action metadata
+# Extract action metadata using Python validation module
 get_action_inputs() {
   local action_file="$1"
-
-  # Try with yq first, fallback to python if not available
-  if command -v yq >/dev/null 2>&1; then
-    yq eval '.inputs | keys' "$action_file" 2>/dev/null | grep -v '^null$' | sed 's/^- //' || echo ""
-  else
-    python3 -c "
-import yaml
-with open('$action_file') as f:
-    data = yaml.safe_load(f)
-    inputs = data.get('inputs', {})
-    for key in inputs.keys():
-        print(key)
-" 2>/dev/null || echo ""
-  fi
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  python3 "$script_dir/../shared/validation_core.py" --inputs "$action_file"
 }
 
 get_action_outputs() {
   local action_file="$1"
-
-  if command -v yq >/dev/null 2>&1; then
-    yq eval '.outputs | keys' "$action_file" 2>/dev/null | grep -v '^null$' | sed 's/^- //' || echo ""
-  else
-    python3 -c "
-import yaml
-with open('$action_file') as f:
-    data = yaml.safe_load(f)
-    outputs = data.get('outputs', {})
-    for key in outputs.keys():
-        print(key)
-" 2>/dev/null || echo ""
-  fi
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  python3 "$script_dir/../shared/validation_core.py" --outputs "$action_file"
 }
 
 get_action_name() {
   local action_file="$1"
-
-  if command -v yq >/dev/null 2>&1; then
-    yq eval '.name' "$action_file" 2>/dev/null || echo "Unknown"
-  else
-    python3 -c "
-import yaml
-with open('$action_file') as f:
-    data = yaml.safe_load(f)
-    print(data.get('name', 'Unknown'))
-" 2>/dev/null || echo "Unknown"
-  fi
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  python3 "$script_dir/../shared/validation_core.py" --name "$action_file"
 }
 
-# Test input validation with Python fallback for complex patterns
+# Test input validation using Python validation module
 test_input_validation() {
   local action_dir="$1"
   local input_name="$2"
@@ -94,46 +65,27 @@ test_input_validation() {
   # Setup test environment
   setup_test_env "input-validation-${input_name}"
 
-  # Set the input (convert dashes to underscores and uppercase)
-  local env_input_name="${input_name//-/_}"
-  local env_input_name_upper
-  env_input_name_upper=$(echo "$env_input_name" | tr '[:lower:]' '[:upper:]')
-  export "INPUT_${env_input_name_upper}"="$test_value"
+  # Use Python validation module directly
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-  # Run action validation step
-  local action_file="${action_dir}/action.yml"
-  local validation_script="${action_dir}/validate.sh"
-
-  # Check if this action needs Python validation for complex patterns
-  local use_python=false
-  if needs_python_validation "$action_file" "$input_name"; then
-    use_python=true
-  fi
-
-  # Run validation using appropriate method
   local result="success"
-  if [[ $use_python == "true" ]]; then
-    # Use Python validation for complex patterns
-    if ! python_validate_input "$action_dir" "$input_name" "$test_value" "$expected_result"; then
-      result="failure"
-    fi
-  else
-    # Extract validation logic if it exists in the action
-    if grep -q "Validate Inputs" "$action_file"; then
-      # Extract validation step and create temporary script
-      create_validation_script "$action_file" "$validation_script"
-
-      # Run bash validation
-      if ! bash "$validation_script" 2>/dev/null; then
-        result="failure"
-      fi
-    else
-      log_warning "No validation step found in action"
-      return 0
-    fi
+  # Use centralized validation_core directly
+  python3 -c "
+import sys
+import os
+sys.path.insert(0, os.path.join('$script_dir', '..', 'shared'))
+from validation_core import validate_input
+is_valid, error_msg = validate_input('$action_dir', '$input_name', '$test_value')
+if not is_valid:
+    print(f'Validation failed: {error_msg}', file=sys.stderr)
+    sys.exit(1)
+"
+  if [ $? -ne 0 ]; then
+    result="failure"
   fi
 
-  # Check result
+  # Check result matches expectation
   if [[ $result == "$expected_result" ]]; then
     log_success "Input validation test passed: $input_name"
     cleanup_test_env "input-validation-${input_name}"
@@ -145,168 +97,9 @@ test_input_validation() {
   fi
 }
 
-# Create validation script from action.yml with Python fallback for complex patterns
-create_validation_script() {
-  local action_file="$1"
-  local output_script="$2"
-
-  # Check if the action contains complex regex patterns
-  local has_complex_patterns=false
-  if grep -q '(?=' "$action_file" 2>/dev/null || grep -q '(?!' "$action_file" 2>/dev/null ||
-    grep -q '(?<=' "$action_file" 2>/dev/null || grep -q '(?<!' "$action_file" 2>/dev/null; then
-    has_complex_patterns=true
-  fi
-
-  if [[ $has_complex_patterns == "true" ]]; then
-    # Generate Python-based validation script for complex patterns
-    create_python_validation_script "$action_file" "$output_script"
-  else
-    # Extract validation logic and convert GitHub Actions expressions to environment variables
-    {
-      echo "#!/bin/bash"
-      echo "set -euo pipefail"
-      echo ""
-      # Extract validation logic and convert GitHub Actions expressions
-      grep -A 20 "Validate Inputs" "$action_file" |
-        grep -A 15 "run: |" |
-        tail -n +3 |
-        sed '/^[[:space:]]*- name:/,$d' |
-        convert_github_expressions_to_env_vars
-    } >"$output_script"
-
-    chmod +x "$output_script"
-  fi
-}
-
-# Create Python-based validation script for complex regex patterns
-create_python_validation_script() {
-  local action_file="$1"
-  local output_script="$2"
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-  {
-    echo "#!/bin/bash"
-    echo "set -euo pipefail"
-    echo ""
-    echo "# This validation script uses Python for complex regex patterns"
-    echo "# that are not supported in bash's basic regex engine"
-    echo ""
-    echo "action_dir=\"$(dirname "${action_file}")\""
-    echo ""
-    echo "# Validate each input using Python validation module"
-    echo "validation_failed=false"
-    echo ""
-
-    # Extract input names from the action file
-    local inputs
-    inputs=$(get_action_inputs "$action_file")
-
-    while IFS= read -r input_name; do
-      if [[ -n $input_name ]]; then
-        local input_env_name="${input_name//-/_}"
-        local input_env_name_upper
-        input_env_name_upper=$(echo "$input_env_name" | tr '[:lower:]' '[:upper:]')
-        echo "# Validate $input_name"
-        echo "if [[ -n \"\${INPUT_${input_env_name_upper}:-}\" ]]; then"
-        echo "  if ! python3 \"$script_dir/validation.py\" \"\$action_dir\" \"$input_name\" \"\${INPUT_${input_env_name_upper}}\" >/dev/null 2>&1; then"
-        echo "    echo \"::error::Validation failed for input: $input_name\""
-        echo "    validation_failed=true"
-        echo "  fi"
-        echo "fi"
-        echo ""
-      fi
-    done <<<"$inputs"
-
-    # shellcheck disable=SC2016
-    echo 'if [[ "$validation_failed" == "true" ]]; then'
-    echo "  exit 1"
-    echo "fi"
-    echo ""
-    echo 'echo "All input validations passed"'
-  } >"$output_script"
-
-  chmod +x "$output_script"
-}
-
-# Convert GitHub Actions expressions to environment variables
-convert_github_expressions_to_env_vars() {
-  # Use a Python one-liner that's more reliable for this complex regex replacement
-  # shellcheck disable=SC2016
-  python3 -c '
-import sys
-import re
-
-def convert_expression(match):
-    input_name = match.group(1)
-    # Convert kebab-case to UPPER_SNAKE_CASE
-    env_var_name = input_name.replace("-", "_").upper()
-    return f"$INPUT_{env_var_name}"
-
-content = sys.stdin.read()
-# Match ${{ inputs.input-name }} with optional whitespace
-pattern = r"\$\{\{\s*inputs\.([a-zA-Z0-9_-]+)\s*\}\}"
-result = re.sub(pattern, convert_expression, content)
-print(result, end="")
-'
-}
-
-# Check if an action needs Python validation for complex patterns
-needs_python_validation() {
-  local action_file="$1"
-  local input_name="$2"
-
-  # Known actions and inputs that require Python validation
-  local action_dir
-  action_dir=$(basename "$(dirname "$action_file")")
-
-  case "$action_dir" in
-  "csharp-publish")
-    # Uses lookahead assertion for namespace validation and token validation
-    [[ $input_name == "namespace" ]] && return 0
-    [[ $input_name == "token" ]] && return 0
-    ;;
-  "docker-build")
-    # All docker-build inputs are validated through Python
-    return 0
-    ;;
-  "eslint-fix" | "pr-lint" | "pre-commit")
-    # These actions have complex token validation patterns
-    [[ $input_name == "token" ]] && return 0
-    ;;
-  *)
-    # Check if the action file contains lookahead/lookbehind patterns for this specific input
-    if grep -q '(?=' "$action_file" 2>/dev/null; then
-      # Only use Python if this specific input is validated with complex patterns
-      local input_pattern
-      input_pattern=$(grep -A 10 "inputs\.$input_name" "$action_file" | grep '(?=' 2>/dev/null)
-      if [[ -n $input_pattern ]]; then
-        return 0
-      fi
-    fi
-    ;;
-  esac
-
-  return 1
-}
-
-# Python validation wrapper
-python_validate_input() {
-  local action_dir="$1"
-  local input_name="$2"
-  local test_value="$3"
-  local expected_result="$4"
-
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-  # Call Python validation module
-  if python3 "$script_dir/validation.py" "$action_dir" "$input_name" "$test_value" "$expected_result" 2>/dev/null; then
-    return 0
-  else
-    return 1
-  fi
-}
+# Removed: create_validation_script, create_python_validation_script,
+# convert_github_expressions_to_env_vars, needs_python_validation, python_validate_input
+# These functions are no longer needed as we use Python validation directly
 
 # Test action outputs
 test_action_outputs() {
@@ -550,5 +343,4 @@ run_action_tests() {
 
 # Export all functions
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name
-export -f test_input_validation create_validation_script convert_github_expressions_to_env_vars
-export -f test_action_outputs test_external_usage measure_action_time run_action_tests
+export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests

@@ -8,57 +8,57 @@ Describe "eslint-fix action"
 
   Context "when validating token input"
     It "accepts valid GitHub token"
-      When call test_input_validation "$ACTION_DIR" "token" "ghp_123456789012345678901234567890123456" "success"
+      When call validate_input_python "eslint-fix" "token" "ghp_123456789012345678901234567890123456"
       The status should be success
     End
     It "rejects injection in token"
-      When call test_input_validation "$ACTION_DIR" "token" "token; rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "eslint-fix" "token" "token; rm -rf /"
+      The status should be failure
     End
   End
 
   Context "when validating username input"
     It "accepts valid username"
-      When call test_input_validation "$ACTION_DIR" "username" "github-actions" "success"
+      When call validate_input_python "eslint-fix" "username" "github-actions"
       The status should be success
     End
     It "rejects injection in username"
-      When call test_input_validation "$ACTION_DIR" "username" "user; rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "eslint-fix" "username" "user; rm -rf /"
+      The status should be failure
     End
   End
 
   Context "when validating email input"
     It "accepts valid email"
-      When call test_input_validation "$ACTION_DIR" "email" "test@example.com" "success"
+      When call validate_input_python "eslint-fix" "email" "test@example.com"
       The status should be success
     End
     It "rejects invalid email format"
-      When call test_input_validation "$ACTION_DIR" "email" "invalid-email" "failure"
-      The status should be success
+      When call validate_input_python "eslint-fix" "email" "invalid-email"
+      The status should be failure
     End
   End
 
   Context "when validating numeric inputs"
     It "accepts valid max-retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "3" "success"
+      When call validate_input_python "eslint-fix" "max-retries" "3"
       The status should be success
     End
     It "accepts minimum retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "1" "success"
+      When call validate_input_python "eslint-fix" "max-retries" "1"
       The status should be success
     End
     It "accepts maximum retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "10" "success"
+      When call validate_input_python "eslint-fix" "max-retries" "10"
       The status should be success
     End
     It "rejects zero retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "0" "failure"
-      The status should be success
+      When call validate_input_python "eslint-fix" "max-retries" "0"
+      The status should be failure
     End
     It "rejects retries above limit"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "15" "failure"
-      The status should be success
+      When call validate_input_python "eslint-fix" "max-retries" "15"
+      The status should be failure
     End
   End
 
@@ -94,13 +94,13 @@ Describe "eslint-fix action"
 
   Context "when validating security"
     It "validates token format"
-      When call test_input_validation "$ACTION_DIR" "token" "invalid-token;rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "eslint-fix" "token" "invalid-token;rm -rf /"
+      The status should be failure
     End
 
     It "validates email format"
-      When call test_input_validation "$ACTION_DIR" "email" "invalid@email" "failure"
-      The status should be success
+      When call validate_input_python "eslint-fix" "email" "invalid@email"
+      The status should be failure
     End
   End
 

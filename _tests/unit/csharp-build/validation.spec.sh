@@ -8,35 +8,35 @@ Describe "csharp-build action"
 
   Context "when validating dotnet-version input"
     It "accepts valid dotnet version"
-      When call test_input_validation "$ACTION_DIR" "dotnet-version" "8.0" "success"
+      When call validate_input_python "csharp-build" "dotnet-version" "8.0"
       The status should be success
     End
     It "accepts dotnet 6 LTS"
-      When call test_input_validation "$ACTION_DIR" "dotnet-version" "6.0" "success"
+      When call validate_input_python "csharp-build" "dotnet-version" "6.0"
       The status should be success
     End
     It "rejects invalid version"
-      When call test_input_validation "$ACTION_DIR" "dotnet-version" "invalid" "failure"
-      The status should be success
+      When call validate_input_python "csharp-build" "dotnet-version" "invalid"
+      The status should be failure
     End
   End
 
   Context "when validating max-retries input"
     It "accepts valid max-retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "3" "success"
+      When call validate_input_python "csharp-build" "max-retries" "3"
       The status should be success
     End
     It "accepts minimum retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "1" "success"
+      When call validate_input_python "csharp-build" "max-retries" "1"
       The status should be success
     End
     It "rejects zero retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "0" "failure"
-      The status should be success
+      When call validate_input_python "csharp-build" "max-retries" "0"
+      The status should be failure
     End
     It "rejects non-numeric retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "invalid" "failure"
-      The status should be success
+      When call validate_input_python "csharp-build" "max-retries" "invalid"
+      The status should be failure
     End
   End
 
