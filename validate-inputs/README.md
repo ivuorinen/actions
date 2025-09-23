@@ -1,6 +1,6 @@
 # ivuorinen/actions/validate-inputs
 
-## Validate Action Inputs
+## Validate Inputs
 
 ### Description
 
@@ -10,7 +10,10 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 
 | name                | description                                                                        | required | default |
 |---------------------|------------------------------------------------------------------------------------|----------|---------|
-| `action-type`       | <p>Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)</p> | `true`   | `""`    |
+| `action`            | <p>Action name to validate (alias for action-type)</p>                             | `true`   | `""`    |
+| `action-type`       | <p>Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)</p> | `false`  | `""`    |
+| `rules-file`        | <p>Path to validation rules file</p>                                               | `false`  | `""`    |
+| `fail-on-error`     | <p>Whether to fail on validation errors</p>                                        | `false`  | `true`  |
 | `token`             | <p>GitHub token for authentication</p>                                             | `false`  | `""`    |
 | `namespace`         | <p>Namespace/username for validation</p>                                           | `false`  | `""`    |
 | `email`             | <p>Email address for validation</p>                                                | `false`  | `""`    |
@@ -44,6 +47,9 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 |---------------------|----------------------------------------------------|
 | `validation-status` | <p>Overall validation status (success/failure)</p> |
 | `error-message`     | <p>Validation error message if failed</p>          |
+| `validation-result` | <p>Detailed validation result</p>                  |
+| `errors-found`      | <p>Number of validation errors found</p>           |
+| `rules-applied`     | <p>Number of validation rules applied</p>          |
 
 ### Runs
 
@@ -54,11 +60,29 @@ This action is a `composite` action.
 ```yaml
 - uses: ivuorinen/actions/validate-inputs@main
   with:
-    action-type:
-    # Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)
+    action:
+    # Action name to validate (alias for action-type)
     #
     # Required: true
     # Default: ""
+
+    action-type:
+    # Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)
+    #
+    # Required: false
+    # Default: ""
+
+    rules-file:
+    # Path to validation rules file
+    #
+    # Required: false
+    # Default: ""
+
+    fail-on-error:
+    # Whether to fail on validation errors
+    #
+    # Required: false
+    # Default: true
 
     token:
     # GitHub token for authentication
