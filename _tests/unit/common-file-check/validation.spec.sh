@@ -9,40 +9,40 @@ Describe "common-file-check action"
 
   Context "when validating file-pattern input"
     It "accepts simple file pattern"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "package.json" "success"
+      When call validate_input_python "common-file-check" "file-pattern" "package.json"
       The status should be success
     End
     It "accepts glob pattern with wildcard"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "*.json" "success"
+      When call validate_input_python "common-file-check" "file-pattern" "*.json"
       The status should be success
     End
     It "accepts glob pattern with question mark"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "test?.js" "success"
+      When call validate_input_python "common-file-check" "file-pattern" "test?.js"
       The status should be success
     End
     It "accepts nested path pattern"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "src/**/*.ts" "success"
+      When call validate_input_python "common-file-check" "file-pattern" "src/**/*.ts"
       The status should be success
     End
     It "accepts pattern with braces"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "*.{js,ts}" "success"
+      When call validate_input_python "common-file-check" "file-pattern" "*.{js,ts}"
       The status should be success
     End
     It "accepts pattern with brackets"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "[A-Z]*.txt" "success"
+      When call validate_input_python "common-file-check" "file-pattern" "[A-Z]*.txt"
       The status should be success
     End
     It "rejects empty file pattern"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "" "failure"
-      The status should be success
+      When call validate_input_python "common-file-check" "file-pattern" ""
+      The status should be failure
     End
     It "rejects path traversal"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "../../../etc/passwd" "failure"
-      The status should be success
+      When call validate_input_python "common-file-check" "file-pattern" "../../../etc/passwd"
+      The status should be failure
     End
     It "rejects command injection"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "*.json;rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "common-file-check" "file-pattern" "*.json;rm -rf /"
+      The status should be failure
     End
   End
 
@@ -73,18 +73,18 @@ Describe "common-file-check action"
 
   Context "when validating security"
     It "validates glob patterns safely"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "**/*.{js,ts,json}" "success"
+      When call validate_input_python "common-file-check" "file-pattern" "**/*.{js,ts,json}"
       The status should be success
     End
 
     It "rejects injection in glob patterns"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "*.js&&malicious" "failure"
-      The status should be success
+      When call validate_input_python "common-file-check" "file-pattern" "*.js&&malicious"
+      The status should be failure
     End
 
     It "rejects pipe injection in patterns"
-      When call test_input_validation "$ACTION_DIR" "file-pattern" "*.js|dangerous" "failure"
-      The status should be success
+      When call validate_input_python "common-file-check" "file-pattern" "*.js|dangerous"
+      The status should be failure
     End
   End
 

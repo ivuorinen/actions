@@ -22,8 +22,6 @@ TEMP_DIR=$(mktemp -d) || exit 1
 source "${FRAMEWORK_DIR}/setup.sh"
 # shellcheck source=_tests/framework/utils.sh
 source "${FRAMEWORK_DIR}/utils.sh"
-# shellcheck source=_tests/framework/validation_helpers.sh
-source "${FRAMEWORK_DIR}/validation_helpers.sh"
 
 # Initialize testing framework
 init_testing_framework
@@ -48,7 +46,10 @@ spec_helper_configure() {
     touch "$GITHUB_OUTPUT"
   fi
 
-  log_info "ShellSpec helper configured - framework loaded"
+  # Quiet logging during ShellSpec runs to avoid output interference
+  if [[ -z ${SHELLSPEC_VERSION:-} ]]; then
+    log_info "ShellSpec helper configured - framework loaded"
+  fi
 }
 
 # Run configuration
@@ -88,7 +89,7 @@ shellspec_mock_action_run() {
     local value="$2"
     # Convert dashes to underscores for environment variable names
     local env_key="${key//-/_}"
-    export "INPUT_${env_key^^}"="$value"
+    export "INPUT_$(echo "$env_key" | tr '[:lower:]' '[:upper:]')"="$value"
     shift 2
   done
 
@@ -230,592 +231,170 @@ shellspec_mock_action_run() {
   esac
 }
 
-# Simplified input validation for testing
+# Use centralized Python validation system for input validation testing
 shellspec_test_input_validation() {
   local action_dir="$1"
   local input_name="$2"
   local test_value="$3"
   local expected_result="${4:-success}"
 
-  # Basic validation patterns for common inputs
-  local result="success"
+  # Get the action name from the directory
+  local action_name
+  action_name=$(basename "$action_dir")
 
-  # Check for empty values first (some inputs allow empty values)
-  if [[ -z $test_value ]]; then
-    # Some inputs allow empty values
-    case "$input_name" in
-    *"build-args"* | *"build-contexts"* | *"cache-from"* | *"cache-to"* | *"secrets"*)
-      result="success" # These inputs can be empty
-      ;;
-    *)
-      result="failure" # Most inputs cannot be empty
-      ;;
-    esac
-    # Return based on expected result
-    if [[ $result == "$expected_result" ]]; then
-      return 0
-    else
-      return 1
-    fi
+  # Set up environment for Python validation
+  local temp_output_file
+  temp_output_file=$(mktemp)
+
+  # Set environment variables for the validation script
+  # Only set INPUT_ACTION_TYPE if we're not testing the action input
+  if [[ "$input_name" != "action" ]]; then
+    export INPUT_ACTION_TYPE="$action_name"
   fi
 
-  case "$input_name" in
-  *"tool"*"versions"* | *"language"*)
-    # Tool/language key validation (nodejs, python, php, go, etc.)
-    if [[ $test_value =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  # Set default values for commonly required inputs to avoid validation failures
+  # when testing only one input at a time
+  case "$action_name" in
+  "github-release")
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
     ;;
-  "key")
-    # Single "key" input validation
-    if [[ $test_value =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+    [[ "$input_name" != "image-name" ]] && export INPUT_IMAGE_NAME="test-image"
+    [[ "$input_name" != "tag" ]] && export INPUT_TAG="latest"
+    [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && export INPUT_REGISTRY="dockerhub"
     ;;
-  *"buildx-version"*)
-    # Docker buildx version validation (latest or full semantic version required)
-    if [[ $test_value == "latest" ]]; then
-      result="success"
-    else
-      result=$(validate_full_semantic_version "$test_value")
-    fi
+  "npm-publish")
+    [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
     ;;
-  *"go-version"*)
-    # Go version validation (1.x.x format)
-    result=$(validate_go_version "$test_value")
+  "csharp-publish")
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
+    [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
     ;;
-  *"eslint-version"*)
-    # ESLint version validation (latest or semantic version)
-    if [[ $test_value == "latest" ]] || [[ $test_value =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "php-composer")
+    [[ "$input_name" != "php" ]] && export INPUT_PHP="8.1"
     ;;
-  *"php-version"*)
-    # PHP version validation (7.x or 8.x)
-    if [[ $test_value =~ ^[78]\.[0-9]+(\.([0-9]+))?$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "php-tests" | "php-laravel-phpunit")
+    [[ "$input_name" != "php-version" ]] && export INPUT_PHP_VERSION="8.1"
     ;;
-  *"composer-version"*)
-    # Composer version validation (latest or semantic version)
-    if [[ $test_value == "latest" ]] || [[ $test_value =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "go-build" | "go-lint")
+    [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
     ;;
-  *"dotnet-version"*)
-    # .NET version validation (semantic versioning with range check)
-    result=$(validate_dotnet_version "$test_value")
+  "common-cache")
+    [[ "$input_name" != "type" ]] && export INPUT_TYPE="npm"
+    [[ "$input_name" != "paths" ]] && export INPUT_PATHS="node_modules"
     ;;
-  "default-version")
-    # Handle dotnet action's default-version input (same validation as dotnet-version)
-    if [[ $action_dir == *"dotnet"* ]]; then
-      # First check for leading zeros (not allowed)
-      if [[ $test_value =~ ^0[0-9] ]] || [[ $test_value =~ \.0[0-9] ]]; then
-        result="failure"
-      # Check basic format: X or X.Y or X.Y.Z (no leading zeros)
-      elif [[ $test_value =~ ^[1-9][0-9]*(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
-        # Extract major version for range validation (3-20)
-        major_version=$(echo "$test_value" | cut -d'.' -f1)
-        # Convert to integer for proper comparison
-        if [[ $major_version =~ ^[0-9]+$ ]] && [[ $((major_version)) -ge 3 ]] && [[ $((major_version)) -le 20 ]]; then
-          # Special case: version 20.x should only allow 20.0, not 20.1+ (future versions)
-          if [[ $((major_version)) -eq 20 ]]; then
-            # For version 20, only allow 20, 20.0, or 20.0.x
-            if [[ $test_value =~ ^20(\.0(\..*)?)?$ ]]; then
-              result="success"
-            else
-              result="failure"
-            fi
-          else
-            result="success"
-          fi
-        else
-          result="failure"
-        fi
-      else
-        result="failure"
-      fi
-    else
-      # For non-dotnet actions, use generic version validation
-      if [[ $test_value =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-        result="success"
-      else
-        result="failure"
-      fi
-    fi
+  "common-retry")
+    [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
     ;;
-  *"version"*)
-    # Version validation (but not tool-versions or dotnet-version which are handled above)
-    if [[ $test_value =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "dotnet-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.0"
     ;;
-  *"release-tag"* | *"tag-name"*)
-    # Git tag validation (semantic version or branch-like)
-    if [[ $test_value =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]] || [[ $test_value =~ ^[a-zA-Z][a-zA-Z0-9._/-]*$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "python-version-detect" | "python-version-detect-v2")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="3.11"
     ;;
-  *"tags"*)
-    # Docker tags validation (comma-separated, supports semver, latest, nightly)
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      # Split by comma and validate each tag
-      IFS=',' read -ra tag_array <<<"$test_value"
-      valid_tags=true
-      for tag in "${tag_array[@]}"; do
-        tag=$(echo "$tag" | tr -d '[:space:]') # Remove whitespace
-        if ! [[ $tag =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?|latest|nightly|nightly-[0-9]{8}-[0-9]{4}|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
-          valid_tags=false
-          break
-        fi
-      done
-      if [[ $valid_tags == "true" ]]; then
-        result="success"
-      else
-        result="failure"
-      fi
-    fi
+  "php-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.1"
     ;;
-  *"tag"*)
-    # Tag validation (simple semver or Docker tag format)
-    if [[ $test_value =~ ^[a-zA-Z0-9v][a-zA-Z0-9._-]*$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "go-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="1.22"
     ;;
-  *"docker-hub-username"*)
-    # Docker Hub username validation (4-30 chars, alphanumeric, hyphens, underscores)
-    result=$(validate_docker_hub_username "$test_value")
+  "validate-inputs")
+    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
     ;;
-  *"username"*)
-    # Username validation - check length (max 39) and injection patterns
-    if [[ ${#test_value} -le 39 ]] && [[ $test_value != *";"* ]] && [[ $test_value != *"&&"* ]] && [[ $test_value != *"|"* ]] && [[ -n $test_value ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "version-file-parser")
+    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="node"
+    [[ "$input_name" != "tool-versions-key" ]] && export INPUT_TOOL_VERSIONS_KEY="nodejs"
+    [[ "$input_name" != "dockerfile-image" ]] && export INPUT_DOCKERFILE_IMAGE="node"
     ;;
-  *"email"*)
-    # Email validation - must have @ and domain, not start/end with @, no spaces
-    result=$(validate_email "$test_value")
+  "codeql-analysis")
+    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
     ;;
-  *"token"*)
-    # GitHub token validation - check format patterns
-    result=$(validate_github_token "$test_value")
+  esac
+
+  # Convert input name to uppercase and replace dashes with underscores
+  local input_var_name
+  input_var_name="INPUT_${input_name//-/_}"
+  input_var_name="$(echo "$input_var_name" | tr '[:lower:]' '[:upper:]')"
+  export "$input_var_name"="$input_value"
+  export GITHUB_OUTPUT="$temp_output_file"
+
+  # Run the Python validation script and capture exit code
+  local exit_code
+  if python3 "${PROJECT_ROOT}/validate-inputs/validator.py" >/dev/null 2>&1; then
+    exit_code=0
+  else
+    exit_code=1
+  fi
+
+  # Determine the actual result based on exit code
+  local actual_result
+  if [[ $exit_code -eq 0 ]]; then
+    actual_result="success"
+  else
+    actual_result="failure"
+  fi
+
+  # Clean up
+  rm -f "$temp_output_file" 2>/dev/null || true
+  unset "$input_var_name"
+
+  # Clean up default inputs
+  case "$action_name" in
+  "github-release")
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
     ;;
-  *"max-retries"*)
-    # Max retry validation - must be 1-10 range and numeric
-    result=$(validate_numeric_range "$test_value" 1 10)
+  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+    [[ "$input_name" != "image-name" ]] && unset INPUT_IMAGE_NAME
+    [[ "$input_name" != "tag" ]] && unset INPUT_TAG
+    [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && unset INPUT_REGISTRY
     ;;
-  *"scan-image"*)
-    # Boolean validation for Docker security scanning
-    result=$(validate_boolean "$test_value")
+  "npm-publish")
+    [[ "$input_name" != "npm_token" ]] && unset INPUT_NPM_TOKEN
     ;;
-  *"sign-image"*)
-    # Boolean validation for Docker image signing
-    result=$(validate_boolean "$test_value")
+  "csharp-publish")
+    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
+    [[ "$input_name" != "namespace" ]] && unset INPUT_NAMESPACE
     ;;
-  *"image-name"*)
-    # Docker image name validation (lowercase alphanumeric, hyphens, underscores, dots)
-    result=$(validate_docker_image_name "$test_value")
+  "php-composer")
+    [[ "$input_name" != "php" ]] && unset INPUT_PHP
     ;;
-  *"quality"*)
-    # Quality validation (0-100 range for image compression)
-    if [[ $test_value =~ ^[0-9]+$ ]] && [[ $((test_value)) -ge 0 ]] && [[ $((test_value)) -le 100 ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
+  "php-tests" | "php-laravel-phpunit")
+    [[ "$input_name" != "php-version" ]] && unset INPUT_PHP_VERSION
     ;;
-  *"namespace"*)
-    # GitHub namespace validation (username/org format, 1-39 chars)
-    if [[ ${#test_value} -ge 1 ]] && [[ ${#test_value} -le 39 ]] && [[ $test_value =~ ^[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]$ ]] || [[ $test_value =~ ^[a-zA-Z0-9]$ ]]; then
-      # Additional validation: no consecutive hyphens, no start/end hyphens (except single char)
-      if [[ $test_value == *"--"* ]]; then
-        result="failure"
-      else
-        result="success"
-      fi
-    else
-      result="failure"
-    fi
+  "go-build" | "go-lint")
+    [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
     ;;
-  *"image"*)
-    # Image validation (no special characters that could be injection)
-    # Skip if already handled by more specific patterns above
-    if [[ $input_name == *"scan-image"* ]] || [[ $input_name == *"sign-image"* ]] || [[ $input_name == *"image-name"* ]]; then
-      result="failure" # Should not reach here if patterns are ordered correctly
-    elif [[ $test_value =~ ^[a-zA-Z0-9][a-zA-Z0-9_/-]*$ ]]; then
-      result="success"
-    elif [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
+  "dotnet-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
     ;;
-  *"name"*)
-    # Name validation (no special characters that could be injection)
-    # Skip if already handled by more specific patterns above
-    if [[ $input_name == *"image-name"* ]] || [[ $input_name == *"tag-name"* ]]; then
-      result="failure" # Should not reach here if patterns are ordered correctly
-    elif [[ $test_value =~ ^[a-zA-Z0-9][a-zA-Z0-9_/-]*$ ]]; then
-      result="success"
-    elif [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
+  "python-version-detect" | "python-version-detect-v2")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
     ;;
-  *"key-files"*)
-    # Key files validation (paths for cache keys, comma-separated allowed)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]] || [[ $test_value == *"\$"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
+  "php-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
     ;;
-  *"restore-keys"*)
-    # Restore keys validation
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
+  "go-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
     ;;
-  *"file-pattern"*)
-    # File pattern validation (glob patterns)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *";"* ]] || [[ $test_value == *"|"* ]] || [[ $test_value == *"&"* ]] || [[ $test_value == *"\$("* ]] || [[ $test_value == /* ]] || [[ ${#test_value} -gt 255 ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
+  "validate-inputs")
+    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
     ;;
-  *"pattern"*)
-    # Pattern validation (glob patterns)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *";"* ]] || [[ $test_value == *"|"* ]] || [[ $test_value == *"&"* ]] || [[ $test_value == *"\$("* ]] || [[ $test_value == /* ]] || [[ ${#test_value} -gt 255 ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
+  "version-file-parser")
+    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
+    [[ "$input_name" != "tool-versions-key" ]] && unset INPUT_TOOL_VERSIONS_KEY
+    [[ "$input_name" != "dockerfile-image" ]] && unset INPUT_DOCKERFILE_IMAGE
     ;;
-  *"readme-file"*)
-    # README file validation (must be markdown or text)
-    if [[ $test_value =~ ^[^/].*\.(md|txt|rst)$ ]] && [[ $test_value != *"../"* ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"file-extensions"*)
-    # File extensions validation (comma-separated .ext format)
-    if [[ $test_value =~ ^(\.[a-zA-Z0-9]+)(,\.[a-zA-Z0-9]+)*$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"ignore-paths"*)
-    # Ignore paths validation (glob patterns with security checks)
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]] || [[ $test_value == *"../"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"config-file"* | *"ignore-file"*)
-    # Config/ignore file validation (prevent path traversal and injection)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *"/../"* ]] || [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"path"*)
-    # Path validation (check for directory traversal and injection)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *"/etc/"* ]] || [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"file"*)
-    # File validation (check for directory traversal and injection)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *"/etc/"* ]] || [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"mode"*)
-    # Mode validation (for cache-mode, etc.)
-    if [[ $test_value =~ ^(min|max|inline)$ ]]; then
-      result="success"
-    elif [[ $test_value == "invalid" ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"parallel-builds"*)
-    # Parallel builds validation (0 for auto, 1-16 for specific count)
-    if [[ $test_value =~ ^[0-9]+$ ]] && [[ $((test_value)) -ge 0 ]] && [[ $((test_value)) -le 16 ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"parallel"*)
-    # Parallel processing validation (numeric)
-    if [[ $test_value =~ ^[0-9]+$ ]]; then
-      if [[ $test_value -ge 0 ]]; then
-        result="success"
-      else
-        result="failure"
-      fi
-    else
-      result="failure"
-    fi
-    ;;
-  *"builds"*)
-    # Build count validation (numeric)
-    if [[ $test_value =~ ^[0-9]+$ ]]; then
-      if [[ $test_value -ge 0 ]]; then
-        result="success"
-      else
-        result="failure"
-      fi
-    else
-      result="failure"
-    fi
-    ;;
-  *"retries"*)
-    # Retry validation (numeric)
-    if [[ $test_value =~ ^[0-9]+$ ]]; then
-      if [[ $test_value -ge 0 ]]; then
-        result="success"
-      else
-        result="failure"
-      fi
-    else
-      result="failure"
-    fi
-    ;;
-  *"report-format"*)
-    # Report format validation (enumerated values)
-    if [[ $test_value =~ ^(stylish|json|sarif|checkstyle|compact|html|jslint-xml|junit|tap|unix)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"sbom-format"*)
-    # SBOM format validation (spdx-json, cyclonedx-json, etc.)
-    if [[ $test_value =~ ^(spdx-json|cyclonedx-json|table|text)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"format"*)
-    # Format validation (general format)
-    if [[ $test_value =~ ^(spdx-json|cyclonedx-json|table|text|json|xml|yaml)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"package"*"manager"* | *"manager"*)
-    # Package manager validation (npm, yarn, pnpm, bun, composer, pip, etc.)
-    if [[ $test_value =~ ^(npm|yarn|pnpm|bun|composer|pip|poetry|maven|gradle|nuget)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"command"*)
-    # Command validation (basic injection prevention)
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"delay"*)
-    # Delay validation (1-300 seconds for retry delay)
-    if [[ $test_value =~ ^[1-9][0-9]*$ ]] && [[ $test_value -ge 1 ]] && [[ $test_value -le 300 ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"strategy"*)
-    # Strategy validation (backoff strategies)
-    if [[ $test_value =~ ^(linear|exponential|fixed)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"timeout"*)
-    # Timeout validation (1-3600 seconds)
-    if [[ $test_value =~ ^[1-9][0-9]*$ ]] && [[ $test_value -ge 1 ]] && [[ $test_value -le 3600 ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"registry"*)
-    # Docker registry validation (dockerhub|github|both, or registry URLs)
-    if [[ $test_value =~ ^(dockerhub|github|both|ghcr\.io|docker\.io)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"max-warnings"*)
-    # Max warnings validation (non-negative integer)
-    if [[ $test_value =~ ^[0-9]+$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"cache-from"* | *"cache-to"*)
-    # Docker cache configuration validation
-    # Accept cache configurations like "type=registry,ref=myapp:cache" or "type=gha" or "type=local,src=/tmp/cache"
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      # Reject injection attempts
-      result="failure"
-    elif [[ $test_value =~ ^type= ]] || [[ -z $test_value ]]; then
-      # Accept if starts with "type=" or is empty (optional input)
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"auto-detect-platforms"* | *"nightly"* | *"provenance"* | *"sbom"* | *"verbose"* | *"cache"* | *"fail-on-error"*)
-    # Boolean validation for Docker/security features and general boolean inputs
-    result=$(validate_boolean "$test_value")
-    ;;
-  *"platforms"*)
-    # Docker platform validation (linux/arch format)
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    elif [[ $test_value =~ ^linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x)(,linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x))*$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"working-directory"* | *"working"*"directory"*)
-    # Working directory validation (no path traversal, no absolute paths, no injection)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *"/../"* ]] || [[ $test_value == /* ]] || [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"build-destination"*)
-    # Build destination validation (relative paths only)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *"/../"* ]] || [[ $test_value == /* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"destination"*)
-    # Destination validation (relative paths only)
-    if [[ $test_value == *"../"* ]] || [[ $test_value == *"/../"* ]] || [[ $test_value == /* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"repository-description"*)
-    # Repository description validation (length and content)
-    if [[ ${#test_value} -le 500 ]] && [[ $test_value != *"<script"* ]] && [[ $test_value != *"javascript:"* ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"shell"*)
-    # Shell validation (only bash and sh allowed)
-    if [[ $test_value =~ ^(bash|sh)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"type"*)
-    # Type validation (cache types, package managers, etc.)
-    if [[ $test_value =~ ^[a-zA-Z][a-zA-Z0-9_-]*$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"success-codes"* | *"retry-codes"*)
-    # Exit codes validation
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"codes"*)
-    # Exit codes validation (general)
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"|"* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
-    ;;
-  *"status"*)
-    # Status validation (success/failure/skipped enum)
-    if [[ $test_value =~ ^(success|failure|skipped)$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *"count"*)
-    # Count validation (non-negative integers)
-    if [[ $test_value =~ ^[0-9]+$ ]]; then
-      result="success"
-    else
-      result="failure"
-    fi
-    ;;
-  *)
-    # Default validation - check for obvious injection patterns
-    if [[ $test_value == *";"* ]] || [[ $test_value == *"&&"* ]] || [[ $test_value == *"\$("* ]]; then
-      result="failure"
-    else
-      result="success"
-    fi
+  "codeql-analysis")
+    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
+    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
     ;;
   esac
 
   # Return based on expected result
-  if [[ $result == "$expected_result" ]]; then
+  if [[ $actual_result == "$expected_result" ]]; then
     return 0
   else
     return 1
@@ -870,9 +449,8 @@ test_input_validation() {
 
 # Export all framework functions for backward compatibility
 export -f setup_test_env cleanup_test_env create_mock_repo
-export -f create_mock_node_repo create_mock_php_repo create_mock_python_repo
-export -f create_mock_go_repo create_mock_dotnet_repo
-export -f validate_action_output run_action_step check_required_tools
+export -f create_mock_node_repo
+export -f validate_action_output check_required_tools
 export -f log_info log_success log_warning log_error
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name
 export -f test_action_outputs test_external_usage test_input_validation
@@ -888,17 +466,173 @@ validate_action_yml_quiet() {
 # Note: These helpers return validation results but cannot use ShellSpec commands
 # They must be called from within ShellSpec It blocks
 
+# Modern Python-based validation function for direct testing
+validate_input_python() {
+  local action_type="$1"
+  local input_name="$2"
+  local input_value="$3"
+
+  # Set up environment variables for Python validator
+  export INPUT_ACTION_TYPE="$action_type"
+
+  # Set default values for commonly required inputs to avoid validation failures
+  # when testing only one input at a time
+  case "$action_type" in
+  "github-release")
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
+    ;;
+  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+    [[ "$input_name" != "image-name" ]] && export INPUT_IMAGE_NAME="test-image"
+    [[ "$input_name" != "tag" ]] && export INPUT_TAG="latest"
+    [[ "$action_type" == "docker-publish" && "$input_name" != "registry" ]] && export INPUT_REGISTRY="dockerhub"
+    ;;
+  "npm-publish")
+    [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
+    ;;
+  "csharp-publish")
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
+    [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
+    ;;
+  "php-composer")
+    [[ "$input_name" != "php" ]] && export INPUT_PHP="8.1"
+    ;;
+  "php-tests" | "php-laravel-phpunit")
+    [[ "$input_name" != "php-version" ]] && export INPUT_PHP_VERSION="8.1"
+    ;;
+  "go-build" | "go-lint")
+    [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
+    ;;
+  "common-cache")
+    [[ "$input_name" != "type" ]] && export INPUT_TYPE="npm"
+    [[ "$input_name" != "paths" ]] && export INPUT_PATHS="node_modules"
+    ;;
+  "common-retry")
+    [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
+    ;;
+  "dotnet-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.0"
+    ;;
+  "python-version-detect" | "python-version-detect-v2")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="3.11"
+    ;;
+  "php-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.1"
+    ;;
+  "go-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="1.22"
+    ;;
+  "validate-inputs")
+    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
+    ;;
+  "version-file-parser")
+    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="node"
+    [[ "$input_name" != "tool-versions-key" ]] && export INPUT_TOOL_VERSIONS_KEY="nodejs"
+    [[ "$input_name" != "dockerfile-image" ]] && export INPUT_DOCKERFILE_IMAGE="node"
+    ;;
+  "codeql-analysis")
+    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+    ;;
+  esac
+
+  # Set the target input
+  local input_var_name="INPUT_${input_name//-/_}"
+  input_var_name="$(echo "$input_var_name" | tr '[:lower:]' '[:upper:]')"
+  export "$input_var_name"="$input_value"
+
+  # Set up GitHub output file
+  local temp_output
+  temp_output=$(mktemp)
+  export GITHUB_OUTPUT="$temp_output"
+
+  # Call Python validator directly
+
+  if [[ "${SHELLSPEC_DEBUG:-}" == "1" ]]; then
+    echo "DEBUG: Testing $action_type $input_name=$input_value"
+    echo "DEBUG: Environment variables:"
+    env | grep "^INPUT_" | sort
+  fi
+
+  # Run validator and output everything to stdout for ShellSpec
+  python3 "${PROJECT_ROOT}/validate-inputs/validator.py" 2>&1
+  local exit_code=$?
+
+  # Clean up target input
+  unset INPUT_ACTION_TYPE "$input_var_name" GITHUB_OUTPUT
+  rm -f "$temp_output" 2>/dev/null || true
+
+  # Clean up default inputs
+  case "$action_type" in
+  "github-release")
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
+    ;;
+  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+    [[ "$input_name" != "image-name" ]] && unset INPUT_IMAGE_NAME
+    [[ "$input_name" != "tag" ]] && unset INPUT_TAG
+    [[ "$action_type" == "docker-publish" && "$input_name" != "registry" ]] && unset INPUT_REGISTRY
+    ;;
+  "npm-publish")
+    [[ "$input_name" != "npm_token" ]] && unset INPUT_NPM_TOKEN
+    ;;
+  "csharp-publish")
+    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
+    [[ "$input_name" != "namespace" ]] && unset INPUT_NAMESPACE
+    ;;
+  "php-composer")
+    [[ "$input_name" != "php" ]] && unset INPUT_PHP
+    ;;
+  "php-tests" | "php-laravel-phpunit")
+    [[ "$input_name" != "php-version" ]] && unset INPUT_PHP_VERSION
+    ;;
+  "go-build" | "go-lint")
+    [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
+    ;;
+  "common-cache")
+    [[ "$input_name" != "type" ]] && unset INPUT_TYPE
+    [[ "$input_name" != "paths" ]] && unset INPUT_PATHS
+    ;;
+  "common-retry")
+    [[ "$input_name" != "command" ]] && unset INPUT_COMMAND
+    ;;
+  "dotnet-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "python-version-detect" | "python-version-detect-v2")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "php-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "go-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "validate-inputs")
+    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
+    ;;
+  "version-file-parser")
+    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
+    [[ "$input_name" != "tool-versions-key" ]] && unset INPUT_TOOL_VERSIONS_KEY
+    [[ "$input_name" != "dockerfile-image" ]] && unset INPUT_DOCKERFILE_IMAGE
+    ;;
+  "codeql-analysis")
+    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
+    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    ;;
+  esac
+
+  # Return the exit code for ShellSpec to check
+  return $exit_code
+}
+
 # Export all new simplified helpers (functions are moved above)
-export -f validate_action_yml_quiet
+export -f validate_action_yml_quiet validate_input_python
 
-# Set up cleanup trap for temp directory, preserving any existing EXIT trap
-_existing_exit_trap=$(trap -p EXIT | cut -d"'" -f2 2>/dev/null || echo "")
-if [[ -n "$_existing_exit_trap" ]]; then
-  # shellcheck disable=SC2064
-  trap "$_existing_exit_trap; rm -rf \"\$TEMP_DIR\"" EXIT
-else
-  trap 'rm -rf "$TEMP_DIR"' EXIT
+# Removed EXIT trap setup to avoid conflicts with ShellSpec
+# ShellSpec handles its own cleanup, and our framework cleanup is handled in setup.sh
+
+# Quiet logging during ShellSpec runs
+if [[ -z ${SHELLSPEC_VERSION:-} ]]; then
+  log_success "ShellSpec spec helper loaded successfully"
 fi
-unset _existing_exit_trap
-
-log_success "ShellSpec spec helper loaded successfully"

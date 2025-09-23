@@ -10,19 +10,19 @@ Describe "set-git-config action"
     # NOTE: This action has no validation logic - all inputs are accepted
     # The action simply passes through values and conditionally sets outputs
     It "accepts valid token value"
-      When call test_input_validation "$ACTION_DIR" "token" "ghp_123456789012345678901234567890123456" "success"
+      When call validate_input_python "set-git-config" "token" "ghp_123456789012345678901234567890123456"
       The status should be success
     End
     It "accepts any username value"
-      When call test_input_validation "$ACTION_DIR" "username" "any-username" "success"
+      When call validate_input_python "set-git-config" "username" "any-username"
       The status should be success
     End
     It "accepts valid email value"
-      When call test_input_validation "$ACTION_DIR" "email" "test@example.com" "success"
+      When call validate_input_python "set-git-config" "email" "test@example.com"
       The status should be success
     End
     It "accepts any is_fiximus value"
-      When call test_input_validation "$ACTION_DIR" "is_fiximus" "any-value" "success"
+      When call validate_input_python "set-git-config" "is_fiximus" "any-value"
       The status should be success
     End
   End
