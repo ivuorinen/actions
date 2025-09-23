@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 #
 # Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
 # Open a Pull Request if any images can be compressed.
@@ -98,7 +98,10 @@ runs:
         fi
 
         # Validate ignore paths format (prevent command injection)
-        if [[ "${{ inputs.ignore-paths }}" == *";"* ]] || [[ "${{ inputs.ignore-paths }}" == *"&&"* ]] || [[ "${{ inputs.ignore-paths }}" == *"|"* ]] || [[ "${{ inputs.ignore-paths }}" == *'`'* ]] || [[ "${{ inputs.ignore-paths }}" == *'$('* ]] || [[ "${{ inputs.ignore-paths }}" == *'${'* ]] || [[ "${{ inputs.ignore-paths }}" == *"<"* ]] || [[ "${{ inputs.ignore-paths }}" == *">"* ]]; then
+        if [[ "${{ inputs.ignore-paths }}" == *";"* ]] || [[ "${{ inputs.ignore-paths }}" == *"&&"* ]] || \
+           [[ "${{ inputs.ignore-paths }}" == *"|"* ]] || [[ "${{ inputs.ignore-paths }}" == *'`'* ]] || \
+           [[ "${{ inputs.ignore-paths }}" == *'$('* ]] || [[ "${{ inputs.ignore-paths }}" == *'${'* ]] || \
+           [[ "${{ inputs.ignore-paths }}" == *"<"* ]] || [[ "${{ inputs.ignore-paths }}" == *">"* ]]; then
           echo "::error::Invalid ignore-paths: '${{ inputs.ignore-paths }}'. Command injection patterns not allowed"
           exit 1
         fi
@@ -129,7 +132,7 @@ runs:
         fi
     - name: Set Git Config
       id: set-git-config
-      uses: ../set-git-config
+      uses: ./set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
@@ -142,7 +145,7 @@ runs:
 
     - name: Compress Images
       id: calibre
-      uses: calibreapp/image-actions@737ceeaeed61e17b8d358358a303f1b8d177b779 # v1.1.0
+      uses: calibreapp/image-actions@f32575787d333b0579f0b7d506ff03be63a669d1 # 1.4.1
       with:
         compressOnly: true
         githubToken: ${{ inputs.token }}

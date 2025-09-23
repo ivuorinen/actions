@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: 'C# Lint Check'
 description: 'Runs linters like StyleCop or dotnet-format for C# code style checks.'
 author: 'Ismo Vuorinen'
@@ -52,7 +52,7 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ../dotnet-version-detect
+      uses: ./dotnet-version-detect
       with:
         default-version: ${{ inputs.dotnet-version || '7.0' }}
 

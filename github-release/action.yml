@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: GitHub Release
 description: 'Creates a GitHub release with a version and changelog.'
 author: 'Ismo Vuorinen'

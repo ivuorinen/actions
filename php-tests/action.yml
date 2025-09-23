@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: PHP Tests
 description: Run PHPUnit tests on the repository
 author: Ismo Vuorinen
@@ -74,14 +74,14 @@ runs:
         echo "Input validation completed successfully"
 
     - name: Set Git Config
-      uses: ../set-git-config
+      uses: ./set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
 
     - name: Composer Install
-      uses: ../php-composer
+      uses: ./php-composer
 
     - name: Run PHPUnit Tests
       id: test

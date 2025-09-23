@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: pre-commit
 description: 'Runs pre-commit on the repository and pushes the fixes back to the repository'
 author: 'Ismo Vuorinen'
@@ -42,7 +42,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      uses: ../validate-inputs
+      uses: ./validate-inputs
       with:
         action-type: 'pre-commit'
         token: ${{ inputs.token }}
@@ -51,7 +51,7 @@ runs:
         email: ${{ inputs.commit_email }}
         username: ${{ inputs.commit_user }}
     - name: Set Git Config
-      uses: ../set-git-config
+      uses: ./set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.commit_user }}
