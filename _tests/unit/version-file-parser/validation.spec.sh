@@ -8,61 +8,61 @@ Describe "version-file-parser action"
 
   Context "when validating language input"
     It "accepts valid language input"
-      When call test_input_validation "$ACTION_DIR" "language" "node" "success"
+      When call validate_input_python "version-file-parser" "language" "node"
       The status should be success
     End
     It "accepts php language"
-      When call test_input_validation "$ACTION_DIR" "language" "php" "success"
+      When call validate_input_python "version-file-parser" "language" "php"
       The status should be success
     End
     It "accepts python language"
-      When call test_input_validation "$ACTION_DIR" "language" "python" "success"
+      When call validate_input_python "version-file-parser" "language" "python"
       The status should be success
     End
     It "accepts go language"
-      When call test_input_validation "$ACTION_DIR" "language" "go" "success"
+      When call validate_input_python "version-file-parser" "language" "go"
       The status should be success
     End
     It "rejects invalid language with special characters"
-      When call test_input_validation "$ACTION_DIR" "language" "node; rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "version-file-parser" "language" "node; rm -rf /"
+      The status should be failure
     End
     It "rejects empty required inputs"
-      When call test_input_validation "$ACTION_DIR" "language" "" "failure"
-      The status should be success
+      When call validate_input_python "version-file-parser" "language" ""
+      The status should be failure
     End
   End
 
   Context "when validating dockerfile-image input"
     It "accepts valid dockerfile image"
-      When call test_input_validation "$ACTION_DIR" "dockerfile-image" "node" "success"
+      When call validate_input_python "version-file-parser" "dockerfile-image" "node"
       The status should be success
     End
     It "accepts php dockerfile image"
-      When call test_input_validation "$ACTION_DIR" "dockerfile-image" "php" "success"
+      When call validate_input_python "version-file-parser" "dockerfile-image" "php"
       The status should be success
     End
     It "accepts python dockerfile image"
-      When call test_input_validation "$ACTION_DIR" "dockerfile-image" "python" "success"
+      When call validate_input_python "version-file-parser" "dockerfile-image" "python"
       The status should be success
     End
     It "rejects injection in dockerfile image"
-      When call test_input_validation "$ACTION_DIR" "dockerfile-image" "node;malicious" "failure"
-      The status should be success
+      When call validate_input_python "version-file-parser" "dockerfile-image" "node;malicious"
+      The status should be failure
     End
   End
 
   Context "when validating optional inputs"
     It "accepts valid validation regex"
-      When call test_input_validation "$ACTION_DIR" "validation-regex" "^[0-9]+\.[0-9]+(\.[0-9]+)?$" "success"
+      When call validate_input_python "version-file-parser" "validation-regex" "^[0-9]+\.[0-9]+(\.[0-9]+)?$"
       The status should be success
     End
     It "accepts valid default version"
-      When call test_input_validation "$ACTION_DIR" "default-version" "18.0.0" "success"
+      When call validate_input_python "version-file-parser" "default-version" "18.0.0"
       The status should be success
     End
     It "accepts tool versions key"
-      When call test_input_validation "$ACTION_DIR" "tool-versions-key" "nodejs" "success"
+      When call validate_input_python "version-file-parser" "tool-versions-key" "nodejs"
       The status should be success
     End
   End
@@ -94,23 +94,23 @@ Describe "version-file-parser action"
 
   Context "when validating security"
     It "rejects injection in language parameter"
-      When call test_input_validation "$ACTION_DIR" "language" "node&&malicious" "failure"
-      The status should be success
+      When call validate_input_python "version-file-parser" "language" "node&&malicious"
+      The status should be failure
     End
 
     It "rejects pipe injection in tool versions key"
-      When call test_input_validation "$ACTION_DIR" "tool-versions-key" "nodejs|dangerous" "failure"
-      The status should be success
+      When call validate_input_python "version-file-parser" "tool-versions-key" "nodejs|dangerous"
+      The status should be failure
     End
 
     It "validates regex patterns safely"
-      When call test_input_validation "$ACTION_DIR" "validation-regex" "^[0-9]+\.[0-9]+$" "success"
+      When call validate_input_python "version-file-parser" "validation-regex" "^[0-9]+\.[0-9]+$"
       The status should be success
     End
 
     It "rejects malicious regex patterns"
-      When call test_input_validation "$ACTION_DIR" "validation-regex" ".*; rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "version-file-parser" "validation-regex" ".*; rm -rf /"
+      The status should be failure
     End
   End
 

@@ -146,108 +146,9 @@ EOF
   echo 'console.log("Hello, World!");' >src/index.js
 }
 
-# Create mock PHP repository
-create_mock_php_repo() {
-  cat >composer.json <<EOF
-{
-  "name": "test/project",
-  "type": "project",
-  "require": {
-    "php": "^8.1"
-  },
-  "require-dev": {
-    "phpunit/phpunit": "^10.0"
-  },
-  "autoload": {
-    "psr-4": {
-      "App\\\\": "src/"
-    }
-  }
-}
-EOF
-
-  mkdir -p src tests
-  echo "<?php echo 'Hello, World!';" >src/index.php
-
-  cat >phpunit.xml <<EOF
-<?xml version="1.0" encoding="UTF-8"?>
-<phpunit bootstrap="vendor/autoload.php">
-    <testsuites>
-        <testsuite name="Unit">
-            <directory suffix="Test.php">./tests</directory>
-        </testsuite>
-    </testsuites>
-</phpunit>
-EOF
-}
-
-# Create mock Python repository
-create_mock_python_repo() {
-  cat >pyproject.toml <<EOF
-[tool.poetry]
-name = "test-project"
-version = "0.1.0"
-description = ""
-
-[tool.poetry.dependencies]
-python = "^3.8"
-
-[tool.poetry.dev-dependencies]
-pytest = "^7.0"
-
-[build-system]
-requires = ["poetry-core"]
-build-backend = "poetry.core.masonry.api"
-EOF
-
-  echo "print('Hello, World!')" >main.py
-  echo "3.9.0" >.python-version
-}
-
-# Create mock Go repository
-create_mock_go_repo() {
-  cat >go.mod <<EOF
-module test-project
-
-go 1.21
-
-require (
-    github.com/stretchr/testify v1.8.0
-)
-EOF
-
-  cat >main.go <<EOF
-package main
-
-import "fmt"
-
-func main() {
-    fmt.Println("Hello, World!")
-}
-EOF
-}
-
-# Create mock .NET repository
-create_mock_dotnet_repo() {
-  cat >global.json <<EOF
-{
-  "sdk": {
-    "version": "8.0.0"
-  }
-}
-EOF
-
-  cat >TestProject.csproj <<EOF
-<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <OutputType>Exe</OutputType>
-  </PropertyGroup>
-</Project>
-EOF
-
-  echo 'Console.WriteLine("Hello, World!");' >Program.cs
-}
+# Removed unused mock repository functions:
+# create_mock_php_repo, create_mock_python_repo, create_mock_go_repo, create_mock_dotnet_repo
+# Only create_mock_node_repo is used and kept below
 
 # Validate action outputs
 validate_action_output() {
@@ -266,31 +167,7 @@ validate_action_output() {
   fi
 }
 
-# Run action locally (simulation)
-run_action_step() {
-  local action_path="$1"
-  local step_name="$2"
-  shift 2
-
-  log_info "Running action step: $step_name"
-
-  # Source the action's shell script (for composite actions)
-  if [[ -f $action_path ]]; then
-    # Set up inputs as environment variables
-    while [[ $# -gt 0 ]]; do
-      local key="$1"
-      local value="$2"
-      export "INPUT_${key^^}"="$value"
-      shift 2
-    done
-
-    # Execute the action step
-    bash "$action_path"
-  else
-    log_error "Action script not found: $action_path"
-    return 1
-  fi
-}
+# Removed unused function: run_action_step
 
 # Check if required tools are available
 check_required_tools() {
@@ -308,29 +185,45 @@ check_required_tools() {
     return 1
   fi
 
-  log_success "All required tools are available"
+  if [[ -z ${SHELLSPEC_VERSION:-} ]]; then
+    log_success "All required tools are available"
+  fi
   return 0
 }
 
 # Initialize testing framework
 init_testing_framework() {
-  log_info "Initializing GitHub Actions Testing Framework"
+  # Use file-based lock to prevent multiple initialization across ShellSpec processes
+  local lock_file="${TEMP_DIR}/.framework_initialized"
+
+  if [[ -f "$lock_file" ]]; then
+    return 0
+  fi
+
+  # Silent initialization in ShellSpec environment to avoid output interference
+  if [[ -z ${SHELLSPEC_VERSION:-} ]]; then
+    log_info "Initializing GitHub Actions Testing Framework"
+  fi
 
   # Check requirements
   check_required_tools
 
   # Temporary directory already created by mktemp above
 
-  # Set up cleanup trap
-  trap 'cleanup_framework_temp' EXIT
+  # Note: Cleanup trap removed to avoid conflicts with ShellSpec
+  # Individual tests should call cleanup_test_env when needed
 
-  log_success "Testing framework initialized"
+  # Mark as initialized with file lock
+  touch "$lock_file"
+  export TESTING_FRAMEWORK_INITIALIZED=1
+
+  if [[ -z ${SHELLSPEC_VERSION:-} ]]; then
+    log_success "Testing framework initialized"
+  fi
 }
 
 # Export all functions for use in tests
 export -f setup_test_env cleanup_test_env cleanup_framework_temp create_mock_repo
-export -f create_mock_node_repo create_mock_php_repo create_mock_python_repo
-export -f create_mock_go_repo create_mock_dotnet_repo
-export -f validate_action_output run_action_step check_required_tools
+export -f create_mock_node_repo validate_action_output check_required_tools
 export -f log_info log_success log_warning log_error
 export -f init_testing_framework
