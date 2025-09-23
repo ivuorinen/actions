@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Version Validator
 description: 'Validates and normalizes version strings using customizable regex patterns'
 author: 'Ismo Vuorinen'
@@ -48,7 +48,8 @@ runs:
         fi
 
         # Validate version string doesn't contain dangerous characters
-        if [[ "${{ inputs.version }}" == *";"* ]] || [[ "${{ inputs.version }}" == *"&&"* ]] || [[ "${{ inputs.version }}" == *"|"* ]] || [[ "${{ inputs.version }}" == *"`"* ]] || [[ "${{ inputs.version }}" == *"$"* ]]; then
+        if [[ "${{ inputs.version }}" == *";"* ]] || [[ "${{ inputs.version }}" == *"&&"* ]] || \
+           [[ "${{ inputs.version }}" == *"|"* ]] || [[ "${{ inputs.version }}" == *"`"* ]] || [[ "${{ inputs.version }}" == *"$"* ]]; then
           echo "::error::Invalid version string: '${{ inputs.version }}'. Potentially dangerous characters detected"
           exit 1
         fi

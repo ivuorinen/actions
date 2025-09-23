@@ -5,7 +5,7 @@
 ### Description
 
 A reusable action to check if a specific file or type of files exists in the repository.
-Emits an output 'found' which is true or false.
+Emits an output "found" which is true or false.
 
 ### Inputs
 
