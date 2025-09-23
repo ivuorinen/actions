@@ -1,6 +1,6 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
-name: 'Validate Action Inputs'
+---
+name: 'Validate Inputs'
 description: 'Centralized Python-based input validation for GitHub Actions with PCRE regex support'
 author: 'Ismo Vuorinen'
 
@@ -9,9 +9,19 @@ branding:
   color: 'green'
 
 inputs:
+  action:
+    description: 'Action name to validate (alias for action-type)'
+    required: true
   action-type:
     description: 'Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)'
-    required: true
+    required: false
+  rules-file:
+    description: 'Path to validation rules file'
+    required: false
+  fail-on-error:
+    description: 'Whether to fail on validation errors'
+    required: false
+    default: 'true'
 
   # Common inputs that can be validated across actions
   token:
@@ -112,6 +122,15 @@ outputs:
   error-message:
     description: 'Validation error message if failed'
     value: ${{ steps.validate.outputs.error }}
+  validation-result:
+    description: 'Detailed validation result'
+    value: ${{ steps.validate.outputs.result }}
+  errors-found:
+    description: 'Number of validation errors found'
+    value: ${{ steps.validate.outputs.errors }}
+  rules-applied:
+    description: 'Number of validation rules applied'
+    value: ${{ steps.validate.outputs.rules }}
 
 runs:
   using: composite
@@ -121,7 +140,10 @@ runs:
       shell: bash
       run: python3 validator.py
       env:
+        INPUT_ACTION: ${{ inputs.action }}
         INPUT_ACTION_TYPE: ${{ inputs.action-type }}
+        INPUT_RULES_FILE: ${{ inputs.rules-file }}
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
         INPUT_TOKEN: ${{ inputs.token }}
         INPUT_NAMESPACE: ${{ inputs.namespace }}
         INPUT_EMAIL: ${{ inputs.email }}
