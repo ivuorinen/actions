@@ -114,8 +114,7 @@ ignore = [
     # "PLR0915", # too-many-statements
     # Allow long functions (validation methods are necessarily complex)
     "PLR0913",
-    # Allow long lines for error messages and regex patterns
-    "E501",
+
     # Allow simple patterns instead of suggesting complex optimizations
     "SIM110",
     "PERF102",
@@ -123,11 +122,8 @@ ignore = [
     "RUF012",
     # Allow direct file operations for GitHub Actions output
     "SIM115",
-    "PTH123",
     "PTH110",
-    # Allow boolean parameters and complex return statements for validation logic
-    "FBT001",
-    "FBT002",
+    # Allow complex return statements for validation logic
     "PLR0911",
     # Allow unused loop variables
     "B007",
@@ -144,12 +140,9 @@ ignore = [
     "EXE002",
     # Allow implicit namespace packages
     "INP001",
-    # Allow future annotations suggestion
-    "FA100",
-    # Docstring requirements - relaxed for action scripts
-    "D100", "D101", "D102", "D103", "D104", "D105", "D106", "D107",
-    # Annotations not required for simple scripts
-    "ANN001", "ANN002", "ANN003", "ANN201", "ANN202", "ANN204", "ANN205", "ANN206",
+
+    # Annotations not required for simple scripts (partial - enabling key ones)
+    "ANN002", "ANN003", "ANN205", "ANN206",
 ]
 
 # Allow fix for all auto-fixable rules
@@ -197,7 +190,7 @@ single-line-exclusions = ["typing"]
 
 [tool.ruff.lint.mccabe]
 # Complexity thresholds
-max-complexity = 10
+max-complexity = 20
 
 [tool.ruff.lint.pylint]
 # Pylint complexity settings
@@ -258,3 +251,11 @@ exclude_lines = [
     "class .*\\bProtocol\\):",
     "@(abc\\.)?abstractmethod",
 ]
+
+[tool.pyright]
+# Pyright configuration for static type checking
+typeCheckingMode = "basic"
+venv = ".venv"
+venvPath = "."
+extraPaths = ["./validate-inputs"]
+reportMissingTypeStubs = true

@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage
+.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -75,13 +75,13 @@ update-validators-dry: ## Preview validation rules changes (dry run)
 	@echo "$(BLUE)🔍 Previewing validation rules changes...$(RESET)"
 	@cd validate-inputs && python3 scripts/update-validators.py --dry-run
 
-format: format-markdown format-yaml-json format-tables format-python ## Format all files
+format: format-markdown format-yaml-json format-python ## Format all files
 	@echo "$(GREEN)✅ All files formatted$(RESET)"
 
 lint: lint-markdown lint-yaml lint-shell lint-python ## Run all linters
 	@echo "$(GREEN)✅ All linting completed$(RESET)"
 
-check: check-tools check-syntax ## Quick syntax and tool availability checks
+check: check-tools check-syntax check-local-refs ## Quick syntax and tool availability checks
 	@echo "$(GREEN)✅ All checks passed$(RESET)"
 
 clean: ## Clean up temporary files and caches
@@ -90,6 +90,19 @@ clean: ## Clean up temporary files and caches
 	@find . -name "update_*.log" -mtime +7 -delete 2>/dev/null || true
 	@find . -name ".megalinter" -type d -exec rm -rf {} + 2>/dev/null || true
 	@echo "$(GREEN)✅ Cleanup completed$(RESET)"
+
+# Local action reference validation
+check-local-refs: ## Check for ../action-name references that should be ./action-name
+	@echo "$(BLUE)🔍 Checking local action references...$(RESET)"
+	@python3 _tools/fix-local-action-refs.py --check
+
+fix-local-refs: ## Fix ../action-name references to ./action-name
+	@echo "$(BLUE)🔧 Fixing local action references...$(RESET)"
+	@python3 _tools/fix-local-action-refs.py
+
+fix-local-refs-dry: ## Preview local action reference fixes (dry run)
+	@echo "$(BLUE)🔍 Previewing local action reference fixes...$(RESET)"
+	@python3 _tools/fix-local-action-refs.py --dry-run
 
 # Formatting targets
 format-markdown: ## Format markdown files
@@ -115,6 +128,12 @@ format-yaml-json: ## Format YAML and JSON files
 		echo "$(GREEN)✅ YAML/JSON formatted with prettier$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ YAML/JSON formatting issues found with prettier$(RESET)" | tee -a $(LOG_FILE); \
+	fi
+	@echo "$(BLUE)📊 Formatting tables...$(RESET)"
+	@if npx --yes markdown-table-formatter "**/*.md" 2>/dev/null; then \
+		echo "$(GREEN)✅ Tables formatted$(RESET)"; \
+	else \
+		echo "$(YELLOW)⚠️ Table formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
 format-tables: ## Format markdown tables
@@ -166,16 +185,28 @@ lint-shell: ## Lint shell scripts
 		echo "$(BLUE)ℹ️ shellcheck not available, skipping shell script linting$(RESET)"; \
 	fi
 
-lint-python: ## Lint Python files with ruff
+lint-python: ## Lint Python files with ruff and pyright
 	@echo "$(BLUE)🔍 Linting Python files...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		if uvx ruff check . --no-cache; then \
-			echo "$(GREEN)✅ Python linting passed$(RESET)"; \
-		else \
+	@ruff_passed=true; pyright_passed=true; \
+	if command -v uv >/dev/null 2>&1; then \
+		uvx ruff check --fix . --no-cache; \
+		if ! uvx ruff check . --no-cache; then \
 			echo "$(YELLOW)⚠️ Python linting issues found$(RESET)" | tee -a $(LOG_FILE); \
+			ruff_passed=false; \
+		fi; \
+		if command -v pyright >/dev/null 2>&1; then \
+			if ! pyright --pythonpath $$(which python3) validate-inputs/ _tests/framework/; then \
+				echo "$(YELLOW)⚠️ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
+				pyright_passed=false; \
+			fi; \
+		else \
+			echo "$(BLUE)ℹ️ pyright not available, skipping type checking$(RESET)"; \
 		fi; \
 	else \
 		echo "$(BLUE)ℹ️ uv not available, skipping Python linting$(RESET)"; \
+	fi; \
+	if $$ruff_passed && $$pyright_passed; then \
+		echo "$(GREEN)✅ Python linting and type checking passed$(RESET)"; \
 	fi
 
 # Check targets
@@ -330,6 +361,43 @@ test-action: ## Run tests for specific action (usage: make test-action ACTION=no
 	fi
 	@echo "$(BLUE)🎯 Running tests for action: $(ACTION)$(RESET)"
 	@./_tests/run-tests.sh --action $(ACTION) --format console
+
+generate-tests: ## Generate missing tests for actions and validators (won't overwrite existing tests)
+	@echo "$(BLUE)🧪 Generating missing tests...$(RESET)"
+	@if command -v python3 >/dev/null 2>&1; then \
+		if python3 validate-inputs/scripts/generate-tests.py; then \
+			echo "$(GREEN)✅ Test generation completed$(RESET)"; \
+		else \
+			echo "$(RED)❌ Test generation failed$(RESET)"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(RED)❌ Python 3 not found$(RESET)"; \
+		exit 1; \
+	fi
+
+generate-tests-dry: ## Preview what tests would be generated without creating files
+	@echo "$(BLUE)👁️ Preview test generation (dry run)...$(RESET)"
+	@if command -v python3 >/dev/null 2>&1; then \
+		python3 validate-inputs/scripts/generate-tests.py --dry-run --verbose; \
+	else \
+		echo "$(RED)❌ Python 3 not found$(RESET)"; \
+		exit 1; \
+	fi
+
+test-generate-tests: ## Test the test generation system itself
+	@echo "$(BLUE)🔬 Testing test generation system...$(RESET)"
+	@if command -v uv >/dev/null 2>&1; then \
+		if uv run pytest validate-inputs/tests/test_generate_tests.py -v; then \
+			echo "$(GREEN)✅ Test generation tests passed$(RESET)"; \
+		else \
+			echo "$(RED)❌ Test generation tests failed$(RESET)"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(BLUE)ℹ️ uv not available, running with python3$(RESET)"; \
+		python3 -m pytest validate-inputs/tests/test_generate_tests.py -v || exit 1; \
+	fi
 
 watch: ## Watch files and auto-format on changes (requires entr)
 	@if command -v entr >/dev/null 2>&1; then \
