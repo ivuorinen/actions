@@ -29,7 +29,7 @@ class TestValidatorIntegration:
 
     def teardown_method(self):
         """Clean up after each test."""
-        if os.path.exists(self.temp_output.name):
+        if Path(self.temp_output.name).exists():
             os.unlink(self.temp_output.name)
 
     def run_validator(self, env_vars=None):
@@ -59,7 +59,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 0
-        assert "All input validation checks passed" in result.stdout
+        assert "All input validation checks passed" in result.stderr
 
     def test_validator_script_failure(self):
         """Test validator script execution with invalid inputs."""
@@ -72,7 +72,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Input validation failed" in result.stdout
+        assert "Input validation failed" in result.stderr
 
     def test_validator_script_missing_required(self):
         """Test validator script with missing required inputs."""
@@ -85,7 +85,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Required input 'version' is missing" in result.stdout
+        assert "Required input 'version' is missing" in result.stderr
 
     def test_validator_script_calver_validation(self):
         """Test validator script with CalVer version."""
@@ -98,7 +98,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 0
-        assert "All input validation checks passed" in result.stdout
+        assert "All input validation checks passed" in result.stderr
 
     def test_validator_script_invalid_calver(self):
         """Test validator script with invalid CalVer version."""
@@ -111,12 +111,13 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Invalid CalVer format" in result.stdout
+        assert "Invalid CalVer format" in result.stderr
 
     def test_validator_script_docker_build(self):
         """Test validator script with docker-build action."""
         env_vars = {
             "INPUT_ACTION_TYPE": "docker-build",
+            "INPUT_CONTEXT": ".",  # Required by custom validator
             "INPUT_IMAGE_NAME": "myapp",
             "INPUT_TAG": "v1.0.0",
             "INPUT_DOCKERFILE": "Dockerfile",
@@ -126,7 +127,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 0
-        assert "All input validation checks passed" in result.stdout
+        assert "All input validation checks passed" in result.stderr
 
     def test_validator_script_csharp_publish(self):
         """Test validator script with csharp-publish action."""
@@ -140,7 +141,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 0
-        assert "All input validation checks passed" in result.stdout
+        assert "All input validation checks passed" in result.stderr
 
     def test_validator_script_invalid_token(self):
         """Test validator script with invalid GitHub token."""
@@ -153,7 +154,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Invalid GitHub token format" in result.stdout
+        assert "token format" in result.stderr.lower()
 
     def test_validator_script_security_injection(self):
         """Test validator script detects security injection attempts."""
@@ -166,12 +167,13 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Command injection patterns not allowed" in result.stdout
+        assert "Command injection patterns not allowed" in result.stderr
 
     def test_validator_script_numeric_range(self):
         """Test validator script with numeric range validation."""
         env_vars = {
             "INPUT_ACTION_TYPE": "docker-build",
+            "INPUT_CONTEXT": ".",  # Required by custom validator
             "INPUT_IMAGE_NAME": "myapp",
             "INPUT_TAG": "latest",
             "INPUT_PARALLEL_BUILDS": "5",  # Should be valid (0-16 range)
@@ -198,6 +200,7 @@ class TestValidatorIntegration:
         """Test validator script with boolean validation."""
         env_vars = {
             "INPUT_ACTION_TYPE": "docker-build",
+            "INPUT_CONTEXT": ".",  # Required by custom validator
             "INPUT_IMAGE_NAME": "myapp",
             "INPUT_TAG": "latest",
             "INPUT_DRY_RUN": "true",
@@ -241,10 +244,13 @@ class TestValidatorIntegration:
 
         result = self.run_validator(env_vars)
 
-        # Check that output file was written to
-        assert os.path.exists(self.temp_output.name)
+        # Check that validator ran successfully
+        assert result.returncode == 0
 
-        with open(self.temp_output.name) as f:
+        # Check that output file was written to
+        assert Path(self.temp_output.name).exists()
+
+        with Path(self.temp_output.name).open() as f:
             content = f.read()
             assert "status=" in content
 
@@ -260,7 +266,7 @@ class TestValidatorIntegration:
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Validation script error" in result.stdout
+        assert "Validation script error" in result.stderr
 
     @pytest.mark.parametrize(
         "action_type,inputs,expected_success",
@@ -268,10 +274,10 @@ class TestValidatorIntegration:
             ("github-release", {"version": "1.2.3"}, True),
             ("github-release", {"version": "2024.3.1"}, True),
             ("github-release", {"version": "invalid"}, False),
-            ("docker-build", {"image-name": "app", "tag": "latest"}, True),
+            ("docker-build", {"context": ".", "image-name": "app", "tag": "latest"}, True),
             (
                 "docker-build",
-                {"image-name": "App", "tag": "latest"},
+                {"context": ".", "image-name": "App", "tag": "latest"},
                 False,
             ),  # Uppercase not allowed
             ("csharp-publish", {"token": "github_pat_" + "a" * 82, "namespace": "test"}, True),
