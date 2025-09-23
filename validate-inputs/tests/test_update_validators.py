@@ -14,8 +14,12 @@ scripts_dir = Path(__file__).parent.parent / "scripts"
 sys.path.insert(0, str(scripts_dir))
 
 spec = importlib.util.spec_from_file_location(
-    "update_validators", scripts_dir / "update-validators.py"
+    "update_validators",
+    scripts_dir / "update-validators.py",
 )
+if spec is None or spec.loader is None:
+    msg = "Could not load update-validators.py module"
+    raise ImportError(msg)
 update_validators = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(update_validators)
 
@@ -56,7 +60,7 @@ class TestValidationRuleGenerator:
         action_yml = {"name": f"{name} Action", "description": description, "inputs": inputs}
 
         action_file = action_dir / "action.yml"
-        with open(action_file, "w") as f:
+        with action_file.open("w") as f:
             yaml.dump(action_yml, f)
 
         return action_file
@@ -87,7 +91,8 @@ class TestValidationRuleGenerator:
 
         actions = generator.get_action_directories()
 
-        # Should find both valid actions, exclude validate-inputs, hidden dirs, and dirs without action.yml
+        # Should find both valid actions, exclude validate-inputs, hidden dirs, and dirs
+        # without action.yml
         expected = {"test-action", "another-action"}
         assert set(actions) == expected
 
@@ -131,7 +136,7 @@ class TestValidationRuleGenerator:
 
         # Write invalid YAML
         action_file = action_dir / "action.yml"
-        with open(action_file, "w") as f:
+        with action_file.open("w") as f:
             f.write("invalid: yaml: content: [unclosed")
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
@@ -185,12 +190,14 @@ class TestValidationRuleGenerator:
 
         # Test fallback to description
         result = generator.detect_validation_type(
-            "my_field", {"description": "GitHub token for authentication"}
+            "my_field",
+            {"description": "GitHub token for authentication"},
         )
         assert result == "github_token"
 
         result = generator.detect_validation_type(
-            "custom_flag", {"description": "Enable verbose output"}
+            "custom_flag",
+            {"description": "Enable verbose output"},
         )
         assert result == "boolean"
 
@@ -200,13 +207,15 @@ class TestValidationRuleGenerator:
 
         # For version field, special case takes precedence (flexible_version)
         result = generator.detect_validation_type(
-            "version", {"description": "Release version in calendar format"}
+            "version",
+            {"description": "Release version in calendar format"},
         )
         assert result == "flexible_version"  # Special case overrides description
 
         # Test CalVer detection in other version fields with description
         result = generator.detect_validation_type(
-            "release-version", {"description": "Monthly release version"}
+            "release-version",
+            {"description": "Monthly release version"},
         )
         assert result == "calver_version"
 
@@ -215,7 +224,8 @@ class TestValidationRuleGenerator:
         generator = ValidationRuleGenerator()
 
         result = generator.detect_validation_type(
-            "unknown_field", {"description": "Some random field that doesn't match any pattern"}
+            "unknown_field",
+            {"description": "Some random field that doesn't match any pattern"},
         )
         assert result is None
 
@@ -330,7 +340,7 @@ class TestValidationRuleGenerator:
         assert rules_file.exists()
 
         # Verify file content
-        with open(rules_file) as f:
+        with rules_file.open() as f:
             content = f.read()
 
         assert "# Validation rules for test-action action" in content
@@ -353,7 +363,7 @@ class TestValidationRuleGenerator:
         }
 
         rules_file = self.rules_dir / "test-action.yml"
-        with open(rules_file, "w") as f:
+        with rules_file.open("w") as f:
             yaml.dump(rules, f)
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
@@ -372,7 +382,7 @@ class TestValidationRuleGenerator:
         }
 
         rules_file = self.rules_dir / "test-action.yml"
-        with open(rules_file, "w") as f:
+        with rules_file.open("w") as f:
             yaml.dump(rules, f)
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
@@ -391,7 +401,7 @@ class TestValidationRuleGenerator:
         """Test validation of rules files with invalid YAML."""
         # Create an invalid YAML file
         rules_file = self.rules_dir / "test-action.yml"
-        with open(rules_file, "w") as f:
+        with rules_file.open("w") as f:
             f.write("invalid: yaml: content: [unclosed")
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
@@ -415,7 +425,8 @@ class TestCLIFunctionality:
         test_args = ["update-validators.py", "--dry-run"]
 
         with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator, "generate_rules"
+            ValidationRuleGenerator,
+            "generate_rules",
         ) as mock_generate:
             main()
             mock_generate.assert_called_once()
@@ -425,7 +436,8 @@ class TestCLIFunctionality:
         test_args = ["update-validators.py", "--action", "test-action"]
 
         with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator, "generate_rules"
+            ValidationRuleGenerator,
+            "generate_rules",
         ) as mock_generate:
             main()
             mock_generate.assert_called_once()
@@ -435,7 +447,9 @@ class TestCLIFunctionality:
         test_args = ["update-validators.py", "--validate"]
 
         with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator, "validate_rules_files", return_value=True
+            ValidationRuleGenerator,
+            "validate_rules_files",
+            return_value=True,
         ), patch("sys.exit") as mock_exit:
             main()
             mock_exit.assert_called_once_with(0)
@@ -445,7 +459,9 @@ class TestCLIFunctionality:
         test_args = ["update-validators.py", "--validate"]
 
         with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator, "validate_rules_files", return_value=False
+            ValidationRuleGenerator,
+            "validate_rules_files",
+            return_value=False,
         ), patch("sys.exit") as mock_exit:
             main()
             mock_exit.assert_called_once_with(1)
@@ -526,7 +542,7 @@ class TestIntegrationScenarios:
             "runs": {"using": "composite", "steps": [{"run": "echo 'test'", "shell": "bash"}]},
         }
 
-        with open(action_dir / "action.yml", "w") as f:
+        with (action_dir / "action.yml").open("w") as f:
             yaml.dump(action_yml, f)
 
     def test_full_generation_workflow(self):
@@ -552,7 +568,7 @@ class TestIntegrationScenarios:
         assert github_rules_file.exists()
 
         # Verify generated rules content
-        with open(docker_rules_file) as f:
+        with docker_rules_file.open() as f:
             docker_content = f.read()
 
         assert "# Validation rules for docker-build action" in docker_content
@@ -595,7 +611,7 @@ class TestIntegrationScenarios:
         action_dir = self.actions_dir / "invalid-action"
         action_dir.mkdir()
 
-        with open(action_dir / "action.yml", "w") as f:
+        with (action_dir / "action.yml").open("w") as f:
             f.write("invalid: yaml: content: [unclosed")
 
         generator = ValidationRuleGenerator(dry_run=False)

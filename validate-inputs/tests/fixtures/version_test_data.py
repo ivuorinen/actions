@@ -64,7 +64,7 @@ SEMVER_INVALID = [
 ]
 
 # Flexible version test cases (should accept both CalVer and SemVer)
-FLEXIBLE_VALID = CALVER_VALID + SEMVER_VALID
+FLEXIBLE_VALID = CALVER_VALID + SEMVER_VALID + [("latest", "Latest tag")]
 
 FLEXIBLE_INVALID = [
     ("not-a-version", "Random string"),
@@ -76,7 +76,6 @@ FLEXIBLE_INVALID = [
     ("1..2", "Double dot"),
     ("v", "Just v prefix"),
     ("version", "Word version"),
-    ("latest", "Latest tag"),
 ]
 
 # Docker version test cases
