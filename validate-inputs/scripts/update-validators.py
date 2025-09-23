@@ -9,17 +9,31 @@ Usage:
   python update-validators.py [--dry-run] [--action action-name]
 """
 
+from __future__ import annotations
+
 import argparse
 from pathlib import Path
 import re
 import sys
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 import yaml
 
 
 class ValidationRuleGenerator:
-    def __init__(self, dry_run: bool = False, specific_action: Optional[str] = None):
+    """Generate validation rules for GitHub Actions automatically.
+
+    This class scans GitHub Action YAML files and generates validation rules
+    based on convention-based detection patterns and special case handling.
+    """
+
+    def __init__(self, *, dry_run: bool = False, specific_action: str | None = None) -> None:
+        """Initialize the validation rule generator.
+
+        Args:
+            dry_run: If True, show what would be generated without writing files
+            specific_action: If provided, only generate rules for this action
+        """
         self.dry_run = dry_run
         self.specific_action = specific_action
         self.actions_dir = Path(__file__).parent.parent.parent.resolve()
@@ -28,6 +42,13 @@ class ValidationRuleGenerator:
         # Convention patterns for automatic detection
         # Order matters - more specific patterns should come first
         self.conventions = {
+            # CodeQL-specific patterns (high priority)
+            "codeql_language": re.compile(r"\blanguage\b", re.IGNORECASE),
+            "codeql_queries": re.compile(r"\bquer(y|ies)\b", re.IGNORECASE),
+            "codeql_packs": re.compile(r"\bpacks?\b", re.IGNORECASE),
+            "codeql_build_mode": re.compile(r"\bbuild[_-]?mode\b", re.IGNORECASE),
+            "codeql_config": re.compile(r"\bconfig\b", re.IGNORECASE),
+            "category_format": re.compile(r"\bcategor(y|ies)\b", re.IGNORECASE),
             # GitHub token patterns (high priority)
             "github_token": re.compile(
                 r"\b(github[_-]?token|gh[_-]?token|token|auth[_-]?token|api[_-]?key)\b",
@@ -44,7 +65,7 @@ class ValidationRuleGenerator:
             "node_version": re.compile(r"\bnode[_-]?version\b", re.IGNORECASE),
             # Docker-specific patterns (high priority)
             "docker_image_name": re.compile(r"\bimage[_-]?name\b", re.IGNORECASE),
-            "docker_tag": re.compile(r"\b(tag|image[_-]?tag)\b", re.IGNORECASE),
+            "docker_tag": re.compile(r"\b(tags?|image[_-]?tags?)\b", re.IGNORECASE),
             "docker_architectures": re.compile(
                 r"\b(arch|architecture|platform)s?\b",
                 re.IGNORECASE,
@@ -60,23 +81,44 @@ class ValidationRuleGenerator:
                 r"\b(retry|retries|attempt|attempts|max[_-]?retry)\b",
                 re.IGNORECASE,
             ),
+            "numeric_range_1_128": re.compile(r"\bthreads?\b", re.IGNORECASE),
+            "numeric_range_256_32768": re.compile(r"\bram\b", re.IGNORECASE),
             "numeric_range_0_100": re.compile(r"\b(quality|percent|percentage)\b", re.IGNORECASE),
             # File and path patterns
             "file_path": re.compile(
-                r"\b(path|file|dir|directory|config|dockerfile|ignore[_-]?file)\b",
+                r"\b(paths?|files?|dir|directory|config|dockerfile|ignore[_-]?file|key[_-]?files?)\b",
                 re.IGNORECASE,
             ),
+            "file_pattern": re.compile(r"\b(file[_-]?pattern|glob[_-]?pattern)\b", re.IGNORECASE),
             "branch_name": re.compile(r"\b(branch|ref|base[_-]?branch)\b", re.IGNORECASE),
             # User and identity patterns
             "email": re.compile(r"\b(email|mail)\b", re.IGNORECASE),
             "username": re.compile(r"\b(user|username|commit[_-]?user)\b", re.IGNORECASE),
-            # Boolean patterns (broad, should be lower priority)
-            "boolean": re.compile(
-                r"\b(dry-?run|verbose|enable|disable|auto|skip|force|cache|provenance|sbom|scan|sign|fail[_-]?on[_-]?error)\b",
+            # URL patterns (high priority)
+            "url": re.compile(r"\b(url|registry[_-]?url|api[_-]?url|endpoint)\b", re.IGNORECASE),
+            # Scope and namespace patterns
+            "scope": re.compile(r"\b(scope|namespace)\b", re.IGNORECASE),
+            # Security patterns for text content that could contain injection
+            "security_patterns": re.compile(
+                r"\b(changelog|notes|message|content|description|body|text|comment|summary|release[_-]?notes)\b",
                 re.IGNORECASE,
             ),
-            # Prefix pattern
-            "prefix": re.compile(r"\bprefix\b", re.IGNORECASE),
+            # Additional validation types
+            "report_format": re.compile(r"\b(report[_-]?format|format)\b", re.IGNORECASE),
+            "plugin_list": re.compile(r"\b(plugins?|plugin[_-]?list)\b", re.IGNORECASE),
+            "prefix": re.compile(r"\b(prefix|tag[_-]?prefix)\b", re.IGNORECASE),
+            # Boolean patterns (broad, should be lower priority)
+            "boolean": re.compile(
+                r"\b(dry-?run|verbose|enable|disable|auto|skip|force|cache|provenance|sbom|scan|sign|fail[_-]?on[_-]?error|nightly)\b",
+                re.IGNORECASE,
+            ),
+            # File extensions pattern
+            "file_extensions": re.compile(r"\b(file[_-]?extensions?|extensions?)\b", re.IGNORECASE),
+            # Registry pattern
+            "registry": re.compile(r"\bregistry\b", re.IGNORECASE),
+            # PHP-specific patterns
+            "php_extensions": re.compile(r"\b(extensions?|php[_-]?extensions?)\b", re.IGNORECASE),
+            "coverage_driver": re.compile(r"\b(coverage|coverage[_-]?driver)\b", re.IGNORECASE),
             # Generic version pattern (lowest priority - catches remaining version fields)
             "semantic_version": re.compile(r"\bversion\b", re.IGNORECASE),
         }
@@ -101,7 +143,7 @@ class ValidationRuleGenerator:
             "force-version": "semantic_version",
             "golangci-lint-version": "semantic_version",
             "prettier-version": "semantic_version",
-            "eslint-version": "semantic_version",
+            "eslint-version": "strict_semantic_version",
             "flake8-version": "semantic_version",
             "autopep8-version": "semantic_version",
             "composer-version": "semantic_version",
@@ -122,10 +164,10 @@ class ValidationRuleGenerator:
             "tools": None,  # PHP tools list
             "args": None,  # Composer args
             "stability": None,  # Composer stability
-            "registry-url": None,  # URL format
-            "scope": None,  # NPM scope
+            "registry-url": "url",  # URL format
+            "scope": "scope",  # NPM scope
             "plugins": None,  # Prettier plugins
-            "file-extensions": None,  # File extension list
+            "file-extensions": "file_extensions",  # File extension list
             "file-pattern": None,  # Glob pattern
             "enable-linters": None,  # Linter list
             "disable-linters": None,  # Linter list
@@ -135,13 +177,27 @@ class ValidationRuleGenerator:
             "key-files": None,  # Cache key files
             "restore-keys": None,  # Cache restore keys
             "env-vars": None,  # Environment variables
+            # Action-specific fields that need special handling
+            "type": None,  # Cache type enum (npm, composer, go, etc.) - complex enum,
+            # skip validation
+            "paths": None,  # File paths for caching (comma-separated) - complex format,
+            # skip validation
+            "command": None,  # Shell command - complex format, skip validation for safety
+            "backoff-strategy": None,  # Retry strategy enum - complex enum, skip validation
+            "shell": None,  # Shell type enum - simple enum, skip validation
+            # Removed image-name and tag - now handled by docker_image_name and docker_tag patterns
             # Numeric inputs with different ranges
-            "timeout": "numeric_range_1_10",
-            "retry-delay": "numeric_range_1_10",
-            "max-warnings": "numeric_range_0_100",
+            "timeout": "numeric_range_1_3600",  # Timeout should support higher values
+            "retry-delay": "numeric_range_1_300",  # Retry delay should support higher values
+            "max-warnings": "numeric_range_0_10000",
+            # version-file-parser specific fields
+            "language": None,  # Simple enum (node, php, python, go, dotnet)
+            "tool-versions-key": None,  # Simple string (nodejs, python, php, golang, dotnet)
+            "dockerfile-image": None,  # Simple string (node, python, php, golang, dotnet)
+            "validation-regex": None,  # Complex regex pattern
         }
 
-    def get_action_directories(self) -> List[str]:
+    def get_action_directories(self) -> list[str]:
         """Get all action directories"""
         entries = []
         for item in self.actions_dir.iterdir():
@@ -154,12 +210,12 @@ class ValidationRuleGenerator:
                 entries.append(item.name)
         return entries
 
-    def parse_action_file(self, action_name: str) -> Optional[Dict[str, Any]]:
+    def parse_action_file(self, action_name: str) -> dict[str, Any] | None:
         """Parse action.yml file to extract inputs"""
         action_file = self.actions_dir / action_name / "action.yml"
 
         try:
-            with open(action_file, encoding="utf-8") as f:
+            with action_file.open(encoding="utf-8") as f:
                 content = f.read()
             action_data = yaml.safe_load(content)
 
@@ -172,7 +228,7 @@ class ValidationRuleGenerator:
             print(f"Failed to parse {action_file}: {error}")
             return None
 
-    def detect_validation_type(self, input_name: str, input_data: Dict[str, Any]) -> Optional[str]:
+    def detect_validation_type(self, input_name: str, input_data: dict[str, Any]) -> str | None:
         """Detect validation type based on input name and description"""
         description = input_data.get("description", "")
 
@@ -200,11 +256,11 @@ class ValidationRuleGenerator:
 
         return None  # No validation detected
 
-    def sort_object_by_keys(self, obj: Dict[str, Any]) -> Dict[str, Any]:
+    def sort_object_by_keys(self, obj: dict[str, Any]) -> dict[str, Any]:
         """Sort object keys alphabetically for consistent output"""
         return {key: obj[key] for key in sorted(obj.keys())}
 
-    def generate_rules_for_action(self, action_name: str) -> Optional[Dict[str, Any]]:
+    def generate_rules_for_action(self, action_name: str) -> dict[str, Any] | None:
         """Generate validation rules for a single action"""
         action_data = self.parse_action_file(action_name)
         if not action_data:
@@ -218,7 +274,6 @@ class ValidationRuleGenerator:
         # Process each input
         for input_name, input_data in action_data["inputs"].items():
             is_required = input_data.get("required") in [True, "true"]
-
             if is_required:
                 required_inputs.append(input_name)
             else:
@@ -228,6 +283,86 @@ class ValidationRuleGenerator:
             validation_type = self.detect_validation_type(input_name, input_data)
             if validation_type:
                 conventions[input_name] = validation_type
+
+        # Handle action-specific overrides using data-driven approach
+        action_overrides = {
+            "php-version-detect": {"default-version": "php_version"},
+            "python-version-detect": {"default-version": "python_version"},
+            "python-version-detect-v2": {"default-version": "python_version"},
+            "dotnet-version-detect": {"default-version": "dotnet_version"},
+            "go-version-detect": {"default-version": "go_version"},
+            "npm-publish": {"package-version": "strict_semantic_version"},
+            "docker-build": {
+                "cache-mode": "cache_mode",
+                "sbom-format": "sbom_format",
+            },
+            "common-cache": {
+                "paths": "file_path",
+                "key-files": "file_path",
+            },
+            "common-file-check": {
+                "file-pattern": "file_path",
+            },
+            "common-retry": {
+                "backoff-strategy": "backoff_strategy",
+                "shell": "shell_type",
+            },
+            "node-setup": {
+                "package-manager": "package_manager_enum",
+            },
+            "docker-publish": {
+                "registry": "registry_enum",
+                "cache-mode": "cache_mode",
+                "platforms": None,  # Skip validation - complex platform format
+            },
+            "docker-publish-hub": {
+                "password": "docker_password",
+            },
+            "go-lint": {
+                "go-version": "go_version",
+                "timeout": "timeout_with_unit",
+                "only-new-issues": "boolean",
+                "enable-linters": "linter_list",
+                "disable-linters": "linter_list",
+            },
+            "prettier-check": {
+                "check-only": "boolean",
+                "file-pattern": "file_pattern",
+                "plugins": "plugin_list",
+            },
+            "php-laravel-phpunit": {
+                "extensions": "php_extensions",
+            },
+            "codeql-analysis": {
+                "language": "codeql_language",
+                "queries": "codeql_queries",
+                "packs": "codeql_packs",
+                "config": "codeql_config",
+                "build-mode": "codeql_build_mode",
+                "source-root": "file_path",
+                "category": "category_format",
+                "token": "github_token",
+                "ram": "numeric_range_256_32768",
+                "threads": "numeric_range_1_128",
+                "output": "file_path",
+                "skip-queries": "boolean",
+                "add-snippets": "boolean",
+            },
+        }
+
+        if action_name in action_overrides:
+            # Apply overrides for existing conventions
+            overrides.update(
+                {
+                    input_name: override_value
+                    for input_name, override_value in action_overrides[action_name].items()
+                    if input_name in conventions
+                },
+            )
+            # Add missing inputs from overrides to conventions
+            for input_name, override_value in action_overrides[action_name].items():
+                if input_name not in conventions and input_name in action_data["inputs"]:
+                    conventions[input_name] = override_value
 
         # Calculate statistics
         total_inputs = len(action_data["inputs"])
@@ -259,20 +394,28 @@ class ValidationRuleGenerator:
                 "has_token_validation": "token" in conventions or "github-token" in conventions,
                 "has_version_validation": any("version" in v for v in conventions.values() if v),
                 "has_file_validation": any(v == "file_path" for v in conventions.values()),
-                "has_security_validation": any(v == "github_token" for v in conventions.values()),
+                "has_security_validation": any(
+                    v in ["github_token", "security_patterns"] for v in conventions.values()
+                ),
             },
         }
 
         return rules
 
-    def write_rules_file(self, action_name: str, rules: Dict[str, Any]) -> None:
+    def write_rules_file(self, action_name: str, rules: dict[str, Any]) -> None:
         """Write rules to YAML file"""
         rules_file = self.rules_dir / f"{action_name}.yml"
+        generator_version = rules.get("generator_version", "unknown")
+        schema_version = rules.get("schema_version", "unknown")
+        validation_coverage = rules.get("validation_coverage", 0)
+        validated_inputs = rules["statistics"].get("validated_inputs", 0)
+        total_inputs = rules["statistics"].get("total_inputs", 0)
 
-        header = f"""# Validation rules for {action_name} action
-# Generated by update-validators.py v{rules["generator_version"]} - DO NOT EDIT MANUALLY
-# Schema version: {rules["schema_version"]}
-# Coverage: {rules["validation_coverage"]}% ({rules["statistics"]["validated_inputs"]}/{rules["statistics"]["total_inputs"]} inputs)
+        header = f"""---
+# Validation rules for {action_name} action
+# Generated by update-validators.py v{generator_version} - DO NOT EDIT MANUALLY
+# Schema version: {schema_version}
+# Coverage: {validation_coverage}% ({validated_inputs}/{total_inputs} inputs)
 #
 # This file defines validation rules for the {action_name} GitHub Action.
 # Rules are automatically applied by validate-inputs action when this action is used.
@@ -280,12 +423,19 @@ class ValidationRuleGenerator:
 
 """
 
+        # Use a custom yaml dumper to ensure proper indentation
+        class CustomYamlDumper(yaml.SafeDumper):
+            def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:  # noqa: FBT001, FBT002
+                return super().increase_indent(flow, indentless=indentless)
+
         yaml_content = yaml.dump(
             rules,
+            Dumper=CustomYamlDumper,
             indent=2,
             width=120,
             default_flow_style=False,
             allow_unicode=True,
+            sort_keys=False,
         )
 
         content = header + yaml_content
@@ -295,7 +445,7 @@ class ValidationRuleGenerator:
             print(content)
             print("---")
         else:
-            with open(rules_file, "w", encoding="utf-8") as f:
+            with rules_file.open("w", encoding="utf-8") as f:
                 f.write(content)
             print(f"✅ Generated {rules_file}")
 
@@ -345,7 +495,8 @@ class ValidationRuleGenerator:
         if not self.dry_run and processed > 0:
             print()
             print(
-                "✨ Validation rules updated! Run 'git diff validate-inputs/rules/' to review changes.",
+                "✨ Validation rules updated! Run 'git diff validate-inputs/rules/' "
+                "to review changes.",
             )
 
     def validate_rules_files(self) -> bool:
@@ -359,7 +510,7 @@ class ValidationRuleGenerator:
 
         for rules_file in rules_files:
             try:
-                with open(rules_file, encoding="utf-8") as f:
+                with rules_file.open(encoding="utf-8") as f:
                     content = f.read()
                 rules = yaml.safe_load(content)
 
@@ -380,7 +531,7 @@ class ValidationRuleGenerator:
         return invalid == 0
 
 
-def main():
+def main() -> None:
     """CLI handling"""
     parser = argparse.ArgumentParser(
         description="Automatically generates validation rules for GitHub Actions",
