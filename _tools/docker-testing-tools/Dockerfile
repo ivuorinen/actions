@@ -15,6 +15,7 @@ ENV TZ=UTC
 
 # Install system dependencies and common tools
 RUN apt-get update && apt-get install -y \
+  --no-install-recommends \
   # Base utilities
   curl \
   wget \
@@ -44,7 +45,7 @@ RUN apt-get update && apt-get install -y \
 
 # Install Node.js LTS
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
-  && apt-get install -y nodejs \
+  && apt-get install -y nodejs --no-install-recommends \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -55,7 +56,7 @@ FROM base AS tools
 RUN wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - \
   && echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list \
   && apt-get update \
-  && apt-get install -y trivy \
+  && apt-get install -y trivy --no-install-recommends \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -64,7 +65,7 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
   && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
   && apt-get update \
-  && apt-get install -y gh \
+  && apt-get install -y gh --no-install-recommends \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -83,6 +84,12 @@ ARG USERNAME=runner
 ARG USER_UID=1001
 ARG USER_GID=$USER_UID
 
+# Set up environment for testing
+ENV PATH="/home/$USERNAME/.local/bin:$PATH"
+ENV SHELLSPEC_VERSION=0.28.1
+ENV USER=$USERNAME
+ENV HOME="/home/$USERNAME"
+
 # Create the user and group
 RUN groupadd --gid $USER_GID $USERNAME \
   && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash \
@@ -96,18 +103,9 @@ USER $USERNAME
 RUN curl -fsSL https://git.io/shellspec | sh -s -- --yes \
   && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 
-# Set up environment for testing
-ENV PATH="/home/$USERNAME/.local/bin:$PATH"
-ENV SHELLSPEC_VERSION=0.28.1
-ENV USER=$USERNAME
-ENV HOME="/home/$USERNAME"
-
 # Create workspace directory with proper permissions
 WORKDIR /workspace
 RUN sudo chown -R $USERNAME:$USERNAME /workspace
-
-# Switch back to root temporarily for verification, then back to user
-USER root
 
 # Verify installations (run as root to access all tools)
 RUN echo "=== Tool Versions ===" \
@@ -123,9 +121,6 @@ RUN echo "=== Tool Versions ===" \
   && npm --version \
   && python3 --version \
   && echo "=== System tools verified ==="
-
-# Switch to non-root user and verify user-specific tools
-USER $USERNAME
 
 # Verify user-installed tools
 RUN shellspec --version \
