@@ -8,253 +8,253 @@ Describe "eslint-check action"
 
   Context "when validating working-directory input"
     It "accepts current directory"
-      When call test_input_validation "$ACTION_DIR" "working-directory" "." "success"
+      When call validate_input_python "eslint-check" "working-directory" "."
       The status should be success
     End
     It "accepts relative path"
-      When call test_input_validation "$ACTION_DIR" "working-directory" "src/frontend" "success"
+      When call validate_input_python "eslint-check" "working-directory" "src/frontend"
       The status should be success
     End
     It "accepts nested directory"
-      When call test_input_validation "$ACTION_DIR" "working-directory" "packages/ui" "success"
+      When call validate_input_python "eslint-check" "working-directory" "packages/ui"
       The status should be success
     End
     It "rejects path traversal"
-      When call test_input_validation "$ACTION_DIR" "working-directory" "../../../etc/passwd" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "working-directory" "../../../etc/passwd"
+      The status should be failure
     End
     It "rejects absolute paths"
-      When call test_input_validation "$ACTION_DIR" "working-directory" "/etc/passwd" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "working-directory" "/etc/passwd"
+      The status should be failure
     End
     It "rejects injection attempts"
-      When call test_input_validation "$ACTION_DIR" "working-directory" "src; rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "working-directory" "src; rm -rf /"
+      The status should be failure
     End
   End
 
   Context "when validating eslint-version input"
     It "accepts latest version"
-      When call test_input_validation "$ACTION_DIR" "eslint-version" "latest" "success"
+      When call validate_input_python "eslint-check" "eslint-version" "latest"
       The status should be success
     End
     It "accepts semantic version"
-      When call test_input_validation "$ACTION_DIR" "eslint-version" "8.57.0" "success"
+      When call validate_input_python "eslint-check" "eslint-version" "8.57.0"
       The status should be success
     End
     It "accepts version with prerelease"
-      When call test_input_validation "$ACTION_DIR" "eslint-version" "9.0.0-alpha.0" "success"
+      When call validate_input_python "eslint-check" "eslint-version" "9.0.0-alpha.0"
       The status should be success
     End
     It "accepts older stable version"
-      When call test_input_validation "$ACTION_DIR" "eslint-version" "7.32.0" "success"
+      When call validate_input_python "eslint-check" "eslint-version" "7.32.0"
       The status should be success
     End
     It "rejects invalid version format"
-      When call test_input_validation "$ACTION_DIR" "eslint-version" "8.57" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "eslint-version" "8.57"
+      The status should be failure
     End
     It "rejects version with letters"
-      When call test_input_validation "$ACTION_DIR" "eslint-version" "8.57.0a" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "eslint-version" "8.57.0a"
+      The status should be failure
     End
     It "rejects empty version"
-      When call test_input_validation "$ACTION_DIR" "eslint-version" "" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "eslint-version" ""
+      The status should be failure
     End
   End
 
   Context "when validating config-file input"
     It "accepts default eslintrc"
-      When call test_input_validation "$ACTION_DIR" "config-file" ".eslintrc" "success"
+      When call validate_input_python "eslint-check" "config-file" ".eslintrc"
       The status should be success
     End
     It "accepts eslintrc.json"
-      When call test_input_validation "$ACTION_DIR" "config-file" ".eslintrc.json" "success"
+      When call validate_input_python "eslint-check" "config-file" ".eslintrc.json"
       The status should be success
     End
     It "accepts eslint.config.js"
-      When call test_input_validation "$ACTION_DIR" "config-file" "eslint.config.js" "success"
+      When call validate_input_python "eslint-check" "config-file" "eslint.config.js"
       The status should be success
     End
     It "accepts relative path config"
-      When call test_input_validation "$ACTION_DIR" "config-file" "config/eslint.json" "success"
+      When call validate_input_python "eslint-check" "config-file" "config/eslint.json"
       The status should be success
     End
     It "rejects path traversal"
-      When call test_input_validation "$ACTION_DIR" "config-file" "../../../malicious.js" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "config-file" "../../../malicious.js"
+      The status should be failure
     End
     It "rejects injection in config path"
-      When call test_input_validation "$ACTION_DIR" "config-file" "config.js;rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "config-file" "config.js;rm -rf /"
+      The status should be failure
     End
   End
 
   Context "when validating ignore-file input"
     It "accepts default eslintignore"
-      When call test_input_validation "$ACTION_DIR" "ignore-file" ".eslintignore" "success"
+      When call validate_input_python "eslint-check" "ignore-file" ".eslintignore"
       The status should be success
     End
     It "accepts custom ignore file"
-      When call test_input_validation "$ACTION_DIR" "ignore-file" "eslint-ignore.txt" "success"
+      When call validate_input_python "eslint-check" "ignore-file" "eslint-ignore.txt"
       The status should be success
     End
     It "accepts relative path ignore file"
-      When call test_input_validation "$ACTION_DIR" "ignore-file" "config/.eslintignore" "success"
+      When call validate_input_python "eslint-check" "ignore-file" "config/.eslintignore"
       The status should be success
     End
     It "rejects path traversal"
-      When call test_input_validation "$ACTION_DIR" "ignore-file" "../../sensitive.txt" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "ignore-file" "../../sensitive.txt"
+      The status should be failure
     End
   End
 
   Context "when validating file-extensions input"
     It "accepts default extensions"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" ".js,.jsx,.ts,.tsx" "success"
+      When call validate_input_python "eslint-check" "file-extensions" ".js,.jsx,.ts,.tsx"
       The status should be success
     End
     It "accepts single extension"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" ".js" "success"
+      When call validate_input_python "eslint-check" "file-extensions" ".js"
       The status should be success
     End
     It "accepts TypeScript extensions only"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" ".ts,.tsx" "success"
+      When call validate_input_python "eslint-check" "file-extensions" ".ts,.tsx"
       The status should be success
     End
     It "accepts Vue and JavaScript extensions"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" ".js,.vue,.ts" "success"
+      When call validate_input_python "eslint-check" "file-extensions" ".js,.vue,.ts"
       The status should be success
     End
     It "rejects extensions without dots"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" "js,ts" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "file-extensions" "js,ts"
+      The status should be failure
     End
     It "rejects invalid extension format"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" ".js;.ts" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "file-extensions" ".js;.ts"
+      The status should be failure
     End
     It "rejects extensions with special characters"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" ".js,.t$" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "file-extensions" ".js,.t$"
+      The status should be failure
     End
   End
 
   Context "when validating boolean inputs"
     It "accepts cache as true"
-      When call test_input_validation "$ACTION_DIR" "cache" "true" "success"
+      When call validate_input_python "eslint-check" "cache" "true"
       The status should be success
     End
     It "accepts cache as false"
-      When call test_input_validation "$ACTION_DIR" "cache" "false" "success"
+      When call validate_input_python "eslint-check" "cache" "false"
       The status should be success
     End
     It "accepts fail-on-error as true"
-      When call test_input_validation "$ACTION_DIR" "fail-on-error" "true" "success"
+      When call validate_input_python "eslint-check" "fail-on-error" "true"
       The status should be success
     End
     It "accepts fail-on-error as false"
-      When call test_input_validation "$ACTION_DIR" "fail-on-error" "false" "success"
+      When call validate_input_python "eslint-check" "fail-on-error" "false"
       The status should be success
     End
     It "rejects invalid boolean value"
-      When call test_input_validation "$ACTION_DIR" "cache" "maybe" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "cache" "maybe"
+      The status should be failure
     End
     It "rejects numeric boolean"
-      When call test_input_validation "$ACTION_DIR" "fail-on-error" "1" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "fail-on-error" "1"
+      The status should be failure
     End
   End
 
   Context "when validating numeric inputs"
     It "accepts zero max-warnings"
-      When call test_input_validation "$ACTION_DIR" "max-warnings" "0" "success"
+      When call validate_input_python "eslint-check" "max-warnings" "0"
       The status should be success
     End
     It "accepts reasonable max-warnings"
-      When call test_input_validation "$ACTION_DIR" "max-warnings" "10" "success"
+      When call validate_input_python "eslint-check" "max-warnings" "10"
       The status should be success
     End
     It "accepts large max-warnings"
-      When call test_input_validation "$ACTION_DIR" "max-warnings" "1000" "success"
+      When call validate_input_python "eslint-check" "max-warnings" "1000"
       The status should be success
     End
     It "accepts valid max-retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "3" "success"
+      When call validate_input_python "eslint-check" "max-retries" "3"
       The status should be success
     End
     It "accepts minimum retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "1" "success"
+      When call validate_input_python "eslint-check" "max-retries" "1"
       The status should be success
     End
     It "accepts maximum retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "10" "success"
+      When call validate_input_python "eslint-check" "max-retries" "10"
       The status should be success
     End
     It "rejects negative max-warnings"
-      When call test_input_validation "$ACTION_DIR" "max-warnings" "-1" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "max-warnings" "-1"
+      The status should be failure
     End
     It "rejects non-numeric max-warnings"
-      When call test_input_validation "$ACTION_DIR" "max-warnings" "many" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "max-warnings" "many"
+      The status should be failure
     End
     It "rejects zero retries"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "0" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "max-retries" "0"
+      The status should be failure
     End
     It "rejects retries above limit"
-      When call test_input_validation "$ACTION_DIR" "max-retries" "15" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "max-retries" "15"
+      The status should be failure
     End
   End
 
   Context "when validating report-format input"
     It "accepts stylish format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "stylish" "success"
+      When call validate_input_python "eslint-check" "report-format" "stylish"
       The status should be success
     End
     It "accepts json format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "json" "success"
+      When call validate_input_python "eslint-check" "report-format" "json"
       The status should be success
     End
     It "accepts sarif format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "sarif" "success"
+      When call validate_input_python "eslint-check" "report-format" "sarif"
       The status should be success
     End
     It "accepts checkstyle format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "checkstyle" "success"
+      When call validate_input_python "eslint-check" "report-format" "checkstyle"
       The status should be success
     End
     It "accepts compact format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "compact" "success"
+      When call validate_input_python "eslint-check" "report-format" "compact"
       The status should be success
     End
     It "accepts html format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "html" "success"
+      When call validate_input_python "eslint-check" "report-format" "html"
       The status should be success
     End
     It "accepts junit format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "junit" "success"
+      When call validate_input_python "eslint-check" "report-format" "junit"
       The status should be success
     End
     It "accepts tap format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "tap" "success"
+      When call validate_input_python "eslint-check" "report-format" "tap"
       The status should be success
     End
     It "accepts unix format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "unix" "success"
+      When call validate_input_python "eslint-check" "report-format" "unix"
       The status should be success
     End
     It "rejects invalid format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "invalid" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "report-format" "invalid"
+      The status should be failure
     End
     It "rejects empty format"
-      When call test_input_validation "$ACTION_DIR" "report-format" "" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "report-format" ""
+      The status should be failure
     End
   End
 
@@ -322,18 +322,18 @@ Describe "eslint-check action"
 
   Context "when validating security"
     It "validates input paths to prevent injection"
-      When call test_input_validation "$ACTION_DIR" "working-directory" "../../../etc" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "working-directory" "../../../etc"
+      The status should be failure
     End
 
     It "validates config file paths"
-      When call test_input_validation "$ACTION_DIR" "config-file" "../../malicious.js" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "config-file" "../../malicious.js"
+      The status should be failure
     End
 
     It "sanitizes file extensions input"
-      When call test_input_validation "$ACTION_DIR" "file-extensions" ".js;rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "eslint-check" "file-extensions" ".js;rm -rf /"
+      The status should be failure
     End
   End
 

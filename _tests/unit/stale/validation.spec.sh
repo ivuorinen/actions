@@ -9,87 +9,87 @@ Describe "stale action"
 
   Context "when validating token input"
     It "accepts GitHub token expression"
-      When call test_input_validation "$ACTION_DIR" "token" "\${{ github.token }}" "success"
+      When call validate_input_python "stale" "token" "\${{ github.token }}"
       The status should be success
     End
 
     It "accepts GitHub fine-grained token"
-      When call test_input_validation "$ACTION_DIR" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890" "success"
+      When call validate_input_python "stale" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
       The status should be success
     End
 
     It "rejects invalid token format"
-      When call test_input_validation "$ACTION_DIR" "token" "invalid-token" "failure"
-      The status should be success
+      When call validate_input_python "stale" "token" "invalid-token"
+      The status should be failure
     End
 
     It "rejects token with command injection"
-      When call test_input_validation "$ACTION_DIR" "token" "ghp_token; rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "stale" "token" "ghp_token; rm -rf /"
+      The status should be failure
     End
 
     It "accepts empty token (uses default)"
-      When call test_input_validation "$ACTION_DIR" "token" "" "success"
+      When call validate_input_python "stale" "token" ""
       The status should be success
     End
   End
 
   Context "when validating days-before-stale input"
     It "accepts valid day count"
-      When call test_input_validation "$ACTION_DIR" "days-before-stale" "30" "success"
+      When call validate_input_python "stale" "days-before-stale" "30"
       The status should be success
     End
 
     It "accepts minimum days"
-      When call test_input_validation "$ACTION_DIR" "days-before-stale" "1" "success"
+      When call validate_input_python "stale" "days-before-stale" "1"
       The status should be success
     End
 
     It "accepts reasonable maximum days"
-      When call test_input_validation "$ACTION_DIR" "days-before-stale" "365" "success"
+      When call validate_input_python "stale" "days-before-stale" "365"
       The status should be success
     End
 
     It "rejects zero days"
-      When call test_input_validation "$ACTION_DIR" "days-before-stale" "0" "failure"
-      The status should be success
+      When call validate_input_python "stale" "days-before-stale" "0"
+      The status should be failure
     End
 
     It "rejects negative days"
-      When call test_input_validation "$ACTION_DIR" "days-before-stale" "-1" "failure"
-      The status should be success
+      When call validate_input_python "stale" "days-before-stale" "-1"
+      The status should be failure
     End
 
     It "rejects non-numeric days"
-      When call test_input_validation "$ACTION_DIR" "days-before-stale" "many" "failure"
-      The status should be success
+      When call validate_input_python "stale" "days-before-stale" "many"
+      The status should be failure
     End
   End
 
   Context "when validating days-before-close input"
     It "accepts valid day count"
-      When call test_input_validation "$ACTION_DIR" "days-before-close" "7" "success"
+      When call validate_input_python "stale" "days-before-close" "7"
       The status should be success
     End
 
     It "accepts minimum days"
-      When call test_input_validation "$ACTION_DIR" "days-before-close" "1" "success"
+      When call validate_input_python "stale" "days-before-close" "1"
       The status should be success
     End
 
     It "accepts reasonable maximum days"
-      When call test_input_validation "$ACTION_DIR" "days-before-close" "365" "success"
+      When call validate_input_python "stale" "days-before-close" "365"
       The status should be success
     End
 
     It "rejects zero days"
-      When call test_input_validation "$ACTION_DIR" "days-before-close" "0" "failure"
-      The status should be success
+      When call validate_input_python "stale" "days-before-close" "0"
+      The status should be failure
     End
 
     It "rejects negative days"
-      When call test_input_validation "$ACTION_DIR" "days-before-close" "-1" "failure"
-      The status should be success
+      When call validate_input_python "stale" "days-before-close" "-1"
+      The status should be failure
     End
   End
 
@@ -129,17 +129,17 @@ Describe "stale action"
 
   Context "when testing security validations"
     It "validates against command injection in token"
-      When call test_input_validation "$ACTION_DIR" "token" "ghp_token\`whoami\`" "failure"
-      The status should be success
+      When call validate_input_python "stale" "token" "ghp_token\`whoami\`"
+      The status should be failure
     End
 
     It "validates against variable expansion in days"
-      When call test_input_validation "$ACTION_DIR" "days-before-stale" "30\${HOME}" "failure"
+      When call validate_input_python "stale" "days-before-stale" "30\${HOME}"
       The status should be success
     End
 
     It "validates against shell metacharacters in days"
-      When call test_input_validation "$ACTION_DIR" "days-before-close" "7; rm -rf /" "failure"
+      When call validate_input_python "stale" "days-before-close" "7; rm -rf /"
       The status should be success
     End
   End

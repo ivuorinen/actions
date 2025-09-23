@@ -9,32 +9,32 @@ Describe "csharp-publish action"
 
   Context "when validating inputs"
     It "accepts valid dotnet version"
-      When call test_input_validation "$ACTION_DIR" "dotnet-version" "8.0" "success"
+      When call validate_input_python "csharp-publish" "dotnet-version" "8.0"
       The status should be success
     End
     It "accepts valid namespace"
-      When call test_input_validation "$ACTION_DIR" "namespace" "ivuorinen" "success"
+      When call validate_input_python "csharp-publish" "namespace" "ivuorinen"
       The status should be success
     End
     It "accepts namespace with hyphens in middle"
-      When call test_input_validation "$ACTION_DIR" "namespace" "my-org-name" "success"
+      When call validate_input_python "csharp-publish" "namespace" "my-org-name"
       The status should be success
     End
     It "rejects namespace ending with hyphen"
-      When call test_input_validation "$ACTION_DIR" "namespace" "invalid-" "failure"
-      The status should be success
+      When call validate_input_python "csharp-publish" "namespace" "invalid-"
+      The status should be failure
     End
     It "accepts valid GitHub token"
-      When call test_input_validation "$ACTION_DIR" "token" "ghp_123456789012345678901234567890123456" "success"
+      When call validate_input_python "csharp-publish" "token" "ghp_123456789012345678901234567890123456"
       The status should be success
     End
     It "rejects injection in namespace"
-      When call test_input_validation "$ACTION_DIR" "namespace" "invalid;malicious" "failure"
-      The status should be success
+      When call validate_input_python "csharp-publish" "namespace" "invalid;malicious"
+      The status should be failure
     End
     It "rejects injection in token"
-      When call test_input_validation "$ACTION_DIR" "token" "token;rm -rf /" "failure"
-      The status should be success
+      When call validate_input_python "csharp-publish" "token" "token;rm -rf /"
+      The status should be failure
     End
   End
 
