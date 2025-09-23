@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Go Build
 description: 'Builds the Go project.'
 author: 'Ismo Vuorinen'
@@ -43,7 +43,7 @@ runs:
   steps:
     - name: Detect Go Version
       id: detect-go-version
-      uses: ../go-version-detect
+      uses: ./go-version-detect
       with:
         default-version: "${{ inputs.go-version || '1.21' }}"
 
@@ -55,7 +55,7 @@ runs:
 
     - name: Cache Go Dependencies
       id: cache-go
-      uses: ../common-cache
+      uses: ./common-cache
       with:
         type: 'go'
         paths: '~/go/pkg/mod'
@@ -64,7 +64,7 @@ runs:
 
     - name: Download Dependencies
       if: steps.cache-go.outputs.cache-hit != 'true'
-      uses: ../common-retry
+      uses: ./common-retry
       with:
         command: |
           echo "Downloading Go dependencies..."

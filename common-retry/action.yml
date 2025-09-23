@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Common Retry
 description: 'Standardized retry utility for network operations and flaky commands'
 author: 'Ismo Vuorinen'

@@ -1,6 +1,6 @@
 # ivuorinen/actions/python-version-detect-v2
 
-## Python Version Detect V2
+## Python Version Detect v2
 
 ### Description
 

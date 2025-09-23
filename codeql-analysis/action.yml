@@ -1,0 +1,212 @@
+---
+name: CodeQL Analysis
+description: Run CodeQL security analysis for a single language with configurable query suites
+author: Ismo Vuorinen
+
+branding:
+  icon: shield
+  color: blue
+
+inputs:
+  language:
+    description: 'Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.)'
+    required: true
+
+  queries:
+    description: 'Comma-separated list of additional queries to run'
+    required: false
+    default: ''
+
+  packs:
+    description: 'Comma-separated list of CodeQL query packs to run'
+    required: false
+    default: ''
+
+  config-file:
+    description: 'Path to CodeQL configuration file'
+    required: false
+    default: ''
+
+  config:
+    description: 'Configuration passed as a YAML string'
+    required: false
+    default: ''
+
+  build-mode:
+    description: 'The build mode for compiled languages (none, manual, autobuild)'
+    required: false
+    default: ''
+
+  source-root:
+    description: 'Path of the root source code directory'
+    required: false
+    default: ''
+
+  category:
+    description: 'Analysis category (default: /language:<language>)'
+    required: false
+    default: ''
+
+  checkout-ref:
+    description: 'Git reference to checkout (default: current ref)'
+    required: false
+    default: ''
+
+  token:
+    description: 'GitHub token for API access'
+    required: false
+    default: ${{ github.token }}
+
+  working-directory:
+    description: 'Working directory for the analysis'
+    required: false
+    default: '.'
+
+  upload-results:
+    description: 'Upload results to GitHub Security tab'
+    required: false
+    default: 'true'
+
+  ram:
+    description: 'Amount of memory in MB that can be used by CodeQL'
+    required: false
+    default: ''
+
+  threads:
+    description: 'Number of threads that can be used by CodeQL'
+    required: false
+    default: ''
+
+  output:
+    description: 'Path to save SARIF results'
+    required: false
+    default: '../results'
+
+  skip-queries:
+    description: 'Build database but skip running queries'
+    required: false
+    default: 'false'
+
+  add-snippets:
+    description: 'Add code snippets to SARIF output'
+    required: false
+    default: 'false'
+
+outputs:
+  language-analyzed:
+    description: 'Language that was analyzed'
+    value: ${{ inputs.language }}
+
+  analysis-category:
+    description: 'Category used for the analysis'
+    value: ${{ steps.set-category.outputs.category }}
+
+  sarif-file:
+    description: 'Path to generated SARIF file'
+    value: ${{ steps.analysis.outputs.sarif-file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate inputs
+      uses: ./validate-inputs
+      with:
+        action-type: codeql-analysis
+        language: ${{ inputs.language }}
+        queries: ${{ inputs.queries }}
+        packs: ${{ inputs.packs }}
+        config-file: ${{ inputs.config-file }}
+        config: ${{ inputs.config }}
+        build-mode: ${{ inputs.build-mode }}
+        source-root: ${{ inputs.source-root }}
+        category: ${{ inputs.category }}
+        checkout-ref: ${{ inputs.checkout-ref }}
+        token: ${{ inputs.token }}
+        working-directory: ${{ inputs.working-directory }}
+        upload-results: ${{ inputs.upload-results }}
+        ram: ${{ inputs.ram }}
+        threads: ${{ inputs.threads }}
+        output: ${{ inputs.output }}
+        skip-queries: ${{ inputs.skip-queries }}
+        add-snippets: ${{ inputs.add-snippets }}
+
+    - name: Checkout repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        ref: ${{ inputs.checkout-ref }}
+        token: ${{ inputs.token }}
+
+    - name: Set analysis category
+      id: set-category
+      shell: bash
+      run: |
+        if [[ -n "${{ inputs.category }}" ]]; then
+          category="${{ inputs.category }}"
+        else
+          category="/language:${{ inputs.language }}"
+        fi
+        echo "category=$category" >> $GITHUB_OUTPUT
+        echo "Using analysis category: $category"
+
+    - name: Set build mode
+      id: set-build-mode
+      shell: bash
+      run: |
+        build_mode="${{ inputs.build-mode }}"
+        if [[ -z "$build_mode" ]]; then
+          # Auto-detect build mode based on language
+          case "${{ inputs.language }}" in
+            javascript|python|ruby|actions)
+              build_mode="none"
+              ;;
+            java|csharp|cpp|c|go|swift|kotlin)
+              build_mode="autobuild"
+              ;;
+          esac
+        fi
+        echo "build-mode=$build_mode" >> $GITHUB_OUTPUT
+        echo "Using build mode: $build_mode"
+
+    - name: Initialize CodeQL
+      uses: github/codeql-action/init@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
+      with:
+        languages: ${{ inputs.language }}
+        queries: ${{ inputs.queries }}
+        packs: ${{ inputs.packs }}
+        config-file: ${{ inputs.config-file }}
+        config: ${{ inputs.config }}
+        build-mode: ${{ steps.set-build-mode.outputs.build-mode }}
+        source-root: ${{ inputs.source-root || inputs.working-directory }}
+        ram: ${{ inputs.ram }}
+        threads: ${{ inputs.threads }}
+
+    - name: Autobuild
+      uses: github/codeql-action/autobuild@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
+      if: ${{ steps.set-build-mode.outputs.build-mode == 'autobuild' }}
+
+    - name: Perform CodeQL Analysis
+      id: analysis
+      uses: github/codeql-action/analyze@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
+      with:
+        category: ${{ steps.set-category.outputs.category }}
+        upload: ${{ inputs.upload-results }}
+        output: ${{ inputs.output }}
+        ram: ${{ inputs.ram }}
+        threads: ${{ inputs.threads }}
+        add-snippets: ${{ inputs.add-snippets }}
+        skip-queries: ${{ inputs.skip-queries }}
+
+    - name: Summary
+      shell: bash
+      run: |
+        echo "✅ CodeQL analysis completed for language: ${{ inputs.language }}"
+        echo "📊 Category: ${{ steps.set-category.outputs.category }}"
+        echo "🏗️ Build mode: ${{ steps.set-build-mode.outputs.build-mode }}"
+        echo "🔍 Queries: ${{ inputs.queries || 'default' }}"
+        echo "📦 Packs: ${{ inputs.packs || 'none' }}"
+        if [[ "${{ inputs.upload-results }}" == "true" ]]; then
+          echo "📤 Results uploaded to GitHub Security tab"
+        fi
+        if [[ -n "${{ inputs.output }}" ]]; then
+          echo "💾 SARIF saved to: ${{ inputs.output }}"
+        fi

@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Docker Publish
 description: Publish a Docker image to GitHub Packages and Docker Hub.
 author: Ismo Vuorinen
@@ -139,7 +139,7 @@ runs:
 
     - name: Build Multi-Arch Docker Image
       id: build
-      uses: ../docker-build
+      uses: ./docker-build
       with:
         tag: ${{ steps.tags.outputs.all-tags }}
         architectures: ${{ inputs.platforms }}
@@ -154,7 +154,7 @@ runs:
     - name: Publish to Docker Hub
       id: publish-dockerhub
       if: contains(steps.dest.outputs.reg, 'dockerhub')
-      uses: ../docker-publish-hub
+      uses: ./docker-publish-hub
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
         platforms: ${{ inputs.platforms }}
@@ -170,7 +170,7 @@ runs:
     - name: Publish to GitHub Packages
       id: publish-github
       if: contains(steps.dest.outputs.reg, 'github')
-      uses: ../docker-publish-gh
+      uses: ./docker-publish-gh
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
         platforms: ${{ inputs.platforms }}

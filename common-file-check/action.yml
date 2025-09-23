@@ -1,9 +1,9 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Common File Check
 description: |
   A reusable action to check if a specific file or type of files exists in the repository.
-  Emits an output 'found' which is true or false.
+  Emits an output "found" which is true or false.
 author: 'Ismo Vuorinen'
 branding:
   icon: search

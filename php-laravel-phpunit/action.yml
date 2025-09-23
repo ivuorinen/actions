@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Laravel Setup and Composer test
 description: 'Setup PHP, install dependencies, generate key, create database and run composer test'
 author: 'Ismo Vuorinen'
@@ -49,11 +49,11 @@ runs:
   steps:
     - name: Detect PHP Version
       id: php-version
-      uses: ../php-version-detect
+      uses: ./php-version-detect
       with:
         default-version: ${{ inputs.php-version }}
 
-    - uses: shivammathur/setup-php@20529878ed81ef8e78ddf08b480401e6101a850f # 2.35.3
+    - uses: shivammathur/setup-php@ec406be512d7077f68eed36e63f4d91bc006edc4 # 2.35.4
       id: setup-php
       with:
         php-version: ${{ steps.php-version.outputs.php-version }}

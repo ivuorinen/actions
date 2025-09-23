@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Publish to NPM
 description: 'Publishes the package to the NPM registry with configurable scope and registry URL.'
 author: 'Ismo Vuorinen'
@@ -80,7 +80,7 @@ runs:
         fi
 
     - name: Setup Node.js
-      uses: ../node-setup
+      uses: ./node-setup
 
     - name: Authenticate NPM
       shell: bash

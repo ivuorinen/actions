@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Docker Build
 description: 'Builds a Docker image for multiple architectures with enhanced security and reliability.'
 author: 'Ismo Vuorinen'
@@ -140,7 +140,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      uses: ../validate-inputs
+      uses: ./validate-inputs
       with:
         action-type: 'docker-build'
         image-name: ${{ inputs.image-name }}
@@ -478,7 +478,7 @@ runs:
 
     - name: Install Cosign
       if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
-      uses: sigstore/cosign-installer@d58896d6a1865668819e1d91763c7751a165e159 # v3.9.2
+      uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
 
     - name: Sign Image
       id: sign

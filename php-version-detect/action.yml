@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: PHP Version Detect
 description: "Detects the PHP version from the project's composer.json, phpunit.xml, or other configuration files."
 author: 'Ismo Vuorinen'
@@ -54,7 +54,7 @@ runs:
 
     - name: Parse PHP Version
       id: parse-version
-      uses: ../version-file-parser
+      uses: ./version-file-parser
       with:
         language: 'php'
         tool-versions-key: 'php'

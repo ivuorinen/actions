@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Dotnet Version Detect
 description: 'Detects .NET SDK version from global.json or defaults to a specified version.'
 author: 'Ismo Vuorinen'
@@ -45,7 +45,7 @@ runs:
 
     - name: Parse .NET Version
       id: parse-version
-      uses: ../version-file-parser
+      uses: ./version-file-parser
       with:
         language: 'dotnet'
         tool-versions-key: 'dotnet'

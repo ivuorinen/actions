@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: C# Publish
 description: 'Publishes a C# project to GitHub Packages.'
 author: 'Ismo Vuorinen'
@@ -36,7 +36,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      uses: ../validate-inputs
+      uses: ./validate-inputs
       with:
         action-type: 'csharp-publish'
         token: ${{ inputs.token }}
@@ -45,7 +45,7 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ../dotnet-version-detect
+      uses: ./dotnet-version-detect
       with:
         default-version: '7.0'
 
@@ -56,7 +56,7 @@ runs:
 
     - name: Cache NuGet packages
       id: cache-nuget
-      uses: ../common-cache
+      uses: ./common-cache
       with:
         type: 'nuget'
         paths: '~/.nuget/packages'

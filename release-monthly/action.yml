@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Do Monthly Release
 description: 'Creates a release for the current month, incrementing patch number if necessary.'
 author: 'Ismo Vuorinen'

@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Go Version Detect
 description: "Detects the Go version from the project's go.mod file or defaults to a specified version."
 author: 'Ismo Vuorinen'
@@ -52,7 +52,7 @@ runs:
 
     - name: Parse Go Version
       id: parse-version
-      uses: ../version-file-parser
+      uses: ./version-file-parser
       with:
         language: 'go'
         tool-versions-key: 'golang'

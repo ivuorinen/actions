@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Biome Fix
 description: Run Biome fix on the repository
 author: Ismo Vuorinen
@@ -83,7 +83,7 @@ runs:
         token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ../set-git-config
+      uses: ./set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
@@ -91,11 +91,11 @@ runs:
 
     - name: Node Setup
       id: node-setup
-      uses: ../node-setup
+      uses: ./node-setup
 
     - name: Cache Node Dependencies
       id: cache
-      uses: ../common-cache
+      uses: ./common-cache
       with:
         type: 'npm'
         paths: 'node_modules'
