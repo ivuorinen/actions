@@ -1,169 +1,154 @@
 # CLAUDE.md - GitHub Actions Monorepo
 
-Guidance for Claude Code (claude.ai/code) when working with this repository.
+**Mantra**: Zero defects. Zero exceptions.
 
-## Repository Overview
+Authoritative guidance for Claude Code (claude.ai/code). All rules are mandatory and non-negotiable.
 
-**41 GitHub Actions** in a flat directory structure, each self-contained with an `action.yml`.
+## Absolute Standards
 
-**Recent Achievements (August 2025):**
+### Zero Tolerance
 
-- ✅ Fixed critical token interpolation issues (GitHub expressions properly unquoted)
-- ✅ Implemented automated action catalog generation with reference links
-- ✅ All actions verified working with proper GitHub Actions expressions
-- ✅ Comprehensive testing infrastructure (ShellSpec + pytest)
-- ✅ Python validation system with extensive test coverage
-- ✅ Modern development tooling (uv, ruff, pytest-cov)
-- ✅ Project is in excellent state with all self-containment goals achieved
+- Any failing tests or linting issues = not production ready
+- No exceptions
 
-### Actions by Category
+### Production Ready
 
-**Setup (7)**: `node-setup`, `set-git-config`, `php-version-detect`, `python-version-detect`, `python-version-detect-v2`, `go-version-detect`, `dotnet-version-detect`
+A project is production ready only when:
 
-**Utilities (2)**: `version-file-parser`, `version-validator`
+- All tests pass
+- All linting passes
+- All validation checks pass
+- No warnings or errors
 
-**Linting (13)**: `ansible-lint-fix`, `biome-check`, `biome-fix`, `csharp-lint-check`, `eslint-check`, `eslint-fix`, `go-lint`,
-`pr-lint`, `pre-commit`, `prettier-check`, `prettier-fix`, `python-lint-fix`, `terraform-lint-fix`
+### Rules
 
-**Testing (3)**: `php-tests`, `php-laravel-phpunit`, `php-composer`
+- Follow conventions and best practices
+- Fix and understand all issues before completion
+- Never compromise standards
+- Test thoroughly
+- Prioritize quality over speed
+- Write maintainable, simple, DRY code
+- Document all changes
+- Communicate factually
+- Review carefully
+- Use memory files wisely, update rather than add
+- Ask when unsure
 
-**Build (3)**: `csharp-build`, `go-build`, `docker-build`
+### Communication
 
-**Publishing (5)**: `npm-publish`, `docker-publish`, `docker-publish-gh`, `docker-publish-hub`, `csharp-publish`
+- Be direct, factual, concise
+- Prohibited: hype, buzzwords, jargon, clichés, assumptions, predictions, comparisons, superlatives, promotional or subjective terms
+- Do not declare success or "production ready" until all rules pass
 
-**Repository (8)**: `github-release`, `release-monthly`, `sync-labels`, `stale`, `compress-images`, `common-cache`, `common-file-check`, `common-retry`
+### Folder Rules
 
-## Development
+- `.serena/` – Internal config, do not edit
+- `.github/` – Workflows and templates
+- `_tests/` – ShellSpec tests
+- `_tools/` – Helper tools
+- `validate-inputs/` – Python validation system
+- `validate-inputs/rules/` – Auto-generated, do not edit
+- `validate-inputs/tests/` – pytest tests
+
+## Repository
+
+Flat structure. Each action self-contained with `action.yml`.
+
+### Actions
+
+**Setup**: `node-setup`, `set-git-config`, `php-version-detect`, `python-version-detect`, `python-version-detect-v2`, `go-version-detect`, `dotnet-version-detect`
+**Utilities**: `version-file-parser`, `version-validator`
+**Linting**: `ansible-lint-fix`, `biome-check`, `biome-fix`, `csharp-lint-check`, `eslint-check`, `eslint-fix`, `go-lint`, `pr-lint`, `pre-commit`, `prettier-check`, `prettier-fix`, `python-lint-fix`, `terraform-lint-fix`
+**Testing**: `php-tests`, `php-laravel-phpunit`, `php-composer`
+**Build**: `csharp-build`, `go-build`, `docker-build`
+**Publishing**: `npm-publish`, `docker-publish`, `docker-publish-gh`, `docker-publish-hub`, `csharp-publish`
+**Repository**: `github-release`, `release-monthly`, `sync-labels`, `stale`, `compress-images`, `common-cache`, `common-file-check`, `common-retry`
+
+## Development & Testing
 
 ### Commands
 
-```bash
-make all                  # Generate docs, format, lint, test
-make dev                  # Format then lint
-make lint                 # Run all linters
-make format               # Format all files
-make docs                 # Generate documentation
-make test                 # Run all tests (shell + Python)
-make test-python          # Run Python tests only
-make test-python-coverage # Run Python tests with coverage
-make update-validators    # Update validation rules for all actions
-make update-validators-dry # Preview validation rules changes
-```
+- `make all` – Generate docs, format, lint, test
+- `make dev` – Format then lint
+- `make lint` – Run all linters
+- `make format` – Format files
+- `make docs` – Generate docs
+- `make test` – Run all tests
+- `make test-python` – Run Python tests
+- `make test-python-coverage` – Python coverage
+- `make test-actions` – Run shell tests
+- `make test-update-validators` – Validator tests
+- `make test-coverage` – All with coverage
+- `make update-validators` – Update validation rules
+- `make update-validators-dry` – Preview validator changes
+- `make check-local-refs` – Check for `../` references
+- `make fix-local-refs` – Fix `../` references
+- `make fix-local-refs-dry` – Preview ref fixes
 
-### Linting Sequence
+### Linting
 
-```bash
-npx markdownlint-cli2 --fix "**/*.md"
-npx prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json"
-npx markdown-table-formatter "**/*.md"
-npx yaml-lint "**/*.yml" "**/*.yaml"
-actionlint
-find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} +  # Excludes shellspec files
-uv run ruff check --fix validate-inputs/
-uv run ruff format validate-inputs/
-```
+Run `make lint` or `make lint-*`. Avoid direct linter calls unless required.
+
+- `npx markdownlint-cli2 --fix "**/*.md"`
+- `npx prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json"`
+- `npx markdown-table-formatter "**/*.md"`
+- `npx yaml-lint "**/*.yml" "**/*.yaml"`
+- `actionlint`
+- `find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} +`
+- `uv run ruff check --fix validate-inputs/`
+- `uv run ruff format validate-inputs/`
+
+### Test Rules
+
+- ShellSpec for Actions (`_tests/`)
+- pytest for validation (`validate-inputs/tests/`)
+- Full coverage required
+- Independent action tests
+- Integration tests required
 
 ## Architecture Rules
 
-### Security
-
 - All external actions SHA-pinned
-- Token authentication with `${{ github.token }}` fallback
-- Shell scripts use `set -euo pipefail`
-
-### Quality Standards
-
+- Use `${{ github.token }}` for auth
+- Shell scripts: `set -euo pipefail`
 - EditorConfig: 2-space indent, UTF-8, LF
-- Max line: 200 chars (120 for Markdown)
-- README.md auto-generated via `action-docs`
-- Comprehensive error handling required
+- Max line length: 200 (120 for Markdown)
+- `README.md` auto-generated via `action-docs`
+- Error handling required
+
+### Local Action References
+
+- ✅ `uses: ./action-name`
+- ❌ `uses: ../action-name`
+
+Check with: `make check-local-refs`, `make fix-local-refs`
 
 ## Validation System
 
-### Centralized Input Validation
+### Centralized
 
-All actions use the `validate-inputs` action for centralized, Python-based input validation:
+- Location: `validate-inputs/`
+- Rules: YAML in `validate-inputs/rules/`
+- Security: regex, injection protection
+- Generator: Python script
 
-- **Location**: `validate-inputs/` directory with embedded Python validation
-- **Rules**: Auto-generated YAML files in `validate-inputs/rules/`
-- **Coverage**: High automated validation rule generation
-- **Security**: PCRE regex support, injection protection, lookahead patterns
-- **Generator**: Python-based rule generator (`update-validators.py`)
+### Convention Rules
 
-### Convention-Based Detection
+- `token` → GitHub token, `*-version` → SemVer/CalVer/flexible, `email` → email format, `dockerfile` → file path, `dry-run` → boolean, `architectures` → Docker architectures, `*-retries` → numeric range
 
-Validation rules are automatically generated using naming conventions:
+### Version Types
 
-- `token` → GitHub token validation
-- `*-version` → Version string validation (SemVer, CalVer, or flexible)
-- `email` → Email format validation
-- `dockerfile` → File path validation
-- `dry-run` → Boolean validation
-- `architectures` → Docker architecture validation
-- `*-retries` → Numeric range validation
+- `semantic_version`, `calver_version`, `flexible_version`, `dotnet_version`, `terraform_version`, `node_version`
 
-### Version Validation Types
+**Supported CalVer**: YYYY.MM.PATCH (2024.3.1), YYYY.MM.DD (2024.3.15), YYYY.0M.0D (2024.03.05), YY.MM.MICRO (24.3.1), YYYY.MM (2024.3), YYYY-MM-DD (2024-03-15)
 
-The system supports multiple version validation schemes:
+### Maintenance
 
-- **`semantic_version`**: Traditional SemVer (e.g., `1.2.3`, `2.0.0-beta`)
-- **`calver_version`**: Calendar Versioning (e.g., `2024.3.1`, `24.03.15`)
-- **`flexible_version`**: Accepts both CalVer and SemVer formats
-- **`dotnet_version`**: .NET-specific version format
-- **`terraform_version`**: Terraform-specific version format
-- **`node_version`**: Node.js version format
-
-Supported CalVer formats:
-
-- `YYYY.MM.PATCH` (e.g., 2024.3.1)
-- `YYYY.MM.DD` (e.g., 2024.3.15)
-- `YYYY.0M.0D` (e.g., 2024.03.05)
-- `YY.MM.MICRO` (e.g., 24.3.1)
-- `YYYY.MM` (e.g., 2024.3)
-- `YYYY-MM-DD` (e.g., 2024-03-15)
-
-### Maintenance Workflow
-
-```bash
-# When adding new action inputs:
-make update-validators    # Regenerate all validation rules
-git diff validate-inputs/rules/  # Review generated changes
-```
-
-## Testing Framework
-
-### Dual Testing Architecture
-
-The project uses a dual testing approach:
-
-- **Shell Testing**: ShellSpec framework for GitHub Actions and shell scripts (`_tests/`)
-- **Python Testing**: pytest framework for validation system (`validate-inputs/tests/`)
-
-### Test Commands
-
-```bash
-# Run all tests
-make test
-
-# Run specific test types
-make test-python           # Python validation tests
-make test-actions          # Shell-based action tests
-make test-update-validators # Test the validation rule generator
-
-# Coverage reporting
-make test-coverage         # All tests with coverage
-make test-python-coverage  # Python tests with coverage
-```
-
-### Test Requirements
-
-- All validation logic must have comprehensive test coverage
-- Actions should be tested independently
-- Integration tests verify end-to-end workflows
-- Mock GitHub API responses for reliable testing
+- `make update-validators`
+- `git diff validate-inputs/rules/`
 
 ---
 
-**Note**: All actions achieve 100% external usability via modular composition.
+**Summary**: Every rule here is absolute. No exceptions. All code, tests, and communication must meet these standards. All actions are modular and externally usable.
 
-- `npx action-docs --update-readme` doesn't actually update the readme files.
+- `npx action-docs --update-readme` does not update readmes.

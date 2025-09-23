@@ -6,15 +6,18 @@ repos:
         name: Generate docs, format, and lint
         entry: bash -c 'make all'
         language: system
+        pass_filenames: false
         types: [markdown, python, yaml]
-        files: ^(docs/|README\.md$|CONTRIBUTING\.md|CHANGELOG\.md|.*\.py|.*\.yaml|.*\.yml)$
+        files: ^(docs/.*|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|.*\.py|.*\.ya?ml)$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
       - id: requirements-txt-fixer
       - id: detect-private-key
+      - id: destroyed-symlinks
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]
+      - id: check-ast
       - id: check-case-conflict
       - id: check-merge-conflict
       - id: check-executables-have-shebangs
@@ -30,11 +33,11 @@ repos:
       - id: pretty-format-json
         args: [--autofix, --no-sort-keys]
 
-  - repo: https://github.com/igorshubovych/markdownlint-cli
-    rev: v0.45.0
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    rev: v0.18.1
     hooks:
-      - id: markdownlint
-        args: [-c, .markdownlint.json, --fix]
+      - id: markdownlint-cli2
+        args: [--fix]
 
   - repo: https://github.com/adrienverge/yamllint
     rev: v1.37.1
@@ -42,7 +45,7 @@ repos:
       - id: yamllint
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.12.9
+    rev: v0.13.0
     hooks:
       # Run the linter with auto-fix
       - id: ruff-check
@@ -81,3 +84,8 @@ repos:
       - id: checkov
         args:
           - '--quiet'
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.28.0
+    hooks:
+      - id: gitleaks
