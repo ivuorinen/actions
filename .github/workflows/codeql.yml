@@ -30,6 +30,7 @@ jobs:
         language:
           - 'actions'
           - 'javascript'
+          - 'python'
 
     steps: # Add languages used in your actions
       - name: Checkout repository
