@@ -49,7 +49,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: '3.x'
 
@@ -57,7 +57,7 @@ jobs:
         run: pip install PyYAML
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -91,7 +91,7 @@ jobs:
         if: always()
 
       - name: Upload SARIF file
-        uses: github/codeql-action/upload-sarif@cc03f5b14c79b01a0fed8c2a5fd62433c9fbd4a5 # v3.29.4
+        uses: github/codeql-action/upload-sarif@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
         if: always()
         with:
           sarif_file: _tests/reports/test-results.sarif
@@ -116,14 +116,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       - name: Setup Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
           python-version: '3.x'
 
       - name: Install PyYAML
         run: pip install PyYAML
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -173,7 +173,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -232,7 +232,7 @@ jobs:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -363,7 +363,14 @@ jobs:
             fi
 
             echo ""
-            echo "**Status**: ${{ needs.unit-tests.result == 'success' && (needs.integration-tests.result == 'success' || needs.integration-tests.result == 'skipped') && '✅ All tests passed' || '❌ Some tests failed' }}"
+            unit_success="${{ needs.unit-tests.result == 'success' }}"
+            integration_ok="${{ needs.integration-tests.result == 'success' || needs.integration-tests.result == 'skipped' }}"
+            if [[ "$unit_success" == "true" && "$integration_ok" == "true" ]]; then
+              status="✅ All tests passed"
+            else
+              status="❌ Some tests failed"
+            fi
+            echo "**Status**: $status"
 
             # Job status details
             echo ""
