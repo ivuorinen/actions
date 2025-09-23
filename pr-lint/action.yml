@@ -1,7 +1,7 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 # MegaLinter GitHub Action configuration file
 # More info at https://megalinter.io
----
-# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 name: PR Lint
 description: Runs MegaLinter against pull requests
 author: Ismo Vuorinen
@@ -37,37 +37,12 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Validate GitHub token format (basic validation)
-        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
-          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
-          fi
-        fi
-
-        # Validate email format (basic check)
-        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
-          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
-          exit 1
-        fi
-
-        # Validate username format (prevent command injection)
-        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
-          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
-          exit 1
-        fi
-
-        # Validate username length
-        username="${{ inputs.username }}"
-        if [ ${#username} -gt 39 ]; then
-          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
-          exit 1
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ./validate-inputs
+      with:
+        action: pr-lint
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     #   ╭──────────────────────────────────────────────────────────╮
     #   │                       Git Checkout                       │
@@ -86,7 +61,7 @@ runs:
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Setup Git Config
       id: git-config
-      uses: ../set-git-config
+      uses: ./set-git-config
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
@@ -109,7 +84,7 @@ runs:
 
     - name: Setup Node.js environment
       if: steps.detect-node.outputs.found == 'true'
-      uses: ../node-setup
+      uses: ./node-setup
       with:
         install: true
         cache: true
@@ -128,11 +103,11 @@ runs:
     - name: Detect PHP Version
       if: steps.detect-php.outputs.found == 'true'
       id: php-version
-      uses: ../php-version-detect
+      uses: ./php-version-detect
 
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
-      uses: shivammathur/setup-php@20529878ed81ef8e78ddf08b480401e6101a850f # 2.35.3
+      uses: shivammathur/setup-php@ec406be512d7077f68eed36e63f4d91bc006edc4 # 2.35.4
       with:
         php-version: ${{ steps.php-version.outputs.php-version }}
         tools: composer
@@ -170,7 +145,7 @@ runs:
     - name: Detect Python Version
       if: steps.detect-python.outputs.found == 'true'
       id: python-version
-      uses: ../python-version-detect
+      uses: ./python-version-detect
 
     - name: Setup Python
       if: steps.detect-python.outputs.found == 'true'
@@ -201,7 +176,7 @@ runs:
     - name: Detect Go Version
       if: steps.detect-go.outputs.found == 'true'
       id: go-version
-      uses: ../go-version-detect
+      uses: ./go-version-detect
 
     - name: Setup Go
       if: steps.detect-go.outputs.found == 'true'

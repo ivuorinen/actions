@@ -66,6 +66,12 @@ runs:
           local version=$1
           local regex='${{ inputs.validation-regex }}'
 
+          # Test regex validity
+          if ! bash -c "[[ 'test' =~ \${regex} ]]" 2>/dev/null; then
+            echo "::error::Invalid validation regex pattern: $regex" >&2
+            exit 1
+          fi
+
           # Validate version using safe regex matching with quoted variable
           if [[ $version =~ ^${regex}$ ]]; then
             return 0
@@ -106,7 +112,8 @@ runs:
         # Parse Dockerfile
         if [ -f Dockerfile ]; then
           echo "Checking Dockerfile for ${{ inputs.dockerfile-image }}..." >&2
-          version=$(grep -iF "FROM" Dockerfile | grep -F "${{ inputs.dockerfile-image }}:" | head -1 | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+          version=$(grep -iF "FROM" Dockerfile | grep -F "${{ inputs.dockerfile-image }}:" | head -1 | \
+            sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -336,6 +343,11 @@ runs:
 
         # Set final detected version
         if [ -n "$final_version" ]; then
+          # Validate the final version against the regex
+          if ! validate_version "$final_version"; then
+            echo "::error::Detected version $final_version does not match validation regex" >&2
+            exit 1
+          fi
           echo "detected-version=$final_version" >> $GITHUB_OUTPUT
           echo "Final detected ${{ inputs.language }} version: $final_version" >&2
         else
