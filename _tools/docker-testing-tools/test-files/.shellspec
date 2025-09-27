@@ -1,0 +1,6 @@
+--require spec_helper
+
+# ShellSpec configuration for Docker testing environment
+--format documentation
+--color
+--reportdir reports

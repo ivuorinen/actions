@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Run Composer Install
 description: 'Runs Composer install on a repository with advanced caching and configuration.'
 author: 'Ismo Vuorinen'
@@ -65,31 +65,13 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        # Validate PHP version
-        if ! [[ "${{ inputs.php }}" =~ ^([5-9]\.[0-9]+|[1-9][0-9]+\.[0-9]+)$ ]]; then
-          echo "::error::Invalid PHP version format: ${{ inputs.php }}"
-          exit 1
-        fi
-
-        # Validate Composer version
-        if ! [[ "${{ inputs.composer-version }}" =~ ^[12]$ ]]; then
-          echo "::error::Invalid Composer version: ${{ inputs.composer-version }}"
-          exit 1
-        fi
-
-        # Validate stability
-        if ! [[ "${{ inputs.stability }}" =~ ^(stable|RC|beta|alpha|dev)$ ]]; then
-          echo "::error::Invalid stability option: ${{ inputs.stability }}"
-          exit 1
-        fi
+      uses: ./validate-inputs
+      with:
+        action: php-composer
 
     - name: Setup PHP
       id: php
-      uses: shivammathur/setup-php@9e72090525849c5e82e596468b86eb55e9cc5401 # v2
+      uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
       with:
         php-version: ${{ inputs.php }}
         extensions: ${{ inputs.extensions }}
@@ -172,54 +154,32 @@ runs:
 
     - name: Cache Composer packages
       id: composer-cache
-      uses: actions/cache@0400d5f644dc74513175e3cd8d07132dd4860809 # v4.2.4
+      uses: ./common-cache
       with:
-        path: |
-          vendor
-          ~/.composer/cache
-          ${{ inputs.cache-directories }}
-        key: ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-${{ steps.hash.outputs.lock }}
+        type: 'composer'
+        paths: 'vendor,~/.composer/cache${{ inputs.cache-directories != "" && format(",{0}", inputs.cache-directories) || "" }}'
+        key-prefix: 'php-${{ inputs.php }}-composer-${{ inputs.composer-version }}'
+        key-files: 'composer.lock,composer.json'
         restore-keys: |
           ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-
           ${{ runner.os }}-php-${{ inputs.php }}-composer-
           ${{ runner.os }}-php-${{ inputs.php }}-
 
-    - name: Install Dependencies
+    - name: Clear Composer Cache Before Final Attempt
+      if: steps.composer-cache.outputs.cache-hit != 'true'
       shell: bash
       run: |
         set -euo pipefail
+        echo "Clearing Composer cache to ensure clean installation..."
+        composer clear-cache
 
-        # Function to run composer with retries
-        run_composer() {
-          local attempt=1
-          local max_attempts=${{ inputs.max-retries }}
-
-          while [ $attempt -le $max_attempts ]; do
-            echo "Composer install attempt $attempt of $max_attempts"
-
-            if composer install ${{ inputs.args }}; then
-              return 0
-            fi
-
-            attempt=$((attempt + 1))
-            if [ $attempt -le $max_attempts ]; then
-              echo "Composer install failed, waiting 30 seconds before retry..."
-              sleep 30
-
-              # Clear composer cache if retry needed
-              if [ $attempt -eq $max_attempts ]; then
-                echo "Clearing Composer cache before final attempt..."
-                composer clear-cache
-              fi
-            fi
-          done
-
-          echo "::error::Composer install failed after $max_attempts attempts"
-          return 1
-        }
-
-        # Run Composer install with retry logic
-        run_composer
+    - name: Install Dependencies
+      uses: ./common-retry
+      with:
+        command: 'composer install ${{ inputs.args }}'
+        max-retries: ${{ inputs.max-retries }}
+        retry-delay: '30'
+        description: 'Installing PHP dependencies via Composer'
 
     - name: Verify Installation
       shell: bash
@@ -241,6 +201,6 @@ runs:
     - name: Generate Optimized Autoloader
       if: success()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
         composer dump-autoload --optimize --classmap-authoritative

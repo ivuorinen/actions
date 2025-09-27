@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Terraform Lint and Fix
 description: 'Lints and fixes Terraform files with advanced validation and security checks.'
 author: 'Ismo Vuorinen'
@@ -41,6 +41,18 @@ inputs:
     description: 'Output format (compact, json, checkstyle, junit, sarif)'
     required: false
     default: 'sarif'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
 
 outputs:
   error-count:
@@ -56,6 +68,17 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      uses: ./validate-inputs
+      with:
+        action-type: 'terraform-lint-fix'
+        token: ${{ inputs.token }}
+        email: ${{ inputs.email }}
+        username: ${{ inputs.username }}
+        terraform-version: ${{ inputs.terraform-version }}
+        tflint-version: ${{ inputs.tflint-version }}
+        max-retries: ${{ inputs.max-retries }}
     - name: Check for Terraform Files
       id: check-files
       shell: bash
@@ -71,13 +94,6 @@ runs:
           exit 0
         fi
 
-        # Validate Terraform file syntax
-        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
-          if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
-            echo "::warning::Invalid Terraform syntax in $file"
-          fi
-        done
-
         echo "found=true" >> $GITHUB_OUTPUT
 
     - name: Setup Terraform
@@ -86,6 +102,18 @@ runs:
       with:
         terraform_version: ${{ inputs.terraform-version }}
         terraform_wrapper: false
+
+    - name: Validate Terraform Syntax
+      if: steps.check-files.outputs.found == 'true'
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Validating Terraform file syntax..."
+        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
+          if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
+            echo "::warning::Invalid Terraform syntax in $file"
+          fi
+        done
 
     - name: Install TFLint
       if: steps.check-files.outputs.found == 'true'
@@ -200,11 +228,15 @@ runs:
         echo "fixed_count=$fixed_count" >> $GITHUB_OUTPUT
 
     - name: Set Git Config for Fixes
-      if: steps.fix.outputs.fixed_count > 0
-      uses: ivuorinen/actions/set-git-config@main
+      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
+      uses: ./set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Commit Fixes
-      if: steps.fix.outputs.fixed_count > 0
+      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
       shell: bash
       run: |
         set -euo pipefail
@@ -233,7 +265,7 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Remove temporary files

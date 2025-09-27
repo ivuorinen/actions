@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
+name: Version Validator
+description: 'Validates and normalizes version strings using customizable regex patterns'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  version:
+    description: 'Version string to validate'
+    required: true
+  validation-regex:
+    description: 'Regex pattern for validation'
+    required: false
+    default: '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'
+  language:
+    description: 'Language name for error messages'
+    required: false
+    default: 'version'
+
+outputs:
+  is-valid:
+    description: 'Boolean indicating if version is valid (true/false)'
+    value: ${{ steps.validate.outputs.is-valid }}
+  validated-version:
+    description: 'Cleaned/normalized version string'
+    value: ${{ steps.validate.outputs.validated-version }}
+  error-message:
+    description: 'Error message if validation fails'
+    value: ${{ steps.validate.outputs.error-message }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      id: validate-inputs
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Validate version input is not empty
+        if [[ -z "${{ inputs.version }}" ]]; then
+          echo "::error::Version input cannot be empty"
+          exit 1
+        fi
+
+        # Validate version string doesn't contain dangerous characters
+        if [[ "${{ inputs.version }}" == *";"* ]] || [[ "${{ inputs.version }}" == *"&&"* ]] || \
+           [[ "${{ inputs.version }}" == *"|"* ]] || [[ "${{ inputs.version }}" == *"`"* ]] || [[ "${{ inputs.version }}" == *"$"* ]]; then
+          echo "::error::Invalid version string: '${{ inputs.version }}'. Potentially dangerous characters detected"
+          exit 1
+        fi
+
+        # Validate validation-regex is not empty and doesn't contain dangerous patterns
+        if [[ -z "${{ inputs.validation-regex }}" ]]; then
+          echo "::error::Validation regex cannot be empty"
+          exit 1
+        fi
+
+        # Basic check for regex safety (prevent ReDoS)
+        if [[ "${{ inputs.validation-regex }}" == *".*.*"* ]] || [[ "${{ inputs.validation-regex }}" == *".+.+"* ]]; then
+          echo "::warning::Validation regex may be vulnerable to ReDoS attacks"
+        fi
+
+        # Validate language parameter
+        if [[ "${{ inputs.language }}" == *";"* ]] || [[ "${{ inputs.language }}" == *"&&"* ]] || [[ "${{ inputs.language }}" == *"|"* ]]; then
+          echo "::error::Invalid language parameter: '${{ inputs.language }}'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
+    - name: Validate Version
+      id: validate
+      shell: bash
+      run: |-
+        set -euo pipefail
+
+        input_version="${{ inputs.version }}"
+        regex="${{ inputs.validation-regex }}"
+        language="${{ inputs.language }}"
+
+        # Clean the version string
+        cleaned_version=$(echo "$input_version" | sed -e 's/^[vV]//' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+
+        # Validate the version
+        if [[ $cleaned_version =~ $regex ]]; then
+          {
+            echo "is-valid=true"
+            printf 'validated-version=%s\n' "$cleaned_version"
+            echo "error-message="
+          } >> "$GITHUB_OUTPUT"
+          echo "✅ Valid $language version: $cleaned_version" >&2
+        else
+          error_msg="Invalid $language version format: '$input_version' (cleaned: '$cleaned_version'). Expected pattern: $regex"
+          {
+            echo "is-valid=false"
+            echo "validated-version="
+            printf 'error-message=%s\n' "$error_msg"
+          } >> "$GITHUB_OUTPUT"
+          echo "❌ $error_msg" >&2
+        fi

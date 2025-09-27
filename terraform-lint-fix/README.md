@@ -8,16 +8,19 @@ Lints and fixes Terraform files with advanced validation and security checks.
 
 ### Inputs
 
-| name                | description                                                    | required | default       |
-|---------------------|----------------------------------------------------------------|----------|---------------|
-| `terraform-version` | <p>Terraform version to use</p>                                | `false`  | `latest`      |
-| `tflint-version`    | <p>TFLint version to use</p>                                   | `false`  | `latest`      |
-| `working-directory` | <p>Directory containing Terraform files</p>                    | `false`  | `.`           |
-| `config-file`       | <p>Path to TFLint config file</p>                              | `false`  | `.tflint.hcl` |
-| `fail-on-error`     | <p>Fail workflow if issues are found</p>                       | `false`  | `true`        |
-| `auto-fix`          | <p>Automatically fix issues when possible</p>                  | `false`  | `true`        |
-| `max-retries`       | <p>Maximum number of retry attempts</p>                        | `false`  | `3`           |
-| `format`            | <p>Output format (compact, json, checkstyle, junit, sarif)</p> | `false`  | `sarif`       |
+| name                | description                                                    | required | default                     |
+|---------------------|----------------------------------------------------------------|----------|-----------------------------|
+| `terraform-version` | <p>Terraform version to use</p>                                | `false`  | `latest`                    |
+| `tflint-version`    | <p>TFLint version to use</p>                                   | `false`  | `latest`                    |
+| `working-directory` | <p>Directory containing Terraform files</p>                    | `false`  | `.`                         |
+| `config-file`       | <p>Path to TFLint config file</p>                              | `false`  | `.tflint.hcl`               |
+| `fail-on-error`     | <p>Fail workflow if issues are found</p>                       | `false`  | `true`                      |
+| `auto-fix`          | <p>Automatically fix issues when possible</p>                  | `false`  | `true`                      |
+| `max-retries`       | <p>Maximum number of retry attempts</p>                        | `false`  | `3`                         |
+| `format`            | <p>Output format (compact, json, checkstyle, junit, sarif)</p> | `false`  | `sarif`                     |
+| `token`             | <p>GitHub token for authentication</p>                         | `false`  | `${{ github.token }}`       |
+| `username`          | <p>GitHub username for commits</p>                             | `false`  | `github-actions`            |
+| `email`             | <p>GitHub email for commits</p>                                | `false`  | `github-actions@github.com` |
 
 ### Outputs
 
@@ -83,4 +86,22 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: sarif
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ${{ github.token }}
+
+    username:
+    # GitHub username for commits
+    #
+    # Required: false
+    # Default: github-actions
+
+    email:
+    # GitHub email for commits
+    #
+    # Required: false
+    # Default: github-actions@github.com
 ```

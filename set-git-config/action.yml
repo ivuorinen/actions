@@ -1,5 +1,5 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+---
 name: Set Git Config
 description: 'Sets Git configuration for actions.'
 author: 'Ismo Vuorinen'
@@ -10,9 +10,9 @@ branding:
 
 inputs:
   token:
-    description: 'GitHub token.'
+    description: 'GitHub token for authentication'
     required: false
-    default: '${{ github.token }}'
+    default: ${{ github.token }}
   username:
     description: 'GitHub username for commits.'
     default: 'github-actions'
@@ -45,6 +45,8 @@ runs:
       id: bot
       shell: bash
       run: |
+        set -euo pipefail
+
         echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
         echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
         echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
@@ -56,7 +58,9 @@ runs:
 
     - name: Configure Git
       shell: bash
-      run: |
+      run: |-
+        set -euo pipefail
+
         # Function to clean up Git config
         cleanup_git_config() {
           git config --local --unset-all "url.https://x-access-token:${TOKEN}@github.com/.insteadof" || true
@@ -72,10 +76,10 @@ runs:
 
         git config --local --unset-all http.https://github.com/.extraheader || true
         git config --local \
-          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          --add url.https://x-access-token:${TOKEN}@github.com/.insteadOf \
           "https://github.com/"
         git config --local \
-          --add url.https://x-access-token:${{ steps.bot.outputs.token }}@github.com/.insteadOf \
+          --add url.https://x-access-token:${TOKEN}@github.com/.insteadOf \
           'git@github.com:'
         git config --local user.name "${{ steps.bot.outputs.username }}"
         git config --local user.email "${{ steps.bot.outputs.email }}"
