@@ -155,7 +155,7 @@ End
 
 It "validates against shell metacharacters in rules file"
 When call validate_input_python "validate-inputs" "rules-file" "rules.yml && rm -rf /"
-The status should be success
+The status should be failure
 End
 End
 
@@ -172,7 +172,7 @@ End
 
 It "validates boolean input parsing"
 When call validate_input_python "validate-inputs" "fail-on-error" "TRUE"
-The status should be failure
+The status should be success
 End
 End
 End

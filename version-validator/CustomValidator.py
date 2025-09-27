@@ -10,8 +10,8 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.version import VersionValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.version import VersionValidator
 
 
 class CustomValidator(BaseValidator):
@@ -37,7 +37,24 @@ class CustomValidator(BaseValidator):
             self.version_validator.clear_errors()
             if not result:
                 valid = False
-        # No optional validation needed
+
+        # Validate optional input: validation-regex (accept any value for now)
+        # The action itself will validate the regex pattern
+        if "validation-regex" in inputs and inputs.get("validation-regex"):
+            # Basic check that it's not malicious
+            regex_value = inputs["validation-regex"]
+            if ";" in regex_value or "$(" in regex_value or "`" in regex_value:
+                self.add_error("validation-regex contains potentially dangerous characters")
+                valid = False
+
+        # Validate optional input: language (accept any value)
+        if "language" in inputs and inputs.get("language"):
+            # Basic check that it's not malicious
+            lang_value = inputs["language"]
+            if ";" in lang_value or "$(" in lang_value or "`" in lang_value:
+                self.add_error("language contains potentially dangerous characters")
+                valid = False
+
         return valid
 
     def get_required_inputs(self) -> list[str]:
@@ -46,4 +63,5 @@ class CustomValidator(BaseValidator):
 
     def get_validation_rules(self) -> dict:
         """Get validation rules."""
-        return self.load_rules("version-validator")
+        rules_path = Path(__file__).parent / "rules.yml"
+        return self.load_rules(rules_path)

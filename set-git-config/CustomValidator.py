@@ -10,9 +10,9 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.network import NetworkValidator  # noqa: E402
-from validators.token import TokenValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.network import NetworkValidator
+from validators.token import TokenValidator
 
 
 class CustomValidator(BaseValidator):
@@ -54,4 +54,5 @@ class CustomValidator(BaseValidator):
 
     def get_validation_rules(self) -> dict:
         """Get validation rules."""
-        return self.load_rules("set-git-config")
+        rules_path = Path(__file__).parent / "rules.yml"
+        return self.load_rules(rules_path)

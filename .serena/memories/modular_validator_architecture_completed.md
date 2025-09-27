@@ -122,7 +122,7 @@ All 7 phases completed with 100% test pass rate and zero linting issues.
 
 ## File Structure
 
-```
+```text
 validate-inputs/
 ├── validators/
 │   ├── __init__.py

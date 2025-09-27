@@ -11,13 +11,13 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.boolean import BooleanValidator  # noqa: E402
-from validators.file import FileValidator  # noqa: E402
-from validators.numeric import NumericValidator  # noqa: E402
-from validators.security import SecurityValidator  # noqa: E402
-from validators.token import TokenValidator  # noqa: E402
-from validators.version import VersionValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.boolean import BooleanValidator
+from validators.file import FileValidator
+from validators.numeric import NumericValidator
+from validators.security import SecurityValidator
+from validators.token import TokenValidator
+from validators.version import VersionValidator
 
 
 class CustomValidator(BaseValidator):
@@ -95,7 +95,8 @@ class CustomValidator(BaseValidator):
             elif tools:
                 if not self.is_github_expression(tools):
                     # Tools should be comma-separated list with optional version constraints
-                    # Allow: letters, numbers, dash, underscore, colon, dot, caret, tilde, spaces after commas
+                    # Allow: letters, numbers, dash, underscore, colon, dot, caret, tilde,
+                    # spaces after commas
                     if not re.match(r"^[a-zA-Z0-9_:.\-^~]+(\s*,\s*[a-zA-Z0-9_:.\-^~]+)*$", tools):
                         self.add_error("Invalid tools format: must be comma-separated list")
                         valid = False
@@ -116,10 +117,12 @@ class CustomValidator(BaseValidator):
                 self.add_error("Composer version cannot be empty string")
                 valid = False
             elif composer_version:
-                if not self.is_github_expression(composer_version):
-                    if composer_version not in ["1", "2"]:
-                        self.add_error("Composer version must be 1 or 2")
-                        valid = False
+                if not self.is_github_expression(composer_version) and composer_version not in [
+                    "1",
+                    "2",
+                ]:
+                    self.add_error("Composer version must be 1 or 2")
+                    valid = False
 
         # Validate stability
         if inputs.get("stability"):
@@ -128,7 +131,8 @@ class CustomValidator(BaseValidator):
                 valid_stabilities = ["stable", "RC", "beta", "alpha", "dev", "snapshot"]
                 if stability not in valid_stabilities:
                     self.add_error(
-                        f"Invalid stability: {stability}. Must be one of: {', '.join(valid_stabilities)}"
+                        f"Invalid stability: {stability}. "
+                        f"Must be one of: {', '.join(valid_stabilities)}"
                     )
                     valid = False
 
@@ -154,7 +158,7 @@ class CustomValidator(BaseValidator):
                     for dir_path in dirs:
                         dir_path = dir_path.strip()
                         if dir_path:
-                            result = self.file_validator.validate_directory_path(
+                            result = self.file_validator.validate_file_path(
                                 dir_path, "cache-directories"
                             )
                             for error in self.file_validator.errors:
@@ -216,4 +220,5 @@ class CustomValidator(BaseValidator):
 
     def get_validation_rules(self) -> dict:
         """Get validation rules."""
-        return self.load_rules("php-composer")
+        rules_path = Path(__file__).parent / "rules.yml"
+        return self.load_rules(rules_path)

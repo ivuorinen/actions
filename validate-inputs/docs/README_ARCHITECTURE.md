@@ -48,7 +48,7 @@ inputs:
 
 ## Architecture
 
-```
+```text
 validate-inputs/
 ├── validators/           # Core validator modules
 │   ├── base.py          # Abstract base class

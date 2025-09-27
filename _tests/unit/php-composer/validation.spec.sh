@@ -364,7 +364,7 @@ End
 
 It "validates against shell metacharacters in tools"
 When call validate_input_python "php-composer" "tools" "composer && rm -rf /"
-The status should be success
+The status should be failure
 End
 
 It "validates against backtick injection in args"
@@ -381,17 +381,17 @@ End
 Context "when testing PHP-specific validations"
 It "validates PHP version boundaries"
 When call validate_input_python "php-composer" "php" "10.0"
-The status should be success
+The status should be failure
 End
 
 It "validates Composer version enum restriction"
 When call validate_input_python "php-composer" "composer-version" "0"
-The status should be success
+The status should be failure
 End
 
 It "validates stability enum values"
 When call validate_input_python "php-composer" "stability" "experimental"
-The status should be success
+The status should be failure
 End
 End
 End
