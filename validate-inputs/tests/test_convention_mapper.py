@@ -18,7 +18,7 @@ class TestConventionMapper:
 
     def test_initialization(self):
         """Test mapper initialization."""
-        assert self.mapper._cache == {}  # noqa: SLF001
+        assert self.mapper._cache == {}
         assert len(self.mapper.CONVENTION_PATTERNS) > 0
         # Patterns should be sorted by priority
         priorities = [p["priority"] for p in self.mapper.CONVENTION_PATTERNS]
@@ -167,20 +167,20 @@ class TestConventionMapper:
         """Test that results are cached."""
         # Clear cache first
         self.mapper.clear_cache()
-        assert len(self.mapper._cache) == 0  # noqa: SLF001
+        assert len(self.mapper._cache) == 0
 
         # First call should populate cache
         result1 = self.mapper.get_validator_type("email")
-        assert len(self.mapper._cache) == 1  # noqa: SLF001
+        assert len(self.mapper._cache) == 1
 
         # Second call should use cache
         result2 = self.mapper.get_validator_type("email")
         assert result1 == result2
-        assert len(self.mapper._cache) == 1  # noqa: SLF001
+        assert len(self.mapper._cache) == 1
 
         # Different input should add to cache
         result3 = self.mapper.get_validator_type("username")
-        assert len(self.mapper._cache) == 2  # noqa: SLF001
+        assert len(self.mapper._cache) == 2
         assert result1 != result3
 
     def test_get_validator_for_inputs(self):

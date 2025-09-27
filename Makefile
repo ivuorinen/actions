@@ -159,7 +159,7 @@ format-python: ## Format Python files with ruff
 # Linting targets
 lint-markdown: ## Lint markdown files
 	@echo "$(BLUE)🔍 Linting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" 2>/dev/null; then \
+	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules"; then \
 		echo "$(GREEN)✅ Markdown linting passed$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown linting issues found$(RESET)" | tee -a $(LOG_FILE); \

@@ -10,9 +10,9 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.docker import DockerValidator  # noqa: E402
-from validators.token import TokenValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.docker import DockerValidator
+from validators.token import TokenValidator
 
 
 class CustomValidator(BaseValidator):
@@ -43,7 +43,7 @@ class CustomValidator(BaseValidator):
 
         # Validate token if provided
         if inputs.get("token"):
-            result = self.token_validator.validate_github_token(inputs["token"], "token")
+            result = self.token_validator.validate_github_token(inputs["token"])
             for error in self.token_validator.errors:
                 if error not in self.errors:
                     self.add_error(error)

@@ -147,7 +147,7 @@ End
 
 It "validates against shell metacharacters in email"
 When call validate_input_python "python-lint-fix" "email" "user@example.com; rm -rf /"
-The status should be success
+The status should be failure
 End
 
 It "validates against variable expansion in token"

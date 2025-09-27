@@ -37,7 +37,6 @@ class ValidationRuleGenerator:
         self.dry_run = dry_run
         self.specific_action = specific_action
         self.actions_dir = Path(__file__).parent.parent.parent.resolve()
-        self.rules_dir = Path(__file__).parent.parent / "rules"
 
         # Convention patterns for automatic detection
         # Order matters - more specific patterns should come first
@@ -403,8 +402,8 @@ class ValidationRuleGenerator:
         return rules
 
     def write_rules_file(self, action_name: str, rules: dict[str, Any]) -> None:
-        """Write rules to YAML file"""
-        rules_file = self.rules_dir / f"{action_name}.yml"
+        """Write rules to YAML file in action folder"""
+        rules_file = self.actions_dir / action_name / "rules.yml"
         generator_version = rules.get("generator_version", "unknown")
         schema_version = rules.get("schema_version", "unknown")
         validation_coverage = rules.get("validation_coverage", 0)
@@ -425,7 +424,7 @@ class ValidationRuleGenerator:
 
         # Use a custom yaml dumper to ensure proper indentation
         class CustomYamlDumper(yaml.SafeDumper):
-            def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:  # noqa: FBT001, FBT002
+            def increase_indent(self, flow: bool = False, *, indentless: bool = False) -> None:  # noqa: FBT001, FBT002
                 return super().increase_indent(flow, indentless=indentless)
 
         yaml_content = yaml.dump(
@@ -495,15 +494,20 @@ class ValidationRuleGenerator:
         if not self.dry_run and processed > 0:
             print()
             print(
-                "✨ Validation rules updated! Run 'git diff validate-inputs/rules/' "
-                "to review changes.",
+                "✨ Validation rules updated! Run 'git diff */rules.yml' to review changes.",
             )
 
     def validate_rules_files(self) -> bool:
         """Validate existing rules files"""
         print("🔍 Validating existing rules files...")
 
-        rules_files = list(self.rules_dir.glob("*.yml"))
+        # Find all rules.yml files in action directories
+        rules_files = []
+        for action_dir in self.actions_dir.iterdir():
+            if action_dir.is_dir() and not action_dir.name.startswith("."):
+                rules_file = action_dir / "rules.yml"
+                if rules_file.exists():
+                    rules_files.append(rules_file)
 
         valid = 0
         invalid = 0

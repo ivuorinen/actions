@@ -40,7 +40,7 @@ class TestBaseValidator(unittest.TestCase):
         """Test validator initialization."""
         assert self.validator.action_type == "test_action"
         assert self.validator.errors == []
-        assert self.validator._rules == {}  # noqa: SLF001
+        assert self.validator._rules == {}
 
     def test_error_management(self):
         """Test error handling methods."""
@@ -166,26 +166,31 @@ class TestBaseValidator(unittest.TestCase):
         assert not self.validator.validate_empty_allowed("   ", "test")
         assert self.validator.has_errors()
 
-    @patch("builtins.open")
+    @patch("pathlib.Path.exists")
+    @patch("pathlib.Path.open")
     @patch("yaml.safe_load")
-    def test_load_rules(self, mock_yaml_load, mock_open):
+    def test_load_rules(self, mock_yaml_load, mock_path_open, mock_exists):
         """Test loading validation rules from YAML."""
+        # The mock_path_open is handled by the patch decorator
+        del mock_path_open  # Unused but required by decorator
         # Mock YAML content
         mock_rules = {
             "required_inputs": ["input1"],
             "conventions": {"token": "github_token"},
         }
         mock_yaml_load.return_value = mock_rules
+        mock_exists.return_value = True
 
-        # Create a mock file path
-        rules_path = mock_open("/fake/path/rules.yml")
+        # Create a Path object
+        from pathlib import Path
 
-        # Mock the path exists check
-        with patch.object(mock_open, "exists", return_value=True):
-            rules = self.validator.load_rules(rules_path)
+        rules_path = Path("/fake/path/rules.yml")
+
+        # Load the rules
+        rules = self.validator.load_rules(rules_path)
 
         assert rules == mock_rules
-        assert self.validator._rules == mock_rules  # noqa: SLF001
+        assert self.validator._rules == mock_rules
 
     def test_github_actions_output(self):
         """Test GitHub Actions output formatting."""

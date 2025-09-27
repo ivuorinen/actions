@@ -189,87 +189,87 @@ class TestTestGenerator:
         """Test example value generation for different input patterns."""
         # Token patterns
         assert (
-            self.generator._get_example_value("github-token", {}) == "${{ secrets.GITHUB_TOKEN }}"  # noqa: SLF001
+            self.generator._get_example_value("github-token", {}) == "${{ secrets.GITHUB_TOKEN }}"
         )
-        assert self.generator._get_example_value("npm-token", {}) == "${{ secrets.GITHUB_TOKEN }}"  # noqa: SLF001
+        assert self.generator._get_example_value("npm-token", {}) == "${{ secrets.GITHUB_TOKEN }}"
 
         # Version patterns
-        assert self.generator._get_example_value("version", {}) == "1.2.3"  # noqa: SLF001
-        assert self.generator._get_example_value("node-version", {}) == "1.2.3"  # noqa: SLF001
+        assert self.generator._get_example_value("version", {}) == "1.2.3"
+        assert self.generator._get_example_value("node-version", {}) == "1.2.3"
 
         # Path patterns
-        assert self.generator._get_example_value("file-path", {}) == "./path/to/file"  # noqa: SLF001
-        assert self.generator._get_example_value("directory", {}) == "./path/to/file"  # noqa: SLF001
+        assert self.generator._get_example_value("file-path", {}) == "./path/to/file"
+        assert self.generator._get_example_value("directory", {}) == "./path/to/file"
 
         # URL patterns
-        assert self.generator._get_example_value("webhook-url", {}) == "https://example.com"  # noqa: SLF001
-        assert self.generator._get_example_value("endpoint", {}) == "https://example.com"  # noqa: SLF001
+        assert self.generator._get_example_value("webhook-url", {}) == "https://example.com"
+        assert self.generator._get_example_value("endpoint", {}) == "https://example.com"
 
         # Boolean patterns
-        assert self.generator._get_example_value("dry-run", {}) == "false"  # noqa: SLF001
-        assert self.generator._get_example_value("debug", {}) == "false"  # noqa: SLF001
-        assert self.generator._get_example_value("push", {}) == "true"  # noqa: SLF001
+        assert self.generator._get_example_value("dry-run", {}) == "false"
+        assert self.generator._get_example_value("debug", {}) == "false"
+        assert self.generator._get_example_value("push", {}) == "true"
 
         # Default from config
-        assert self.generator._get_example_value("anything", {"default": "custom"}) == "custom"  # noqa: SLF001
+        assert self.generator._get_example_value("anything", {"default": "custom"}) == "custom"
 
         # Fallback
-        assert self.generator._get_example_value("unknown-input", {}) == "test-value"  # noqa: SLF001
+        assert self.generator._get_example_value("unknown-input", {}) == "test-value"
 
     def test_generate_input_test_cases(self):
         """Test generation of input-specific test cases."""
         # Boolean input
-        cases = self.generator._generate_input_test_cases("dry-run", {})  # noqa: SLF001
+        cases = self.generator._generate_input_test_cases("dry-run", {})
         assert len(cases) == 1
         assert "should accept boolean values" in cases[0]
         assert "should reject invalid boolean" in cases[0]
 
         # Version input
-        cases = self.generator._generate_input_test_cases("version", {})  # noqa: SLF001
+        cases = self.generator._generate_input_test_cases("version", {})
         assert len(cases) == 1
         assert "should accept valid version" in cases[0]
         assert "should accept version with v prefix" in cases[0]
 
         # Token input
-        cases = self.generator._generate_input_test_cases("github-token", {})  # noqa: SLF001
+        cases = self.generator._generate_input_test_cases("github-token", {})
         assert len(cases) == 1
         assert "should accept GitHub token" in cases[0]
         assert "should accept classic PAT" in cases[0]
 
         # Path input
-        cases = self.generator._generate_input_test_cases("config-file", {})  # noqa: SLF001
+        cases = self.generator._generate_input_test_cases("config-file", {})
         assert len(cases) == 1
         assert "should accept valid path" in cases[0]
         assert "should reject path traversal" in cases[0]
 
         # No specific pattern
-        cases = self.generator._generate_input_test_cases("custom-input", {})  # noqa: SLF001
+        cases = self.generator._generate_input_test_cases("custom-input", {})
         assert len(cases) == 0
 
     def test_generate_pytest_content_by_type(self):
         """Test that different validator types get appropriate test methods."""
         # Version validator
-        content = self.generator._generate_pytest_content("version_validator")  # noqa: SLF001
+        content = self.generator._generate_pytest_content("version_validator")
         assert "test_valid_semantic_version" in content
         assert "test_valid_calver" in content
 
         # Token validator
-        content = self.generator._generate_pytest_content("token_validator")  # noqa: SLF001
+        content = self.generator._generate_pytest_content("token_validator")
         assert "test_valid_github_token" in content
         assert "test_other_token_types" in content
 
         # Boolean validator
-        content = self.generator._generate_pytest_content("boolean_validator")  # noqa: SLF001
+        content = self.generator._generate_pytest_content("boolean_validator")
         assert "test_valid_boolean_values" in content
         assert "test_invalid_boolean_values" in content
 
         # Docker validator
-        content = self.generator._generate_pytest_content("docker_validator")  # noqa: SLF001
+        content = self.generator._generate_pytest_content("docker_validator")
         assert "test_valid_image_names" in content
         assert "test_valid_platforms" in content
 
         # Generic validator
-        content = self.generator._generate_pytest_content("unknown_validator")  # noqa: SLF001
+        content = self.generator._generate_pytest_content("unknown_validator")
         assert "test_validate_inputs" in content
         assert "TODO: Add specific test cases" in content
 

@@ -47,7 +47,7 @@ A project is production ready only when:
 - `_tests/` – ShellSpec tests
 - `_tools/` – Helper tools
 - `validate-inputs/` – Python validation system
-- `validate-inputs/rules/` – Auto-generated, do not edit
+- `*/rules.yml` – Auto-generated validation rules in each action folder
 - `validate-inputs/tests/` – pytest tests
 
 ## Repository
@@ -58,7 +58,8 @@ Flat structure. Each action self-contained with `action.yml`.
 
 **Setup**: `node-setup`, `set-git-config`, `php-version-detect`, `python-version-detect`, `python-version-detect-v2`, `go-version-detect`, `dotnet-version-detect`
 **Utilities**: `version-file-parser`, `version-validator`
-**Linting**: `ansible-lint-fix`, `biome-check`, `biome-fix`, `csharp-lint-check`, `eslint-check`, `eslint-fix`, `go-lint`, `pr-lint`, `pre-commit`, `prettier-check`, `prettier-fix`, `python-lint-fix`, `terraform-lint-fix`
+**Linting**: `ansible-lint-fix`, `biome-check`, `biome-fix`, `csharp-lint-check`, `eslint-check`, `eslint-fix`, `go-lint`, `pr-lint`, `pre-commit`,
+`prettier-check`, `prettier-fix`, `python-lint-fix`, `terraform-lint-fix`
 **Testing**: `php-tests`, `php-laravel-phpunit`, `php-composer`
 **Build**: `csharp-build`, `go-build`, `docker-build`
 **Publishing**: `npm-publish`, `docker-publish`, `docker-publish-gh`, `docker-publish-hub`, `csharp-publish`
@@ -128,7 +129,7 @@ Check with: `make check-local-refs`, `make fix-local-refs`
 ### Centralized
 
 - Location: `validate-inputs/`
-- Rules: YAML in `validate-inputs/rules/`
+- Rules: YAML `rules.yml` in each action folder
 - Security: regex, injection protection
 - Generator: Python script
 

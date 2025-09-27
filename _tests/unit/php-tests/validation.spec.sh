@@ -147,9 +147,9 @@ When call validate_input_python "php-tests" "email" "user @example.com"
 The status should be failure
 End
 
-It "rejects empty email"
+It "accepts empty email (uses default)"
 When call validate_input_python "php-tests" "email" ""
-The status should be failure
+The status should be success
 End
 End
 
@@ -220,7 +220,7 @@ End
 
 It "validates against shell metacharacters in email"
 When call validate_input_python "php-tests" "email" "user@example.com; rm -rf /"
-The status should be success
+The status should be failure
 End
 
 It "validates against variable expansion in token"
@@ -237,7 +237,7 @@ End
 Context "when testing PHP-specific validations"
 It "validates username length boundaries"
 When call validate_input_python "php-tests" "username" "$(printf 'a%.0s' {1..40})"
-The status should be success
+The status should be failure
 End
 
 It "validates email format for Git commits"
