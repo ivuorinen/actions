@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Custom validator for docker-build action.
 
 This validator handles complex Docker build validation including:
@@ -17,12 +18,12 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.boolean import BooleanValidator  # noqa: E402
-from validators.docker import DockerValidator  # noqa: E402
-from validators.file import FileValidator  # noqa: E402
-from validators.numeric import NumericValidator  # noqa: E402
-from validators.version import VersionValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.boolean import BooleanValidator
+from validators.docker import DockerValidator
+from validators.file import FileValidator
+from validators.numeric import NumericValidator
+from validators.version import VersionValidator
 
 
 class CustomValidator(BaseValidator):

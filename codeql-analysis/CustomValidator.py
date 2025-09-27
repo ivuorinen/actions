@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Custom validator for codeql-analysis action.
 
 This validator handles CodeQL-specific validation including:
@@ -17,12 +18,12 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.boolean import BooleanValidator  # noqa: E402
-from validators.codeql import CodeQLValidator  # noqa: E402
-from validators.file import FileValidator  # noqa: E402
-from validators.numeric import NumericValidator  # noqa: E402
-from validators.token import TokenValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.boolean import BooleanValidator
+from validators.codeql import CodeQLValidator
+from validators.file import FileValidator
+from validators.numeric import NumericValidator
+from validators.token import TokenValidator
 
 
 class CustomValidator(BaseValidator):
@@ -40,7 +41,7 @@ class CustomValidator(BaseValidator):
         self.token_validator = TokenValidator(action_type)
         self.boolean_validator = BooleanValidator(action_type)
 
-    def validate_inputs(self, inputs: dict[str, str]) -> bool:  # noqa: C901, PLR0912
+    def validate_inputs(self, inputs: dict[str, str]) -> bool:
         """Validate codeql-analysis specific inputs.
 
         Args:
@@ -564,7 +565,12 @@ class CustomValidator(BaseValidator):
         if self.is_github_expression(value):
             return True
 
-        # Use BooleanValidator - it requires lowercase true/false
+        # Check for uppercase TRUE/FALSE first
+        if value in ["TRUE", "FALSE"]:
+            self.add_error("Must be lowercase 'true' or 'false'")
+            return False
+
+        # Use BooleanValidator for normal validation
         result = self.boolean_validator.validate_boolean(value, "upload-results")
 
         # Copy any errors from boolean validator
@@ -572,10 +578,5 @@ class CustomValidator(BaseValidator):
             if error not in self.errors:
                 self.add_error(error)
         self.boolean_validator.clear_errors()
-
-        # Additional check for case sensitivity if needed
-        if result and value in ["TRUE", "FALSE"]:
-            self.add_error("Must be lowercase 'true' or 'false'")
-            return False
 
         return result

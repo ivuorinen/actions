@@ -10,10 +10,10 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.network import NetworkValidator  # noqa: E402
-from validators.security import SecurityValidator  # noqa: E402
-from validators.token import TokenValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.network import NetworkValidator
+from validators.security import SecurityValidator
+from validators.token import TokenValidator
 
 
 class CustomValidator(BaseValidator):
@@ -33,52 +33,44 @@ class CustomValidator(BaseValidator):
         # Validate token (optional)
         if inputs.get("token"):
             token = inputs["token"]
-            if token == "":
-                self.add_error("Token cannot be empty string")
+            result = self.token_validator.validate_github_token(token)
+            for error in self.token_validator.errors:
+                if error not in self.errors:
+                    self.add_error(error)
+            self.token_validator.clear_errors()
+            if not result:
                 valid = False
-            else:
-                result = self.token_validator.validate_github_token(token, required=False)
-                for error in self.token_validator.errors:
+
+            # Also check for variable expansion
+            if not self.is_github_expression(token):
+                result = self.security_validator.validate_no_injection(token, "token")
+                for error in self.security_validator.errors:
                     if error not in self.errors:
                         self.add_error(error)
-                self.token_validator.clear_errors()
+                self.security_validator.clear_errors()
                 if not result:
                     valid = False
 
-                # Also check for variable expansion
-                if not self.is_github_expression(token):
-                    result = self.security_validator.validate_no_injection(token, "token")
-                    for error in self.security_validator.errors:
-                        if error not in self.errors:
-                            self.add_error(error)
-                    self.security_validator.clear_errors()
-                    if not result:
-                        valid = False
-
-        # Validate email (optional)
-        if inputs.get("email"):
+        # Validate email (optional, empty means use default)
+        if "email" in inputs and inputs["email"] and inputs["email"] != "":
             email = inputs["email"]
-            if email == "":
-                self.add_error("Email cannot be empty string")
+            result = self.network_validator.validate_email(email, "email")
+            for error in self.network_validator.errors:
+                if error not in self.errors:
+                    self.add_error(error)
+            self.network_validator.clear_errors()
+            if not result:
                 valid = False
-            else:
-                result = self.network_validator.validate_email(email, "email")
-                for error in self.network_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.network_validator.clear_errors()
-                if not result:
-                    valid = False
 
-                # Also check for shell metacharacters
-                if not self.is_github_expression(email):
-                    result = self.security_validator.validate_no_injection(email, "email")
-                    for error in self.security_validator.errors:
-                        if error not in self.errors:
-                            self.add_error(error)
-                    self.security_validator.clear_errors()
-                    if not result:
+            # Also check for shell metacharacters (but allow @ and .)
+            if not self.is_github_expression(email):
+                # Only check for dangerous shell metacharacters, not @ or .
+                dangerous_chars = [";", "&", "|", "`", "$", "(", ")", "<", ">", "\n", "\r"]
+                for char in dangerous_chars:
+                    if char in email:
+                        self.add_error(f"email: Contains dangerous character '{char}'")
                         valid = False
+                        break
 
         # Validate username (optional)
         if inputs.get("username"):
@@ -93,9 +85,9 @@ class CustomValidator(BaseValidator):
                 if not result:
                     valid = False
 
-                # Check username length (Git username should be reasonable)
-                if len(username) > 100:
-                    self.add_error("Username is too long (max 100 characters)")
+                # Check username length (GitHub usernames are max 39 characters)
+                if len(username) > 39:
+                    self.add_error("Username is too long (max 39 characters)")
                     valid = False
 
         return valid
@@ -103,3 +95,8 @@ class CustomValidator(BaseValidator):
     def get_required_inputs(self) -> list[str]:
         """Get list of required inputs."""
         return []
+
+    def get_validation_rules(self) -> dict:
+        """Get validation rules for this action."""
+        rules_path = Path(__file__).parent / "rules.yml"
+        return self.load_rules(rules_path)

@@ -108,7 +108,7 @@ make update-validators
 python3 validate-inputs/scripts/update-validators.py --action my-action
 ```
 
-This creates `validate-inputs/rules/my-action.yml`:
+This creates `my-action/rules.yml`:
 
 ```yaml
 schema_version: '1.0'
@@ -145,6 +145,7 @@ Create a custom validator when:
 1. **Create `CustomValidator.py`** in your action directory:
 
 ```python
+#!/usr/bin/env python3
 """Custom validator for my-action."""
 
 from __future__ import annotations
@@ -155,8 +156,8 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.version import VersionValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.version import VersionValidator
 
 
 class CustomValidator(BaseValidator):
@@ -198,9 +199,14 @@ class CustomValidator(BaseValidator):
             )
             return False
         return True
+
+        def get_validation_rules(self) -> dict:
+            """Get validation rules."""
+            rules_path = Path(__file__).parent / "rules.yml"
+            return self.load_rules(rules_path)
 ```
 
-2. **Test your validator** (optional but recommended):
+1. **Test your validator** (optional but recommended):
 
 ```python
 # my-action/test_custom_validator.py
@@ -406,14 +412,14 @@ if self.is_github_expression(value):
     return True
 ```
 
-2. **Make fields optional**:
+1. **Make fields optional**:
 
 ```python
 if not value or not value.strip():
     return True  # Empty is OK for optional fields
 ```
 
-3. **Add to allowed values**:
+1. **Add to allowed values**:
 
 ```python
 valid_values = ["option1", "option2", "custom"]  # Add more options
@@ -432,7 +438,7 @@ if not re.match(r'^[a-z0-9\-]+$', value):
     self.add_error("Only lowercase letters, numbers, and hyphens allowed")
 ```
 
-3. **Add length limits**:
+1. **Add length limits**:
 
 ```python
 if len(value) > 100:
@@ -514,7 +520,7 @@ View specific errors:
 For validation issues:
 
 1. Check error messages for specific problems
-2. Review validation rules in `validate-inputs/rules/`
+2. Review validation rules in action folder's `rules.yml`
 3. Test with simplified inputs
 4. Create custom validator if needed
 5. Report bugs via GitHub Issues

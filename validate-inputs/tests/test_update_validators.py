@@ -300,7 +300,9 @@ class TestValidationRuleGenerator:
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
             generator = ValidationRuleGenerator()
-            generator.rules_dir = self.rules_dir
+            generator.actions_dir = self.temp_path / "actions"
+            generator.actions_dir.mkdir(parents=True, exist_ok=True)
+            (generator.actions_dir / "test-action").mkdir(parents=True, exist_ok=True)
             generator.dry_run = True
 
         # Capture stdout
@@ -312,7 +314,7 @@ class TestValidationRuleGenerator:
         assert any("[DRY RUN]" in call for call in print_calls)
 
         # Verify no file was created
-        rules_file = self.rules_dir / "test-action.yml"
+        rules_file = generator.actions_dir / "test-action" / "rules.yml"
         assert not rules_file.exists()
 
     def test_write_rules_file_actual_write(self):
@@ -330,13 +332,15 @@ class TestValidationRuleGenerator:
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
             generator = ValidationRuleGenerator()
-            generator.rules_dir = self.rules_dir
+            generator.actions_dir = self.temp_path / "actions"
+            generator.actions_dir.mkdir(parents=True, exist_ok=True)
+            (generator.actions_dir / "test-action").mkdir(parents=True, exist_ok=True)
             generator.dry_run = False
 
         generator.write_rules_file("test-action", rules)
 
         # Verify file was created
-        rules_file = self.rules_dir / "test-action.yml"
+        rules_file = generator.actions_dir / "test-action" / "rules.yml"
         assert rules_file.exists()
 
         # Verify file content
@@ -362,13 +366,17 @@ class TestValidationRuleGenerator:
             "conventions": {"version": "semantic_version"},
         }
 
-        rules_file = self.rules_dir / "test-action.yml"
+        # Create action directory structure
+        action_dir = self.temp_path / "actions" / "test-action"
+        action_dir.mkdir(parents=True, exist_ok=True)
+
+        rules_file = action_dir / "rules.yml"
         with rules_file.open("w") as f:
             yaml.dump(rules, f)
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
             generator = ValidationRuleGenerator()
-            generator.rules_dir = self.rules_dir
+            generator.actions_dir = self.temp_path / "actions"
 
         result = generator.validate_rules_files()
         assert result is True
@@ -381,13 +389,17 @@ class TestValidationRuleGenerator:
             # Missing required_inputs, optional_inputs, conventions
         }
 
-        rules_file = self.rules_dir / "test-action.yml"
+        # Create action directory structure
+        action_dir = self.temp_path / "actions" / "test-action"
+        action_dir.mkdir(parents=True, exist_ok=True)
+
+        rules_file = action_dir / "rules.yml"
         with rules_file.open("w") as f:
             yaml.dump(rules, f)
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
             generator = ValidationRuleGenerator()
-            generator.rules_dir = self.rules_dir
+            generator.actions_dir = self.temp_path / "actions"
 
         with patch("builtins.print") as mock_print:
             result = generator.validate_rules_files()
@@ -399,14 +411,18 @@ class TestValidationRuleGenerator:
 
     def test_validate_rules_files_invalid_yaml(self):
         """Test validation of rules files with invalid YAML."""
+        # Create action directory structure
+        action_dir = self.temp_path / "actions" / "test-action"
+        action_dir.mkdir(parents=True, exist_ok=True)
+
         # Create an invalid YAML file
-        rules_file = self.rules_dir / "test-action.yml"
+        rules_file = action_dir / "rules.yml"
         with rules_file.open("w") as f:
             f.write("invalid: yaml: content: [unclosed")
 
         with patch.object(ValidationRuleGenerator, "__init__", lambda _self, **_kwargs: None):
             generator = ValidationRuleGenerator()
-            generator.rules_dir = self.rules_dir
+            generator.actions_dir = self.temp_path / "actions"
 
         with patch("builtins.print") as mock_print:
             result = generator.validate_rules_files()
@@ -414,7 +430,7 @@ class TestValidationRuleGenerator:
         assert result is False
         # Verify error was printed
         print_calls = [call.args[0] for call in mock_print.call_args_list]
-        assert any("test-action.yml:" in call for call in print_calls)
+        assert any("rules.yml:" in call for call in print_calls)
 
 
 class TestCLIFunctionality:
@@ -554,15 +570,14 @@ class TestIntegrationScenarios:
         # Initialize generator pointing to our test directory
         generator = ValidationRuleGenerator(dry_run=False)
         generator.actions_dir = self.actions_dir
-        generator.rules_dir = self.rules_dir
 
         # Run the generation
         with patch("builtins.print"):  # Suppress output
             generator.generate_rules()
 
-        # Verify rules were generated
-        docker_rules_file = self.rules_dir / "docker-build.yml"
-        github_rules_file = self.rules_dir / "github-release.yml"
+        # Verify rules were generated in action folders
+        docker_rules_file = self.actions_dir / "docker-build" / "rules.yml"
+        github_rules_file = self.actions_dir / "github-release" / "rules.yml"
 
         assert docker_rules_file.exists()
         assert github_rules_file.exists()
@@ -593,14 +608,13 @@ class TestIntegrationScenarios:
 
         generator = ValidationRuleGenerator(dry_run=False, specific_action="docker-build")
         generator.actions_dir = self.actions_dir
-        generator.rules_dir = self.rules_dir
 
         with patch("builtins.print"):
             generator.generate_rules()
 
         # Only docker-build rules should be generated
-        docker_rules_file = self.rules_dir / "docker-build.yml"
-        github_rules_file = self.rules_dir / "github-release.yml"
+        docker_rules_file = self.actions_dir / "docker-build" / "rules.yml"
+        github_rules_file = self.actions_dir / "github-release" / "rules.yml"
 
         assert docker_rules_file.exists()
         assert not github_rules_file.exists()

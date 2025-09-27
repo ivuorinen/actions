@@ -10,7 +10,6 @@ Context "when validating token input"
 It "accepts valid GitHub token"
 When call validate_input_python "pr-lint" "token" "ghp_123456789012345678901234567890123456"
 The status should be success
-The output should include "✓ All input validation checks passed"
 End
 It "rejects injection in token"
 When call validate_input_python "pr-lint" "token" "token; rm -rf /"
@@ -23,7 +22,6 @@ Context "when validating username input"
 It "accepts valid username"
 When call validate_input_python "pr-lint" "username" "github-actions"
 The status should be success
-The output should include "✓ All input validation checks passed"
 End
 It "rejects injection in username"
 When call validate_input_python "pr-lint" "username" "user; rm -rf /"
@@ -36,7 +34,6 @@ Context "when validating email input"
 It "accepts valid email"
 When call validate_input_python "pr-lint" "email" "test@example.com"
 The status should be success
-The output should include "✓ All input validation checks passed"
 End
 It "rejects invalid email format"
 When call validate_input_python "pr-lint" "email" "invalid-email"

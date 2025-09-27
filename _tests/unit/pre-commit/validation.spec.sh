@@ -17,13 +17,13 @@ The status should be success
 End
 # NOTE: Test framework uses default validation for 'pre-commit-config' input
 # Default validation only checks for injection patterns (;, &&, $()
-It "accepts path traversal (framework default validation)"
+It "rejects path traversal"
 When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "pre-commit-config" "../config.yaml"
 The status should be failure
 End
-It "accepts absolute paths (framework default validation)"
+It "rejects absolute paths"
 When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "pre-commit-config" "/etc/passwd"
-The status should be success
+The status should be failure
 End
 It "accepts non-yaml extensions (framework default validation)"
 When call validate_input_python "pre-commit" "pre-commit-config" "config.txt"
@@ -140,7 +140,7 @@ End
 End
 
 Context "when validating security"
-It "accepts path traversal (framework default validation)"
+It "rejects path traversal"
 When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "pre-commit-config" "../../malicious.yaml"
 The status should be failure
 End

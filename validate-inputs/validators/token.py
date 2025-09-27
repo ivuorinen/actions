@@ -32,6 +32,9 @@ class TokenValidator(BaseValidator):
         # Refresh token for GitHub App:
         # ghr_ + 36 = 40 chars total
         "github_refresh": r"^ghr_[a-zA-Z0-9]{36}$",
+        # GitHub Enterprise token:
+        # ghe_ + 36 = 40 chars total
+        "github_enterprise": r"^ghe_[a-zA-Z0-9]{36}$",
         # NPM classic tokens
         "npm_classic": r"^npm_[a-zA-Z0-9]{40,}$",
     }
@@ -69,7 +72,7 @@ class TokenValidator(BaseValidator):
             "patterns": self.TOKEN_PATTERNS,
         }
 
-    def validate_github_token(self, token: str, required: bool = False) -> bool:
+    def validate_github_token(self, token: str, *, required: bool = False) -> bool:
         """Validate GitHub token format.
 
         Args:
@@ -104,7 +107,7 @@ class TokenValidator(BaseValidator):
         self.add_error(
             "Invalid token format. Expected: ghp_* (40 chars), "
             "github_pat_* (59 chars), gho_* (40 chars), ghu_* (40 chars), "
-            "ghs_* (40 chars), ghr_* (40 chars), or ${{ github.token }}",
+            "ghs_* (40 chars), ghr_* (40 chars), ghe_* (40 chars), or ${{ github.token }}",
         )
         return False
 

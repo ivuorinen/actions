@@ -96,7 +96,7 @@ class CustomValidator(BaseValidator):
             ):
                 # This test would need more setup to properly test dynamic loading
                 # For now, we'll just verify the method exists
-                result = self.registry._load_custom_validator("test_action")  # noqa: SLF001
+                result = self.registry._load_custom_validator("test_action")
                 # In a real test environment, this would load the custom validator
                 # For now, it returns None due to path resolution issues in test
                 assert result is None  # Expected in test environment
