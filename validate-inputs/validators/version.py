@@ -366,15 +366,52 @@ class VersionValidator(BaseValidator):
 
     def validate_php_version(self, value: str, name: str = "php-version") -> bool:
         """Validate PHP version format (7.4-9.x)."""
-        return self._validate_language_version(
-            value,
-            name,
-            {
-                "name": "PHP",
-                "major_range": (7, 9),
-                "pattern": r"^[0-9]+\.[0-9]+(\.[0-9]+)?$",
-            },
-        )
+        # First do basic validation
+        if not value or value.strip() == "":
+            self.add_error(f"{name} cannot be empty")
+            return False
+
+        clean_value = value.strip()
+
+        # Reject v prefix
+        if clean_value.startswith("v"):
+            self.add_error(
+                f'Invalid PHP version format: "{value}" in {name}. '
+                'Version prefix "v" is not allowed',
+            )
+            return False
+
+        # Check format
+        if not re.match(r"^[0-9]+\.[0-9]+(\.[0-9]+)?$", clean_value):
+            self.add_error(
+                f'Invalid PHP version format: "{value}" in {name}. Must be X.Y or X.Y.Z format',
+            )
+            return False
+
+        # Parse version
+        parts = clean_value.split(".")
+        major = int(parts[0])
+        minor = int(parts[1])
+
+        # Check major version range (7-9)
+        if major < 7 or major > 9:
+            self.add_error(
+                f'PHP version "{value}" in {name}. Major version should be between 7 and 9',
+            )
+            return False
+
+        # Check minor version ranges per major version
+        # PHP 7: 7.0-7.4 are the only released versions, but allow higher for testing
+        # PHP 8: Allow any minor version for future compatibility
+        # PHP 9: Allow any minor for future compatibility
+        # Only restrict if the minor version is unreasonably high (>99)
+        if minor > 99:
+            self.add_error(
+                f'PHP version "{value}" in {name}. Minor version {minor} is unreasonably high',
+            )
+            return False
+
+        return True
 
     def validate_go_version(self, value: str, name: str = "go-version") -> bool:
         """Validate Go version format (1.18-1.30)."""

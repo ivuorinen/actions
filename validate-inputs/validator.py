@@ -93,7 +93,9 @@ def main() -> None:
     logger.debug("::debug::Validating %d inputs for %s", len(inputs), action_type)
 
     if validator.validate_inputs(inputs):
-        logger.info("✓ All input validation checks passed for %s", action_type)
+        # Only show success message if not in quiet mode (for tests)
+        if not os.environ.get("VALIDATOR_QUIET"):
+            logger.info("✓ All input validation checks passed for %s", action_type)
         write_output("success", action_type, inputs_validated=len(inputs))
     else:
         # Report errors

@@ -323,6 +323,10 @@ class ValidationCore:
         if action_name == "php-composer":
             return self._validate_php_composer_business_logic(input_name, value)
 
+        # Prettier-check specific validations
+        if action_name == "prettier-check":
+            return self._validate_prettier_check_business_logic(input_name, value)
+
         # Add more action-specific validations here as needed
 
         return None, ""  # No enhanced validation applies
@@ -401,6 +405,57 @@ class ValidationCore:
         if input_name in validators:
             is_valid, error_msg = validators[input_name](value)
             return is_valid, error_msg
+
+        return None, ""  # No specific validation for this input
+
+    def _validate_file_pattern_security(self, value: str) -> tuple[bool, str]:
+        """Validate file-pattern for security issues."""
+        if ".." in value:
+            return False, "Path traversal detected in file-pattern"
+        if value.startswith("/"):
+            return False, "Absolute path not allowed in file-pattern"
+        if "$" in value:
+            return False, "Shell expansion not allowed in file-pattern"
+        return True, ""
+
+    def _validate_plugins_security(self, value: str) -> tuple[bool, str]:
+        """Validate plugins for security issues."""
+        if re.search(r"[;&|`$()]", value):
+            return False, "Potentially dangerous characters in plugins"
+        if re.search(r"\$\{.*\}", value):
+            return False, "Variable expansion not allowed in plugins"
+        if re.search(r"\$\(.*\)", value):
+            return False, "Command substitution not allowed in plugins"
+        return True, ""
+
+    def _validate_prettier_check_business_logic(
+        self,
+        input_name: str,
+        value: str,
+    ) -> tuple[bool | None, str]:
+        """Business logic validation specific to prettier-check action."""
+        # Handle prettier-version specially (accepts "latest" or semantic version)
+        if input_name == "prettier-version":
+            if value == "latest":
+                return True, ""
+            # Otherwise validate as semantic version
+            return None, ""  # Let standard semantic version validation handle it
+
+        # Validate file-pattern for security issues
+        if input_name == "file-pattern":
+            return self._validate_file_pattern_security(value)
+
+        # Validate report-format enum
+        if input_name == "report-format":
+            if value == "":
+                return False, "report-format cannot be empty"
+            if value not in ["json", "sarif"]:
+                return False, f"Invalid report-format: {value}"
+            return True, ""
+
+        # Validate plugins for security issues
+        if input_name == "plugins":
+            return self._validate_plugins_security(value)
 
         return None, ""  # No specific validation for this input
 
@@ -541,7 +596,7 @@ def _apply_validation_by_type(
         return validator.validate_version_format(input_value)
 
     if validation_type == "terraform_version":
-        return validator.validate_version_format(input_value, allow_v_prefix=False)
+        return validator.validate_version_format(input_value, allow_v_prefix=True)
 
     # Use validation map for other types
     if validation_type in validation_map:
@@ -602,10 +657,10 @@ def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[
     if enhanced_validation[0] is not None:  # If enhanced validation has an opinion
         return enhanced_validation
 
-    # Load centralized validation rules if available
+    # Load validation rules from action folder
     script_dir = Path(__file__).resolve().parent
     project_root = script_dir.parent.parent
-    rules_file = project_root / "validate-inputs" / "rules" / f"{action_name}.yml"
+    rules_file = project_root / action_name / "rules.yml"
 
     if rules_file.exists():
         validation_type, _rules_data, required_inputs = _load_and_validate_rules(

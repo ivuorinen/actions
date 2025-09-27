@@ -10,7 +10,7 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
+from validators.base import BaseValidator
 
 
 class CustomValidator(BaseValidator):
@@ -43,8 +43,49 @@ class CustomValidator(BaseValidator):
             ]
             if inputs["language"] not in valid_languages:
                 self.add_error(
-                    f"Invalid language: {inputs['language']}. Must be one of: {', '.join(valid_languages)}"
+                    f"Invalid language: {inputs['language']}. "
+                    f"Must be one of: {', '.join(valid_languages)}"
                 )
+                valid = False
+
+        # Validate dockerfile-image for injection
+        dockerfile_key = None
+        if "dockerfile-image" in inputs:
+            dockerfile_key = "dockerfile-image"
+        elif "dockerfile_image" in inputs:
+            dockerfile_key = "dockerfile_image"
+
+        if dockerfile_key and inputs[dockerfile_key]:
+            value = inputs[dockerfile_key]
+            if ";" in value or "|" in value or "&" in value or "`" in value:
+                self.add_error("dockerfile-image contains potentially dangerous characters")
+                valid = False
+
+        # Validate tool-versions-key for injection
+        tool_key = None
+        if "tool-versions-key" in inputs:
+            tool_key = "tool-versions-key"
+        elif "tool_versions_key" in inputs:
+            tool_key = "tool_versions_key"
+
+        if tool_key and inputs[tool_key]:
+            value = inputs[tool_key]
+            if "|" in value or ";" in value or "&" in value or "`" in value:
+                self.add_error("tool-versions-key contains potentially dangerous characters")
+                valid = False
+
+        # Validate validation-regex for malicious patterns
+        regex_key = None
+        if "validation-regex" in inputs:
+            regex_key = "validation-regex"
+        elif "validation_regex" in inputs:
+            regex_key = "validation_regex"
+
+        if regex_key and inputs[regex_key]:
+            value = inputs[regex_key]
+            # Check for shell command injection in regex
+            if ";" in value or "|" in value or "`" in value or "rm " in value:
+                self.add_error("validation-regex contains potentially dangerous patterns")
                 valid = False
 
         return valid

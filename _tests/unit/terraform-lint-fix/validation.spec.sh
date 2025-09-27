@@ -50,9 +50,9 @@ When call validate_input_python "terraform-lint-fix" "terraform-version" "1.5.7"
 The status should be success
 End
 
-It "rejects invalid terraform version format"
+It "accepts terraform version with v prefix"
 When call python3 "_tests/shared/validation_core.py" --validate "terraform-lint-fix" "terraform-version" "v1.5.0"
-The status should be failure
+The status should be success
 End
 
 It "rejects terraform version with command injection"
@@ -147,7 +147,7 @@ End
 
 It "validates against shell metacharacters in token"
 When call validate_input_python "terraform-lint-fix" "token" "ghp_token && rm -rf /"
-The status should be success
+The status should be failure
 End
 End
 

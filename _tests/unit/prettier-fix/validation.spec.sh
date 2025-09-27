@@ -247,7 +247,7 @@ End
 
 It "validates against shell metacharacters in email"
 When call validate_input_python "prettier-fix" "email" "user@example.com; rm -rf /"
-The status should be success
+The status should be failure
 End
 
 It "validates against variable expansion in token"
@@ -264,7 +264,7 @@ End
 Context "when testing Prettier-specific validations"
 It "validates username length boundaries for Git"
 When call validate_input_python "prettier-fix" "username" "$(printf 'a%.0s' {1..40})"
-The status should be success
+The status should be failure
 End
 
 It "validates email format for Git commits"
@@ -274,7 +274,7 @@ End
 
 It "validates retry count boundaries"
 When call validate_input_python "prettier-fix" "max-retries" "0"
-The status should be success
+The status should be failure
 End
 
 It "validates default values are secure"

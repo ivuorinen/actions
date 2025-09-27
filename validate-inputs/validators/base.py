@@ -176,15 +176,20 @@ class BaseValidator(ABC):
         """Load validation rules from YAML file.
 
         Args:
-            rules_path: Path to the rules YAML file
+            rules_path: Path to the rules YAML file (must be a Path object)
 
         Returns:
             Dictionary containing validation rules
         """
         if not rules_path:
-            # Default to rules directory based on action type
-            rules_dir = Path(__file__).parent.parent / "rules"
-            rules_path = rules_dir / f"{self.action_type.replace('_', '-')}.yml"
+            # Default to action folder's rules.yml file
+            action_dir = Path(__file__).parent.parent.parent / self.action_type.replace("_", "-")
+            rules_path = action_dir / "rules.yml"
+
+        # Ensure rules_path is a Path object
+        if not isinstance(rules_path, Path):
+            msg = f"rules_path must be a Path object, got {type(rules_path)}"
+            raise TypeError(msg)
 
         if not rules_path.exists():
             return {}

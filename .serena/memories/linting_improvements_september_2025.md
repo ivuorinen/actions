@@ -71,4 +71,5 @@ if Path(self.temp_output.name).exists():
 
 ## Conclusion
 
-All critical linting issues have been resolved. The remaining 99 issues are mostly style preferences or intentional patterns that are acceptable for this codebase. The code quality has significantly improved while maintaining functionality.
+All critical linting issues have been resolved. The remaining 99 issues are mostly style preferences or intentional patterns that are acceptable for this codebase.
+The code quality has significantly improved while maintaining functionality.

@@ -73,8 +73,13 @@ When call validate_input_python "php-version-detect" "default-version" "v8.2"
 The status should be failure
 End
 
-It "rejects PHP 8 with invalid minor version"
+It "accepts PHP 8.5 for future compatibility"
 When call validate_input_python "php-version-detect" "default-version" "8.5"
+The status should be success
+End
+
+It "rejects unreasonably high minor version"
+When call validate_input_python "php-version-detect" "default-version" "8.100"
 The status should be failure
 End
 End

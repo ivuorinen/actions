@@ -94,11 +94,12 @@ class FileValidator(BaseValidator):
 
         return True
 
-    def validate_branch_name(self, branch: str) -> bool:
+    def validate_branch_name(self, branch: str, name: str = "branch") -> bool:
         """Validate git branch name.
 
         Args:
             branch: The branch name to validate
+            name: The input name for error messages
 
         Returns:
             True if valid, False otherwise
@@ -111,7 +112,7 @@ class FileValidator(BaseValidator):
         for pattern in injection_patterns:
             if pattern in branch:
                 self.add_error(
-                    f'Invalid branch name: "{branch}". '
+                    f'Invalid {name}: "{branch}". '
                     f'Command injection pattern "{pattern}" not allowed',
                 )
                 return False
@@ -119,14 +120,14 @@ class FileValidator(BaseValidator):
         # Check for invalid git characters
         if ".." in branch or "~" in branch or "^" in branch or ":" in branch:
             self.add_error(
-                f'Invalid branch name: "{branch}". Contains invalid git branch characters',
+                f'Invalid {name}: "{branch}". Contains invalid git branch characters',
             )
             return False
 
         # Check for valid characters
         if not re.match(r"^[a-zA-Z0-9/_.\-]+$", branch):
             self.add_error(
-                f'Invalid branch name: "{branch}". '
+                f'Invalid {name}: "{branch}". '
                 "Must contain only alphanumeric, slash, underscore, dot, and hyphen",
             )
             return False
@@ -134,7 +135,7 @@ class FileValidator(BaseValidator):
         # Check for invalid start/end characters
         if branch.startswith((".", "-", "/")) or branch.endswith((".", "/")):
             self.add_error(
-                f'Invalid branch name: "{branch}". Cannot start/end with ".", "-", or "/"',
+                f'Invalid {name}: "{branch}". Cannot start/end with ".", "-", or "/"',
             )
             return False
 

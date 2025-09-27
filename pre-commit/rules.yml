@@ -22,7 +22,6 @@ optional_inputs:
 conventions:
   base-branch: branch_name
   commit_email: email
-  commit_user: username
   pre-commit-config: file_path
   token: github_token
 overrides: {}

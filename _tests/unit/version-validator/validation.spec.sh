@@ -38,7 +38,7 @@ The status should be success
 End
 It "rejects invalid version format"
 When call validate_input_python "version-validator" "version" "invalid.version"
-The status should be success
+The status should be failure
 End
 It "rejects version with command injection"
 When call validate_input_python "version-validator" "version" "1.2.3; rm -rf /"
@@ -100,7 +100,7 @@ End
 It "has correct action name"
 name=$(get_action_name "$ACTION_FILE")
 When call echo "$name"
-The output should match pattern "*version*"
+The output should match pattern "*Version*"
 End
 It "defines expected inputs"
 When call get_action_inputs "$ACTION_FILE"

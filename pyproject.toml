@@ -153,6 +153,15 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.per-file-ignores]
+# CustomValidator files need imports after sys.path manipulation
+"**/CustomValidator.py" = [
+    "E402",    # Allow module level imports not at top of file (needed for sys.path manipulation)
+    "D",       # No docstrings required in custom validators
+    "ANN",     # No annotations required in custom validators
+    "C901",    # Allow complex functions in custom validators
+    "PLR091",  # Allow complex functions in custom validators
+]
+
 # Test files can have additional relaxed rules
 "**/_tests/**" = [
     "S101",    # Allow assert statements in tests
@@ -168,12 +177,23 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "PTH108",  # Allow os.unlink in tests
     "RET504",  # Allow unnecessary assignments in tests
     "PT006",   # Allow string parametrize arguments in pytest
+    "SLF001",  # Allow access to private members in tests
 ]
 
 # Scripts can have relaxed import rules
 "**/scripts/**" = [
     "INP001",  # Allow implicit namespace packages
     "T201",    # Allow print statements in scripts
+    "D415",    # Allow docstrings without periods
+    "PERF401", # Allow simple loops instead of comprehensions
+    "DTZ005",  # Allow datetime.now() without timezone
+    "RET504",  # Allow unnecessary assignments for clarity
+    "PERF203", # Allow try-except in loops for error handling
+]
+"**/*.md" = [
+    "INP001",  # Allow implicit namespace packages
+    "T201",    # Allow print statements in scripts
+    "E402",    # Allow module level imports not at top (example code in docs)
     "D415",    # Allow docstrings without periods
     "PERF401", # Allow simple loops instead of comprehensions
     "DTZ005",  # Allow datetime.now() without timezone

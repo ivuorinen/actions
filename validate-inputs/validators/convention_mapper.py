@@ -224,7 +224,29 @@ class ConventionMapper:
         # Sort patterns by priority
         self.CONVENTION_PATTERNS.sort(key=lambda x: x["priority"], reverse=True)
 
-    def get_validator_type(  # noqa: PLR0912
+    def _normalize_pattern(
+        self, normalized: str, pattern_type: str, patterns: dict[str, str]
+    ) -> str | None:
+        if pattern_type == "exact" and normalized in patterns:
+            result = patterns[normalized]
+        elif pattern_type == "prefix":
+            for prefix, validator in patterns.items():
+                if normalized.startswith(prefix):
+                    result = validator
+                    break
+        elif pattern_type == "suffix":
+            for suffix, validator in patterns.items():
+                if normalized.endswith(suffix):
+                    result = validator
+                    break
+        elif pattern_type == "contains":
+            for substring, validator in patterns.items():
+                if substring in normalized:
+                    result = validator
+                    break
+        return result
+
+    def get_validator_type(
         self,
         input_name: str,
         input_config: dict[str, Any] | None = None,
@@ -265,23 +287,7 @@ class ConventionMapper:
                 pattern_type = pattern_group["type"]
                 patterns = pattern_group["patterns"]
 
-                if pattern_type == "exact" and normalized in patterns:
-                    result = patterns[normalized]
-                elif pattern_type == "prefix":
-                    for prefix, validator in patterns.items():
-                        if normalized.startswith(prefix):
-                            result = validator
-                            break
-                elif pattern_type == "suffix":
-                    for suffix, validator in patterns.items():
-                        if normalized.endswith(suffix):
-                            result = validator
-                            break
-                elif pattern_type == "contains":
-                    for substring, validator in patterns.items():
-                        if substring in normalized:
-                            result = validator
-                            break
+                result = self._normalize_pattern(normalized, pattern_type, patterns)
 
         # Cache and return result
         self._cache[cache_key] = result

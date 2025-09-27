@@ -2,7 +2,8 @@
 
 ## Purpose
 
-This repository contains a collection of reusable GitHub Actions designed to streamline CI/CD processes and ensure code quality. Each action is fully self-contained and can be used independently in any GitHub repository.
+This repository contains a collection of reusable GitHub Actions designed to streamline CI/CD processes and ensure code quality.
+Each action is fully self-contained and can be used independently in any GitHub repository.
 
 ## Repository Information
 
@@ -35,7 +36,7 @@ This repository contains a collection of reusable GitHub Actions designed to str
 
 ### Validation System (Modular Architecture)
 
-```
+```text
 validate-inputs/
 ├── validator.py              # Main entry point
 ├── validators/

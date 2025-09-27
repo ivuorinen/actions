@@ -474,6 +474,7 @@ validate_input_python() {
 
   # Set up environment variables for Python validator
   export INPUT_ACTION_TYPE="$action_type"
+  export VALIDATOR_QUIET="1" # Suppress success messages for tests
 
   # Set default values for commonly required inputs to avoid validation failures
   # when testing only one input at a time
@@ -534,6 +535,9 @@ validate_input_python() {
     [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
     [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
     ;;
+  "version-validator")
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
+    ;;
   esac
 
   # Set the target input
@@ -559,7 +563,7 @@ validate_input_python() {
   local exit_code=$?
 
   # Clean up target input
-  unset INPUT_ACTION_TYPE "$input_var_name" GITHUB_OUTPUT
+  unset INPUT_ACTION_TYPE "$input_var_name" GITHUB_OUTPUT VALIDATOR_QUIET
   rm -f "$temp_output" 2>/dev/null || true
 
   # Clean up default inputs
@@ -620,14 +624,29 @@ validate_input_python() {
     [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
     [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
     ;;
+  "version-validator")
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
+    ;;
   esac
 
   # Return the exit code for ShellSpec to check
   return $exit_code
 }
 
+# Helper function to check if all inputs are optional
+check_all_optional() {
+  python3 -c "
+import yaml
+with open('php-laravel-phpunit/action.yml') as f:
+    data = yaml.safe_load(f)
+    inputs = data.get('inputs', {})
+    required_inputs = [k for k, v in inputs.items() if v.get('required', False)]
+    print('none' if not required_inputs else ','.join(required_inputs))
+"
+}
+
 # Export all new simplified helpers (functions are moved above)
-export -f validate_action_yml_quiet validate_input_python
+export -f validate_action_yml_quiet validate_input_python check_all_optional
 
 # Removed EXIT trap setup to avoid conflicts with ShellSpec
 # ShellSpec handles its own cleanup, and our framework cleanup is handled in setup.sh

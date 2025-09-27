@@ -11,13 +11,13 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.boolean import BooleanValidator  # noqa: E402
-from validators.file import FileValidator  # noqa: E402
-from validators.network import NetworkValidator  # noqa: E402
-from validators.security import SecurityValidator  # noqa: E402
-from validators.token import TokenValidator  # noqa: E402
-from validators.version import VersionValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.boolean import BooleanValidator
+from validators.file import FileValidator
+from validators.network import NetworkValidator
+from validators.security import SecurityValidator
+from validators.token import TokenValidator
+from validators.version import VersionValidator
 
 
 class CustomValidator(BaseValidator):
@@ -95,7 +95,8 @@ class CustomValidator(BaseValidator):
                     valid = False
                 elif not re.match(r"^@[a-z0-9][a-z0-9\-_.]*$", scope):
                     self.add_error(
-                        "Invalid scope format: must be @org-name with lowercase letters, numbers, hyphens, dots, and underscores"
+                        "Invalid scope format: must be @org-name with lowercase "
+                        "letters, numbers, hyphens, dots, and underscores"
                     )
                     valid = False
 
@@ -148,18 +149,19 @@ class CustomValidator(BaseValidator):
         # Validate tag
         if inputs.get("tag"):
             tag = inputs["tag"]
-            if not self.is_github_expression(tag):
-                # Tag must be alphanumeric with hyphens and dots
-                if not re.match(r"^[a-z0-9][a-z0-9\-_.]*$", tag, re.IGNORECASE):
-                    self.add_error(
-                        "Invalid tag format: must contain only letters, numbers, hyphens, dots, and underscores"
-                    )
-                    valid = False
+            if not self.is_github_expression(tag) and not re.match(
+                r"^[a-z0-9][a-z0-9\-_.]*$", tag, re.IGNORECASE
+            ):
+                self.add_error(
+                    "Invalid tag format: must contain only letters, numbers, "
+                    "hyphens, dots, and underscores"
+                )
+                valid = False
 
         # Validate working-directory and ignore-scripts as file paths
         for field in ["working-directory", "ignore-scripts"]:
             if inputs.get(field):
-                result = self.file_validator.validate_directory_path(inputs[field], field)
+                result = self.file_validator.validate_path(inputs[field], field)
                 for error in self.file_validator.errors:
                     if error not in self.errors:
                         self.add_error(error)
@@ -175,4 +177,4 @@ class CustomValidator(BaseValidator):
 
     def get_validation_rules(self) -> dict:
         """Get validation rules."""
-        return self.load_rules("npm-publish")
+        return self.load_rules(validate_inputs_path / "rules" / "npm-publish.yml")

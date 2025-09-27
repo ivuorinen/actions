@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """Custom validator for sync-labels action.
 
 This demonstrates how actions can have their own custom validation logic
@@ -13,9 +14,9 @@ import sys
 validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
-from validators.base import BaseValidator  # noqa: E402
-from validators.file import FileValidator  # noqa: E402
-from validators.token import TokenValidator  # noqa: E402
+from validators.base import BaseValidator
+from validators.file import FileValidator
+from validators.token import TokenValidator
 
 
 class CustomValidator(BaseValidator):

@@ -13,6 +13,28 @@ import yaml
 from .base import BaseValidator
 from .convention_mapper import ConventionMapper
 
+TOKEN_TYPES = {
+    "github": "github_token",
+    "npm": "npm_token",
+    "docker": "docker_token",
+}
+
+VERSION_MAPPINGS = {
+    "python": "python_version",
+    "node": "node_version",
+    "go": "go_version",
+    "php": "php_version",
+    "terraform": "terraform_version",
+    "dotnet": "dotnet_version",
+    "net": "dotnet_version",
+}
+
+FILE_TYPES = {
+    "yaml": "yaml_file",
+    "yml": "yaml_file",
+    "json": "json_file",
+}
+
 
 class ConventionBasedValidator(BaseValidator):
     """Validator that applies validation based on naming conventions.
@@ -37,20 +59,23 @@ class ConventionBasedValidator(BaseValidator):
         """Lazy-load validator modules as needed."""
         # These will be imported as needed to avoid circular imports
 
-    def load_rules(self, rules_path: Path | None = None) -> dict[str, Any]:  # noqa: ARG002
+    def load_rules(self, rules_path: Path | None = None) -> dict[str, Any]:
         """Load validation rules from YAML file.
 
         Args:
-            rules_path: Optional path to the rules YAML file (unused, for compatibility)
+            rules_path: Optional path to the rules YAML file
 
         Returns:
             Dictionary of validation rules
         """
-        # Find the rules file for this action
-        # Convert underscores back to dashes for the filename
-        action_name = self.action_type.replace("_", "-")
-        project_root = Path(__file__).parent.parent.parent
-        rules_file = project_root / "validate-inputs" / "rules" / f"{action_name}.yml"
+        if rules_path and rules_path.exists():
+            rules_file = rules_path
+        else:
+            # Find the rules file for this action in the action folder
+            # Convert underscores back to dashes for the folder name
+            action_name = self.action_type.replace("_", "-")
+            project_root = Path(__file__).parent.parent.parent
+            rules_file = project_root / action_name / "rules.yml"
 
         if not rules_file.exists():
             # Return default empty rules if no rules file exists
@@ -185,11 +210,7 @@ class ConventionBasedValidator(BaseValidator):
 
         # Token patterns
         if "token" in name_lower:
-            token_types = {
-                "github": "github_token",
-                "npm": "npm_token",
-                "docker": "docker_token",
-            }
+            token_types = TOKEN_TYPES
             for key, value in token_types.items():
                 if key in name_lower:
                     result = value
@@ -203,15 +224,7 @@ class ConventionBasedValidator(BaseValidator):
 
         # Version patterns
         elif "version" in name_lower:
-            version_mappings = {
-                "python": "python_version",
-                "node": "node_version",
-                "go": "go_version",
-                "php": "php_version",
-                "terraform": "terraform_version",
-                "dotnet": "dotnet_version",
-                "net": "dotnet_version",
-            }
+            version_mappings = VERSION_MAPPINGS
             for key, value in version_mappings.items():
                 if key in name_lower:
                     result = value
@@ -221,11 +234,7 @@ class ConventionBasedValidator(BaseValidator):
 
         # File suffix patterns
         elif name_lower.endswith("_file") and name_lower != "config_file":
-            file_types = {
-                "yaml": "yaml_file",
-                "yml": "yaml_file",
-                "json": "json_file",
-            }
+            file_types = FILE_TYPES
             for key, value in file_types.items():
                 if key in name_lower:
                     result = value
@@ -289,7 +298,9 @@ class ConventionBasedValidator(BaseValidator):
             if validator_type:
                 # Check if this is a required input
                 is_required = input_name in self.get_required_inputs()
-                valid &= self._apply_validator(input_name, value, validator_type, is_required)
+                valid &= self._apply_validator(
+                    input_name, value, validator_type, is_required=is_required
+                )
 
         return valid
 
@@ -339,6 +350,7 @@ class ConventionBasedValidator(BaseValidator):
         input_name: str,
         value: str,
         validator_type: str,
+        *,
         is_required: bool,
     ) -> bool:
         """Apply the appropriate validator to an input value.
