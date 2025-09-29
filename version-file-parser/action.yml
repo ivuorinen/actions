@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for reading version files
+---
 name: Version File Parser
 description: 'Universal parser for common version detection files (.tool-versions, Dockerfile, devcontainer.json, etc.)'
 author: 'Ismo Vuorinen'
@@ -58,13 +60,20 @@ runs:
     - name: Parse Version Files
       id: parse
       shell: bash
+      env:
+        VALIDATION_REGEX: ${{ inputs.validation-regex }}
+        LANGUAGE: ${{ inputs.language }}
+        TOOL_VERSIONS_KEY: ${{ inputs.tool-versions-key }}
+        DOCKERFILE_IMAGE: ${{ inputs.dockerfile-image }}
+        VERSION_FILE: ${{ inputs.version-file }}
+        DEFAULT_VERSION: ${{ inputs.default-version }}
       run: |-
         set -euo pipefail
 
         # Function to validate version format
         validate_version() {
           local version=$1
-          local regex='${{ inputs.validation-regex }}'
+          local regex="$VALIDATION_REGEX"
 
           # Test regex validity
           if ! bash -c "[[ 'test' =~ \${regex} ]]" 2>/dev/null; then
@@ -94,16 +103,16 @@ runs:
         echo "package-manager=" >> $GITHUB_OUTPUT
 
         # Language detection patterns
-        language="${{ inputs.language }}"
+        language="$LANGUAGE"
 
         # Parse .tool-versions file
         if [ -f .tool-versions ]; then
-          echo "Checking .tool-versions for ${{ inputs.tool-versions-key }}..." >&2
-          version=$(awk '/^${{ inputs.tool-versions-key }}[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
+          echo "Checking .tool-versions for $TOOL_VERSIONS_KEY..." >&2
+          version=$(awk "/^$TOOL_VERSIONS_KEY[[:space:]]/ {gsub(/#.*/, \"\"); print \$2; exit}" .tool-versions 2>/dev/null || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found ${{ inputs.language }} version in .tool-versions: $version" >&2
+              echo "Found $LANGUAGE version in .tool-versions: $version" >&2
               echo "tool-versions-version=$version" >> $GITHUB_OUTPUT
             fi
           fi
@@ -111,13 +120,13 @@ runs:
 
         # Parse Dockerfile
         if [ -f Dockerfile ]; then
-          echo "Checking Dockerfile for ${{ inputs.dockerfile-image }}..." >&2
-          version=$(grep -iF "FROM" Dockerfile | grep -F "${{ inputs.dockerfile-image }}:" | head -1 | \
-            sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+          echo "Checking Dockerfile for $DOCKERFILE_IMAGE..." >&2
+          version=$(grep -iF "FROM" Dockerfile | grep -F "$DOCKERFILE_IMAGE:" | head -1 | \
+            sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found ${{ inputs.language }} version in Dockerfile: $version" >&2
+              echo "Found $LANGUAGE version in Dockerfile: $version" >&2
               echo "dockerfile-version=$version" >> $GITHUB_OUTPUT
             fi
           fi
@@ -125,13 +134,13 @@ runs:
 
         # Parse devcontainer.json
         if [ -f .devcontainer/devcontainer.json ]; then
-          echo "Checking devcontainer.json for ${{ inputs.dockerfile-image }}..." >&2
+          echo "Checking devcontainer.json for $DOCKERFILE_IMAGE..." >&2
           if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*${{ inputs.dockerfile-image }}:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
-                echo "Found ${{ inputs.language }} version in devcontainer: $version" >&2
+                echo "Found $LANGUAGE version in devcontainer: $version" >&2
                 echo "devcontainer-version=$version" >> $GITHUB_OUTPUT
               fi
             fi
@@ -141,13 +150,13 @@ runs:
         fi
 
         # Parse language-specific version file
-        if [ -n "${{ inputs.version-file }}" ] && [ -f "${{ inputs.version-file }}" ]; then
-          echo "Checking ${{ inputs.version-file }}..." >&2
-          version=$(tr -d '\r' < "${{ inputs.version-file }}" | head -1)
+        if [ -n "$VERSION_FILE" ] && [ -f "$VERSION_FILE" ]; then
+          echo "Checking $VERSION_FILE..." >&2
+          version=$(tr -d '\r' < "$VERSION_FILE" | head -1)
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found ${{ inputs.language }} version in ${{ inputs.version-file }}: $version" >&2
+              echo "Found $LANGUAGE version in $VERSION_FILE: $version" >&2
               echo "version-file-version=$version" >> $GITHUB_OUTPUT
             fi
           fi
@@ -336,9 +345,9 @@ runs:
         final_version=$(grep -E "^(version-file|config-file|tool-versions|dockerfile|devcontainer)-version=" $GITHUB_OUTPUT | tac | awk -F= 'NF>1 && $2!="" {print $2; exit}')
 
         # If no version found from any source, use default
-        if [ -z "$final_version" ] && [ -n "${{ inputs.default-version }}" ]; then
-          final_version="${{ inputs.default-version }}"
-          echo "Using default ${{ inputs.language }} version: $final_version" >&2
+        if [ -z "$final_version" ] && [ -n "$DEFAULT_VERSION" ]; then
+          final_version="$DEFAULT_VERSION"
+          echo "Using default $LANGUAGE version: $final_version" >&2
         fi
 
         # Set final detected version
@@ -349,7 +358,7 @@ runs:
             exit 1
           fi
           echo "detected-version=$final_version" >> $GITHUB_OUTPUT
-          echo "Final detected ${{ inputs.language }} version: $final_version" >&2
+          echo "Final detected $LANGUAGE version: $final_version" >&2
         else
-          echo "No ${{ inputs.language }} version detected" >&2
+          echo "No $LANGUAGE version detected" >&2
         fi

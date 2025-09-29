@@ -1,4 +1,7 @@
 ---
+# permissions:
+#   - security-events: write  # Required for uploading SARIF results
+#   - contents: read          # Required for checking out repository
 name: CodeQL Analysis
 description: Run CodeQL security analysis for a single language with configurable query suites
 author: Ismo Vuorinen
@@ -139,11 +142,14 @@ runs:
     - name: Set analysis category
       id: set-category
       shell: bash
+      env:
+        CATEGORY: ${{ inputs.category }}
+        LANGUAGE: ${{ inputs.language }}
       run: |
-        if [[ -n "${{ inputs.category }}" ]]; then
-          category="${{ inputs.category }}"
+        if [[ -n "$CATEGORY" ]]; then
+          category="$CATEGORY"
         else
-          category="/language:${{ inputs.language }}"
+          category="/language:$LANGUAGE"
         fi
         echo "category=$category" >> $GITHUB_OUTPUT
         echo "Using analysis category: $category"
@@ -151,11 +157,14 @@ runs:
     - name: Set build mode
       id: set-build-mode
       shell: bash
+      env:
+        BUILD_MODE: ${{ inputs.build-mode }}
+        LANGUAGE: ${{ inputs.language }}
       run: |
-        build_mode="${{ inputs.build-mode }}"
+        build_mode="$BUILD_MODE"
         if [[ -z "$build_mode" ]]; then
           # Auto-detect build mode based on language
-          case "${{ inputs.language }}" in
+          case "$LANGUAGE" in
             javascript|python|ruby|actions)
               build_mode="none"
               ;;
@@ -168,7 +177,7 @@ runs:
         echo "Using build mode: $build_mode"
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
+      uses: github/codeql-action/init@3599b3baa15b485a2e49ef411a7a4bb2452e7f93 # v3.30.5
       with:
         languages: ${{ inputs.language }}
         queries: ${{ inputs.queries }}
@@ -181,12 +190,12 @@ runs:
         threads: ${{ inputs.threads }}
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
+      uses: github/codeql-action/autobuild@3599b3baa15b485a2e49ef411a7a4bb2452e7f93 # v3.30.5
       if: ${{ steps.set-build-mode.outputs.build-mode == 'autobuild' }}
 
     - name: Perform CodeQL Analysis
       id: analysis
-      uses: github/codeql-action/analyze@192325c86100d080feab897ff886c34abd4c83a3 # v3.30.3
+      uses: github/codeql-action/analyze@3599b3baa15b485a2e49ef411a7a4bb2452e7f93 # v3.30.5
       with:
         category: ${{ steps.set-category.outputs.category }}
         upload: ${{ inputs.upload-results }}
@@ -198,15 +207,23 @@ runs:
 
     - name: Summary
       shell: bash
+      env:
+        LANGUAGE: ${{ inputs.language }}
+        CATEGORY: ${{ steps.set-category.outputs.category }}
+        BUILD_MODE: ${{ steps.set-build-mode.outputs.build-mode }}
+        QUERIES: ${{ inputs.queries }}
+        PACKS: ${{ inputs.packs }}
+        UPLOAD_RESULTS: ${{ inputs.upload-results }}
+        OUTPUT: ${{ inputs.output }}
       run: |
-        echo "✅ CodeQL analysis completed for language: ${{ inputs.language }}"
-        echo "📊 Category: ${{ steps.set-category.outputs.category }}"
-        echo "🏗️ Build mode: ${{ steps.set-build-mode.outputs.build-mode }}"
-        echo "🔍 Queries: ${{ inputs.queries || 'default' }}"
-        echo "📦 Packs: ${{ inputs.packs || 'none' }}"
-        if [[ "${{ inputs.upload-results }}" == "true" ]]; then
+        echo "✅ CodeQL analysis completed for language: $LANGUAGE"
+        echo "📊 Category: $CATEGORY"
+        echo "🏗️ Build mode: $BUILD_MODE"
+        echo "🔍 Queries: ${QUERIES:-default}"
+        echo "📦 Packs: ${PACKS:-none}"
+        if [[ "$UPLOAD_RESULTS" == "true" ]]; then
           echo "📤 Results uploaded to GitHub Security tab"
         fi
-        if [[ -n "${{ inputs.output }}" ]]; then
-          echo "💾 SARIF saved to: ${{ inputs.output }}"
+        if [[ -n "$OUTPUT" ]]; then
+          echo "💾 SARIF saved to: $OUTPUT"
         fi

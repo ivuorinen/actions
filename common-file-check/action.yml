@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking files in repository
 ---
 name: Common File Check
 description: |
@@ -25,17 +27,19 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |
         set -euo pipefail
 
         # Validate file pattern is not empty
-        if [[ -z "${{ inputs.file-pattern }}" ]]; then
+        if [[ -z "$FILE_PATTERN" ]]; then
           echo "::error::file-pattern input is required and cannot be empty"
           exit 1
         fi
 
         # Validate file pattern format (basic glob pattern validation)
-        pattern='${{ inputs.file-pattern }}'
+        pattern="$FILE_PATTERN"
 
         # Check for path traversal attempts
         if [[ "$pattern" == *".."* ]]; then
@@ -71,10 +75,12 @@ runs:
     - name: Check for Files
       id: check-files
       shell: bash
+      env:
+        FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |-
         set -euo pipefail
 
-        if find . -name "${{ inputs.file-pattern }}" | grep -q .; then
+        if find . -name "$FILE_PATTERN" | grep -q .; then
           echo "found=true" >> $GITHUB_OUTPUT
         else
           echo "found=false" >> $GITHUB_OUTPUT
