@@ -20,7 +20,9 @@ class TestFileValidator:
     def test_valid_file_paths(self):
         """Test valid file paths."""
         assert self.validator.validate_file_path("./src/main.py") is True
-        assert self.validator.validate_file_path("/absolute/path/file.txt") is True
+        assert (
+            self.validator.validate_file_path("/absolute/path/file.txt") is False
+        )  # Absolute paths rejected for security
         assert self.validator.validate_file_path("relative/path.yml") is True
 
     def test_path_traversal_detection(self):

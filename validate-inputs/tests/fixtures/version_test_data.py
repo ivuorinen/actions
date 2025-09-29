@@ -98,9 +98,9 @@ DOCKER_INVALID = [
 
 # GitHub token test cases
 GITHUB_TOKEN_VALID = [
-    ("github_pat_" + "a" * 82, "Fine-grained PAT"),
-    ("ghp_" + "a" * 36, "Classic PAT"),
-    ("gho_" + "a" * 36, "OAuth token"),
+    ("github_pat_" + "a" * 71, "Fine-grained PAT"),  # 11 + 71 = 82 chars total
+    ("ghp_" + "a" * 36, "Classic PAT"),  # 4 + 36 = 40 chars total
+    ("gho_" + "a" * 36, "OAuth token"),  # 4 + 36 = 40 chars total
     ("ghu_" + "a" * 36, "User token"),
     ("ghs_" + "a" * 36, "Installation token"),
     ("ghr_" + "a" * 36, "Refresh token"),

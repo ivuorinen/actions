@@ -52,27 +52,28 @@ class TestCustomValidators:
         inputs = {
             "context": ".",
             "dockerfile": "./Dockerfile",
-            "platforms": "linux/amd64,linux/arm64",
-            "tags": "myimage:latest\nmyimage:v1.0.0",
+            "architectures": "linux/amd64,linux/arm64",
+            "tag": "latest",
             "push": "true",
         }
         assert validator.validate_inputs(inputs) is True
         assert not validator.has_errors()
 
-        # Test missing required context
+        # Test missing required tag
         validator.clear_errors()
         inputs = {}
         assert validator.validate_inputs(inputs) is False
-        assert "context" in str(validator.errors)
+        assert "tag" in str(validator.errors)
 
         # Test invalid platform
         validator.clear_errors()
         inputs = {
             "context": ".",
-            "platforms": "invalid/platform",
+            "tag": "latest",
+            "architectures": "invalid/platform",
         }
         assert validator.validate_inputs(inputs) is False
-        assert "Invalid platform" in str(validator.errors)
+        assert "Invalid architectures" in str(validator.errors)
 
         # Test invalid build args format
         validator.clear_errors()
@@ -87,6 +88,7 @@ class TestCustomValidators:
         validator.clear_errors()
         inputs = {
             "context": ".",
+            "tag": "latest",
             "cache-from": "type=gha",
             "cache-to": "type=gha,mode=max",
         }
@@ -172,13 +174,11 @@ class TestCustomValidators:
 
         # Test valid inputs
         inputs = {
-            "image": "myorg/myapp",
-            "registry": "docker.io",
-            "tags": "latest,v1.0.0",
-            "username": "${{ secrets.DOCKER_USERNAME }}",
-            "password": "${{ secrets.DOCKER_PASSWORD }}",
+            "registry": "dockerhub",
+            "dockerhub-username": "${{ secrets.DOCKER_USERNAME }}",
+            "dockerhub-password": "${{ secrets.DOCKER_PASSWORD }}",
             "platforms": "linux/amd64,linux/arm64",
-            "push": "true",
+            "nightly": "false",
         }
         result = validator.validate_inputs(inputs)
         if not result:
@@ -186,17 +186,16 @@ class TestCustomValidators:
         assert result is True
         assert not validator.has_errors()
 
-        # Test missing required image
+        # Test missing required registry
         validator.clear_errors()
         inputs = {}
         assert validator.validate_inputs(inputs) is False
-        assert "image" in str(validator.errors)
+        assert "registry" in str(validator.errors)
 
         # Test registry validation
         validator.clear_errors()
         inputs = {
-            "image": "myapp",
-            "registry": "ghcr.io",
+            "registry": "github",
         }
         assert validator.validate_inputs(inputs) is True
         assert not validator.has_errors()
@@ -204,7 +203,6 @@ class TestCustomValidators:
         # Test invalid registry
         validator.clear_errors()
         inputs = {
-            "image": "myapp",
             "registry": "not-a-valid-registry",
         }
         assert validator.validate_inputs(inputs) is False
@@ -213,7 +211,7 @@ class TestCustomValidators:
         # Test platform validation - only Linux platforms are valid for Docker
         validator.clear_errors()
         inputs = {
-            "image": "myapp",
+            "registry": "dockerhub",
             "platforms": "linux/amd64,linux/arm64,linux/arm/v7",
         }
         result = validator.validate_inputs(inputs)
@@ -225,30 +223,29 @@ class TestCustomValidators:
         # Test invalid platform OS
         validator.clear_errors()
         inputs = {
-            "image": "myapp",
+            "registry": "dockerhub",
             "platforms": "freebsd/amd64",
         }
         assert validator.validate_inputs(inputs) is False
         assert validator.has_errors()
 
-        # Test provenance settings
+        # Test scan and sign settings
         validator.clear_errors()
         inputs = {
-            "image": "myapp",
-            "provenance": "mode=max",
-            "sbom": "true",
+            "registry": "dockerhub",
+            "scan-image": "true",
+            "sign-image": "false",
         }
         assert validator.validate_inputs(inputs) is True
         assert not validator.has_errors()
 
-        # Test invalid provenance mode
+        # Test invalid registry value
         validator.clear_errors()
         inputs = {
-            "image": "myapp",
-            "provenance": "mode=invalid",
+            "registry": "invalid-registry-123",
         }
         assert validator.validate_inputs(inputs) is False
-        assert "must be 'min' or 'max'" in str(validator.errors)
+        assert validator.has_errors()
 
     def test_custom_validator_error_propagation(self):
         """Test that errors from sub-validators propagate correctly."""
@@ -294,7 +291,7 @@ class TestCustomValidators:
                 {
                     "context": "${{ github.workspace }}",
                     "dockerfile": "${{ inputs.dockerfile }}",
-                    "tags": "${{ steps.meta.outputs.tags }}",
+                    "tag": "${{ steps.meta.outputs.tags }}",
                 },
             ),
             (
@@ -307,9 +304,8 @@ class TestCustomValidators:
             (
                 "docker-publish",
                 {
-                    "image": "${{ env.IMAGE_NAME }}",
-                    "tags": "${{ steps.meta.outputs.tags }}",
                     "registry": "${{ vars.REGISTRY }}",
+                    "platforms": "${{ steps.platforms.outputs.list }}",
                 },
             ),
         ]
@@ -322,8 +318,6 @@ class TestCustomValidators:
                 inputs["context"] = inputs.get("context", ".")
             elif action_type == "codeql-analysis":
                 inputs["language"] = inputs.get("language", "javascript")
-            elif action_type == "docker-publish":
-                inputs["image"] = inputs.get("image", "myapp")
 
             assert validator.validate_inputs(inputs) is True
             assert not validator.has_errors(), f"Failed for {action_type}: {validator.errors}"

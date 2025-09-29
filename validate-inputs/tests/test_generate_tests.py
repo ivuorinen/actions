@@ -17,7 +17,8 @@ if spec is None or spec.loader is None:
 
 generate_tests = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(generate_tests)
-TestGenerator = generate_tests.TestGenerator
+# Import as GeneratorClass to avoid pytest collection warning
+GeneratorClass = generate_tests.TestGenerator
 
 
 class TestTestGenerator:
@@ -26,7 +27,7 @@ class TestTestGenerator:
     def setup_method(self):
         """Set up test fixtures."""
         self.temp_dir = Path(tempfile.mkdtemp())
-        self.generator = TestGenerator(self.temp_dir)
+        self.generator = GeneratorClass(self.temp_dir)
 
     def teardown_method(self):
         """Clean up test fixtures."""

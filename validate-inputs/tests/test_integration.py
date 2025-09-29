@@ -133,7 +133,7 @@ class TestValidatorIntegration:
         """Test validator script with csharp-publish action."""
         env_vars = {
             "INPUT_ACTION_TYPE": "csharp-publish",
-            "INPUT_TOKEN": "github_pat_" + "a" * 82,
+            "INPUT_TOKEN": "github_pat_" + "a" * 71,
             "INPUT_NAMESPACE": "test-namespace",
             "INPUT_DOTNET_VERSION": "8.0.0",
         }
@@ -280,7 +280,7 @@ class TestValidatorIntegration:
                 {"context": ".", "image-name": "App", "tag": "latest"},
                 False,
             ),  # Uppercase not allowed
-            ("csharp-publish", {"token": "github_pat_" + "a" * 82, "namespace": "test"}, True),
+            ("csharp-publish", {"token": "github_pat_" + "a" * 71, "namespace": "test"}, True),
             ("csharp-publish", {"token": "invalid", "namespace": "test"}, False),
         ],
     )
