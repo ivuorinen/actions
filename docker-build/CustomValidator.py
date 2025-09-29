@@ -126,7 +126,7 @@ class CustomValidator(BaseValidator):
         # Validate parallel-builds
         if inputs.get("parallel-builds"):
             result = self.numeric_validator.validate_numeric_range(
-                inputs["parallel-builds"], min_val=0, max_val=32, name="parallel-builds"
+                inputs["parallel-builds"], min_val=0, max_val=16, name="parallel-builds"
             )
             for error in self.numeric_validator.errors:
                 if error not in self.errors:
@@ -197,7 +197,7 @@ class CustomValidator(BaseValidator):
             "cache-mode": "Cache mode (min, max, or inline)",
             "buildx-version": "Docker Buildx version",
             "sbom-format": "SBOM format (spdx-json, cyclonedx-json, or syft-json)",
-            "parallel-builds": "Number of parallel builds (0-32)",
+            "parallel-builds": "Number of parallel builds (0-16)",
         }
 
     def validate_dockerfile(self, dockerfile: str) -> bool:
