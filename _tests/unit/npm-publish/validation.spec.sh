@@ -50,7 +50,7 @@ The status should be success
 End
 
 It "accepts GitHub fine-grained token (exact length)"
-When call validate_input_python "npm-publish" "npm_token" "github_pat_1234567890123456789012345678901234567890123456789012345678901234567890123456789012"
+When call validate_input_python "npm-publish" "npm_token" "github_pat_1234567890123456789012345678901234567890123456789012345678901234567890a"
 The status should be success
 End
 

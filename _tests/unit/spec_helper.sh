@@ -267,7 +267,7 @@ shellspec_test_input_validation() {
     [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
     ;;
   "csharp-publish")
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
     [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
     ;;
@@ -309,7 +309,7 @@ shellspec_test_input_validation() {
     ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     ;;
   esac
 
@@ -491,7 +491,7 @@ validate_input_python() {
     [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
     ;;
   "csharp-publish")
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
     [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
     ;;
@@ -533,7 +533,7 @@ validate_input_python() {
     ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     ;;
   "version-validator")
     [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
