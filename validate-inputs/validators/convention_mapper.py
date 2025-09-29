@@ -227,6 +227,8 @@ class ConventionMapper:
     def _normalize_pattern(
         self, normalized: str, pattern_type: str, patterns: dict[str, str]
     ) -> str | None:
+        result = None  # Initialize to None for cases where no pattern matches
+
         if pattern_type == "exact" and normalized in patterns:
             result = patterns[normalized]
         elif pattern_type == "prefix":
