@@ -16,11 +16,11 @@ class TokenValidator(BaseValidator):
     # Note: The lengths include the prefix
     TOKEN_PATTERNS: ClassVar[dict[str, str]] = {
         # Personal access token (classic):
-        # ghp_ + 36 = 40 chars total (allow up to 44 for test compat)
-        "github_classic": r"^ghp_[a-zA-Z0-9]{36,40}$",
+        # ghp_ + 36 = 40 chars total
+        "github_classic": r"^ghp_[a-zA-Z0-9]{36}$",
         # Fine-grained PAT:
-        # github_pat_ + 48 = 59 chars total (allow up to 95 for test compat)
-        "github_fine_grained": r"^github_pat_[a-zA-Z0-9_]{48,84}$",
+        # github_pat_ + 71 = 82 chars total (11 char prefix + 71 char token)
+        "github_fine_grained": r"^github_pat_[a-zA-Z0-9_]{71}$",
         # OAuth access token: gho_ + 36 = 40 chars total
         "github_oauth": r"^gho_[a-zA-Z0-9]{36}$",
         # User access token for GitHub App:
@@ -106,7 +106,7 @@ class TokenValidator(BaseValidator):
 
         self.add_error(
             "Invalid token format. Expected: ghp_* (40 chars), "
-            "github_pat_* (59 chars), gho_* (40 chars), ghu_* (40 chars), "
+            "github_pat_* (82 chars), gho_* (40 chars), ghu_* (40 chars), "
             "ghs_* (40 chars), ghr_* (40 chars), ghe_* (40 chars), or ${{ github.token }}",
         )
         return False

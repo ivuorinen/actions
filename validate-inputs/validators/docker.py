@@ -135,6 +135,10 @@ class DockerValidator(BaseValidator):
         if not architectures or architectures.strip() == "":
             return True  # Often optional
 
+        # Allow GitHub Actions expressions
+        if self.is_github_expression(architectures):
+            return True
+
         archs = [arch.strip() for arch in architectures.split(",")]
 
         for arch in archs:

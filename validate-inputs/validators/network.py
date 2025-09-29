@@ -115,7 +115,8 @@ class NetworkValidator(BaseValidator):
             True if valid, False otherwise
         """
         if not value or value.strip() == "":
-            return True  # URL is often optional
+            self.add_error(f"{name} cannot be empty")
+            return False
 
         # Allow GitHub Actions expressions
         if self.is_github_expression(value):
