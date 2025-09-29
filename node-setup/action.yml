@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - (none required)  # Setup action, no repository writes
 ---
 name: Node Setup
 description: 'Sets up Node.js env with advanced version management, caching, and tooling.'
@@ -72,84 +74,94 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        DEFAULT_VERSION: ${{ inputs.default-version }}
+        FORCE_VERSION: ${{ inputs.force-version }}
+        PACKAGE_MANAGER: ${{ inputs.package-manager }}
+        REGISTRY_URL: ${{ inputs.registry-url }}
+        NODE_MIRROR: ${{ inputs.node-mirror }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        CACHE: ${{ inputs.cache }}
+        INSTALL: ${{ inputs.install }}
+        AUTH_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
 
         # Validate default-version format
-        if [[ -n "${{ inputs.default-version }}" ]]; then
-          if ! [[ "${{ inputs.default-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
-            echo "::error::Invalid default-version format: '${{ inputs.default-version }}'. Expected format: X or X.Y or X.Y.Z (e.g., 22, 20.9, 18.17.1)"
+        if [[ -n "$DEFAULT_VERSION" ]]; then
+          if ! [[ "$DEFAULT_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "::error::Invalid default-version format: '$DEFAULT_VERSION'. Expected format: X or X.Y or X.Y.Z (e.g., 22, 20.9, 18.17.1)"
             exit 1
           fi
 
           # Check for reasonable version range (prevent malicious inputs)
-          major_version=$(echo "${{ inputs.default-version }}" | cut -d'.' -f1)
+          major_version=$(echo "$DEFAULT_VERSION" | cut -d'.' -f1)
           if [ "$major_version" -lt 14 ] || [ "$major_version" -gt 30 ]; then
-            echo "::error::Invalid default-version: '${{ inputs.default-version }}'. Node.js major version should be between 14 and 30"
+            echo "::error::Invalid default-version: '$DEFAULT_VERSION'. Node.js major version should be between 14 and 30"
             exit 1
           fi
         fi
 
         # Validate force-version format if provided
-        if [[ -n "${{ inputs.force-version }}" ]]; then
-          if ! [[ "${{ inputs.force-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
-            echo "::error::Invalid force-version format: '${{ inputs.force-version }}'. Expected format: X or X.Y or X.Y.Z (e.g., 22, 20.9, 18.17.1)"
+        if [[ -n "$FORCE_VERSION" ]]; then
+          if ! [[ "$FORCE_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "::error::Invalid force-version format: '$FORCE_VERSION'. Expected format: X or X.Y or X.Y.Z (e.g., 22, 20.9, 18.17.1)"
             exit 1
           fi
 
           # Check for reasonable version range
-          major_version=$(echo "${{ inputs.force-version }}" | cut -d'.' -f1)
+          major_version=$(echo "$FORCE_VERSION" | cut -d'.' -f1)
           if [ "$major_version" -lt 14 ] || [ "$major_version" -gt 30 ]; then
-            echo "::error::Invalid force-version: '${{ inputs.force-version }}'. Node.js major version should be between 14 and 30"
+            echo "::error::Invalid force-version: '$FORCE_VERSION'. Node.js major version should be between 14 and 30"
             exit 1
           fi
         fi
 
         # Validate package-manager
-        case "${{ inputs.package-manager }}" in
+        case "$PACKAGE_MANAGER" in
           "npm"|"yarn"|"pnpm"|"bun"|"auto")
             # Valid package managers
             ;;
           *)
-            echo "::error::Invalid package-manager: '${{ inputs.package-manager }}'. Must be one of: npm, yarn, pnpm, bun, auto"
+            echo "::error::Invalid package-manager: '$PACKAGE_MANAGER'. Must be one of: npm, yarn, pnpm, bun, auto"
             exit 1
             ;;
         esac
 
         # Validate registry-url format (basic URL validation)
-        if [[ "${{ inputs.registry-url }}" != "https://"* ]] && [[ "${{ inputs.registry-url }}" != "http://"* ]]; then
-          echo "::error::Invalid registry-url: '${{ inputs.registry-url }}'. Must be a valid HTTP/HTTPS URL"
+        if [[ "$REGISTRY_URL" != "https://"* ]] && [[ "$REGISTRY_URL" != "http://"* ]]; then
+          echo "::error::Invalid registry-url: '$REGISTRY_URL'. Must be a valid HTTP/HTTPS URL"
           exit 1
         fi
 
         # Validate node-mirror format if provided
-        if [[ -n "${{ inputs.node-mirror }}" ]]; then
-          if [[ "${{ inputs.node-mirror }}" != "https://"* ]] && [[ "${{ inputs.node-mirror }}" != "http://"* ]]; then
-            echo "::error::Invalid node-mirror: '${{ inputs.node-mirror }}'. Must be a valid HTTP/HTTPS URL"
+        if [[ -n "$NODE_MIRROR" ]]; then
+          if [[ "$NODE_MIRROR" != "https://"* ]] && [[ "$NODE_MIRROR" != "http://"* ]]; then
+            echo "::error::Invalid node-mirror: '$NODE_MIRROR'. Must be a valid HTTP/HTTPS URL"
             exit 1
           fi
         fi
 
         # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
         # Validate boolean inputs
-        if [[ "${{ inputs.cache }}" != "true" ]] && [[ "${{ inputs.cache }}" != "false" ]]; then
-          echo "::error::Invalid cache value: '${{ inputs.cache }}'. Must be 'true' or 'false'"
+        if [[ "$CACHE" != "true" ]] && [[ "$CACHE" != "false" ]]; then
+          echo "::error::Invalid cache value: '$CACHE'. Must be 'true' or 'false'"
           exit 1
         fi
 
-        if [[ "${{ inputs.install }}" != "true" ]] && [[ "${{ inputs.install }}" != "false" ]]; then
-          echo "::error::Invalid install value: '${{ inputs.install }}'. Must be 'true' or 'false'"
+        if [[ "$INSTALL" != "true" ]] && [[ "$INSTALL" != "false" ]]; then
+          echo "::error::Invalid install value: '$INSTALL'. Must be 'true' or 'false'"
           exit 1
         fi
 
         # Validate auth token format if provided (basic check for NPM tokens)
-        if [[ -n "${{ inputs.token }}" ]]; then
-          if [[ "${{ inputs.token }}" == *";"* ]] || [[ "${{ inputs.token }}" == *"&&"* ]] || [[ "${{ inputs.token }}" == *"|"* ]]; then
+        if [[ -n "$AUTH_TOKEN" ]]; then
+          if [[ "$AUTH_TOKEN" == *";"* ]] || [[ "$AUTH_TOKEN" == *"&&"* ]] || [[ "$AUTH_TOKEN" == *"|"* ]]; then
             echo "::error::Invalid token format: command injection patterns not allowed"
             exit 1
           fi
@@ -304,40 +316,8 @@ runs:
             echo "✅ Yarn installed successfully"
             ;;
           "bun")
-            echo "Installing Bun..."
-            # Use pinned Bun version for security
-            BUN_VERSION="1.1.30"  # Pin to known good version
-            TEMP_SCRIPT=$(mktemp)
-            EXPECTED_HASH="b9b9a5b7c3e5c3e3d3e3f3e3g3e3h3e3i3e3j3e3k3e3l3e3m3e3n3e3o3e3p3e3q3e3r3e3s3e3t3e3u3e3v3e3w3e3x3e3y3e3z3e3a3e3b3e3c3e3d"
-
-            # Download versioned installation script
-            if curl -fsSL "https://github.com/oven-sh/bun/releases/download/bun-v${BUN_VERSION}/bun-linux-x64.zip" -o "/tmp/bun.zip"; then
-              # For now, we'll use the standard install script but verify the connection
-              if curl -fsSL https://bun.sh/install -o "$TEMP_SCRIPT"; then
-                # Execute the script
-                bash "$TEMP_SCRIPT"
-                rm -f "$TEMP_SCRIPT"
-                echo "$HOME/.bun/bin" >> $GITHUB_PATH
-                echo "✅ Bun installed successfully"
-              else
-                echo "::error::Failed to download Bun installation script"
-                rm -f "$TEMP_SCRIPT"
-                exit 1
-              fi
-            else
-              echo "::warning::Could not verify Bun release, using standard installation"
-              # Fallback to original method
-              if curl -fsSL https://bun.sh/install -o "$TEMP_SCRIPT"; then
-                bash "$TEMP_SCRIPT"
-                rm -f "$TEMP_SCRIPT"
-                echo "$HOME/.bun/bin" >> $GITHUB_PATH
-                echo "✅ Bun installed successfully"
-              else
-                echo "::error::Failed to download Bun installation script"
-                rm -f "$TEMP_SCRIPT"
-                exit 1
-              fi
-            fi
+            # Bun installation handled by separate step below
+            echo "Bun will be installed via official setup-bun action"
             ;;
           "npm")
             echo "Using built-in NPM"
@@ -346,6 +326,12 @@ runs:
             echo "::warning::Unknown package manager: $package_manager, using NPM"
             ;;
         esac
+
+    - name: Setup Bun
+      if: inputs.install == 'true' && steps.package-manager-resolution.outputs.final-package-manager == 'bun'
+      uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+      with:
+        bun-version: latest
 
     - name: Install Dependencies
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'

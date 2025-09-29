@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read          # Required for checking out repository
+#   - security-events: write  # Required for uploading SARIF results
 ---
 name: 'C# Lint Check'
 description: 'Runs linters like StyleCop or dotnet-format for C# code style checks.'
@@ -30,20 +33,22 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        DOTNET_VERSION: ${{ inputs.dotnet-version }}
       run: |
         set -euo pipefail
 
         # Validate .NET version format if provided
-        if [[ -n "${{ inputs.dotnet-version }}" ]]; then
-          if ! [[ "${{ inputs.dotnet-version }}" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
-            echo "::error::Invalid dotnet-version format: '${{ inputs.dotnet-version }}'. Expected format: X.Y or X.Y.Z (e.g., 7.0, 8.0.100)"
+        if [[ -n "$DOTNET_VERSION" ]]; then
+          if ! [[ "$DOTNET_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+            echo "::error::Invalid dotnet-version format: '$DOTNET_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 7.0, 8.0.100)"
             exit 1
           fi
 
           # Check for reasonable version range (prevent malicious inputs)
-          major_version=$(echo "${{ inputs.dotnet-version }}" | cut -d'.' -f1)
+          major_version=$(echo "$DOTNET_VERSION" | cut -d'.' -f1)
           if [ "$major_version" -lt 3 ] || [ "$major_version" -gt 20 ]; then
-            echo "::error::Invalid dotnet-version: '${{ inputs.dotnet-version }}'. Major version should be between 3 and 20"
+            echo "::error::Invalid dotnet-version: '$DOTNET_VERSION'. Major version should be between 3 and 20"
             exit 1
           fi
         fi

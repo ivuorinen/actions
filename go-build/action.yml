@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking out repository
 ---
 name: Go Build
 description: 'Builds the Go project.'
@@ -76,12 +78,14 @@ runs:
     - name: Build Go Project
       id: build
       shell: bash
+      env:
+        DESTINATION: ${{ inputs.destination }}
       run: |
         set -euo pipefail
         echo "Building Go project..."
 
         # Create destination directory
-        mkdir -p "${{ inputs.destination }}"
+        mkdir -p "$DESTINATION"
 
         build_success=true
         # Check if there are any main packages
@@ -90,7 +94,7 @@ runs:
           for main_dir in $(find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u); do
             echo "Building package in $main_dir..."
             output_name=$(basename "$main_dir")
-            if ! go build -ldflags="-s -w" -o "${{ inputs.destination }}/$output_name" "$main_dir"; then
+            if ! go build -ldflags="-s -w" -o "$DESTINATION/$output_name" "$main_dir"; then
               build_success=false
             fi
           done

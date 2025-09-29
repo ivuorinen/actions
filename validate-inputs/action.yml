@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - (none required)  # Validation-only action
 ---
 name: 'Validate Inputs'
 description: 'Centralized Python-based input validation for GitHub Actions with PCRE regex support'

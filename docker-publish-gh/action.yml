@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - packages: write  # Required for publishing to GitHub Container Registry
+#   - contents: read   # Required for checking out repository
 ---
 name: Docker Publish to GitHub Packages
 description: 'Publishes a Docker image to GitHub Packages with advanced security and reliability features.'
@@ -101,23 +104,34 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Mask Secrets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        echo "::add-mask::$GITHUB_TOKEN"
+
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.image-name }}
+        TAGS: ${{ inputs.tags }}
+        PLATFORMS: ${{ inputs.platforms }}
       run: |
         set -euo pipefail
 
         # Validate image name format
-        if [ -n "${{ inputs.image-name }}" ]; then
-          if ! [[ "${{ inputs.image-name }}" =~ ^[a-z0-9]+(?:[._-][a-z0-9]+)*$ ]]; then
+        if [ -n "$IMAGE_NAME" ]; then
+          if ! [[ "$IMAGE_NAME" =~ ^[a-z0-9]+(?:[._-][a-z0-9]+)*$ ]]; then
             echo "::error::Invalid image name format"
             exit 1
           fi
         fi
 
         # Validate tags
-        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
-        for tag in "${TAGS[@]}"; do
+        IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+        for tag in "${TAG_ARRAY[@]}"; do
           if ! [[ "$tag" =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?|latest|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
             echo "::error::Invalid tag format: $tag"
             exit 1
@@ -125,8 +139,8 @@ runs:
         done
 
         # Validate platforms
-        IFS=',' read -ra PLATFORMS <<< "${{ inputs.platforms }}"
-        for platform in "${PLATFORMS[@]}"; do
+        IFS=',' read -ra PLATFORM_ARRAY <<< "$PLATFORMS"
+        for platform in "${PLATFORM_ARRAY[@]}"; do
           if ! [[ "$platform" =~ ^linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x)$ ]]; then
             echo "::error::Invalid platform: $platform"
             exit 1
@@ -151,27 +165,31 @@ runs:
     - name: Prepare Metadata
       id: metadata
       shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.image-name }}
+        REGISTRY: ${{ inputs.registry }}
+        TAGS: ${{ inputs.tags }}
       run: |
         set -euo pipefail
 
         # Determine image name
-        if [ -z "${{ inputs.image-name }}" ]; then
+        if [ -z "$IMAGE_NAME" ]; then
           image_name=$(basename $GITHUB_REPOSITORY)
         else
-          image_name="${{ inputs.image-name }}"
+          image_name="$IMAGE_NAME"
         fi
 
         # Output image name for reuse
         echo "image-name=${image_name}" >> $GITHUB_OUTPUT
 
         # Construct full image name with registry
-        full_name="${{ inputs.registry }}/${{ github.repository_owner }}/${image_name}"
+        full_name="$REGISTRY/${{ github.repository_owner }}/${image_name}"
         echo "full-name=${full_name}" >> $GITHUB_OUTPUT
 
         # Process tags
         processed_tags=""
-        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
-        for tag in "${TAGS[@]}"; do
+        IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
+        for tag in "${TAG_ARRAY[@]}"; do
           processed_tags="${processed_tags}${full_name}:${tag},"
         done
         processed_tags=${processed_tags%,}
@@ -192,6 +210,8 @@ runs:
       id: detect-platforms
       if: inputs.auto-detect-platforms == 'true'
       shell: bash
+      env:
+        PLATFORMS: ${{ inputs.platforms }}
       run: |
         set -euo pipefail
 
@@ -202,8 +222,8 @@ runs:
           echo "platforms=${available_platforms}" >> $GITHUB_OUTPUT
           echo "Detected platforms: ${available_platforms}"
         else
-          echo "platforms=${{ inputs.platforms }}" >> $GITHUB_OUTPUT
-          echo "Using default platforms: ${{ inputs.platforms }}"
+          echo "platforms=$PLATFORMS" >> $GITHUB_OUTPUT
+          echo "Using default platforms: $PLATFORMS"
         fi
 
     - name: Publish Image
@@ -211,6 +231,20 @@ runs:
       shell: bash
       env:
         DOCKER_BUILDKIT: 1
+        AUTO_DETECT_PLATFORMS: ${{ inputs.auto-detect-platforms }}
+        DETECTED_PLATFORMS: ${{ steps.detect-platforms.outputs.platforms }}
+        DEFAULT_PLATFORMS: ${{ inputs.platforms }}
+        VERBOSE: ${{ inputs.verbose }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        METADATA_TAGS: ${{ steps.metadata.outputs.tags }}
+        REGISTRY: ${{ inputs.registry }}
+        CACHE_MODE: ${{ inputs.cache-mode }}
+        PROVENANCE: ${{ inputs.provenance }}
+        SBOM: ${{ inputs.sbom }}
+        INPUT_TAGS: ${{ inputs.tags }}
+        FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
+        IMAGE_NAME: ${{ steps.metadata.outputs.image-name }}
+        RETRY_DELAY: ${{ inputs.retry-delay }}
       run: |
         set -euo pipefail
 
@@ -222,10 +256,10 @@ runs:
         build_start=$(date +%s)
 
         # Determine platforms
-        if [ "${{ inputs.auto-detect-platforms }}" == "true" ] && [ -n "${{ steps.detect-platforms.outputs.platforms }}" ]; then
-          platforms="${{ steps.detect-platforms.outputs.platforms }}"
+        if [ "$AUTO_DETECT_PLATFORMS" == "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
+          platforms="$DETECTED_PLATFORMS"
         else
-          platforms="${{ inputs.platforms }}"
+          platforms="$DEFAULT_PLATFORMS"
         fi
 
         # Initialize platform matrix tracking
@@ -233,43 +267,55 @@ runs:
 
         # Prepare verbose flag
         verbose_flag=""
-        if [ "${{ inputs.verbose }}" == "true" ]; then
+        if [ "$VERBOSE" == "true" ]; then
           verbose_flag="--progress=plain"
         fi
 
         attempt=1
-        max_attempts=${{ inputs.max-retries }}
+        max_attempts="$MAX_RETRIES"
 
         while [ $attempt -le $max_attempts ]; do
           echo "Publishing attempt $attempt of $max_attempts"
 
           # Prepare tag arguments from comma-separated tags
           tag_args=""
-          IFS=',' read -ra TAGS <<< "${{ steps.metadata.outputs.tags }}"
+          IFS=',' read -ra TAGS <<< "$METADATA_TAGS"
           for tag in "${TAGS[@]}"; do
             tag=$(echo "$tag" | xargs) # trim whitespace
             tag_args="$tag_args --tag $tag"
           done
 
+          # Prepare provenance flag
+          provenance_flag=""
+          if [ "$PROVENANCE" == "true" ]; then
+            provenance_flag="--provenance=true"
+          fi
+
+          # Prepare SBOM flag
+          sbom_flag=""
+          if [ "$SBOM" == "true" ]; then
+            sbom_flag="--sbom=true"
+          fi
+
           if docker buildx build \
             --platform=${platforms} \
             $tag_args \
             --push \
-            --cache-from type=registry,ref=${{ inputs.registry }}/${{ env.REPO_OWNER_LOWER }}/cache:buildcache \
-            --cache-to type=registry,ref=${{ inputs.registry }}/${{ env.REPO_OWNER_LOWER }}/cache:buildcache,mode=${{ inputs.cache-mode }} \
-            ${{ inputs.provenance == 'true' && '--provenance=true' || '' }} \
-            ${{ inputs.sbom == 'true' && '--sbom=true' || '' }} \
+            --cache-from type=registry,ref="$REGISTRY/$REPO_OWNER_LOWER/cache:buildcache" \
+            --cache-to type=registry,ref="$REGISTRY/$REPO_OWNER_LOWER/cache:buildcache",mode="$CACHE_MODE" \
+            ${provenance_flag} \
+            ${sbom_flag} \
             ${verbose_flag} \
             --metadata-file=/tmp/build-metadata.json \
             --label "org.opencontainers.image.source=${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.created=$(date -u +'%Y-%m-%dT%H:%M:%SZ')" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
-            --label "org.opencontainers.image.version=${{ inputs.tags }}" \
+            --label "org.opencontainers.image.version=$INPUT_TAGS" \
             .; then
 
             # Get image digest
-            IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
-            digest=$(docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${TAGS[0]} --raw | jq -r '.digest // "unknown"' || echo "unknown")
+            IFS=',' read -ra TAG_ARRAY <<< "$INPUT_TAGS"
+            digest=$(docker buildx imagetools inspect "$FULL_IMAGE_NAME:${TAG_ARRAY[0]}" --raw | jq -r '.digest // "unknown"' || echo "unknown")
             echo "digest=${digest}" >> $GITHUB_OUTPUT
 
             # Calculate build time
@@ -287,12 +333,12 @@ runs:
             echo "platform-matrix=${platform_matrix}" >> $GITHUB_OUTPUT
 
             # Generate attestations if enabled
-            if [[ "${{ inputs.provenance }}" == "true" ]]; then
+            if [[ "$PROVENANCE" == "true" ]]; then
               echo "provenance=true" >> $GITHUB_OUTPUT
             fi
 
-            if [[ "${{ inputs.sbom }}" == "true" ]]; then
-              sbom_path="${{ inputs.registry }}/${{ github.repository_owner }}/${{ steps.metadata.outputs.image-name }}.sbom"
+            if [[ "$SBOM" == "true" ]]; then
+              sbom_path="$REGISTRY/${{ github.repository_owner }}/$IMAGE_NAME.sbom"
               echo "sbom=${sbom_path}" >> $GITHUB_OUTPUT
             fi
 
@@ -301,8 +347,8 @@ runs:
 
           attempt=$((attempt + 1))
           if [ $attempt -le $max_attempts ]; then
-            echo "Publish failed, waiting ${{ inputs.retry-delay }} seconds before retry..."
-            sleep ${{ inputs.retry-delay }}
+            echo "Publish failed, waiting $RETRY_DELAY seconds before retry..."
+            sleep "$RETRY_DELAY"
           else
             echo "::error::Publishing failed after $max_attempts attempts"
             exit 1
@@ -313,6 +359,9 @@ runs:
       id: scan
       if: inputs.scan-image == 'true'
       shell: bash
+      env:
+        INPUT_TAGS: ${{ inputs.tags }}
+        FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
       run: |
         set -euo pipefail
 
@@ -322,14 +371,14 @@ runs:
         sudo apt-get update && sudo apt-get install -y trivy
 
         # Get first tag for scanning
-        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+        IFS=',' read -ra TAGS <<< "$INPUT_TAGS"
 
         # Scan the published image
         trivy image \
           --severity HIGH,CRITICAL \
           --format json \
           --output /tmp/scan-results.json \
-          ${{ steps.metadata.outputs.full-name }}:${TAGS[0]}
+          "$FULL_IMAGE_NAME:${TAGS[0]}"
 
         # Output results
         scan_results=$(cat /tmp/scan-results.json | jq -c '.')
@@ -345,17 +394,20 @@ runs:
       id: sign
       if: inputs.sign-image == 'true'
       shell: bash
+      env:
+        INPUT_TAGS: ${{ inputs.tags }}
+        FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
       run: |
         set -euo pipefail
 
         # Sign all tags
-        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+        IFS=',' read -ra TAGS <<< "$INPUT_TAGS"
         for tag in "${TAGS[@]}"; do
-          echo "Signing ${{ steps.metadata.outputs.full-name }}:${tag}"
+          echo "Signing $FULL_IMAGE_NAME:${tag}"
 
           # Using keyless signing with OIDC
           export COSIGN_EXPERIMENTAL=1
-          cosign sign --yes ${{ steps.metadata.outputs.full-name }}:${tag}
+          cosign sign --yes "$FULL_IMAGE_NAME:${tag}"
         done
 
         echo "signature=signed" >> $GITHUB_OUTPUT
@@ -363,38 +415,45 @@ runs:
     - name: Verify Publication
       id: verify
       shell: bash
+      env:
+        INPUT_TAGS: ${{ inputs.tags }}
+        FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
+        AUTO_DETECT_PLATFORMS: ${{ inputs.auto-detect-platforms }}
+        DETECTED_PLATFORMS: ${{ steps.detect-platforms.outputs.platforms }}
+        DEFAULT_PLATFORMS: ${{ inputs.platforms }}
+        SIGN_IMAGE: ${{ inputs.sign-image }}
       run: |
         set -euo pipefail
 
         # Verify image existence and accessibility
-        IFS=',' read -ra TAGS <<< "${{ inputs.tags }}"
+        IFS=',' read -ra TAGS <<< "$INPUT_TAGS"
         for tag in "${TAGS[@]}"; do
-          if ! docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${tag} >/dev/null 2>&1; then
+          if ! docker buildx imagetools inspect "$FULL_IMAGE_NAME:${tag}" >/dev/null 2>&1; then
             echo "::error::Published image not found: $tag"
             exit 1
           fi
         done
 
         # Determine platforms to verify
-        if [ "${{ inputs.auto-detect-platforms }}" == "true" ] && [ -n "${{ steps.detect-platforms.outputs.platforms }}" ]; then
-          platforms="${{ steps.detect-platforms.outputs.platforms }}"
+        if [ "$AUTO_DETECT_PLATFORMS" == "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
+          platforms="$DETECTED_PLATFORMS"
         else
-          platforms="${{ inputs.platforms }}"
+          platforms="$DEFAULT_PLATFORMS"
         fi
 
         # Verify platforms
         IFS=',' read -ra PLATFORMS <<< "${platforms}"
         for platform in "${PLATFORMS[@]}"; do
-          if ! docker buildx imagetools inspect ${{ steps.metadata.outputs.full-name }}:${TAGS[0]} | grep -q "$platform"; then
+          if ! docker buildx imagetools inspect "$FULL_IMAGE_NAME:${TAGS[0]}" | grep -q "$platform"; then
             echo "::warning::Platform $platform not found in published image"
           fi
         done
 
         # Verify signature if signing was enabled
-        if [ "${{ inputs.sign-image }}" == "true" ]; then
+        if [ "$SIGN_IMAGE" == "true" ]; then
           export COSIGN_EXPERIMENTAL=1
           for tag in "${TAGS[@]}"; do
-            if ! cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" ${{ steps.metadata.outputs.full-name }}:${tag} >/dev/null 2>&1; then
+            if ! cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" "$FULL_IMAGE_NAME:${tag}" >/dev/null 2>&1; then
               echo "::warning::Could not verify signature for ${tag}"
             fi
           done
@@ -403,6 +462,8 @@ runs:
     - name: Clean up
       if: always()
       shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
       run: |-
         set -euo pipefail
 
@@ -410,4 +471,4 @@ runs:
         docker buildx prune -f --keep-storage=10GB
 
         # Logout from registry
-        docker logout ${{ inputs.registry }}
+        docker logout "$REGISTRY"

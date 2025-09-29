@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for git configuration and operations
 ---
 name: Set Git Config
 description: 'Sets Git configuration for actions.'
@@ -44,20 +46,29 @@ runs:
     - name: Check for FIXIMUS_TOKEN
       id: bot
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        USERNAME: ${{ inputs.username }}
+        EMAIL: ${{ inputs.email }}
+        IS_FIXIMUS: ${{ inputs.is_fiximus }}
       run: |
         set -euo pipefail
 
-        echo "token=${{ inputs.token }}" >> $GITHUB_OUTPUT
-        echo "username=${{ inputs.username }}" >> $GITHUB_OUTPUT
-        echo "email=${{ inputs.email }}" >> $GITHUB_OUTPUT
+        echo "token=$GITHUB_TOKEN" >> $GITHUB_OUTPUT
+        echo "username=$USERNAME" >> $GITHUB_OUTPUT
+        echo "email=$EMAIL" >> $GITHUB_OUTPUT
 
-        if [ "${{ inputs.is_fiximus }}" != "false" ]; then
+        if [ "$IS_FIXIMUS" != "false" ]; then
           echo "username=fiximus" >> $GITHUB_OUTPUT
           echo "email=github-bot@ivuorinen.net" >> $GITHUB_OUTPUT
         fi
 
     - name: Configure Git
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ steps.bot.outputs.token }}
+        GIT_USERNAME: ${{ steps.bot.outputs.username }}
+        GIT_EMAIL: ${{ steps.bot.outputs.email }}
       run: |-
         set -euo pipefail
 
@@ -72,7 +83,7 @@ runs:
         trap cleanup_git_config EXIT
 
         # Store token in variable to avoid repeated exposure
-        TOKEN="${{ steps.bot.outputs.token }}"
+        TOKEN="$GITHUB_TOKEN"
 
         git config --local --unset-all http.https://github.com/.extraheader || true
         git config --local \
@@ -81,5 +92,5 @@ runs:
         git config --local \
           --add url.https://x-access-token:${TOKEN}@github.com/.insteadOf \
           'git@github.com:'
-        git config --local user.name "${{ steps.bot.outputs.username }}"
-        git config --local user.email "${{ steps.bot.outputs.email }}"
+        git config --local user.name "$GIT_USERNAME"
+        git config --local user.email "$GIT_EMAIL"

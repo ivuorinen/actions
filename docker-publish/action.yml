@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - packages: write  # Required for publishing to Docker registries
+#   - contents: read   # Required for checking out repository
 ---
 name: Docker Publish
 description: Publish a Docker image to GitHub Packages and Docker Hub.
@@ -84,11 +87,13 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
       run: |
         set -euo pipefail
 
         # Validate registry input
-        if ! [[ "${{ inputs.registry }}" =~ ^(dockerhub|github|both)$ ]]; then
+        if ! [[ "$REGISTRY" =~ ^(dockerhub|github|both)$ ]]; then
           echo "::error::Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
           exit 1
         fi
@@ -96,21 +101,24 @@ runs:
     - name: Determine Tags
       id: tags
       shell: bash
+      env:
+        NIGHTLY: ${{ inputs.nightly }}
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
       run: |
         set -euo pipefail
 
         # Initialize variables
         declare -a tag_array
 
-        if [[ "${{ inputs.nightly }}" == "true" ]]; then
+        if [[ "$NIGHTLY" == "true" ]]; then
           # Nightly build tags
           current_date=$(date +'%Y%m%d-%H%M')
           tag_array+=("nightly")
           tag_array+=("nightly-${current_date}")
         else
           # Release tags
-          if [[ -n "${{ github.event.release.tag_name }}" ]]; then
-            tag_array+=("${{ github.event.release.tag_name }}")
+          if [[ -n "$RELEASE_TAG" ]]; then
+            tag_array+=("$RELEASE_TAG")
             tag_array+=("latest")
           else
             echo "::error::No release tag found and not a nightly build"
@@ -126,16 +134,18 @@ runs:
     - name: Determine Publish Destination
       id: dest
       shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
       run: |
         set -euo pipefail
 
-        if [[ "${{ inputs.registry }}" == "both" ]]; then
+        if [[ "$REGISTRY" == "both" ]]; then
           echo "reg=github,dockerhub" >> "$GITHUB_OUTPUT"
         else
-          echo "reg=${{ inputs.registry }}" >> "$GITHUB_OUTPUT"
+          echo "reg=$REGISTRY" >> "$GITHUB_OUTPUT"
         fi
 
-        echo "Publishing to: ${{ inputs.registry }}"
+        echo "Publishing to: $REGISTRY"
 
     - name: Build Multi-Arch Docker Image
       id: build
@@ -184,6 +194,13 @@ runs:
     - name: Verify Publications
       id: verify
       shell: bash
+      env:
+        DEST_REG: ${{ steps.dest.outputs.reg }}
+        DOCKERHUB_IMAGE_NAME: ${{ steps.publish-dockerhub.outputs.image-name }}
+        DOCKERHUB_TAGS: ${{ steps.publish-dockerhub.outputs.tags }}
+        GITHUB_IMAGE_NAME: ${{ steps.publish-github.outputs.image-name }}
+        GITHUB_TAGS: ${{ steps.publish-github.outputs.tags }}
+        ALL_TAGS: ${{ steps.tags.outputs.all-tags }}
       run: |
         set -euo pipefail
 
@@ -191,22 +208,22 @@ runs:
         success=true
 
         # Split registry string into array
-        IFS=',' read -ra REGISTRIES <<< "${{ steps.dest.outputs.reg }}"
+        IFS=',' read -ra REGISTRIES <<< "$DEST_REG"
 
         for registry in "${REGISTRIES[@]}"; do
           echo "Checking ${registry} publication..."
           case "${registry}" in
             "dockerhub")
               # Get actual image name from publish step output or fallback to repo-based name
-              image_name="${{ steps.publish-dockerhub.outputs.image-name }}"
+              image_name="$DOCKERHUB_IMAGE_NAME"
               if [[ -z "$image_name" ]]; then
                 image_name="docker.io/${{ github.repository }}"
               fi
 
               # Get tags from publish step or fallback to metadata
-              tags="${{ steps.publish-dockerhub.outputs.tags }}"
+              tags="$DOCKERHUB_TAGS"
               if [[ -z "$tags" ]]; then
-                tags="${{ steps.tags.outputs.all-tags }}"
+                tags="$ALL_TAGS"
               fi
 
               IFS=',' read -ra TAGS <<< "$tags"
@@ -224,15 +241,15 @@ runs:
               ;;
             "github")
               # Get actual image name from publish step output or fallback to repo-based name
-              image_name="${{ steps.publish-github.outputs.image-name }}"
+              image_name="$GITHUB_IMAGE_NAME"
               if [[ -z "$image_name" ]]; then
                 image_name="ghcr.io/${{ github.repository }}"
               fi
 
               # Get tags from publish step or fallback to metadata
-              tags="${{ steps.publish-github.outputs.tags }}"
+              tags="$GITHUB_TAGS"
               if [[ -z "$tags" ]]; then
-                tags="${{ steps.tags.outputs.all-tags }}"
+                tags="$ALL_TAGS"
               fi
 
               IFS=',' read -ra TAGS <<< "$tags"
@@ -261,6 +278,8 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
+      env:
+        DEST_REG: ${{ steps.dest.outputs.reg }}
       run: |-
         set -euo pipefail
 
@@ -270,10 +289,10 @@ runs:
         docker buildx prune -f --keep-storage=10GB
 
         # Remove any temporary authentication
-        if [[ "${{ steps.dest.outputs.reg }}" =~ "dockerhub" ]]; then
+        if [[ "$DEST_REG" =~ "dockerhub" ]]; then
           docker logout docker.io || true
         fi
-        if [[ "${{ steps.dest.outputs.reg }}" =~ "github" ]]; then
+        if [[ "$DEST_REG" =~ "github" ]]; then
           docker logout ghcr.io || true
         fi
 

@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for creating releases
 ---
 name: Do Monthly Release
 description: 'Creates a release for the current month, incrementing patch number if necessary.'
@@ -38,24 +40,28 @@ runs:
   steps:
     - name: Validate Inputs
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        PREFIX: ${{ inputs.prefix }}
       run: |
         set -euo pipefail
 
         # Validate token
-        if [ -z "${{ inputs.token }}" ]; then
+        if [ -z "$GITHUB_TOKEN" ]; then
           echo "::error::GitHub token is required"
           exit 1
         fi
 
         # Validate dry-run option
-        if [ "${{ inputs.dry-run }}" != "true" ] && [ "${{ inputs.dry-run }}" != "false" ]; then
+        if [ "$DRY_RUN" != "true" ] && [ "$DRY_RUN" != "false" ]; then
           echo "::error::dry-run must be either 'true' or 'false'"
           exit 1
         fi
 
         # Validate prefix format if provided
-        if [ -n "${{ inputs.prefix }}" ]; then
-          if ! [[ "${{ inputs.prefix }}" =~ ^[a-zA-Z0-9_.-]*$ ]]; then
+        if [ -n "$PREFIX" ]; then
+          if ! [[ "$PREFIX" =~ ^[a-zA-Z0-9_.-]*$ ]]; then
             echo "::error::Invalid prefix format. Only alphanumeric characters, dots, underscores, and hyphens are allowed"
             exit 1
           fi
@@ -72,6 +78,8 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+        PREFIX: ${{ inputs.prefix }}
+        DRY_RUN: ${{ inputs.dry-run }}
       run: |
         set -euo pipefail
 
@@ -124,12 +132,12 @@ runs:
 
         # Construct release tag
         release_tag="${next_major_minor}.${next_patch}"
-        if [ -n "${{ inputs.prefix }}" ]; then
-          release_tag="${{ inputs.prefix }}${release_tag}"
+        if [ -n "$PREFIX" ]; then
+          release_tag="${PREFIX}${release_tag}"
         fi
 
         # Validate final release tag
-        validate_version "${release_tag#${{ inputs.prefix }}}" || {
+        validate_version "${release_tag#$PREFIX}" || {
           echo "::error::Invalid release tag format: $release_tag"
           exit 1
         }
@@ -137,7 +145,7 @@ runs:
         echo "release_tag=${release_tag}" >> $GITHUB_OUTPUT
 
         # Create release if not in dry-run mode
-        if [ "${{ inputs.dry-run }}" = "false" ]; then
+        if [ "$DRY_RUN" = "false" ]; then
           echo "Creating release ${release_tag}..."
           release_url=$(gh release create "${release_tag}" \
               --repo="${GITHUB_REPOSITORY}" \

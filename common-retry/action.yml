@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - (none required) # Permissions depend on the command being executed
 ---
 name: Common Retry
 description: 'Standardized retry utility for network operations and flaky commands'
@@ -69,42 +71,49 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        RETRY_DELAY: ${{ inputs.retry-delay }}
+        BACKOFF_STRATEGY: ${{ inputs.backoff-strategy }}
+        TIMEOUT: ${{ inputs.timeout }}
+        SHELL: ${{ inputs.shell }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
 
         # Validate max-retries (1-10)
-        if ! [[ "${{ inputs.max-retries }}" =~ ^[1-9]$|^10$ ]]; then
-          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be 1-10"
+        if ! [[ "$MAX_RETRIES" =~ ^[1-9]$|^10$ ]]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be 1-10"
           exit 1
         fi
 
         # Validate retry-delay (1-300)
-        if ! [[ "${{ inputs.retry-delay }}" =~ ^[1-9][0-9]?$|^[12][0-9][0-9]$|^300$ ]]; then
-          echo "::error::Invalid retry-delay: '${{ inputs.retry-delay }}'. Must be 1-300 seconds"
+        if ! [[ "$RETRY_DELAY" =~ ^[1-9][0-9]?$|^[12][0-9][0-9]$|^300$ ]]; then
+          echo "::error::Invalid retry-delay: '$RETRY_DELAY'. Must be 1-300 seconds"
           exit 1
         fi
 
         # Validate backoff-strategy
-        if ! [[ "${{ inputs.backoff-strategy }}" =~ ^(linear|exponential|fixed)$ ]]; then
-          echo "::error::Invalid backoff-strategy: '${{ inputs.backoff-strategy }}'. Must be linear, exponential, or fixed"
+        if ! [[ "$BACKOFF_STRATEGY" =~ ^(linear|exponential|fixed)$ ]]; then
+          echo "::error::Invalid backoff-strategy: '$BACKOFF_STRATEGY'. Must be linear, exponential, or fixed"
           exit 1
         fi
 
         # Validate timeout (1-3600)
-        if ! [[ "${{ inputs.timeout }}" =~ ^[1-9][0-9]?$|^[1-9][0-9][0-9]$|^[12][0-9][0-9][0-9]$|^3[0-5][0-9][0-9]$|^3600$ ]]; then
-          echo "::error::Invalid timeout: '${{ inputs.timeout }}'. Must be 1-3600 seconds"
+        if ! [[ "$TIMEOUT" =~ ^[1-9][0-9]?$|^[1-9][0-9][0-9]$|^[12][0-9][0-9][0-9]$|^3[0-5][0-9][0-9]$|^3600$ ]]; then
+          echo "::error::Invalid timeout: '$TIMEOUT'. Must be 1-3600 seconds"
           exit 1
         fi
 
         # Validate shell (only bash supported due to script features)
-        if ! [[ "${{ inputs.shell }}" =~ ^bash$ ]]; then
-          echo "::error::Invalid shell: '${{ inputs.shell }}'. Must be bash (sh not supported due to pipefail requirement)"
+        if ! [[ "$SHELL" =~ ^bash$ ]]; then
+          echo "::error::Invalid shell: '$SHELL'. Must be bash (sh not supported due to pipefail requirement)"
           exit 1
         fi
 
         # Validate working directory doesn't contain path traversal
-        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
-          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal (..) not allowed"
+        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Path traversal (..) not allowed"
           exit 1
         fi
 
@@ -114,24 +123,33 @@ runs:
       id: execute
       shell: ${{ inputs.shell }}
       working-directory: ${{ inputs.working-directory }}
+      env:
+        SUCCESS_CODES_INPUT: ${{ inputs.success-codes }}
+        RETRY_CODES_INPUT: ${{ inputs.retry-codes }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        RETRY_DELAY: ${{ inputs.retry-delay }}
+        TIMEOUT: ${{ inputs.timeout }}
+        BACKOFF_STRATEGY: ${{ inputs.backoff-strategy }}
+        OPERATION_DESCRIPTION: ${{ inputs.description }}
+        COMMAND: ${{ inputs.command }}
       run: |-
         set -euo pipefail
 
         # Parse success and retry codes
-        IFS=',' read -ra SUCCESS_CODES <<< "${{ inputs.success-codes }}"
-        IFS=',' read -ra RETRY_CODES <<< "${{ inputs.retry-codes }}"
+        IFS=',' read -ra SUCCESS_CODES <<< "$SUCCESS_CODES_INPUT"
+        IFS=',' read -ra RETRY_CODES <<< "$RETRY_CODES_INPUT"
 
         # Initialize variables
         attempt=1
-        max_attempts=${{ inputs.max-retries }}
-        base_delay=${{ inputs.retry-delay }}
-        timeout_seconds=${{ inputs.timeout }}
-        backoff_strategy="${{ inputs.backoff-strategy }}"
-        operation_description="${{ inputs.description }}"
+        max_attempts="$MAX_RETRIES"
+        base_delay="$RETRY_DELAY"
+        timeout_seconds="$TIMEOUT"
+        backoff_strategy="$BACKOFF_STRATEGY"
+        operation_description="$OPERATION_DESCRIPTION"
         start_time=$(date +%s)
 
         echo "Starting retry execution: $operation_description"
-        echo "Command: ${{ inputs.command }}"
+        echo "Command: $COMMAND"
         echo "Max attempts: $max_attempts"
         echo "Base delay: ${base_delay}s"
         echo "Backoff strategy: $backoff_strategy"
@@ -172,7 +190,7 @@ runs:
 
           # Execute command with timeout
           exit_code=0
-          if timeout "$timeout_seconds" bash -c "${{ inputs.command }}"; then
+          if timeout "$timeout_seconds" bash -c "$COMMAND"; then
             exit_code=0
           else
             exit_code=$?

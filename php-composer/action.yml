@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking out repository
 ---
 name: Run Composer Install
 description: 'Runs Composer install on a repository with advanced caching and configuration.'
@@ -63,6 +65,13 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Mask Secrets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        echo "::add-mask::$GITHUB_TOKEN"
+
     - name: Validate Inputs
       id: validate
       uses: ./validate-inputs
@@ -83,6 +92,8 @@ runs:
     - name: Get Dependency Hashes
       id: hash
       shell: bash
+      env:
+        CACHE_DIRECTORIES: ${{ inputs.cache-directories }}
       run: |
         set -euo pipefail
 
@@ -102,8 +113,8 @@ runs:
         fi
 
         # Calculate additional directory hashes
-        if [ -n "${{ inputs.cache-directories }}" ]; then
-          IFS=',' read -ra DIRS <<< "${{ inputs.cache-directories }}"
+        if [ -n "$CACHE_DIRECTORIES" ]; then
+          IFS=',' read -ra DIRS <<< "$CACHE_DIRECTORIES"
           for dir in "${DIRS[@]}"; do
             dir_hash=$(calculate_dir_hash "$dir")
             if [ -n "$dir_hash" ]; then
@@ -115,16 +126,20 @@ runs:
     - name: Configure Composer
       id: composer
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        STABILITY: ${{ inputs.stability }}
+        COMPOSER_VERSION: ${{ inputs.composer-version }}
       run: |
         set -euo pipefail
 
         # Configure Composer environment
         composer config --global process-timeout 600
         composer config --global allow-plugins true
-        composer config --global github-oauth.github.com "${{ inputs.token }}"
+        composer config --global github-oauth.github.com "$GITHUB_TOKEN"
 
-        if [ "${{ inputs.stability }}" != "stable" ]; then
-          composer config minimum-stability ${{ inputs.stability }}
+        if [ "$STABILITY" != "stable" ]; then
+          composer config minimum-stability "$STABILITY"
         fi
 
         # Verify Composer installation
@@ -136,7 +151,7 @@ runs:
 
         # Extract major version for comparison
         composer_major_version=${composer_full_version%%.*}
-        expected_version="${{ inputs.composer-version }}"
+        expected_version="$COMPOSER_VERSION"
 
         echo "Detected Composer version: $composer_full_version (major: $composer_major_version)"
 

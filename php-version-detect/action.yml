@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for reading version files
 ---
 name: PHP Version Detect
 description: "Detects the PHP version from the project's composer.json, phpunit.xml, or other configuration files."
@@ -25,27 +27,29 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        DEFAULT_VERSION: ${{ inputs.default-version }}
       run: |
         set -euo pipefail
 
         # Validate default-version format
-        if ! [[ "${{ inputs.default-version }}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-          echo "::error::Invalid default-version format: '${{ inputs.default-version }}'. Expected format: X.Y or X.Y.Z (e.g., 8.2, 8.3.1)"
+        if ! [[ "$DEFAULT_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+          echo "::error::Invalid default-version format: '$DEFAULT_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 8.2, 8.3.1)"
           exit 1
         fi
 
         # Check for reasonable version range (prevent malicious inputs)
-        major_version=$(echo "${{ inputs.default-version }}" | cut -d'.' -f1)
+        major_version=$(echo "$DEFAULT_VERSION" | cut -d'.' -f1)
         if [ "$major_version" -lt 7 ] || [ "$major_version" -gt 9 ]; then
-          echo "::error::Invalid default-version: '${{ inputs.default-version }}'. PHP major version should be between 7 and 9"
+          echo "::error::Invalid default-version: '$DEFAULT_VERSION'. PHP major version should be between 7 and 9"
           exit 1
         fi
 
         # Check minor version range for PHP 8
         if [ "$major_version" -eq 8 ]; then
-          minor_version=$(echo "${{ inputs.default-version }}" | cut -d'.' -f2)
+          minor_version=$(echo "$DEFAULT_VERSION" | cut -d'.' -f2)
           if [ "$minor_version" -lt 0 ] || [ "$minor_version" -gt 4 ]; then
-            echo "::error::Invalid default-version: '${{ inputs.default-version }}'. PHP 8 minor version should be between 0 and 4"
+            echo "::error::Invalid default-version: '$DEFAULT_VERSION'. PHP 8 minor version should be between 0 and 4"
             exit 1
           fi
         fi

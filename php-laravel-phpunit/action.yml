@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking out repository
 ---
 name: Laravel Setup and Composer test
 description: 'Setup PHP, install dependencies, generate key, create database and run composer test'
@@ -47,6 +49,15 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Mask Secrets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        if [ -n "$GITHUB_TOKEN" ]; then
+          echo "::add-mask::$GITHUB_TOKEN"
+        fi
+
     - name: Detect PHP Version
       id: php-version
       uses: ./php-version-detect

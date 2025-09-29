@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for committing and pushing lint fixes
+#   - security-events: write  # Required for uploading SARIF reports
 ---
 name: Python Lint and Fix
 description: 'Lints and fixes Python files, commits changes, and uploads SARIF report.'
@@ -62,75 +65,85 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        PYTHON_VERSION: ${{ inputs.python-version }}
+        FLAKE8_VERSION: ${{ inputs.flake8-version }}
+        AUTOPEP8_VERSION: ${{ inputs.autopep8-version }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+        GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
 
         # Validate Python version format
-        if ! [[ "${{ inputs.python-version }}" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
-          echo "::error::Invalid python-version: '${{ inputs.python-version }}'. Expected format: X.Y or X.Y.Z (e.g., 3.11, 3.11.5)"
+        if ! [[ "$PYTHON_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+          echo "::error::Invalid python-version: '$PYTHON_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 3.11, 3.11.5)"
           exit 1
         fi
 
         # Validate flake8 version format (semantic versioning)
-        if ! [[ "${{ inputs.flake8-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-          echo "::error::Invalid flake8-version: '${{ inputs.flake8-version }}'. Expected semantic version (e.g., 7.0.0)"
+        if ! [[ "$FLAKE8_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid flake8-version: '$FLAKE8_VERSION'. Expected semantic version (e.g., 7.0.0)"
           exit 1
         fi
 
         # Validate autopep8 version format (semantic versioning)
-        if ! [[ "${{ inputs.autopep8-version }}" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
-          echo "::error::Invalid autopep8-version: '${{ inputs.autopep8-version }}'. Expected semantic version (e.g., 2.0.4)"
+        if ! [[ "$AUTOPEP8_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+          echo "::error::Invalid autopep8-version: '$AUTOPEP8_VERSION'. Expected semantic version (e.g., 2.0.4)"
           exit 1
         fi
 
         # Validate working directory
-        if [ ! -d "${{ inputs.working-directory }}" ]; then
-          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Directory does not exist"
+        if [ ! -d "$WORKING_DIRECTORY" ]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Directory does not exist"
           exit 1
         fi
 
         # Validate path security (prevent path traversal)
-        if [[ "${{ inputs.working-directory }}" == *".."* ]]; then
-          echo "::error::Invalid working-directory: '${{ inputs.working-directory }}'. Path traversal not allowed"
+        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Path traversal not allowed"
           exit 1
         fi
 
         # Validate max-retries (positive integer)
-        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ]; then
-          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer"
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer"
           exit 1
         fi
 
         # Validate max-retries range
-        if [ "${{ inputs.max-retries }}" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Maximum allowed is 10"
+        if [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Maximum allowed is 10"
           exit 1
         fi
 
         # Validate boolean inputs
-        case "${{ inputs.fail-on-error }}" in
+        case "$FAIL_ON_ERROR" in
           true|false) ;;
           *)
-            echo "::error::Invalid fail-on-error value: '${{ inputs.fail-on-error }}'. Expected: true or false"
+            echo "::error::Invalid fail-on-error value: '$FAIL_ON_ERROR'. Expected: true or false"
             exit 1
             ;;
         esac
 
         # Validate email format (basic check)
-        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
-          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
           exit 1
         fi
 
         # Validate username format (prevent command injection)
-        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
-          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
+          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
           exit 1
         fi
 
         # Validate token format if provided (basic GitHub token pattern)
-        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
-          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+        if [[ -n "$GITHUB_TOKEN" ]] && [[ "$GITHUB_TOKEN" != "\${{ github.token }}" ]]; then
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
             echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
           fi
         fi
@@ -154,10 +167,12 @@ runs:
     - name: Check for Python Files
       id: check-files
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
         if ! find . -name "*.py" -type f -not -path "*/\.*" | grep -q .; then
           echo "No Python files found. Skipping lint and fix."
           echo "result=skipped" >> $GITHUB_OUTPUT
@@ -179,6 +194,10 @@ runs:
       if: steps.check-files.outputs.result == 'found' && steps.cache-pip.outputs.cache-hit != 'true'
       id: install
       shell: bash
+      env:
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        FLAKE8_VERSION: ${{ inputs.flake8-version }}
+        AUTOPEP8_VERSION: ${{ inputs.autopep8-version }}
       run: |
         set -euo pipefail
 
@@ -186,7 +205,7 @@ runs:
           local package=$1
           local version=$2
           local attempt=1
-          local max_attempts=${{ inputs.max-retries }}
+          local max_attempts="$MAX_RETRIES"
 
           while [ $attempt -le $max_attempts ]; do
             echo "Installing $package==$version (Attempt $attempt of $max_attempts)"
@@ -210,9 +229,9 @@ runs:
         source .venv/bin/activate
 
         # Install dependencies with retry logic
-        install_with_retry flake8 ${{ inputs.flake8-version }}
+        install_with_retry flake8 "$FLAKE8_VERSION"
         install_with_retry flake8-sarif 0.6.0
-        install_with_retry autopep8 ${{ inputs.autopep8-version }}
+        install_with_retry autopep8 "$AUTOPEP8_VERSION"
 
         # Verify installations
         flake8 --version || exit 1
@@ -221,6 +240,9 @@ runs:
     - name: Activate Virtual Environment (Cache Hit)
       if: steps.check-files.outputs.result == 'found' && steps.cache-pip.outputs.cache-hit == 'true'
       shell: bash
+      env:
+        FLAKE8_VERSION: ${{ inputs.flake8-version }}
+        AUTOPEP8_VERSION: ${{ inputs.autopep8-version }}
       run: |
         set -euo pipefail
 
@@ -228,18 +250,21 @@ runs:
         if [ ! -d ".venv" ]; then
           python -m venv .venv
           source .venv/bin/activate
-          pip install flake8==${{ inputs.flake8-version }} flake8-sarif==0.6.0 autopep8==${{ inputs.autopep8-version }}
+          pip install "flake8==$FLAKE8_VERSION" "flake8-sarif==0.6.0" "autopep8==$AUTOPEP8_VERSION"
         fi
 
     - name: Run flake8
       if: steps.check-files.outputs.result == 'found'
       id: lint
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         set -euo pipefail
 
         source .venv/bin/activate
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Create temporary directory for reports
         mkdir -p reports
@@ -251,7 +276,7 @@ runs:
           echo "Found $error_count linting errors"
           echo "error_count=$error_count" >> $GITHUB_OUTPUT
 
-          if [[ "${{ inputs.fail-on-error }}" == "true" ]]; then
+          if [[ "$FAIL_ON_ERROR" == "true" ]]; then
             echo "::error::Linting failed with $error_count errors"
             echo "result=failure" >> $GITHUB_OUTPUT
             exit 1
@@ -265,11 +290,13 @@ runs:
       if: steps.check-files.outputs.result == 'found'
       id: fix
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
 
         source .venv/bin/activate
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Create temporary file for tracking changes
         touch /tmp/changed_files
@@ -301,20 +328,24 @@ runs:
     - name: Commit Fixes
       if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        FIXED_COUNT: ${{ steps.fix.outputs.fixed_count }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Commit changes with retry logic
         attempt=1
-        max_attempts=${{ inputs.max-retries }}
+        max_attempts="$MAX_RETRIES"
 
         while [ $attempt -le $max_attempts ]; do
           echo "Attempting to commit and push changes (Attempt $attempt of $max_attempts)"
 
           git add .
-          git commit -m "fix: applied python lint fixes to ${{ steps.fix.outputs.fixed_count }} files"
+          git commit -m "fix: applied python lint fixes to $FIXED_COUNT files"
 
           if git pull --rebase && git push; then
             echo "Successfully pushed changes"

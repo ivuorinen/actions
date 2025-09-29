@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write          # Required for committing and pushing fixes
+#   - security-events: write   # Required for uploading SARIF results
 ---
 name: Ansible Lint and Fix
 description: 'Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report.'
@@ -43,38 +46,43 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail
 
         # Validate GitHub token format (basic validation)
-        if [[ -n "${{ inputs.token }}" ]] && [[ "${{ inputs.token }}" != "\${{ github.token }}" ]]; then
-          if ! [[ "${{ inputs.token }}" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+        if [[ -n "$GITHUB_TOKEN" ]] && [[ "$GITHUB_TOKEN" != "\${{ github.token }}" ]]; then
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
             echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
           fi
         fi
 
         # Validate email format (basic check)
-        if [[ "${{ inputs.email }}" != *"@"* ]] || [[ "${{ inputs.email }}" != *"."* ]]; then
-          echo "::error::Invalid email format: '${{ inputs.email }}'. Expected valid email address"
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
           exit 1
         fi
 
         # Validate username format (prevent command injection)
-        if [[ "${{ inputs.username }}" == *";"* ]] || [[ "${{ inputs.username }}" == *"&&"* ]] || [[ "${{ inputs.username }}" == *"|"* ]]; then
-          echo "::error::Invalid username: '${{ inputs.username }}'. Command injection patterns not allowed"
+        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
+          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
           exit 1
         fi
 
         # Validate username length
-        username="${{ inputs.username }}"
+        username="$USERNAME"
         if [ ${#username} -gt 39 ]; then
           echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
           exit 1
         fi
 
         # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "${{ inputs.max-retries }}" =~ ^[0-9]+$ ]] || [ "${{ inputs.max-retries }}" -le 0 ] || [ "${{ inputs.max-retries }}" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '${{ inputs.max-retries }}'. Must be a positive integer between 1 and 10"
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 

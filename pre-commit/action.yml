@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for pushing fixes back to repository
 ---
 name: pre-commit
 description: 'Runs pre-commit on the repository and pushes the fixes back to the repository'
@@ -59,15 +61,17 @@ runs:
 
     - name: Set option
       id: set-option
+      shell: bash
+      env:
+        BASE_BRANCH: ${{ inputs.base-branch }}
       run: |
         set -euo pipefail
 
-        if [ -z "${{ inputs.base-branch }}" ]; then
+        if [ -z "$BASE_BRANCH" ]; then
           echo "option=--all-files" >> $GITHUB_OUTPUT
           exit 0
         fi
-        echo "option=--from-ref ${{ inputs.base-branch }} --to-ref HEAD" >> $GITHUB_OUTPUT
-      shell: bash
+        echo "option=--from-ref $BASE_BRANCH --to-ref HEAD" >> $GITHUB_OUTPUT
 
     - name: Run pre-commit
       id: pre-commit

@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for committing fixes
+#   - security-events: write  # Required for uploading SARIF reports
 ---
 name: Terraform Lint and Fix
 description: 'Lints and fixes Terraform files with advanced validation and security checks.'
@@ -82,10 +85,12 @@ runs:
     - name: Check for Terraform Files
       id: check-files
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Check for Terraform files
         if ! find . -name "*.tf" -o -name "*.tfvars" | grep -q .; then
@@ -118,13 +123,15 @@ runs:
     - name: Install TFLint
       if: steps.check-files.outputs.found == 'true'
       shell: bash
+      env:
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail
 
         # Function to install TFLint with retries
         install_tflint() {
           local attempt=1
-          local max_attempts=${{ inputs.max-retries }}
+          local max_attempts="$MAX_RETRIES"
 
           while [ $attempt -le $max_attempts ]; do
             echo "Installing TFLint (Attempt $attempt of $max_attempts)"
@@ -153,12 +160,14 @@ runs:
     - name: Configure TFLint
       if: steps.check-files.outputs.found == 'true'
       shell: bash
+      env:
+        CONFIG_FILE: ${{ inputs.config-file }}
       run: |
         set -euo pipefail
 
         # Create default config if none exists
-        if [ ! -f "${{ inputs.config-file }}" ]; then
-          cat > "${{ inputs.config-file }}" <<EOF
+        if [ ! -f "$CONFIG_FILE" ]; then
+          cat > "$CONFIG_FILE" <<EOF
         plugin "aws" {
           enabled = true
           version = "latest"
@@ -174,30 +183,35 @@ runs:
         fi
 
         # Validate config
-        tflint --config "${{ inputs.config-file }}" --validate
+        tflint --config "$CONFIG_FILE" --validate
 
     - name: Run TFLint
       if: steps.check-files.outputs.found == 'true'
       id: lint
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        FORMAT: ${{ inputs.format }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Create reports directory
         mkdir -p reports
 
         # Run TFLint with configured format
-        tflint_output="reports/tflint.${{ inputs.format }}"
-        if ! tflint --config "${{ inputs.config-file }}" \
-                   --format ${{ inputs.format }} \
+        tflint_output="reports/tflint.$FORMAT"
+        if ! tflint --config "$CONFIG_FILE" \
+                   --format "$FORMAT" \
                    --no-color \
                    . > "$tflint_output"; then
           error_count=$(grep -c "level\": \"error\"" "$tflint_output" || echo 0)
           echo "error_count=$error_count" >> $GITHUB_OUTPUT
 
-          if [[ "${{ inputs.fail-on-error }}" == "true" ]]; then
+          if [[ "$FAIL_ON_ERROR" == "true" ]]; then
             echo "::error::Found $error_count linting errors"
             exit 1
           fi
@@ -209,10 +223,12 @@ runs:
       if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true'
       id: fix
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Track fixed files
         fixed_count=0
@@ -238,16 +254,19 @@ runs:
     - name: Commit Fixes
       if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        FIXED_COUNT: ${{ steps.fix.outputs.fixed_count }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         if git diff --quiet; then
           echo "No changes to commit."
         else
           git add .
-          git commit -m "fix: applied terraform formatting fixes to ${{ steps.fix.outputs.fixed_count }} files"
+          git commit -m "fix: applied terraform formatting fixes to $FIXED_COUNT files"
           git push || {
             echo "Push failed, pulling latest changes..."
             git pull --rebase
