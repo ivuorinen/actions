@@ -250,12 +250,12 @@ End
 
 Describe "token validation"
 It "validates classic GitHub token"
-When call validate_input_python "codeql-analysis" "token" "ghp_1234567890abcdef1234567890abcdef12345678"
+When call validate_input_python "codeql-analysis" "token" "ghp_1234567890abcdef1234567890abcdef1234"
 The status should be success
 End
 
 It "validates fine-grained token"
-When call validate_input_python "codeql-analysis" "token" "github_pat_11ABCDEFG0123456789_abcdefghijklmnopqrstuvwxyz1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZ12"
+When call validate_input_python "codeql-analysis" "token" "github_pat_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 The status should be success
 End
 
