@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - issues: write        # Required for marking issues as stale
+#   - pull-requests: write # Required for marking PRs as stale
 ---
 name: Stale
 description: 'A GitHub Action to close stale issues and pull requests.'
@@ -28,12 +31,13 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
 
         # Check for obvious token misconfigurations
-        token="${{ inputs.token }}"
-        if [[ -z "$token" ]] || [[ "$token" == *'${{'* ]] || [[ "$token" == 'secrets.'* ]]; then
+        if [[ -z "$GITHUB_TOKEN" ]] || [[ "$GITHUB_TOKEN" == *'${{'* ]] || [[ "$GITHUB_TOKEN" == 'secrets.'* ]]; then
           echo "::warning::GitHub token appears to be unevaluated or misconfigured. Please provide a valid token."
         fi
 

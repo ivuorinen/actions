@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for pushing fixes back to repository
 ---
 name: ESLint Fix
 description: Fixes ESLint violations in a project.
@@ -78,18 +80,18 @@ runs:
     - name: Install Dependencies
       if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail
 
-        package_manager="${{ steps.node-setup.outputs.package-manager }}"
-        max_retries="${{ inputs.max-retries }}"
+        echo "Installing dependencies using $PACKAGE_MANAGER..."
 
-        echo "Installing dependencies using $package_manager..."
+        for attempt in $(seq 1 "$MAX_RETRIES"); do
+          echo "Attempt $attempt of $MAX_RETRIES"
 
-        for attempt in $(seq 1 $max_retries); do
-          echo "Attempt $attempt of $max_retries"
-
-          case "$package_manager" in
+          case "$PACKAGE_MANAGER" in
             "pnpm")
               if pnpm install --frozen-lockfile; then
                 echo "✅ Dependencies installed successfully with pnpm"
@@ -123,30 +125,30 @@ runs:
               ;;
           esac
 
-          if [ $attempt -lt $max_retries ]; then
+          if [ $attempt -lt "$MAX_RETRIES" ]; then
             echo "❌ Installation failed, retrying in 5 seconds..."
             sleep 5
           fi
         done
 
-        echo "::error::Failed to install dependencies after $max_retries attempts"
+        echo "::error::Failed to install dependencies after $MAX_RETRIES attempts"
         exit 1
 
     - name: Run ESLint Fix
       id: lint
       shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
       run: |
         set -euo pipefail
 
-        package_manager="${{ steps.node-setup.outputs.package-manager }}"
-
-        echo "Running ESLint fix with $package_manager..."
+        echo "Running ESLint fix with $PACKAGE_MANAGER..."
 
         # Count files before fix
         files_before=$(git status --porcelain | wc -l || echo "0")
 
         # Run ESLint fix based on package manager
-        case "$package_manager" in
+        case "$PACKAGE_MANAGER" in
           "pnpm")
             pnpm exec eslint . --fix || true
             ;;

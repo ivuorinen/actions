@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - (none required)  # Read-only validation action
 ---
 name: Version Validator
 description: 'Validates and normalizes version strings using customizable regex patterns'
@@ -38,36 +40,40 @@ runs:
     - name: Validate Inputs
       id: validate-inputs
       shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        VALIDATION_REGEX: ${{ inputs.validation-regex }}
+        LANGUAGE: ${{ inputs.language }}
       run: |
         set -euo pipefail
 
         # Validate version input is not empty
-        if [[ -z "${{ inputs.version }}" ]]; then
+        if [[ -z "$VERSION" ]]; then
           echo "::error::Version input cannot be empty"
           exit 1
         fi
 
         # Validate version string doesn't contain dangerous characters
-        if [[ "${{ inputs.version }}" == *";"* ]] || [[ "${{ inputs.version }}" == *"&&"* ]] || \
-           [[ "${{ inputs.version }}" == *"|"* ]] || [[ "${{ inputs.version }}" == *"`"* ]] || [[ "${{ inputs.version }}" == *"$"* ]]; then
-          echo "::error::Invalid version string: '${{ inputs.version }}'. Potentially dangerous characters detected"
+        if [[ "$VERSION" == *";"* ]] || [[ "$VERSION" == *"&&"* ]] || \
+           [[ "$VERSION" == *"|"* ]] || [[ "$VERSION" == *"`"* ]] || [[ "$VERSION" == *"$"* ]]; then
+          echo "::error::Invalid version string: '$VERSION'. Potentially dangerous characters detected"
           exit 1
         fi
 
         # Validate validation-regex is not empty and doesn't contain dangerous patterns
-        if [[ -z "${{ inputs.validation-regex }}" ]]; then
+        if [[ -z "$VALIDATION_REGEX" ]]; then
           echo "::error::Validation regex cannot be empty"
           exit 1
         fi
 
         # Basic check for regex safety (prevent ReDoS)
-        if [[ "${{ inputs.validation-regex }}" == *".*.*"* ]] || [[ "${{ inputs.validation-regex }}" == *".+.+"* ]]; then
+        if [[ "$VALIDATION_REGEX" == *".*.*"* ]] || [[ "$VALIDATION_REGEX" == *".+.+"* ]]; then
           echo "::warning::Validation regex may be vulnerable to ReDoS attacks"
         fi
 
         # Validate language parameter
-        if [[ "${{ inputs.language }}" == *";"* ]] || [[ "${{ inputs.language }}" == *"&&"* ]] || [[ "${{ inputs.language }}" == *"|"* ]]; then
-          echo "::error::Invalid language parameter: '${{ inputs.language }}'. Command injection patterns not allowed"
+        if [[ "$LANGUAGE" == *";"* ]] || [[ "$LANGUAGE" == *"&&"* ]] || [[ "$LANGUAGE" == *"|"* ]]; then
+          echo "::error::Invalid language parameter: '$LANGUAGE'. Command injection patterns not allowed"
           exit 1
         fi
 
@@ -76,12 +82,16 @@ runs:
     - name: Validate Version
       id: validate
       shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+        VALIDATION_REGEX: ${{ inputs.validation-regex }}
+        LANGUAGE: ${{ inputs.language }}
       run: |-
         set -euo pipefail
 
-        input_version="${{ inputs.version }}"
-        regex="${{ inputs.validation-regex }}"
-        language="${{ inputs.language }}"
+        input_version="$VERSION"
+        regex="$VALIDATION_REGEX"
+        language="$LANGUAGE"
 
         # Clean the version string
         cleaned_version=$(echo "$input_version" | sed -e 's/^[vV]//' | tr -d ' ' | tr -d '\n' | tr -d '\r')

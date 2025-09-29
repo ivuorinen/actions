@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - (none required)  # Build action, publishing handled by separate actions
 ---
 name: Docker Build
 description: 'Builds a Docker image for multiple architectures with enhanced security and reliability.'
@@ -127,7 +129,7 @@ outputs:
     value: ${{ steps.build.outputs.build-time }}
   scan-results:
     description: 'Vulnerability scan results if scanning enabled'
-    value: ${{ steps.scan.outputs.results }}
+    value: ${{ steps.scan-output.outputs.results }}
   signature:
     description: 'Image signature if signing enabled'
     value: ${{ steps.sign.outputs.signature }}
@@ -153,9 +155,11 @@ runs:
 
     - name: Check Dockerfile Exists
       shell: bash
+      env:
+        DOCKERFILE: ${{ inputs.dockerfile }}
       run: |
-        if [ ! -f "${{ inputs.dockerfile }}" ]; then
-          echo "::error::Dockerfile not found at ${{ inputs.dockerfile }}"
+        if [ ! -f "$DOCKERFILE" ]; then
+          echo "::error::Dockerfile not found at $DOCKERFILE"
           exit 1
         fi
 
@@ -179,6 +183,8 @@ runs:
       id: detect-platforms
       if: inputs.auto-detect-platforms == 'true'
       shell: bash
+      env:
+        ARCHITECTURES: ${{ inputs.architectures }}
       run: |
         set -euo pipefail
 
@@ -189,32 +195,36 @@ runs:
           echo "platforms=${available_platforms}" >> $GITHUB_OUTPUT
           echo "Detected platforms: ${available_platforms}"
         else
-          echo "platforms=${{ inputs.architectures }}" >> $GITHUB_OUTPUT
-          echo "Using default platforms: ${{ inputs.architectures }}"
+          echo "platforms=$ARCHITECTURES" >> $GITHUB_OUTPUT
+          echo "Using default platforms: $ARCHITECTURES"
         fi
 
     - name: Determine Image Name
       id: image-name
       shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.image-name }}
       run: |
         set -euo pipefail
 
-        if [ -z "${{ inputs.image-name }}" ]; then
+        if [ -z "$IMAGE_NAME" ]; then
           repo_name=$(basename "${GITHUB_REPOSITORY}")
           echo "name=${repo_name}" >> $GITHUB_OUTPUT
         else
-          echo "name=${{ inputs.image-name }}" >> $GITHUB_OUTPUT
+          echo "name=$IMAGE_NAME" >> $GITHUB_OUTPUT
         fi
 
     - name: Parse Build Arguments
       id: build-args
       shell: bash
+      env:
+        BUILD_ARGS_INPUT: ${{ inputs.build-args }}
       run: |
         set -euo pipefail
 
         args=""
-        if [ -n "${{ inputs.build-args }}" ]; then
-          IFS=',' read -ra BUILD_ARGS <<< "${{ inputs.build-args }}"
+        if [ -n "$BUILD_ARGS_INPUT" ]; then
+          IFS=',' read -ra BUILD_ARGS <<< "$BUILD_ARGS_INPUT"
           for arg in "${BUILD_ARGS[@]}"; do
             args="$args --build-arg $arg"
           done
@@ -272,7 +282,7 @@ runs:
 
     - name: Login to GitHub Container Registry
       if: ${{ inputs.push == 'true' || inputs.token != '' }}
-      uses: docker/login-action@184bdaa0721073962dff0199f1fb9940f07167d1 # v3.5.0
+      uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
@@ -450,28 +460,27 @@ runs:
     - name: Scan Image for Vulnerabilities
       id: scan
       if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
+      with:
+        scan-type: 'image'
+        image-ref: ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
+        format: 'json'
+        output: 'trivy-results.json'
+        severity: 'HIGH,CRITICAL'
+
+    - name: Process Scan Results
+      id: scan-output
+      if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
       shell: bash
       run: |
         set -euo pipefail
 
-        # Install Trivy
-        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-        echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
-        sudo apt-get update && sudo apt-get install -y trivy
-
-        # Scan the image
-        trivy image \
-          --severity HIGH,CRITICAL \
-          --format json \
-          --output /tmp/scan-results.json \
-          ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
-
-        # Output results
-        scan_results=$(cat /tmp/scan-results.json | jq -c '.')
+        # Read and format scan results for output
+        scan_results=$(cat trivy-results.json | jq -c '.')
         echo "results=${scan_results}" >> $GITHUB_OUTPUT
 
         # Check for critical vulnerabilities
-        critical_count=$(cat /tmp/scan-results.json | jq '.Results[] | (.Vulnerabilities // [])[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
+        critical_count=$(cat trivy-results.json | jq '.Results[] | (.Vulnerabilities // [])[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
         if [ "$critical_count" -gt 0 ]; then
           echo "::warning::Found $critical_count critical vulnerabilities in image"
         fi
@@ -484,12 +493,15 @@ runs:
       id: sign
       if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
       shell: bash
+      env:
+        IMAGE_NAME: ${{ steps.image-name.outputs.name }}
+        IMAGE_TAG: ${{ inputs.tag }}
       run: |
         set -euo pipefail
 
         # Sign the image (using keyless signing with OIDC)
         export COSIGN_EXPERIMENTAL=1
-        cosign sign --yes ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
+        cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
 
         echo "signature=signed" >> $GITHUB_OUTPUT
 
@@ -497,22 +509,26 @@ runs:
       id: verify
       if: inputs.dry-run != 'true'
       shell: bash
+      env:
+        PUSH: ${{ inputs.push }}
+        IMAGE_NAME: ${{ steps.image-name.outputs.name }}
+        IMAGE_TAG: ${{ inputs.tag }}
       run: |
         set -euo pipefail
 
         # Verify image exists
-        if [ "${{ inputs.push }}" == "true" ]; then
-          if ! docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} >/dev/null 2>&1; then
+        if [ "$PUSH" == "true" ]; then
+          if ! docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
             echo "::error::Built image not found"
             exit 1
           fi
 
           # Get and verify platform support
-          platforms=$(docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} | grep "Platform:" | cut -d' ' -f2)
+          platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2)
           echo "built=${platforms}" >> $GITHUB_OUTPUT
         else
           # For local builds, just verify it exists
-          if ! docker image inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} >/dev/null 2>&1; then
+          if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
             echo "::error::Built image not found locally"
             exit 1
           fi

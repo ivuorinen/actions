@@ -1,4 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - issues: write # Required for syncing labels
 ---
 name: Sync labels
 description: Sync labels from a YAML file to a GitHub repository
@@ -29,35 +31,40 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        LABELS_FILE: ${{ inputs.labels }}
+        GITHUB_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
 
         # Validate labels file path format
-        if [[ "${{ inputs.labels }}" == *".."* ]] || [[ "${{ inputs.labels }}" == "/"* ]]; then
-          echo "::error::Invalid labels file path: '${{ inputs.labels }}'. Path traversal not allowed"
+        if [[ "$LABELS_FILE" == *".."* ]] || [[ "$LABELS_FILE" == "/"* ]]; then
+          echo "::error::Invalid labels file path: '$LABELS_FILE'. Path traversal not allowed"
           exit 1
         fi
 
         # Validate labels file extension
-        if ! [[ "${{ inputs.labels }}" =~ \.(yml|yaml)$ ]]; then
-          echo "::error::Invalid labels file extension: '${{ inputs.labels }}'. Expected .yml or .yaml file"
+        if ! [[ "$LABELS_FILE" =~ \.(yml|yaml)$ ]]; then
+          echo "::error::Invalid labels file extension: '$LABELS_FILE'. Expected .yml or .yaml file"
           exit 1
         fi
 
         # Validate token is provided (basic check)
-        if [[ -z "${{ inputs.token }}" ]]; then
+        if [[ -z "$GITHUB_TOKEN" ]]; then
           echo "::error::GitHub token is required for label synchronization"
           exit 1
         fi
 
     - name: ⤵️ Download latest labels definitions
       shell: bash
+      env:
+        LABELS_FILE: ${{ inputs.labels }}
       run: |
         set -euo pipefail
 
         curl -s --retry 5 \
           "https://raw.githubusercontent.com/ivuorinen/actions/main/sync-labels/labels.yml" \
-          > ${{ inputs.labels }}
+          > "$LABELS_FILE"
 
     - name: 🚀 Run Label Syncer
       uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0

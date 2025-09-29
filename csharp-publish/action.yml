@@ -1,4 +1,7 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - packages: write  # Required for publishing to GitHub Packages
+#   - contents: read   # Required for checking out repository
 ---
 name: C# Publish
 description: 'Publishes a C# project to GitHub Packages.'
@@ -34,6 +37,13 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Mask Secrets
+      shell: bash
+      env:
+        API_KEY: ${{ inputs.token || github.token }}
+      run: |
+        echo "::add-mask::$API_KEY"
+
     - name: Validate Inputs
       id: validate
       uses: ./validate-inputs
@@ -65,11 +75,13 @@ runs:
 
     - name: Restore Dependencies
       shell: bash
+      env:
+        CACHE_HIT: ${{ steps.cache-nuget.outputs.cache-hit }}
       run: |
         set -euo pipefail
 
         # Always run dotnet restore to ensure project.assets.json is present
-        if [[ "${{ steps.cache-nuget.outputs.cache-hit }}" == 'true' ]]; then
+        if [[ "$CACHE_HIT" == 'true' ]]; then
           echo "Cache hit - running fast dotnet restore"
         fi
         dotnet restore
@@ -111,16 +123,17 @@ runs:
       shell: bash
       env:
         API_KEY: ${{ inputs.token || github.token }}
+        NAMESPACE: ${{ inputs.namespace }}
       run: |
         set -euo pipefail
 
-        PACKAGE_URL="https://github.com/${{ inputs.namespace }}/packages/nuget"
+        PACKAGE_URL="https://github.com/$NAMESPACE/packages/nuget"
         echo "package_url=$PACKAGE_URL" >> $GITHUB_OUTPUT
 
         # First attempt
         if ! dotnet nuget push ./artifacts/*.nupkg \
           --api-key "$API_KEY" \
-          --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
+          --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
           --skip-duplicate \
           --no-symbols; then
 
@@ -129,7 +142,7 @@ runs:
 
           dotnet nuget push ./artifacts/*.nupkg \
             --api-key "$API_KEY" \
-            --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
+            --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
             --skip-duplicate \
             --no-symbols
         fi
