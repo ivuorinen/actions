@@ -91,9 +91,9 @@ runs:
         # Check if there are any main packages
         if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
           # Build all main packages
-          for main_dir in $(find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u); do
+          find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u | while IFS= read -r main_dir; do
             echo "Building package in $main_dir..."
-            output_name=$(basename "$main_dir")
+            output_name=$(basename -- "$main_dir")
             if ! go build -ldflags="-s -w" -o "$DESTINATION/$output_name" "$main_dir"; then
               build_success=false
             fi
