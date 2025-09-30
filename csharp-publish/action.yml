@@ -151,5 +151,7 @@ runs:
       if: always()
       id: set-status
       shell: bash
+      env:
+        PUBLISH_STATUS: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
       run: |-
-        echo "status=${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}" >> $GITHUB_OUTPUT
+        echo "status=$PUBLISH_STATUS" >> $GITHUB_OUTPUT

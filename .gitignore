@@ -79,3 +79,4 @@ reports/**/*.xml
 tags
 tests/reports/**/*.json
 !uv.lock
+code-scanning-report-*
