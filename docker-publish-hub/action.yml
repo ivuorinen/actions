@@ -178,6 +178,7 @@ runs:
         IMAGE_NAME: ${{ inputs.image-name }}
         DOCKERHUB_USERNAME: ${{ inputs.username }}
         TAGS: ${{ inputs.tags }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
 
@@ -285,6 +286,9 @@ runs:
         RETRY_DELAY: ${{ inputs.retry-delay }}
         FULL_NAME: ${{ steps.metadata.outputs.full-name }}
         TAGS: ${{ inputs.tags }}
+        GITHUB_SERVER_URL: ${{ github.server_url }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
+        GITHUB_SHA: ${{ github.sha }}
       run: |
         set -euo pipefail
 

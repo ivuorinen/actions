@@ -75,6 +75,7 @@ runs:
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
 
@@ -96,6 +97,7 @@ runs:
       env:
         VERSION: ${{ inputs.version }}
         CHANGELOG: ${{ inputs.changelog }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |-
         set -euo pipefail
 

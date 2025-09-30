@@ -234,12 +234,14 @@ runs:
     - name: Parse Build Contexts
       id: build-contexts
       shell: bash
+      env:
+        BUILD_CONTEXTS: ${{ inputs.build-contexts }}
       run: |
         set -euo pipefail
 
         contexts=""
-        if [ -n "${{ inputs.build-contexts }}" ]; then
-          IFS=',' read -ra CONTEXTS <<< "${{ inputs.build-contexts }}"
+        if [ -n "$BUILD_CONTEXTS" ]; then
+          IFS=',' read -ra CONTEXTS <<< "$BUILD_CONTEXTS"
           for ctx in "${CONTEXTS[@]}"; do
             contexts="$contexts --build-context $ctx"
           done
@@ -249,12 +251,14 @@ runs:
     - name: Parse Secrets
       id: secrets
       shell: bash
+      env:
+        INPUT_SECRETS: ${{ inputs.secrets }}
       run: |
         set -euo pipefail
 
         secrets=""
-        if [ -n "${{ inputs.secrets }}" ]; then
-          IFS=',' read -ra SECRETS <<< "${{ inputs.secrets }}"
+        if [ -n "$INPUT_SECRETS" ]; then
+          IFS=',' read -ra SECRETS <<< "$INPUT_SECRETS"
           for secret in "${SECRETS[@]}"; do
             # Trim whitespace
             secret=$(echo "$secret" | xargs)
@@ -291,6 +295,13 @@ runs:
     - name: Set up Build Cache
       id: cache
       shell: bash
+      env:
+        CACHE_IMPORT: ${{ inputs.cache-import }}
+        CACHE_FROM: ${{ inputs.cache-from }}
+        CACHE_EXPORT: ${{ inputs.cache-export }}
+        PUSH: ${{ inputs.push }}
+        TOKEN: ${{ inputs.token }}
+        CACHE_MODE: ${{ inputs.cache-mode }}
       run: |
         set -euo pipefail
 
@@ -298,25 +309,25 @@ runs:
         cache_to=""
 
         # Handle cache import
-        if [ -n "${{ inputs.cache-import }}" ]; then
-          cache_from="--cache-from ${{ inputs.cache-import }}"
-        elif [ -n "${{ inputs.cache-from }}" ]; then
-          cache_from="--cache-from ${{ inputs.cache-from }}"
+        if [ -n "$CACHE_IMPORT" ]; then
+          cache_from="--cache-from $CACHE_IMPORT"
+        elif [ -n "$CACHE_FROM" ]; then
+          cache_from="--cache-from $CACHE_FROM"
         fi
 
         # Handle cache export
-        if [ -n "${{ inputs.cache-export }}" ]; then
-          cache_to="--cache-to ${{ inputs.cache-export }}"
+        if [ -n "$CACHE_EXPORT" ]; then
+          cache_to="--cache-to $CACHE_EXPORT"
         fi
 
         # Registry cache configuration for better performance (only if authenticated)
-        if [ "${{ inputs.push }}" == "true" ] || [ -n "${{ inputs.token }}" ]; then
+        if [ "$PUSH" == "true" ] || [ -n "$TOKEN" ]; then
           normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
           registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
           cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
 
           # Set cache mode
-          cache_mode="${{ inputs.cache-mode }}"
+          cache_mode="$CACHE_MODE"
           if [ -z "$cache_to" ]; then
             cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=${cache_mode}"
           fi
@@ -334,6 +345,24 @@ runs:
     - name: Build Multi-Architecture Docker Image
       id: build
       shell: bash
+      env:
+        AUTO_DETECT_PLATFORMS: ${{ inputs.auto-detect-platforms }}
+        DETECTED_PLATFORMS: ${{ steps.detect-platforms.outputs.platforms }}
+        ARCHITECTURES: ${{ inputs.architectures }}
+        PUSH: ${{ inputs.push }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        VERBOSE: ${{ inputs.verbose }}
+        SBOM_FORMAT: ${{ inputs.sbom-format }}
+        IMAGE_NAME: ${{ steps.image-name.outputs.name }}
+        TAG: ${{ inputs.tag }}
+        BUILD_ARGS: ${{ steps.build-args.outputs.args }}
+        BUILD_CONTEXTS: ${{ steps.build-contexts.outputs.contexts }}
+        SECRETS: ${{ steps.secrets.outputs.secrets }}
+        CACHE_FROM: ${{ steps.cache.outputs.from }}
+        CACHE_TO: ${{ steps.cache.outputs.to }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
+        CONTEXT: ${{ inputs.context }}
       run: |
         set -euo pipefail
 
@@ -341,14 +370,14 @@ runs:
         build_start=$(date +%s)
 
         # Determine platforms to build
-        if [ "${{ inputs.auto-detect-platforms }}" == "true" ] && [ -n "${{ steps.detect-platforms.outputs.platforms }}" ]; then
-          platforms="${{ steps.detect-platforms.outputs.platforms }}"
+        if [ "$AUTO_DETECT_PLATFORMS" == "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
+          platforms="$DETECTED_PLATFORMS"
         else
-          platforms="${{ inputs.architectures }}"
+          platforms="$ARCHITECTURES"
         fi
 
         # For local load (push=false), restrict to single platform
-        if [ "${{ inputs.push }}" != "true" ]; then
+        if [ "$PUSH" != "true" ]; then
           # Extract first platform only for local load
           platforms=$(echo "$platforms" | cut -d',' -f1)
           echo "Local build mode: restricting to single platform: $platforms"
@@ -358,7 +387,7 @@ runs:
         platform_matrix="{}"
 
         # Check for dry run
-        if [ "${{ inputs.dry-run }}" == "true" ]; then
+        if [ "$DRY_RUN" == "true" ]; then
           echo "[DRY RUN] Would build for platforms: $platforms"
           echo "digest=dry-run-no-digest" >> $GITHUB_OUTPUT
           echo "platform-matrix={}" >> $GITHUB_OUTPUT
@@ -367,47 +396,51 @@ runs:
         fi
 
         attempt=1
-        max_attempts=${{ inputs.max-retries }}
+        max_attempts="$MAX_RETRIES"
 
         # Prepare verbose flag
         verbose_flag=""
-        if [ "${{ inputs.verbose }}" == "true" ]; then
+        if [ "$VERBOSE" == "true" ]; then
           verbose_flag="--progress=plain"
         fi
 
         # Prepare SBOM options
         sbom_flag="--sbom=true"
-        if [ -n "${{ inputs.sbom-format }}" ]; then
-          sbom_flag="--sbom=true --sbom-format=${{ inputs.sbom-format }}"
+        if [ -n "$SBOM_FORMAT" ]; then
+          sbom_flag="--sbom=true --sbom-format=$SBOM_FORMAT"
         fi
 
         while [ $attempt -le $max_attempts ]; do
           echo "Build attempt $attempt of $max_attempts"
 
           # Build command with platform restriction for local load
-          build_action="${{ inputs.push == 'true' && '--push' || '--load' }}"
+          if [ "$PUSH" == "true" ]; then
+            build_action="--push"
+          else
+            build_action="--load"
+          fi
 
           if docker buildx build \
             --platform=${platforms} \
-            --tag ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} \
-            ${{ steps.build-args.outputs.args }} \
-            ${{ steps.build-contexts.outputs.contexts }} \
-            ${{ steps.secrets.outputs.secrets }} \
-            ${{ steps.cache.outputs.from }} \
-            ${{ steps.cache.outputs.to }} \
-            --file ${{ inputs.dockerfile }} \
+            --tag "$IMAGE_NAME:$TAG" \
+            $BUILD_ARGS \
+            $BUILD_CONTEXTS \
+            $SECRETS \
+            $CACHE_FROM \
+            $CACHE_TO \
+            --file "$DOCKERFILE" \
             ${build_action} \
             --provenance=true \
             ${sbom_flag} \
             ${verbose_flag} \
             --metadata-file=/tmp/build-metadata.json \
-            ${{ inputs.context }}; then
+            "$CONTEXT"; then
 
             # Get image digest
-            if [ "${{ inputs.push }}" == "true" ]; then
-              digest=$(docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} --raw | jq -r '.digest // "unknown"' || echo "unknown")
+            if [ "$PUSH" == "true" ]; then
+              digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$TAG" --raw | jq -r '.digest // "unknown"' || echo "unknown")
             else
-              digest=$(docker inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} --format='{{.Id}}' || echo "unknown")
+              digest=$(docker inspect "$IMAGE_NAME:$TAG" --format='{{.Id}}' || echo "unknown")
             fi
             echo "digest=${digest}" >> $GITHUB_OUTPUT
 

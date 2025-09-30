@@ -166,11 +166,12 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+        RELEASE_TAG: ${{ steps.create-release.outputs.release_tag }}
       run: |-
         set -euo pipefail
 
         # Verify the release was created
-        if ! gh release view "${{ steps.create-release.outputs.release_tag }}" &>/dev/null; then
+        if ! gh release view "$RELEASE_TAG" &>/dev/null; then
           echo "::error::Failed to verify release creation"
           exit 1
         fi

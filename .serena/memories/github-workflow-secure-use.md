@@ -134,7 +134,7 @@ Be especially careful with:
 ✅ **BEST: Pin to full commit SHA**
 
 ```yaml
-- uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab  # v3.5.2
+- uses: actions/checkout@8e5e7e5ab8b370d6c329ec480221332ada57f0ab # v3.5.2
 ```
 
 ⚠️ **ACCEPTABLE: Pin to tag (for verified creators only)**
@@ -146,7 +146,7 @@ Be especially careful with:
 ❌ **DANGEROUS: Use branch or mutable tag**
 
 ```yaml
-- uses: actions/checkout@main  # DON'T DO THIS
+- uses: actions/checkout@main # DON'T DO THIS
 ```
 
 ### Auditing Actions
@@ -175,14 +175,14 @@ Set restrictive defaults:
 
 ```yaml
 permissions:
-  contents: read  # Default to read-only
+  contents: read # Default to read-only
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: write  # Only elevate what's needed
+      packages: write # Only elevate what's needed
     steps:
       - uses: actions/checkout@v3
 ```
@@ -265,7 +265,7 @@ runs-on:
 ### Enable CodeQL
 
 ```yaml
-name: "Code Scanning"
+name: 'Code Scanning'
 on:
   push:
     branches: [main]
@@ -290,10 +290,10 @@ jobs:
 # .github/dependabot.yml
 version: 2
 updates:
-  - package-ecosystem: "github-actions"
-    directory: "/"
+  - package-ecosystem: 'github-actions'
+    directory: '/'
     schedule:
-      interval: "weekly"
+      interval: 'weekly'
 ```
 
 ## OpenID Connect (OIDC)
@@ -305,7 +305,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     permissions:
-      id-token: write  # Required for OIDC
+      id-token: write # Required for OIDC
       contents: read
     steps:
       - uses: aws-actions/configure-aws-credentials@v2

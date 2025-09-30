@@ -94,6 +94,8 @@ runs:
       shell: bash
       env:
         CACHE_DIRECTORIES: ${{ inputs.cache-directories }}
+        COMPOSER_LOCK_HASH: ${{ hashFiles('**/composer.lock') }}
+        COMPOSER_JSON_HASH: ${{ hashFiles('**/composer.json') }}
       run: |
         set -euo pipefail
 
@@ -107,9 +109,9 @@ runs:
 
         # Get composer.lock hash or composer.json hash
         if [ -f composer.lock ]; then
-          echo "lock=${{ hashFiles('**/composer.lock') }}" >> $GITHUB_OUTPUT
+          echo "lock=$COMPOSER_LOCK_HASH" >> $GITHUB_OUTPUT
         else
-          echo "lock=${{ hashFiles('**/composer.json') }}" >> $GITHUB_OUTPUT
+          echo "lock=$COMPOSER_JSON_HASH" >> $GITHUB_OUTPUT
         fi
 
         # Calculate additional directory hashes

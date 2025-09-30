@@ -5,7 +5,7 @@
 All actions in this repository are actively maintained. Security updates are applied to all actions as needed.
 
 | Version | Supported          |
-| ------- | ------------------ |
+|---------|--------------------|
 | Latest  | :white_check_mark: |
 
 ## Security Features
@@ -113,9 +113,9 @@ Only grant the minimum required permissions:
 
 ```yaml
 permissions:
-  contents: write  # Only if creating commits/releases
-  packages: write  # Only if publishing packages
-  security-events: write  # Only if uploading SARIF reports
+  contents: write # Only if creating commits/releases
+  packages: write # Only if publishing packages
+  security-events: write # Only if uploading SARIF reports
 ```
 
 ### 2. Protect Secrets

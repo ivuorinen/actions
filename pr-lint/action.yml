@@ -121,10 +121,12 @@ runs:
     - name: Setup problem matchers for PHP
       if: steps.detect-php.outputs.found == 'true'
       shell: bash
+      env:
+        RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
       run: |
         set -euo pipefail
 
-        echo "::add-matcher::${{ runner.tool_cache }}/php.json"
+        echo "::add-matcher::$RUNNER_TOOL_CACHE/php.json"
 
     - name: Install PHP dependencies
       if: steps.detect-php.outputs.found == 'true'
@@ -261,36 +263,24 @@ runs:
     # Set APPLY_FIXES_IF var for use in future steps
     - name: Set APPLY_FIXES_IF var
       shell: bash
+      env:
+        APPLY_FIXES_CONDITION: ${{ steps.ml.outputs.has_updated_sources == 1 && (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
       run: |
         set -euo pipefail
 
-        printf 'APPLY_FIXES_IF=%s\n' "${{
-          steps.ml.outputs.has_updated_sources == 1 &&
-          (
-            env.APPLY_FIXES_EVENT == 'all' ||
-            env.APPLY_FIXES_EVENT == github.event_name
-          ) &&
-          (
-            github.event_name == 'push' ||
-            github.event.pull_request.head.repo.full_name == github.repository
-          )
-        }}" >> "${GITHUB_ENV}"
+        printf 'APPLY_FIXES_IF=%s\n' "$APPLY_FIXES_CONDITION" >> "${GITHUB_ENV}"
 
     # Set APPLY_FIXES_IF_* vars for use in future steps
     - name: Set APPLY_FIXES_IF_* vars
       shell: bash
+      env:
+        APPLY_FIXES_IF_PR_CONDITION: ${{ env.APPLY_FIXES_IF == 'true' && env.APPLY_FIXES_MODE == 'pull_request' }}
+        APPLY_FIXES_IF_COMMIT_CONDITION: ${{ env.APPLY_FIXES_IF == 'true' && env.APPLY_FIXES_MODE == 'commit' && (!contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)) }}
       run: |
         set -euo pipefail
 
-        printf 'APPLY_FIXES_IF_PR=%s\n' "${{
-          env.APPLY_FIXES_IF == 'true' &&
-          env.APPLY_FIXES_MODE == 'pull_request'
-        }}" >> "${GITHUB_ENV}"
-        printf 'APPLY_FIXES_IF_COMMIT=%s\n' "${{
-          env.APPLY_FIXES_IF == 'true' &&
-          env.APPLY_FIXES_MODE == 'commit' &&
-          (!contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref))
-        }}" >> "${GITHUB_ENV}"
+        printf 'APPLY_FIXES_IF_PR=%s\n' "$APPLY_FIXES_IF_PR_CONDITION" >> "${GITHUB_ENV}"
+        printf 'APPLY_FIXES_IF_COMMIT=%s\n' "$APPLY_FIXES_IF_COMMIT_CONDITION" >> "${GITHUB_ENV}"
 
     # Create pull request if applicable
     # (for now works only on PR from same repository, not from forks)
@@ -307,11 +297,14 @@ runs:
     - name: Create PR output
       if: env.APPLY_FIXES_IF_PR == 'true'
       shell: bash
+      env:
+        PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
       run: |
         set -euo pipefail
 
-        echo "PR Number - ${{ steps.cpr.outputs.pull-request-number }}"
-        echo "PR URL - ${{ steps.cpr.outputs.pull-request-url }}"
+        echo "PR Number - $PR_NUMBER"
+        echo "PR URL - $PR_URL"
 
     # Push new commit if applicable
     # (for now works only on PR from same repository, not from forks)

@@ -201,6 +201,7 @@ runs:
         GITHUB_IMAGE_NAME: ${{ steps.publish-github.outputs.image-name }}
         GITHUB_TAGS: ${{ steps.publish-github.outputs.tags }}
         ALL_TAGS: ${{ steps.tags.outputs.all-tags }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
 
@@ -217,7 +218,7 @@ runs:
               # Get actual image name from publish step output or fallback to repo-based name
               image_name="$DOCKERHUB_IMAGE_NAME"
               if [[ -z "$image_name" ]]; then
-                image_name="docker.io/${{ github.repository }}"
+                image_name="docker.io/$GITHUB_REPOSITORY"
               fi
 
               # Get tags from publish step or fallback to metadata
@@ -243,7 +244,7 @@ runs:
               # Get actual image name from publish step output or fallback to repo-based name
               image_name="$GITHUB_IMAGE_NAME"
               if [[ -z "$image_name" ]]; then
-                image_name="ghcr.io/${{ github.repository }}"
+                image_name="ghcr.io/$GITHUB_REPOSITORY"
               fi
 
               # Get tags from publish step or fallback to metadata

@@ -141,16 +141,16 @@ Comprehensive linting with 30+ rule categories including:
 
 - name: Setup
   with:
-    version: ${{ steps.detect-version.outputs.version }}  # UNDEFINED!
+    version: ${{ steps.detect-version.outputs.version }} # UNDEFINED!
 
 # ✅ CORRECT - id present
 - name: Detect Version
-  id: detect-version  # Required for output reference
+  id: detect-version # Required for output reference
   uses: ./version-detect
 
 - name: Setup
   with:
-    version: ${{ steps.detect-version.outputs.version }}  # Works
+    version: ${{ steps.detect-version.outputs.version }} # Works
 ```
 
 ## Security Standards

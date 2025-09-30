@@ -169,6 +169,7 @@ runs:
         IMAGE_NAME: ${{ inputs.image-name }}
         REGISTRY: ${{ inputs.registry }}
         TAGS: ${{ inputs.tags }}
+        REPO_OWNER: ${{ github.repository_owner }}
       run: |
         set -euo pipefail
 
@@ -183,7 +184,7 @@ runs:
         echo "image-name=${image_name}" >> $GITHUB_OUTPUT
 
         # Construct full image name with registry
-        full_name="$REGISTRY/${{ github.repository_owner }}/${image_name}"
+        full_name="$REGISTRY/$REPO_OWNER/${image_name}"
         echo "full-name=${full_name}" >> $GITHUB_OUTPUT
 
         # Process tags
@@ -245,11 +246,12 @@ runs:
         FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
         IMAGE_NAME: ${{ steps.metadata.outputs.image-name }}
         RETRY_DELAY: ${{ inputs.retry-delay }}
+        REPO_OWNER: ${{ github.repository_owner }}
       run: |
         set -euo pipefail
 
         # Normalize repository owner to lowercase for GHCR compatibility
-        REPO_OWNER_LOWER=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        REPO_OWNER_LOWER=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
         export REPO_OWNER_LOWER
 
         # Track build start time
@@ -338,7 +340,7 @@ runs:
             fi
 
             if [[ "$SBOM" == "true" ]]; then
-              sbom_path="$REGISTRY/${{ github.repository_owner }}/$IMAGE_NAME.sbom"
+              sbom_path="$REGISTRY/$REPO_OWNER/$IMAGE_NAME.sbom"
               echo "sbom=${sbom_path}" >> $GITHUB_OUTPUT
             fi
 
