@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests
+.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -398,6 +398,187 @@ test-generate-tests: ## Test the test generation system itself
 		echo "$(BLUE)ℹ️ uv not available, running with python3$(RESET)"; \
 		python3 -m pytest validate-inputs/tests/test_generate_tests.py -v || exit 1; \
 	fi
+
+# Docker targets
+docker-build: ## Build the testing-tools Docker image
+	@echo "$(BLUE)🐳 Building testing-tools Docker image...$(RESET)"
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "$(RED)❌ Docker not found. Please install Docker.$(RESET)"; \
+		exit 1; \
+	fi
+	@if bash _tools/docker-testing-tools/build.sh; then \
+		echo "$(GREEN)✅ Docker image built successfully$(RESET)"; \
+	else \
+		echo "$(RED)❌ Docker build failed$(RESET)"; \
+		exit 1; \
+	fi
+
+docker-test: ## Test the Docker image locally
+	@echo "$(BLUE)🧪 Testing Docker image...$(RESET)"
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "$(RED)❌ Docker not found$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)Testing basic functionality...$(RESET)"
+	@docker run --rm ghcr.io/ivuorinen/actions:testing-tools whoami
+	@docker run --rm ghcr.io/ivuorinen/actions:testing-tools shellspec --version
+	@docker run --rm ghcr.io/ivuorinen/actions:testing-tools act --version
+	@echo "$(GREEN)✅ Docker image tests passed$(RESET)"
+
+docker-login: ## Authenticate with GitHub Container Registry
+	@echo "$(BLUE)🔐 Authenticating with ghcr.io...$(RESET)"
+	@TOKEN=""; \
+	TOKEN_SOURCE=""; \
+	if [ -n "$${GITHUB_TOKEN}" ]; then \
+		echo "$(BLUE)Using GITHUB_TOKEN from environment$(RESET)"; \
+		TOKEN="$${GITHUB_TOKEN}"; \
+		TOKEN_SOURCE="env"; \
+	elif command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then \
+		echo "$(BLUE)Using token from GitHub CLI (gh)$(RESET)"; \
+		TOKEN=$$(gh auth token); \
+		TOKEN_SOURCE="gh"; \
+	else \
+		echo "$(RED)❌ No authentication method available$(RESET)"; \
+		echo ""; \
+		echo "$(YELLOW)To authenticate with ghcr.io, you need a token with 'write:packages' scope$(RESET)"; \
+		echo ""; \
+		echo "$(GREEN)Option 1: Use environment variable$(RESET)"; \
+		echo "  export GITHUB_TOKEN=ghp_xxxxxxxxxxxx"; \
+		echo "  make docker-login"; \
+		echo ""; \
+		echo "$(GREEN)Option 2: Use GitHub CLI with proper scopes$(RESET)"; \
+		echo "  gh auth login --scopes 'write:packages'"; \
+		echo "  make docker-login"; \
+		echo ""; \
+		echo "$(GREEN)Option 3: Create a Personal Access Token$(RESET)"; \
+		echo "  1. Go to: https://github.com/settings/tokens/new"; \
+		echo "  2. Check: write:packages (includes read:packages)"; \
+		echo "  3. Generate token and use with Option 1"; \
+		exit 1; \
+	fi; \
+	if echo "$${TOKEN}" | docker login ghcr.io -u ivuorinen --password-stdin 2>&1 | tee /tmp/docker-login.log | grep -q "Login Succeeded"; then \
+		echo "$(GREEN)✅ Successfully authenticated with ghcr.io$(RESET)"; \
+		rm -f /tmp/docker-login.log; \
+	else \
+		echo "$(RED)❌ Authentication failed$(RESET)"; \
+		echo ""; \
+		if grep -q "scope" /tmp/docker-login.log 2>/dev/null; then \
+			echo "$(YELLOW)⚠️ Token does not have required 'write:packages' scope$(RESET)"; \
+			echo ""; \
+			if [ "$$TOKEN_SOURCE" = "gh" ]; then \
+				echo "$(BLUE)GitHub CLI tokens need package permissions.$(RESET)"; \
+				echo ""; \
+				if [ -n "$${GITHUB_TOKEN}" ]; then \
+					echo "$(YELLOW)Note: GITHUB_TOKEN is set in your environment, which prevents gh auth refresh.$(RESET)"; \
+					echo "Clear it first, then refresh:"; \
+					echo ""; \
+					echo "$(GREEN)For Fish shell:$(RESET)"; \
+					echo "  set -e GITHUB_TOKEN"; \
+					echo "  gh auth refresh --scopes 'write:packages'"; \
+					echo ""; \
+					echo "$(GREEN)For Bash/Zsh:$(RESET)"; \
+					echo "  unset GITHUB_TOKEN"; \
+					echo "  gh auth refresh --scopes 'write:packages'"; \
+				else \
+					echo "Run:"; \
+					echo "  gh auth refresh --scopes 'write:packages'"; \
+				fi; \
+				echo ""; \
+				echo "Then try again:"; \
+				echo "  make docker-login"; \
+			else \
+				echo "Your GITHUB_TOKEN needs 'write:packages' scope."; \
+				echo ""; \
+				echo "$(GREEN)Create a new token:$(RESET)"; \
+				echo "  1. Go to: https://github.com/settings/tokens/new"; \
+				echo "  2. Check: write:packages (includes read:packages)"; \
+				echo "  3. Generate and copy the token"; \
+				echo ""; \
+				echo "$(GREEN)For Fish shell:$(RESET)"; \
+				echo "  set -gx GITHUB_TOKEN ghp_xxxxxxxxxxxx"; \
+				echo ""; \
+				echo "$(GREEN)For Bash/Zsh:$(RESET)"; \
+				echo "  export GITHUB_TOKEN=ghp_xxxxxxxxxxxx"; \
+			fi; \
+		fi; \
+		rm -f /tmp/docker-login.log; \
+		exit 1; \
+	fi
+
+docker-push: ## Push the testing-tools image to ghcr.io
+	@echo "$(BLUE)📤 Pushing Docker image to ghcr.io...$(RESET)"
+	@if ! command -v docker >/dev/null 2>&1; then \
+		echo "$(RED)❌ Docker not found$(RESET)"; \
+		exit 1; \
+	fi
+	@if ! docker images ghcr.io/ivuorinen/actions:testing-tools -q | grep -q .; then \
+		echo "$(RED)❌ Image not found. Run 'make docker-build' first$(RESET)"; \
+		exit 1; \
+	fi
+	@PUSH_OUTPUT=$$(docker push ghcr.io/ivuorinen/actions:testing-tools 2>&1); \
+	PUSH_EXIT=$$?; \
+	echo "$${PUSH_OUTPUT}"; \
+	if [ $$PUSH_EXIT -ne 0 ]; then \
+		echo ""; \
+		if echo "$${PUSH_OUTPUT}" | grep -q "scope"; then \
+			echo "$(RED)❌ Token does not have required 'write:packages' scope$(RESET)"; \
+			echo ""; \
+			echo "$(YELLOW)Fix the authentication:$(RESET)"; \
+			echo ""; \
+			if [ -n "$${GITHUB_TOKEN}" ]; then \
+				echo "$(BLUE)Option 1: Clear GITHUB_TOKEN and use gh auth$(RESET)"; \
+				echo ""; \
+				echo "For Fish shell:"; \
+				echo "  set -e GITHUB_TOKEN"; \
+				echo "  gh auth refresh --scopes 'write:packages'"; \
+				echo "  make docker-push"; \
+				echo ""; \
+				echo "For Bash/Zsh:"; \
+				echo "  unset GITHUB_TOKEN"; \
+				echo "  gh auth refresh --scopes 'write:packages'"; \
+				echo "  make docker-push"; \
+				echo ""; \
+				echo "$(BLUE)Option 2: Create a new token with write:packages scope$(RESET)"; \
+			else \
+				echo "$(BLUE)Option 1: Use GitHub CLI$(RESET)"; \
+				echo "  gh auth refresh --scopes 'write:packages'"; \
+				echo "  make docker-push"; \
+				echo ""; \
+				echo "$(BLUE)Option 2: Use Personal Access Token$(RESET)"; \
+			fi; \
+			echo "  1. Go to: https://github.com/settings/tokens/new"; \
+			echo "  2. Check: write:packages"; \
+			echo "  3. Generate and copy token"; \
+			echo ""; \
+			echo "  For Fish shell:"; \
+			echo "    set -gx GITHUB_TOKEN ghp_xxxxxxxxxxxx"; \
+			echo "    make docker-push"; \
+			echo ""; \
+			echo "  For Bash/Zsh:"; \
+			echo "    export GITHUB_TOKEN=ghp_xxxxxxxxxxxx"; \
+			echo "    make docker-push"; \
+			exit 1; \
+		elif echo "$${PUSH_OUTPUT}" | grep -q "denied\|unauthorized"; then \
+			echo "$(YELLOW)⚠️ Authentication required. Attempting login...$(RESET)"; \
+			if $(MAKE) docker-login; then \
+				echo ""; \
+				echo "$(BLUE)Retrying push...$(RESET)"; \
+				docker push ghcr.io/ivuorinen/actions:testing-tools; \
+			else \
+				exit 1; \
+			fi; \
+		else \
+			echo "$(RED)❌ Push failed$(RESET)"; \
+			exit 1; \
+		fi; \
+	fi
+	@echo "$(GREEN)✅ Image pushed successfully$(RESET)"
+	@echo ""
+	@echo "Image available at:"
+	@echo "  ghcr.io/ivuorinen/actions:testing-tools"
+
+docker-all: docker-build docker-test docker-push ## Build, test, and push Docker image
+	@echo "$(GREEN)✅ All Docker operations completed$(RESET)"
 
 watch: ## Watch files and auto-format on changes (requires entr)
 	@if command -v entr >/dev/null 2>&1; then \
