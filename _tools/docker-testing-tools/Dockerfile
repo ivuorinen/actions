@@ -8,6 +8,7 @@ FROM ubuntu:22.04 AS base
 LABEL maintainer="ivuorinen"
 LABEL description="GitHub Actions testing framework with pre-installed tools"
 LABEL version="1.0.0"
+LABEL org.opencontainers.image.source="https://github.com/ivuorinen/actions"
 
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
@@ -68,12 +69,35 @@ RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | d
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
+# Install additional dependencies needed by install scripts
+RUN apt-get update && apt-get install -y \
+  --no-install-recommends \
+  wget \
+  xz-utils \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
 # Install standalone tools that don't need system packages
-RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin \
-  && curl -sL https://raw.githubusercontent.com/rhymond/actionlint/main/scripts/download-actionlint.bash | bash \
+# Split into separate commands for better error reporting
+
+# Install trufflehog
+RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+
+# Install actionlint (note: rhysd not rhymond)
+RUN curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash \
   && mv actionlint /usr/local/bin/ \
+  && actionlint --version
+
+# Install nektos/act (use temp directory to avoid any /bin conflicts)
+RUN mkdir -p /tmp/act-install \
+  && cd /tmp/act-install \
   && curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | bash \
-  && mv bin/act /usr/local/bin/act
+  && mv bin/act /usr/local/bin/act \
+  && cd / \
+  && rm -rf /tmp/act-install \
+  && act --version \
+  && echo "Verifying system integrity..." \
+  && test -f /bin/sh && test -f /bin/bash && echo "✓ Shell binaries intact"
 
 # Stage 3: Final image with non-root user
 FROM tools AS final
