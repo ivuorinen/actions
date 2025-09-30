@@ -41,7 +41,11 @@ jobs:
   unit-tests:
     name: Unit Tests
     runs-on: ubuntu-latest
-    container: ghcr.io/ivuorinen/actions:testing-tools
+    container:
+      image: ghcr.io/ivuorinen/actions:testing-tools
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 10
 
     steps:
@@ -108,7 +112,11 @@ jobs:
   integration-tests:
     name: Integration Tests
     runs-on: ubuntu-latest
-    container: ghcr.io/ivuorinen/actions:testing-tools
+    container:
+      image: ghcr.io/ivuorinen/actions:testing-tools
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 20
     if: github.event.inputs.test-type != 'unit'
 
@@ -162,7 +170,11 @@ jobs:
   coverage:
     name: Test Coverage
     runs-on: ubuntu-latest
-    container: ghcr.io/ivuorinen/actions:testing-tools
+    container:
+      image: ghcr.io/ivuorinen/actions:testing-tools
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 15
     needs:
       - unit-tests
@@ -221,7 +233,11 @@ jobs:
   test-changed-actions:
     name: Test Changed Actions
     runs-on: ubuntu-latest
-    container: ghcr.io/ivuorinen/actions:testing-tools
+    container:
+      image: ghcr.io/ivuorinen/actions:testing-tools
+      credentials:
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 15
     if: github.event_name == 'pull_request'
 
