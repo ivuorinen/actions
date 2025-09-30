@@ -1,155 +1,104 @@
 # CLAUDE.md - GitHub Actions Monorepo
 
-**Mantra**: Zero defects. Zero exceptions.
+**Mantra**: Zero defects. Zero exceptions. All rules mandatory and non-negotiable.
 
-Authoritative guidance for Claude Code (claude.ai/code). All rules are mandatory and non-negotiable.
+## Standards
 
-## Absolute Standards
+### Production Ready Criteria
 
-### Zero Tolerance
+- All tests pass + all linting passes + all validation passes + zero warnings
 
-- Any failing tests or linting issues = not production ready
-- No exceptions
+### Core Rules
 
-### Production Ready
-
-A project is production ready only when:
-
-- All tests pass
-- All linting passes
-- All validation checks pass
-- No warnings or errors
-
-### Rules
-
-- Follow conventions and best practices
-- Fix and understand all issues before completion
-- Never compromise standards
-- Test thoroughly
-- Prioritize quality over speed
-- Write maintainable, simple, DRY code
-- Document all changes
-- Communicate factually
-- Review carefully
-- Use memory files wisely, update rather than add
+- Follow conventions, fix all issues, never compromise standards, test thoroughly
+- Prioritize quality over speed, write maintainable/DRY code
+- Document changes, communicate factually, review carefully
+- Update existing memory files rather than create new ones
 - Ask when unsure
 
 ### Communication
 
-- Be direct, factual, concise
-- Prohibited: hype, buzzwords, jargon, clichés, assumptions, predictions, comparisons, superlatives, promotional or subjective terms
-- Do not declare success or "production ready" until all rules pass
+- Direct, factual, concise only
+- Prohibited: hype, buzzwords, jargon, clichés, assumptions, predictions, comparisons, superlatives
+- Never declare "production ready" until all checks pass
 
-### Folder Rules
+### Folders
 
-- `.serena/` – Internal config, do not edit
-- `.github/` – Workflows and templates
+- `.serena/` – Internal config (do not edit)
+- `.github/` – Workflows/templates
 - `_tests/` – ShellSpec tests
 - `_tools/` – Helper tools
-- `validate-inputs/` – Python validation system
-- `*/rules.yml` – Auto-generated validation rules in each action folder
-- `validate-inputs/tests/` – pytest tests
+- `validate-inputs/` – Python validation system + tests
+- `*/rules.yml` – Auto-generated validation rules
 
-## Repository
+## Repository Structure
 
 Flat structure. Each action self-contained with `action.yml`.
 
-### Actions
+**Actions**: Setup (node-setup, set-git-config, php-version-detect, python-version-detect, python-version-detect-v2, go-version-detect, dotnet-version-detect), Utilities (version-file-parser, version-validator),
+Linting (ansible-lint-fix, biome-check, biome-fix, csharp-lint-check, eslint-check, eslint-fix, go-lint, pr-lint, pre-commit, prettier-check, prettier-fix, python-lint-fix, terraform-lint-fix),
+Testing (php-tests, php-laravel-phpunit, php-composer), Build (csharp-build, go-build, docker-build),
+Publishing (npm-publish, docker-publish, docker-publish-gh, docker-publish-hub, csharp-publish),
+Repository (github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry)
 
-**Setup**: `node-setup`, `set-git-config`, `php-version-detect`, `python-version-detect`, `python-version-detect-v2`, `go-version-detect`, `dotnet-version-detect`
-**Utilities**: `version-file-parser`, `version-validator`
-**Linting**: `ansible-lint-fix`, `biome-check`, `biome-fix`, `csharp-lint-check`, `eslint-check`, `eslint-fix`, `go-lint`, `pr-lint`, `pre-commit`,
-`prettier-check`, `prettier-fix`, `python-lint-fix`, `terraform-lint-fix`
-**Testing**: `php-tests`, `php-laravel-phpunit`, `php-composer`
-**Build**: `csharp-build`, `go-build`, `docker-build`
-**Publishing**: `npm-publish`, `docker-publish`, `docker-publish-gh`, `docker-publish-hub`, `csharp-publish`
-**Repository**: `github-release`, `release-monthly`, `sync-labels`, `stale`, `compress-images`, `common-cache`, `common-file-check`, `common-retry`
+## Commands
 
-## Development & Testing
+**Main**: `make all` (docs+format+lint+test), `make dev` (format+lint), `make lint`, `make format`, `make docs`, `make test`
 
-### Commands
+**Testing**: `make test-python`, `make test-python-coverage`, `make test-actions`, `make test-update-validators`, `make test-coverage`
 
-- `make all` – Generate docs, format, lint, test
-- `make dev` – Format then lint
-- `make lint` – Run all linters
-- `make format` – Format files
-- `make docs` – Generate docs
-- `make test` – Run all tests
-- `make test-python` – Run Python tests
-- `make test-python-coverage` – Python coverage
-- `make test-actions` – Run shell tests
-- `make test-update-validators` – Validator tests
-- `make test-coverage` – All with coverage
-- `make update-validators` – Update validation rules
-- `make update-validators-dry` – Preview validator changes
-- `make check-local-refs` – Check for `../` references
-- `make fix-local-refs` – Fix `../` references
-- `make fix-local-refs-dry` – Preview ref fixes
+**Validation**: `make update-validators`, `make update-validators-dry`
 
-### Linting
+**References**: `make check-local-refs`, `make fix-local-refs`, `make fix-local-refs-dry`
 
-Run `make lint` or `make lint-*`. Avoid direct linter calls unless required.
+### Linters
 
-- `npx markdownlint-cli2 --fix "**/*.md"`
-- `npx prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json"`
-- `npx markdown-table-formatter "**/*.md"`
-- `npx yaml-lint "**/*.yml" "**/*.yaml"`
-- `actionlint`
-- `find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} +`
-- `uv run ruff check --fix validate-inputs/`
-- `uv run ruff format validate-inputs/`
+Use `make lint` (not direct calls). Runs: markdownlint-cli2, prettier, markdown-table-formatter, yaml-lint, actionlint, shellcheck, ruff
 
-### Test Rules
+### Tests
 
-- ShellSpec for Actions (`_tests/`)
-- pytest for validation (`validate-inputs/tests/`)
-- Full coverage required
-- Independent action tests
-- Integration tests required
+ShellSpec (`_tests/`) + pytest (`validate-inputs/tests/`). Full coverage + independent + integration tests required.
 
-## Architecture Rules
+## Architecture - Critical Prevention (Zero Tolerance)
 
-- All external actions SHA-pinned
-- Use `${{ github.token }}` for auth
-- Shell scripts: `set -euo pipefail`
-- EditorConfig: 2-space indent, UTF-8, LF
-- Max line length: 200 (120 for Markdown)
-- `README.md` auto-generated via `action-docs`
-- Error handling required
+Violations cause runtime failures:
 
-### Local Action References
+1. Add `id:` when outputs referenced (`steps.x.outputs.y` requires `id: x`)
+2. Check tool availability: `command -v jq >/dev/null 2>&1` (jq/bc/terraform not on all runners)
+3. Sanitize `$GITHUB_OUTPUT`: use `printf '%s\n' "$val"` not `echo "$val"`
+4. Pin external actions to SHA commits (not `@main`/`@v1`)
+5. Quote shell vars: `"$var"`, `basename -- "$path"` (handles spaces)
+6. Use local paths: `./action-name` (not `owner/repo/action@main`)
+7. Test regex edge cases (support `1.0.0-rc.1`, `1.0.0+build`)
+8. Use `set -euo pipefail` at script start
+9. Never nest `${{ }}` in quoted YAML strings (breaks hashFiles)
+10. Provide tool fallbacks (macOS/Windows lack Linux tools)
 
-- ✅ `uses: ./action-name`
-- ❌ `uses: ../action-name`
+### Core Requirements
 
-Check with: `make check-local-refs`, `make fix-local-refs`
+- External actions SHA-pinned, use `${{ github.token }}`, `set -euo pipefail`
+- EditorConfig: 2-space indent, UTF-8, LF, max 200 chars (120 for MD)
+- Auto-gen README via `action-docs` (note: `npx action-docs --update-readme` doesn't work)
+- Required error handling
+
+### Action References
+
+✅ `./action-name` | ❌ `../action-name` | ❌ `owner/repo/action@main`
+
+Check: `make check-local-refs`, `make fix-local-refs`
 
 ## Validation System
 
-### Centralized
+**Location**: `validate-inputs/` (YAML rules.yml per action, Python generator)
 
-- Location: `validate-inputs/`
-- Rules: YAML `rules.yml` in each action folder
-- Security: regex, injection protection
-- Generator: Python script
+**Conventions**: `token`→GitHub token, `*-version`→SemVer/CalVer, `email`→format, `dockerfile`→path, `dry-run`→bool, `architectures`→Docker, `*-retries`→range
 
-### Convention Rules
+**Version Types**: semantic_version, calver_version, flexible_version, dotnet_version, terraform_version, node_version
 
-- `token` → GitHub token, `*-version` → SemVer/CalVer/flexible, `email` → email format, `dockerfile` → file path, `dry-run` → boolean, `architectures` → Docker architectures, `*-retries` → numeric range
+**CalVer Support**: YYYY.MM.PATCH, YYYY.MM.DD, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, YYYY-MM-DD
 
-### Version Types
-
-- `semantic_version`, `calver_version`, `flexible_version`, `dotnet_version`, `terraform_version`, `node_version`
-
-**Supported CalVer**: YYYY.MM.PATCH (2024.3.1), YYYY.MM.DD (2024.3.15), YYYY.0M.0D (2024.03.05), YY.MM.MICRO (24.3.1), YYYY.MM (2024.3), YYYY-MM-DD (2024-03-15)
-
-### Maintenance
-
-- `make update-validators`
-- `git diff validate-inputs/rules/`
+**Maintenance**: `make update-validators`, `git diff validate-inputs/rules/`
 
 ---
 
-**Summary**: Every rule here is absolute. No exceptions. All code, tests, and communication must meet these standards. All actions are modular and externally usable.
-
-- `npx action-docs --update-readme` does not update readmes.
+All actions modular and externally usable. No exceptions to any rule.
