@@ -70,7 +70,7 @@ failure()    # True if any previous step failed
 ### Hash Functions
 
 ```yaml
-hashFiles(path)  # Generate SHA-256 hash of files matching pattern
+hashFiles(path) # Generate SHA-256 hash of files matching pattern
 ```
 
 ## Type Casting Rules
@@ -130,7 +130,7 @@ Secret values (never printed to logs):
 
 ```yaml
 ${{ secrets.MY_SECRET }}
-${{ secrets.GITHUB_TOKEN }}  # Automatic token
+${{ secrets.GITHUB_TOKEN }} # Automatic token
 ```
 
 ### `inputs` Context
@@ -179,7 +179,7 @@ Outputs from jobs that current job depends on:
 
 ```yaml
 ${{ needs.job_id.outputs.output_name }}
-${{ needs.job_id.result }}  # success, failure, cancelled, skipped
+${{ needs.job_id.result }} # success, failure, cancelled, skipped
 ```
 
 ### `matrix` Context

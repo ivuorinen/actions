@@ -22,7 +22,6 @@ Publishes the package to the NPM registry with configurable scope and registry U
 | `registry-url`    | <p>Registry URL for publishing.</p> |
 | `scope`           | <p>Package scope to use.</p>        |
 | `package-version` | <p>The version to publish.</p>      |
-| `npm_token`       | <p>NPM token.</p>                   |
 
 ### Runs
 

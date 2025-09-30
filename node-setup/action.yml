@@ -183,11 +183,14 @@ runs:
     - name: Resolve Package Manager
       id: package-manager-resolution
       shell: bash
+      env:
+        INPUT_PM: ${{ inputs.package-manager }}
+        DETECTED_PM: ${{ steps.version.outputs.package-manager }}
       run: |
         set -euo pipefail
 
-        input_pm="${{ inputs.package-manager }}"
-        detected_pm="${{ steps.version.outputs.package-manager }}"
+        input_pm="$INPUT_PM"
+        detected_pm="$DETECTED_PM"
         final_pm=""
 
         if [ "$input_pm" = "auto" ]; then
@@ -281,8 +284,10 @@ runs:
     - name: Set Auth Token
       if: inputs.token != ''
       shell: bash
+      env:
+        TOKEN: ${{ inputs.token }}
       run: |
-        echo "NODE_AUTH_TOKEN=${{ inputs.token }}" >> $GITHUB_ENV
+        echo "NODE_AUTH_TOKEN=$TOKEN" >> $GITHUB_ENV
 
     - name: Cache Dependencies
       if: inputs.cache == 'true'
@@ -298,10 +303,12 @@ runs:
     - name: Install Package Managers
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
       run: |
         set -euo pipefail
 
-        package_manager="${{ steps.package-manager-resolution.outputs.final-package-manager }}"
+        package_manager="$PACKAGE_MANAGER"
         echo "Setting up package manager: $package_manager"
 
         case "$package_manager" in
@@ -333,12 +340,20 @@ runs:
       with:
         bun-version: latest
 
+    - name: Export Package Manager to Environment
+      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
+      run: |
+        echo "PACKAGE_MANAGER=$PACKAGE_MANAGER" >> $GITHUB_ENV
+
     - name: Install Dependencies
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
       uses: ./common-retry
       with:
         command: |
-          package_manager="${{ steps.package-manager-resolution.outputs.final-package-manager }}"
+          package_manager="$PACKAGE_MANAGER"
           echo "Installing dependencies using $package_manager..."
           case "$package_manager" in
             "pnpm")
@@ -367,9 +382,12 @@ runs:
 
     - name: Set Final Outputs
       shell: bash
+      env:
+        NODE_VERSION: ${{ steps.version.outputs.detected-version }}
+        PACKAGE_MANAGER: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
       run: |-
         {
-          echo "node-version=${{ steps.version.outputs.detected-version }}"
-          echo "package-manager=${{ steps.package-manager-resolution.outputs.final-package-manager }}"
+          echo "node-version=$NODE_VERSION"
+          echo "package-manager=$PACKAGE_MANAGER"
           echo "node-path=$(which node)"
         } >> $GITHUB_OUTPUT
