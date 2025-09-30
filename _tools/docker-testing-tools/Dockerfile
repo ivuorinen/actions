@@ -18,7 +18,6 @@ RUN apt-get update && apt-get install -y \
   --no-install-recommends \
   # Base utilities
   curl \
-  wget \
   git \
   unzip \
   tar \
@@ -53,7 +52,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
 FROM base AS tools
 
 # Install Trivy security scanner
-RUN wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - \
+RUN curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - \
   && echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list \
   && apt-get update \
   && apt-get install -y trivy --no-install-recommends \
@@ -96,16 +95,17 @@ RUN groupadd --gid $USER_GID $USERNAME \
   && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
   && chmod 0440 /etc/sudoers.d/$USERNAME
 
+# Create workspace directory with proper permissions (as root)
+RUN mkdir -p /workspace \
+  && chown -R $USERNAME:$USERNAME /workspace
+
 # Switch to non-root user for ShellSpec installation
 USER $USERNAME
+WORKDIR /workspace
 
 # Install ShellSpec testing framework in user's home
 RUN curl -fsSL https://git.io/shellspec | sh -s -- --yes \
   && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
-
-# Create workspace directory with proper permissions
-WORKDIR /workspace
-RUN sudo chown -R $USERNAME:$USERNAME /workspace
 
 # Verify installations (run as root to access all tools)
 RUN echo "=== Tool Versions ===" \
@@ -125,6 +125,10 @@ RUN echo "=== Tool Versions ===" \
 # Verify user-installed tools
 RUN shellspec --version \
   && echo "=== User tools verified ==="
+
+# Health check to verify essential tools are available
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD shellcheck --version && jq --version || exit 1
 
 # Default command runs as non-root user
 CMD ["/bin/bash"]
