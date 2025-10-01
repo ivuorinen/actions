@@ -34,9 +34,10 @@
    - `-e`: Exit on error, `-u`: Exit on undefined variable, `-o pipefail`: Exit on pipe failures
    - Critical for fail-fast behavior in composite actions
 
-9. **NEVER** interpolate expressions inside quoted strings in YAML
-   - `"${{ inputs.value }}"` in hashFiles breaks cache key generation
-   - Use unquoted or extract to separate variable first
+9. **Avoid** nesting `${{ }}` expressions inside quoted strings in specific contexts
+   - In `hashFiles()`: `"${{ inputs.value }}"` breaks cache key generation - use unquoted or extract to variable
+   - In most other contexts, quoting is required for safety (e.g., shell commands with spaces)
+   - General rule: Quote for shell safety, unquote for YAML expressions in functions like hashFiles
 
 10. **NEVER** assume tools are available across all runner types
     - macOS/Windows runners may lack Linux tools (jq, bc, specific GNU utils)
