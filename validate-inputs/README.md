@@ -40,6 +40,22 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 | `dry-run`           | <p>Dry run mode</p>                                                                | `false`  | `""`    |
 | `is_fiximus`        | <p>Use Fiximus bot</p>                                                             | `false`  | `""`    |
 | `prefix`            | <p>Release tag prefix</p>                                                          | `false`  | `""`    |
+| `language`          | <p>Language to analyze (for CodeQL)</p>                                            | `false`  | `""`    |
+| `queries`           | <p>CodeQL queries to run</p>                                                       | `false`  | `""`    |
+| `packs`             | <p>CodeQL query packs</p>                                                          | `false`  | `""`    |
+| `config-file`       | <p>CodeQL configuration file path</p>                                              | `false`  | `""`    |
+| `config`            | <p>CodeQL configuration YAML string</p>                                            | `false`  | `""`    |
+| `build-mode`        | <p>Build mode for compiled languages</p>                                           | `false`  | `""`    |
+| `source-root`       | <p>Source code root directory</p>                                                  | `false`  | `""`    |
+| `category`          | <p>Analysis category</p>                                                           | `false`  | `""`    |
+| `checkout-ref`      | <p>Git reference to checkout</p>                                                   | `false`  | `""`    |
+| `working-directory` | <p>Working directory for analysis</p>                                              | `false`  | `""`    |
+| `upload-results`    | <p>Upload results to GitHub Security</p>                                           | `false`  | `""`    |
+| `ram`               | <p>Memory in MB for CodeQL</p>                                                     | `false`  | `""`    |
+| `threads`           | <p>Number of threads for CodeQL</p>                                                | `false`  | `""`    |
+| `output`            | <p>Output path for SARIF results</p>                                               | `false`  | `""`    |
+| `skip-queries`      | <p>Skip running queries</p>                                                        | `false`  | `""`    |
+| `add-snippets`      | <p>Add code snippets to SARIF</p>                                                  | `false`  | `""`    |
 
 ### Outputs
 
@@ -236,6 +252,102 @@ This action is a `composite` action.
 
     prefix:
     # Release tag prefix
+    #
+    # Required: false
+    # Default: ""
+
+    language:
+    # Language to analyze (for CodeQL)
+    #
+    # Required: false
+    # Default: ""
+
+    queries:
+    # CodeQL queries to run
+    #
+    # Required: false
+    # Default: ""
+
+    packs:
+    # CodeQL query packs
+    #
+    # Required: false
+    # Default: ""
+
+    config-file:
+    # CodeQL configuration file path
+    #
+    # Required: false
+    # Default: ""
+
+    config:
+    # CodeQL configuration YAML string
+    #
+    # Required: false
+    # Default: ""
+
+    build-mode:
+    # Build mode for compiled languages
+    #
+    # Required: false
+    # Default: ""
+
+    source-root:
+    # Source code root directory
+    #
+    # Required: false
+    # Default: ""
+
+    category:
+    # Analysis category
+    #
+    # Required: false
+    # Default: ""
+
+    checkout-ref:
+    # Git reference to checkout
+    #
+    # Required: false
+    # Default: ""
+
+    working-directory:
+    # Working directory for analysis
+    #
+    # Required: false
+    # Default: ""
+
+    upload-results:
+    # Upload results to GitHub Security
+    #
+    # Required: false
+    # Default: ""
+
+    ram:
+    # Memory in MB for CodeQL
+    #
+    # Required: false
+    # Default: ""
+
+    threads:
+    # Number of threads for CodeQL
+    #
+    # Required: false
+    # Default: ""
+
+    output:
+    # Output path for SARIF results
+    #
+    # Required: false
+    # Default: ""
+
+    skip-queries:
+    # Skip running queries
+    #
+    # Required: false
+    # Default: ""
+
+    add-snippets:
+    # Add code snippets to SARIF
     #
     # Required: false
     # Default: ""
