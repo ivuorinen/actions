@@ -102,6 +102,11 @@ class ValidationRuleGenerator:
                 r"\b(changelog|notes|message|content|description|body|text|comment|summary|release[_-]?notes)\b",
                 re.IGNORECASE,
             ),
+            # Regex pattern validation (ReDoS detection)
+            "regex_pattern": re.compile(
+                r"\b(regex|pattern|validation[_-]?regex|regex[_-]?pattern)\b",
+                re.IGNORECASE,
+            ),
             # Additional validation types
             "report_format": re.compile(r"\b(report[_-]?format|format)\b", re.IGNORECASE),
             "plugin_list": re.compile(r"\b(plugins?|plugin[_-]?list)\b", re.IGNORECASE),
@@ -193,7 +198,7 @@ class ValidationRuleGenerator:
             "language": None,  # Simple enum (node, php, python, go, dotnet)
             "tool-versions-key": None,  # Simple string (nodejs, python, php, golang, dotnet)
             "dockerfile-image": None,  # Simple string (node, python, php, golang, dotnet)
-            "validation-regex": None,  # Complex regex pattern
+            "validation-regex": "regex_pattern",  # Regex pattern - validate for ReDoS
         }
 
     def get_action_directories(self) -> list[str]:

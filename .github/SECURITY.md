@@ -48,12 +48,12 @@ When using these actions:
 
 The following secrets should be configured in your repository:
 
-| Secret Name          | Description                                                      | Requirement |
-| -------------------- | ---------------------------------------------------------------- | ----------- |
-| `GITHUB_TOKEN`       | GitHub token for workflow authentication (automatically provided) | Auto        |
-| `GITLEAKS_LICENSE`   | License for Gitleaks scanning                                     | Optional    |
-| `FIXIMUS_TOKEN`      | Enhanced token for automated fix PRs                              | Optional    |
-| `SEMGREP_APP_TOKEN`  | Token for Semgrep static analysis                                 | Optional    |
+| Secret Name         | Description                                                       | Requirement |
+| ------------------- | ----------------------------------------------------------------- | ----------- |
+| `GITHUB_TOKEN`      | GitHub token for workflow authentication (automatically provided) | Auto        |
+| `GITLEAKS_LICENSE`  | License for Gitleaks scanning                                     | Optional    |
+| `FIXIMUS_TOKEN`     | Enhanced token for automated fix PRs                              | Optional    |
+| `SEMGREP_APP_TOKEN` | Token for Semgrep static analysis                                 | Optional    |
 
 ## Security Workflows
 
