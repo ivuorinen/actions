@@ -360,7 +360,8 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
-    permissions: {}
+    permissions:
+      actions: read  # Required to download artifacts
     needs:
       - unit-tests
       - integration-tests

@@ -225,7 +225,7 @@ class TestValidationRuleGenerator:
 
         result = generator.detect_validation_type(
             "unknown_field",
-            {"description": "Some random field that doesn't match any pattern"},
+            {"description": "Some random field with no special meaning"},
         )
         assert result is None
 

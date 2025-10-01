@@ -68,22 +68,13 @@ test_input_validation() {
   # Setup test environment
   setup_test_env "input-validation-${input_name}"
 
-  # Use Python validation module directly
+  # Use Python validation module via CLI
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
   local result="success"
-  # Use centralized validation_core directly
-  if ! python3 -c "
-import sys
-import os
-sys.path.insert(0, os.path.join('$script_dir', '..', 'shared'))
-from validation_core import validate_input
-is_valid, error_msg = validate_input('$action_dir', '$input_name', '$test_value')
-if not is_valid:
-    print(f'Validation failed: {error_msg}', file=sys.stderr)
-    sys.exit(1)
-"; then
+  # Call validation_core CLI with proper argument passing (no injection risk)
+  if ! python3 "$script_dir/../shared/validation_core.py" --validate "$action_dir" "$input_name" "$test_value" 2>&1; then
     result="failure"
   fi
 
