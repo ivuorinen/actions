@@ -140,6 +140,7 @@ runs:
     - name: Validate Action Inputs with Python
       id: validate
       shell: bash
+      working-directory: ${{ github.action_path }}
       run: python3 validator.py
       env:
         INPUT_ACTION: ${{ inputs.action }}
