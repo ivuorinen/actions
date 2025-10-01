@@ -98,11 +98,11 @@ The architecture now provides specialized validators, convention-based auto-dete
 
 #### Test Generation Commands
 
-````bash
+```bash
 make generate-tests       # Generate missing tests
 make generate-tests-dry   # Preview what would be generated
 make test-generate-tests  # Test the generator itself
-```text
+```
 
 ### ⏳ Phase 6: Integration and Migration (NOT STARTED)
 
@@ -127,7 +127,7 @@ The ConventionMapper provides automatic validator selection based on input namin
 90: Generic suffixes (e.g., "-token" → token)
 85: Contains patterns (e.g., contains "email" → email)
 80: Prefix patterns (e.g., "is-" → boolean)
-```text
+```
 
 ## Key Technical Achievements
 
@@ -141,7 +141,7 @@ for error in self.child_validator.errors:
         self.add_error(error)
 self.child_validator.clear_errors()
 return result
-```text
+```
 
 ### GitHub Expression Support
 
@@ -151,7 +151,7 @@ All validators properly handle GitHub Actions expressions:
 # Allow GitHub Actions expressions
 if self.is_github_expression(value):
     return True
-```text
+```
 
 ### Platform Validation
 
@@ -191,14 +191,14 @@ validate-inputs/tests/
 ├── test_integration.py            ✅
 ├── test_validator.py              ✅
 └── test_generate_tests.py         ✅ (11 tests)
-```text
+```
 
 ### Test Generation System
 
 ```text
 validate-inputs/scripts/
 └── generate-tests.py              ✅ Intelligent test generator
-```text
+```
 
 ## Production Readiness Criteria
 
@@ -229,7 +229,7 @@ result = validator.validate_inputs({
     "dockerfile": "Dockerfile",
     "platforms": "linux/amd64,linux/arm64"
 })
-```text
+```
 
 ### Custom Validator
 
@@ -237,7 +237,7 @@ result = validator.validate_inputs({
 # Automatically loads docker-build/CustomValidator.py
 validator = registry.get_validator("docker-build")
 # Uses specialized validation logic for docker-build action
-```text
+```
 
 ### Test Generation
 
@@ -258,7 +258,7 @@ Describe 'Action Name Input Validation'
     End
   End
 End
-```text
+```
 
 ## File Structure
 
@@ -285,7 +285,7 @@ sync-labels/CustomValidator.py     ✅
 docker-build/CustomValidator.py    ✅
 codeql-analysis/CustomValidator.py ✅
 docker-publish/CustomValidator.py  ✅
-```text
+```
 
 ## Benefits Achieved
 
@@ -343,4 +343,3 @@ docker-publish/CustomValidator.py  ✅
 The modular validator architecture with test generation is **complete and production-ready**. Phases 1-5 are done, providing a robust, extensible,
 and well-tested validation system for GitHub Actions. The test generation system ensures consistent test coverage and reduces manual test writing effort.
 The system maintains 100% test coverage with zero defects, follows SOLID principles, and maintains full backward compatibility.
-````

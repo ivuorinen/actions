@@ -507,7 +507,7 @@ class ConventionBasedValidator(BaseValidator):
             return self._validator_modules["numeric"], f"validate_{validator_type}"
 
         # Security validators
-        if validator_type in ["security_patterns", "injection_patterns", "prefix"]:
+        if validator_type in ["security_patterns", "injection_patterns", "prefix", "regex_pattern"]:
             if "security" not in self._validator_modules:
                 from . import security
 

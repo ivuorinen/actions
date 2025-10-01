@@ -57,6 +57,149 @@ spec_helper_configure
 
 # Helper functions specifically for ShellSpec tests
 
+# Set up default input values for testing a single input
+# This prevents validation failures when testing one input at a time
+setup_default_inputs() {
+  local action_name="$1"
+  local input_name="$2"
+
+  case "$action_name" in
+  "github-release")
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
+    ;;
+  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+    [[ "$input_name" != "image-name" ]] && export INPUT_IMAGE_NAME="test-image"
+    [[ "$input_name" != "tag" ]] && export INPUT_TAG="latest"
+    [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && export INPUT_REGISTRY="dockerhub"
+    ;;
+  "npm-publish")
+    [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
+    ;;
+  "csharp-publish")
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
+    [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
+    ;;
+  "php-composer")
+    [[ "$input_name" != "php" ]] && export INPUT_PHP="8.1"
+    ;;
+  "php-tests" | "php-laravel-phpunit")
+    [[ "$input_name" != "php-version" ]] && export INPUT_PHP_VERSION="8.1"
+    ;;
+  "go-build" | "go-lint")
+    [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
+    ;;
+  "common-cache")
+    [[ "$input_name" != "type" ]] && export INPUT_TYPE="npm"
+    [[ "$input_name" != "paths" ]] && export INPUT_PATHS="node_modules"
+    ;;
+  "common-retry")
+    [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
+    ;;
+  "dotnet-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.0"
+    ;;
+  "python-version-detect" | "python-version-detect-v2")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="3.11"
+    ;;
+  "php-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.1"
+    ;;
+  "go-version-detect")
+    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="1.22"
+    ;;
+  "validate-inputs")
+    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
+    ;;
+  "version-file-parser")
+    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="node"
+    [[ "$input_name" != "tool-versions-key" ]] && export INPUT_TOOL_VERSIONS_KEY="nodejs"
+    [[ "$input_name" != "dockerfile-image" ]] && export INPUT_DOCKERFILE_IMAGE="node"
+    ;;
+  "codeql-analysis")
+    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ;;
+  "version-validator")
+    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
+    ;;
+  "release-monthly")
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ;;
+  esac
+}
+
+# Clean up default input values after testing
+cleanup_default_inputs() {
+  local action_name="$1"
+  local input_name="$2"
+
+  case "$action_name" in
+  "github-release")
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
+    ;;
+  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+    [[ "$input_name" != "image-name" ]] && unset INPUT_IMAGE_NAME
+    [[ "$input_name" != "tag" ]] && unset INPUT_TAG
+    [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && unset INPUT_REGISTRY
+    ;;
+  "npm-publish")
+    [[ "$input_name" != "npm_token" ]] && unset INPUT_NPM_TOKEN
+    ;;
+  "csharp-publish")
+    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
+    [[ "$input_name" != "namespace" ]] && unset INPUT_NAMESPACE
+    ;;
+  "php-composer")
+    [[ "$input_name" != "php" ]] && unset INPUT_PHP
+    ;;
+  "php-tests" | "php-laravel-phpunit")
+    [[ "$input_name" != "php-version" ]] && unset INPUT_PHP_VERSION
+    ;;
+  "go-build" | "go-lint")
+    [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
+    ;;
+  "common-cache")
+    [[ "$input_name" != "type" ]] && unset INPUT_TYPE
+    [[ "$input_name" != "paths" ]] && unset INPUT_PATHS
+    ;;
+  "common-retry")
+    [[ "$input_name" != "command" ]] && unset INPUT_COMMAND
+    ;;
+  "dotnet-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "python-version-detect" | "python-version-detect-v2")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "php-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "go-version-detect")
+    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
+    ;;
+  "validate-inputs")
+    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
+    ;;
+  "version-file-parser")
+    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
+    [[ "$input_name" != "tool-versions-key" ]] && unset INPUT_TOOL_VERSIONS_KEY
+    [[ "$input_name" != "dockerfile-image" ]] && unset INPUT_DOCKERFILE_IMAGE
+    ;;
+  "codeql-analysis")
+    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
+    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    ;;
+  "version-validator")
+    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
+    ;;
+  "release-monthly")
+    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    ;;
+  esac
+}
+
 # Enhanced test validation for ShellSpec
 shellspec_validate_action_output() {
   local expected_key="$1"
@@ -254,70 +397,13 @@ shellspec_test_input_validation() {
 
   # Set default values for commonly required inputs to avoid validation failures
   # when testing only one input at a time
-  case "$action_name" in
-  "github-release")
-    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
-    ;;
-  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
-    [[ "$input_name" != "image-name" ]] && export INPUT_IMAGE_NAME="test-image"
-    [[ "$input_name" != "tag" ]] && export INPUT_TAG="latest"
-    [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && export INPUT_REGISTRY="dockerhub"
-    ;;
-  "npm-publish")
-    [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
-    ;;
-  "csharp-publish")
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
-    [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
-    ;;
-  "php-composer")
-    [[ "$input_name" != "php" ]] && export INPUT_PHP="8.1"
-    ;;
-  "php-tests" | "php-laravel-phpunit")
-    [[ "$input_name" != "php-version" ]] && export INPUT_PHP_VERSION="8.1"
-    ;;
-  "go-build" | "go-lint")
-    [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
-    ;;
-  "common-cache")
-    [[ "$input_name" != "type" ]] && export INPUT_TYPE="npm"
-    [[ "$input_name" != "paths" ]] && export INPUT_PATHS="node_modules"
-    ;;
-  "common-retry")
-    [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
-    ;;
-  "dotnet-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.0"
-    ;;
-  "python-version-detect" | "python-version-detect-v2")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="3.11"
-    ;;
-  "php-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.1"
-    ;;
-  "go-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="1.22"
-    ;;
-  "validate-inputs")
-    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
-    ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="node"
-    [[ "$input_name" != "tool-versions-key" ]] && export INPUT_TOOL_VERSIONS_KEY="nodejs"
-    [[ "$input_name" != "dockerfile-image" ]] && export INPUT_DOCKERFILE_IMAGE="node"
-    ;;
-  "codeql-analysis")
-    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    ;;
-  esac
+  setup_default_inputs "$action_name" "$input_name"
 
   # Convert input name to uppercase and replace dashes with underscores
   local input_var_name
   input_var_name="INPUT_${input_name//-/_}"
   input_var_name="$(echo "$input_var_name" | tr '[:lower:]' '[:upper:]')"
-  export "$input_var_name"="$input_value"
+  export "$input_var_name"="$test_value"
   export GITHUB_OUTPUT="$temp_output_file"
 
   # Run the Python validation script and capture exit code
@@ -341,57 +427,7 @@ shellspec_test_input_validation() {
   unset "$input_var_name"
 
   # Clean up default inputs
-  case "$action_name" in
-  "github-release")
-    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
-    ;;
-  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
-    [[ "$input_name" != "image-name" ]] && unset INPUT_IMAGE_NAME
-    [[ "$input_name" != "tag" ]] && unset INPUT_TAG
-    [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && unset INPUT_REGISTRY
-    ;;
-  "npm-publish")
-    [[ "$input_name" != "npm_token" ]] && unset INPUT_NPM_TOKEN
-    ;;
-  "csharp-publish")
-    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
-    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
-    [[ "$input_name" != "namespace" ]] && unset INPUT_NAMESPACE
-    ;;
-  "php-composer")
-    [[ "$input_name" != "php" ]] && unset INPUT_PHP
-    ;;
-  "php-tests" | "php-laravel-phpunit")
-    [[ "$input_name" != "php-version" ]] && unset INPUT_PHP_VERSION
-    ;;
-  "go-build" | "go-lint")
-    [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
-    ;;
-  "dotnet-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "python-version-detect" | "python-version-detect-v2")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "php-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "go-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "validate-inputs")
-    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
-    ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
-    [[ "$input_name" != "tool-versions-key" ]] && unset INPUT_TOOL_VERSIONS_KEY
-    [[ "$input_name" != "dockerfile-image" ]] && unset INPUT_DOCKERFILE_IMAGE
-    ;;
-  "codeql-analysis")
-    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
-    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
-    ;;
-  esac
+  cleanup_default_inputs "$action_name" "$input_name"
 
   # Return based on expected result
   if [[ $actual_result == "$expected_result" ]]; then
@@ -478,70 +514,7 @@ validate_input_python() {
 
   # Set default values for commonly required inputs to avoid validation failures
   # when testing only one input at a time
-  case "$action_type" in
-  "github-release")
-    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
-    ;;
-  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
-    [[ "$input_name" != "image-name" ]] && export INPUT_IMAGE_NAME="test-image"
-    [[ "$input_name" != "tag" ]] && export INPUT_TAG="latest"
-    [[ "$action_type" == "docker-publish" && "$input_name" != "registry" ]] && export INPUT_REGISTRY="dockerhub"
-    ;;
-  "npm-publish")
-    [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
-    ;;
-  "csharp-publish")
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
-    [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
-    ;;
-  "php-composer")
-    [[ "$input_name" != "php" ]] && export INPUT_PHP="8.1"
-    ;;
-  "php-tests" | "php-laravel-phpunit")
-    [[ "$input_name" != "php-version" ]] && export INPUT_PHP_VERSION="8.1"
-    ;;
-  "go-build" | "go-lint")
-    [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
-    ;;
-  "common-cache")
-    [[ "$input_name" != "type" ]] && export INPUT_TYPE="npm"
-    [[ "$input_name" != "paths" ]] && export INPUT_PATHS="node_modules"
-    ;;
-  "common-retry")
-    [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
-    ;;
-  "dotnet-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.0"
-    ;;
-  "python-version-detect" | "python-version-detect-v2")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="3.11"
-    ;;
-  "php-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.1"
-    ;;
-  "go-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="1.22"
-    ;;
-  "validate-inputs")
-    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
-    ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="node"
-    [[ "$input_name" != "tool-versions-key" ]] && export INPUT_TOOL_VERSIONS_KEY="nodejs"
-    [[ "$input_name" != "dockerfile-image" ]] && export INPUT_DOCKERFILE_IMAGE="node"
-    ;;
-  "codeql-analysis")
-    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    ;;
-  "version-validator")
-    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
-    ;;
-  "release-monthly")
-    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-    ;;
-  esac
+  setup_default_inputs "$action_type" "$input_name"
 
   # Set the target input
   local input_var_name="INPUT_${input_name//-/_}"
@@ -570,67 +543,7 @@ validate_input_python() {
   rm -f "$temp_output" 2>/dev/null || true
 
   # Clean up default inputs
-  case "$action_type" in
-  "github-release")
-    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
-    ;;
-  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
-    [[ "$input_name" != "image-name" ]] && unset INPUT_IMAGE_NAME
-    [[ "$input_name" != "tag" ]] && unset INPUT_TAG
-    [[ "$action_type" == "docker-publish" && "$input_name" != "registry" ]] && unset INPUT_REGISTRY
-    ;;
-  "npm-publish")
-    [[ "$input_name" != "npm_token" ]] && unset INPUT_NPM_TOKEN
-    ;;
-  "csharp-publish")
-    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
-    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
-    [[ "$input_name" != "namespace" ]] && unset INPUT_NAMESPACE
-    ;;
-  "php-composer")
-    [[ "$input_name" != "php" ]] && unset INPUT_PHP
-    ;;
-  "php-tests" | "php-laravel-phpunit")
-    [[ "$input_name" != "php-version" ]] && unset INPUT_PHP_VERSION
-    ;;
-  "go-build" | "go-lint")
-    [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
-    ;;
-  "common-cache")
-    [[ "$input_name" != "type" ]] && unset INPUT_TYPE
-    [[ "$input_name" != "paths" ]] && unset INPUT_PATHS
-    ;;
-  "common-retry")
-    [[ "$input_name" != "command" ]] && unset INPUT_COMMAND
-    ;;
-  "dotnet-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "python-version-detect" | "python-version-detect-v2")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "php-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "go-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "validate-inputs")
-    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
-    ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
-    [[ "$input_name" != "tool-versions-key" ]] && unset INPUT_TOOL_VERSIONS_KEY
-    [[ "$input_name" != "dockerfile-image" ]] && unset INPUT_DOCKERFILE_IMAGE
-    ;;
-  "codeql-analysis")
-    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
-    [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
-    ;;
-  "version-validator")
-    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
-    ;;
-  esac
+  cleanup_default_inputs "$action_type" "$input_name"
 
   # Return the exit code for ShellSpec to check
   return $exit_code

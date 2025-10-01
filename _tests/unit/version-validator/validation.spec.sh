@@ -67,8 +67,67 @@ It "accepts empty validation-regex (uses default)"
 When call validate_input_python "version-validator" "validation-regex" ""
 The status should be success
 End
-It "rejects dangerous regex patterns"
+It "accepts valid regex patterns with quantifiers"
+When call validate_input_python "version-validator" "validation-regex" "^[0-9]+\\.[0-9]+$"
+The status should be success
+End
+It "rejects regex with command injection"
+When call validate_input_python "version-validator" "validation-regex" "^[0-9]+$; rm -rf /"
+The status should be failure
+End
+End
+
+Context "when validating ReDoS patterns"
+It "rejects nested quantifiers (a+)+"
+When call validate_input_python "version-validator" "validation-regex" "(a+)+"
+The status should be failure
+End
+It "rejects nested quantifiers (a*)+"
+When call validate_input_python "version-validator" "validation-regex" "(a*)+"
+The status should be failure
+End
+It "rejects nested quantifiers (a+)*"
+When call validate_input_python "version-validator" "validation-regex" "(a+)*"
+The status should be failure
+End
+It "rejects nested quantifiers (a*)*"
+When call validate_input_python "version-validator" "validation-regex" "(a*)*"
+The status should be failure
+End
+It "rejects quantified groups (a+){2,5}"
+When call validate_input_python "version-validator" "validation-regex" "(a+){2,5}"
+The status should be failure
+End
+It "rejects consecutive quantifiers .*.* (ReDoS)"
 When call validate_input_python "version-validator" "validation-regex" ".*.*"
+The status should be failure
+End
+It "rejects consecutive quantifiers .*+ (ReDoS)"
+When call validate_input_python "version-validator" "validation-regex" ".*+"
+The status should be failure
+End
+It "rejects duplicate alternatives (a|a)+"
+When call validate_input_python "version-validator" "validation-regex" "(a|a)+"
+The status should be failure
+End
+It "rejects overlapping alternatives (a|ab)+"
+When call validate_input_python "version-validator" "validation-regex" "(a|ab)+"
+The status should be failure
+End
+It "accepts safe pattern with single quantifier"
+When call validate_input_python "version-validator" "validation-regex" "^[0-9]+$"
+The status should be success
+End
+It "accepts safe pattern with character class"
+When call validate_input_python "version-validator" "validation-regex" "^[a-zA-Z0-9]+$"
+The status should be success
+End
+It "accepts safe pattern with optional group"
+When call validate_input_python "version-validator" "validation-regex" "^[0-9]+(\\.[0-9]+)?$"
+The status should be success
+End
+It "accepts safe alternation without repetition"
+When call validate_input_python "version-validator" "validation-regex" "^(alpha|beta|gamma)$"
 The status should be success
 End
 End

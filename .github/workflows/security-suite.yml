@@ -44,6 +44,9 @@ jobs:
           git fetch origin ${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}
 
       - name: OWASP Dependency Check
+        # Only run on pull_request, not pull_request_target to prevent executing
+        # untrusted third-party actions against PR head from forks
+        if: github.event_name == 'pull_request'
         uses: dependency-check/Dependency-Check_Action@3102a65fd5f36d0000297576acc56a475b0de98d # main
         with:
           project: 'PR Security Analysis'
@@ -67,7 +70,7 @@ jobs:
         uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503
         with:
           path: ./
-          base: ${{ github.event.repository.default_branch }}
+          base: ${{ github.event.pull_request.base.sha }}
           head: HEAD
           extra_args: --debug --only-verified --json --output /tmp/trufflehog_output.json
         continue-on-error: true
@@ -91,7 +94,7 @@ jobs:
             const { execSync } = require('child_process');
             try {
               const changedWorkflows = execSync(
-                `git diff --name-only origin/${{ github.event.repository.default_branch }}...${{ github.event.pull_request.head.sha }} | grep -E "\.github/workflows/.*\.ya?ml$" || true`,
+                `git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} | grep -E "\.github/workflows/.*\.ya?ml$" || true`,
                 { encoding: 'utf8' }
               ).trim().split('\n').filter(Boolean);
 
@@ -99,7 +102,7 @@ jobs:
                 if (!workflow) continue;
 
                 try {
-                  const oldContent = execSync(`git show origin/${{ github.event.repository.default_branch }}:${workflow}`, { encoding: 'utf8' });
+                  const oldContent = execSync(`git show ${{ github.event.pull_request.base.sha }}:${workflow}`, { encoding: 'utf8' });
                   const newContent = fs.readFileSync(workflow, 'utf8');
 
                   // Simple permission extraction (could be enhanced with YAML parsing)

@@ -48,7 +48,9 @@
 
 - **Charset**: UTF-8
 - **Line Endings**: LF (Unix style)
-- **Indentation**: 2 spaces (except Makefiles use tabs)
+- **Indentation**: 2 spaces globally
+  - **Python override**: 4 spaces (`indent_size=4` for `*.py`)
+  - **Makefile override**: Tabs (`indent_style=tab` for `Makefile`)
 - **Final Newline**: Required
 - **Max Line Length**: 200 characters (120 for Markdown)
 - **Trailing Whitespace**: Trimmed
@@ -72,21 +74,64 @@ Comprehensive linting with 30+ rule categories including:
 - Performance optimizations, refactoring suggestions
 - Type checking, logging best practices
 
-### Relaxed Rules for GitHub Actions
+### Relaxed Rules for GitHub Actions Scripts
 
-- Allow print statements (GitHub Actions logging)
-- Allow sys.exit calls and broad exception catches
-- Allow subprocess calls and validation-specific patterns
-- Relaxed docstring requirements for simple scripts
+**Scope**: These relaxed rules apply ONLY to Python scripts running as GitHub Actions steps (composite action scripts). They override specific zero-tolerance rules for those files.
+
+**Precedence**: For GitHub Actions scripts, allowed ignores take precedence over repository zero-tolerance rules; all other rules remain enforced.
+
+**Allowed Ignore Codes**:
+
+- `T201` - Allow print statements (GitHub Actions logging)
+- `S603`, `S607` - Allow subprocess calls (required for shell integration)
+- `S101` - Allow assert statements (validation assertions)
+- `BLE001` - Allow broad exception catches (workflow error handling)
+- `D103`, `D100` - Relaxed docstring requirements for simple scripts
+- `PLR0913` - Allow many function arguments (GitHub Actions input patterns)
+
+**Example**: `# ruff: noqa: T201, S603` for action step scripts only
 
 ## Shell Script Standards
 
-- **Error Handling**: `set -euo pipefail` (exit on error, undefined vars, pipe failures)
+### Required Hardening Checklist
+
+- ✅ **Shebang**: `#!/usr/bin/env bash` (POSIX-compliant)
+- ✅ **Error Handling**: `set -euo pipefail` at script start
+- ✅ **Safe IFS**: `IFS=$' \t\n'` (space, tab, newline only)
+- ✅ **Exit Trap**: `trap cleanup EXIT` for cleanup operations
+- ✅ **Error Trap**: `trap 'echo "Error at line $LINENO" >&2' ERR` for debugging
+- ✅ **Defensive Expansion**: Use `${var:-default}` or `${var:?message}` patterns
+- ✅ **Quote Everything**: Always quote expansions: `"$var"`, `basename -- "$path"`
+- ✅ **Tool Availability**: `command -v tool >/dev/null 2>&1 || { echo "Missing tool"; exit 1; }`
+
+### Examples
+
+```bash
+#!/usr/bin/env bash
+set -euo pipefail
+IFS=$' \t\n'
+
+# Cleanup trap
+cleanup() { rm -f /tmp/tempfile; }
+trap cleanup EXIT
+
+# Error trap with line number
+trap 'echo "Error at line $LINENO" >&2' ERR
+
+# Defensive parameter expansion
+config_file="${CONFIG_FILE:-config.yml}"           # Use default if unset
+required_param="${REQUIRED_PARAM:?Missing value}"  # Error if unset
+
+# Always quote expansions
+echo "Processing: $config_file"
+result=$(basename -- "$file_path")
+```
+
+### Additional Requirements
+
 - **Security**: All external actions SHA-pinned
 - **Token Authentication**: `${{ github.token }}` fallback pattern
 - **Validation**: shellcheck compliance required
-- **Variable Quoting**: Always quote to prevent word splitting: `"$var"`, `basename -- "$path"`
-- **Tool Availability**: Check before use: `command -v tool >/dev/null 2>&1`
 
 ## YAML/GitHub Actions Style
 
@@ -95,6 +140,53 @@ Comprehensive linting with 30+ rule categories including:
 - **Validation**: actionlint and yaml-lint compliance
 - **Documentation**: Auto-generated README.md via action-docs
 - **Expression Safety**: Never nest `${{ }}` inside quoted strings
+
+### Least-Privilege Permissions
+
+Always scope permissions to minimum required. Set at workflow, workflow_call, or job level:
+
+```yaml
+permissions:
+  contents: read        # Default for most workflows
+  packages: write       # Only if publishing packages
+  pull-requests: write  # Only if commenting on PRs
+  # Omit unused permissions
+```
+
+**Use GitHub-provided token**: `${{ github.token }}` over PATs when possible
+
+**Scoped secrets**: `${{ secrets.MY_SECRET }}` never hardcoded
+
+### Expression Context Examples
+
+```yaml
+# Secrets context (always quote in run steps)
+run: echo "${{ secrets.MY_SECRET }}" | tool
+
+# Matrix context (quote when used as value)
+run: echo "Testing ${{ matrix.version }}"
+
+# Needs context (access outputs from dependent jobs)
+run: echo "${{ needs.build.outputs.artifact-id }}"
+
+# Steps context (access outputs from previous steps)
+uses: action@v1
+with:
+  value: ${{ steps.build.outputs.version }}  # No quotes in 'with'
+
+# Conditional expressions (no quotes)
+if: github.event_name == 'push'
+
+# NEVER interpolate untrusted input into expressions
+# ❌ WRONG: run: echo "${{ github.event.issue.title }}"  # Injection risk
+# ✅ RIGHT: Use env var: env: TITLE: ${{ github.event.issue.title }}
+```
+
+**Quoting Rules**:
+
+- Quote in `run:` steps when embedding in shell strings
+- Don't quote in `with:`, `env:`, `if:` - GitHub evaluates these
+- Never nest expressions: `"${{ inputs.value }}"` inside hashFiles breaks caching
 
 ### **Local Action References**
 
@@ -158,7 +250,7 @@ Comprehensive linting with 30+ rule categories including:
 - **No Secrets**: Never commit secrets or keys to repository
 - **No Logging**: Never expose or log secrets/keys in code
 - **SHA Pinning**: All external actions use SHA commits, not tags
-- **Input Validation**: Centralized Python validation for all actions
+- **Input Validation**: All actions import from shared validation library (`validate-inputs/`) - stateless validation functions, no inter-action dependencies
 - **Output Sanitization**: Use `printf` or heredoc for `$GITHUB_OUTPUT` writes
 - **Injection Prevention**: Validate inputs for command injection patterns (`;`, `&&`, `|`, backticks)
 
@@ -174,7 +266,7 @@ Comprehensive linting with 30+ rule categories including:
 - **Linting**: Zero tolerance - all linting errors are blocking
 - **Testing**: Comprehensive test coverage required
 - **Documentation**: Auto-generated and maintained
-- **Validation**: All inputs validated through centralized system
+- **Validation**: All inputs validated via shared utility library imports (actions remain self-contained)
 
 ## Development Patterns
 

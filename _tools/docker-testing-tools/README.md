@@ -16,19 +16,21 @@ jobs:
 
 ## 📦 Pre-installed Tools
 
-| Tool           | Version | Purpose                         |
-|----------------|---------|---------------------------------|
-| **ShellSpec**  | 0.28.1  | Shell script testing framework  |
-| **nektos/act** | Latest  | Local GitHub Actions testing    |
-| **Trivy**      | Latest  | Container security scanning     |
-| **TruffleHog** | Latest  | Secrets detection               |
-| **actionlint** | Latest  | GitHub Actions linting          |
-| **shellcheck** | Latest  | Shell script linting            |
-| **jq**         | Latest  | JSON processing                 |
-| **kcov**       | Latest  | Code coverage for shell scripts |
-| **GitHub CLI** | Latest  | GitHub API interactions         |
-| **Node.js**    | LTS     | JavaScript runtime              |
-| **Python**     | 3.x     | Python runtime + PyYAML         |
+| Tool           | Version        | Purpose                         |
+|----------------|----------------|---------------------------------|
+| **ShellSpec**  | 0.28.1 (pinned)| Shell script testing framework  |
+| **nektos/act** | 0.2.71 (pinned)| Local GitHub Actions testing    |
+| **TruffleHog** | 3.86.0 (pinned)| Secrets detection               |
+| **actionlint** | 1.7.7 (pinned) | GitHub Actions linting          |
+| **Trivy**      | repo stable¹   | Container security scanning     |
+| **GitHub CLI** | repo stable¹   | GitHub API interactions         |
+| **shellcheck** | repo stable¹   | Shell script linting            |
+| **jq**         | repo stable¹   | JSON processing                 |
+| **kcov**       | repo stable¹   | Code coverage for shell scripts |
+| **Node.js**    | LTS            | JavaScript runtime              |
+| **Python**     | 3.x            | Python runtime + PyYAML         |
+
+¹ *Installed via Ubuntu 22.04 LTS repositories for stability and security*
 
 ## 🏗️ Building Locally
 

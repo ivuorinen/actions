@@ -17,6 +17,7 @@
 .docusaurus
 .dynamodb/
 .env
+!.env.example
 .env*.local
 .env.development.local
 .env.local

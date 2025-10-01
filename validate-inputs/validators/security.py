@@ -435,3 +435,208 @@ class SecurityValidator(BaseValidator):
             return False
 
         return True
+
+    def _check_command_injection_in_regex(self, pattern: str, name: str) -> bool:
+        """Check for command injection patterns in regex.
+
+        Args:
+            pattern: The regex pattern to validate
+            name: The input name for error messages
+
+        Returns:
+            True if safe, False if command injection detected
+        """
+        dangerous_cmd_patterns = [
+            r";\s*(rm|del|cat|whoami|id|pwd|ls|curl|wget|nc|bash|sh|cmd)",
+            r"&&\s*(rm|del|cat|whoami|id|pwd|ls|curl|wget|nc|bash|sh|cmd)",
+            r"\|\s*(sh|bash|cmd)\b",
+            r"`[^`]+`",
+            r"\$\([^)]+\)",
+        ]
+
+        for cmd_pattern in dangerous_cmd_patterns:
+            if re.search(cmd_pattern, pattern, re.IGNORECASE):
+                self.add_error(f"Command injection detected in {name}")
+                return False
+        return True
+
+    def _check_nested_quantifiers(self, pattern: str, name: str) -> bool:
+        """Check for nested quantifiers that can cause ReDoS.
+
+        Args:
+            pattern: The regex pattern to validate
+            name: The input name for error messages
+
+        Returns:
+            True if safe, False if nested quantifiers detected
+        """
+        nested_quantifier_patterns = [
+            r"\([^)]*[+*]\)[+*{]",  # (x+)+ or (x*)* or (x+){n,m}
+            r"\([^)]*\{[0-9,]+\}\)[+*{]",  # (x{n,m})+ or (x{n,m})*
+            r"\([^)]*[+*]\)\{",  # (x+){n,m}
+        ]
+
+        for redos_pattern in nested_quantifier_patterns:
+            if re.search(redos_pattern, pattern):
+                self.add_error(
+                    f"ReDoS risk detected in {name}: nested quantifiers can cause "
+                    "catastrophic backtracking. Avoid patterns like (a+)+, (a*)*, or (a+){n,m}"
+                )
+                return False
+        return True
+
+    def _check_alternation_repetition(self, pattern: str, name: str) -> bool:
+        """Check for alternation with repetition that can cause ReDoS.
+
+        Args:
+            pattern: The regex pattern to validate
+            name: The input name for error messages
+
+        Returns:
+            True if safe, False if problematic alternation detected
+        """
+        alternation_repetition = r"\([^)]*\|[^)]*\)[+*{]"
+        if not re.search(alternation_repetition, pattern):
+            return True
+
+        # Check if alternatives overlap (basic heuristic)
+        matches = re.finditer(r"\(([^)]*\|[^)]*)\)[+*{]", pattern)
+        for match in matches:
+            alternatives = match.group(1).split("|")
+            # Check for exact duplicates or prefix overlaps
+            for i, alt1 in enumerate(alternatives):
+                for alt2 in alternatives[i + 1 :]:
+                    # Exact duplicate
+                    if alt1 == alt2:
+                        self.add_error(
+                            f"ReDoS risk detected in {name}: duplicate alternatives "
+                            f"in repeating group '({match.group(1)})' can cause "
+                            "catastrophic backtracking"
+                        )
+                        return False
+                    # Prefix overlap (one alternative is prefix of another)
+                    if alt1.startswith(alt2) or alt2.startswith(alt1):
+                        self.add_error(
+                            f"ReDoS risk detected in {name}: overlapping alternatives "
+                            f"in repeating group '({match.group(1)})' can cause "
+                            "catastrophic backtracking"
+                        )
+                        return False
+        return True
+
+    def _check_consecutive_quantifiers(self, pattern: str, name: str) -> bool:
+        """Check for consecutive quantifiers that can cause ReDoS.
+
+        Args:
+            pattern: The regex pattern to validate
+            name: The input name for error messages
+
+        Returns:
+            True if safe, False if consecutive quantifiers detected
+        """
+        consecutive_quantifiers = r"[.+*][+*{]"
+        if re.search(consecutive_quantifiers, pattern):
+            self.add_error(
+                f"ReDoS risk detected in {name}: consecutive quantifiers like .*.* or .*+ "
+                "can cause catastrophic backtracking"
+            )
+            return False
+        return True
+
+    def _check_exponential_quantifiers(self, pattern: str, name: str) -> bool:
+        """Check for exponential quantifier combinations that can cause ReDoS.
+
+        Args:
+            pattern: The regex pattern to validate
+            name: The input name for error messages
+
+        Returns:
+            True if safe, False if exponential quantifiers detected
+        """
+        depth = 0
+        max_depth = 0
+        quantifier_depth_count = 0
+
+        i = 0
+        while i < len(pattern):
+            char = pattern[i]
+            if char == "(":
+                depth += 1
+                max_depth = max(max_depth, depth)
+                # Check if followed by quantifier after closing
+                closing_idx = self._find_closing_paren(pattern, i)
+                if closing_idx != -1 and closing_idx + 1 < len(pattern):
+                    next_char = pattern[closing_idx + 1]
+                    if next_char in "+*{":
+                        quantifier_depth_count += 1
+            elif char == ")":
+                depth -= 1
+            i += 1
+
+        # If we have multiple nested quantified groups (depth > 2 with 3+ quantifiers)
+        if max_depth > 2 and quantifier_depth_count >= 3:
+            self.add_error(
+                f"ReDoS risk detected in {name}: deeply nested groups with multiple "
+                "quantifiers can cause catastrophic backtracking"
+            )
+            return False
+        return True
+
+    def validate_regex_pattern(self, pattern: str, name: str = "regex") -> bool:
+        """Validate regex pattern for ReDoS vulnerabilities.
+
+        Detects potentially dangerous regex patterns that could cause
+        Regular Expression Denial of Service (ReDoS) through catastrophic
+        backtracking.
+
+        Args:
+            pattern: The regex pattern to validate
+            name: The input name for error messages
+
+        Returns:
+            True if pattern appears safe, False if ReDoS risk detected
+        """
+        if not pattern or pattern.strip() == "":
+            return True
+
+        # Allow GitHub expressions
+        if self.is_github_expression(pattern):
+            return True
+
+        # Run all ReDoS checks using helper methods
+        if not self._check_command_injection_in_regex(pattern, name):
+            return False
+        if not self._check_nested_quantifiers(pattern, name):
+            return False
+        if not self._check_alternation_repetition(pattern, name):
+            return False
+        if not self._check_consecutive_quantifiers(pattern, name):
+            return False
+        return self._check_exponential_quantifiers(pattern, name)
+
+    def _find_closing_paren(self, pattern: str, start: int) -> int:
+        """Find the closing parenthesis for an opening one.
+
+        Args:
+            pattern: The regex pattern
+            start: The index of the opening parenthesis
+
+        Returns:
+            Index of the closing parenthesis, or -1 if not found
+        """
+        if start >= len(pattern) or pattern[start] != "(":
+            return -1
+
+        depth = 1
+        i = start + 1
+
+        while i < len(pattern) and depth > 0:
+            if pattern[i] == "(":
+                depth += 1
+            elif pattern[i] == ")":
+                depth -= 1
+                if depth == 0:
+                    return i
+            i += 1
+
+        return -1

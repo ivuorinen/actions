@@ -310,12 +310,12 @@ Describe "eslint-check action"
     End
 
     It "uses node-setup action"
-      When call grep -q "../node-setup" "$ACTION_FILE"
+      When call grep -q "./node-setup" "$ACTION_FILE"
       The status should be success
     End
 
     It "uses common-cache action"
-      When call grep -q "../common-cache" "$ACTION_FILE"
+      When call grep -q "./common-cache" "$ACTION_FILE"
       The status should be success
     End
   End

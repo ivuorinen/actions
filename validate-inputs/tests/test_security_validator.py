@@ -258,3 +258,183 @@ class TestSecurityValidator:
             result = self.validator.validate_no_injection(value)
             # These sophisticated attacks might or might not be caught
             assert isinstance(result, bool)
+
+    def test_validate_regex_pattern_safe_patterns(self):
+        """Test that safe regex patterns pass validation."""
+        safe_patterns = [
+            r"^[0-9]+$",
+            r"^[a-zA-Z0-9]+$",
+            r"^[0-9]+\.[0-9]+$",
+            r"^[0-9]+\.[0-9]+\.[0-9]+$",
+            r"^v?[0-9]+\.[0-9]+(\.[0-9]+)?$",
+            r"^[a-zA-Z0-9_-]+$",
+            r"^(alpha|beta|gamma)$",
+            r"^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$",
+            r"^[a-z]+@[a-z]+\.[a-z]+$",
+            r"^https?://[a-zA-Z0-9.-]+$",
+        ]
+
+        for pattern in safe_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is True, f"Should accept safe pattern: {pattern}"
+            assert len(self.validator.errors) == 0
+
+    def test_validate_regex_pattern_nested_quantifiers(self):
+        """Test that nested quantifiers are detected and rejected."""
+        redos_patterns = [
+            r"(a+)+",  # Nested plus quantifiers
+            r"(a*)+",  # Star then plus
+            r"(a+)*",  # Plus then star
+            r"(a*)*",  # Nested star quantifiers
+            r"(a{1,10})+",  # Quantified group with plus
+            r"(a{2,5})*",  # Quantified group with star
+            r"(a+){2,5}",  # Plus quantifier with range quantifier
+            r"(x*){3,}",  # Star quantifier with open-ended range
+        ]
+
+        for pattern in redos_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is False, f"Should reject ReDoS pattern: {pattern}"
+            assert len(self.validator.errors) > 0
+            assert "ReDoS risk" in self.validator.errors[0]
+            assert "nested quantifiers" in self.validator.errors[0]
+
+    def test_validate_regex_pattern_consecutive_quantifiers(self):
+        """Test that consecutive quantifiers are detected and rejected."""
+        consecutive_patterns = [
+            r".*.*",  # Two .* in sequence
+            r".*+",  # .* followed by +
+            r".++",  # .+ followed by +
+            r".+*",  # .+ followed by *
+            r"a**",  # Two stars
+            r"a++",  # Two pluses
+        ]
+
+        for pattern in consecutive_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is False, f"Should reject consecutive quantifier pattern: {pattern}"
+            assert len(self.validator.errors) > 0
+            assert "ReDoS risk" in self.validator.errors[0]
+            assert "consecutive quantifiers" in self.validator.errors[0]
+
+    def test_validate_regex_pattern_duplicate_alternatives(self):
+        """Test that duplicate alternatives in repeating groups are rejected."""
+        duplicate_patterns = [
+            r"(a|a)+",  # Exact duplicate alternatives
+            r"(a|a)*",
+            r"(foo|foo)+",
+            r"(test|test)*",
+        ]
+
+        for pattern in duplicate_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is False, f"Should reject duplicate alternatives: {pattern}"
+            assert len(self.validator.errors) > 0
+            assert "ReDoS risk" in self.validator.errors[0]
+            assert "duplicate alternatives" in self.validator.errors[0]
+
+    def test_validate_regex_pattern_overlapping_alternatives(self):
+        """Test that overlapping alternatives in repeating groups are rejected."""
+        overlapping_patterns = [
+            r"(a|ab)+",  # Second alternative starts with first
+            r"(ab|a)*",  # First alternative starts with second
+            r"(test|te)+",  # Prefix overlap
+            r"(foo|f)*",  # Prefix overlap
+        ]
+
+        for pattern in overlapping_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is False, f"Should reject overlapping alternatives: {pattern}"
+            assert len(self.validator.errors) > 0
+            assert "ReDoS risk" in self.validator.errors[0]
+            assert "overlapping alternatives" in self.validator.errors[0]
+
+    def test_validate_regex_pattern_deeply_nested(self):
+        """Test that deeply nested groups with multiple quantifiers are rejected."""
+        deeply_nested_patterns = [
+            r"((a+)+b)+",  # Deeply nested with quantifiers
+            r"(((a*)*)*)*",  # Very deep nesting
+            r"((x+)+(y+)+)+",  # Multiple nested quantified groups
+        ]
+
+        for pattern in deeply_nested_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is False, f"Should reject deeply nested pattern: {pattern}"
+            assert len(self.validator.errors) > 0
+            assert "ReDoS risk" in self.validator.errors[0]
+
+    def test_validate_regex_pattern_command_injection(self):
+        """Test that command injection in regex patterns is detected."""
+        injection_patterns = [
+            r"^[0-9]+$; rm -rf /",
+            r"test && cat /etc/passwd",
+            r"pattern | sh",
+            r"$(whoami)",
+            r"`id`",
+        ]
+
+        for pattern in injection_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is False, f"Should reject injection pattern: {pattern}"
+            assert len(self.validator.errors) > 0
+
+    def test_validate_regex_pattern_empty_input(self):
+        """Test that empty patterns are handled correctly."""
+        self.validator.errors = []
+        result = self.validator.validate_regex_pattern("")
+        assert result is True
+        assert len(self.validator.errors) == 0
+
+        result = self.validator.validate_regex_pattern("   ")
+        assert result is True
+        assert len(self.validator.errors) == 0
+
+    def test_validate_regex_pattern_github_expression(self):
+        """Test that GitHub expressions are allowed."""
+        github_expressions = [
+            "${{ secrets.PATTERN }}",
+            "${{ inputs.regex }}",
+        ]
+
+        for expr in github_expressions:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(expr)
+            assert result is True, f"Should allow GitHub expression: {expr}"
+            assert len(self.validator.errors) == 0
+
+    def test_validate_regex_pattern_safe_alternation(self):
+        """Test that safe alternation without repetition is allowed."""
+        safe_alternation = [
+            r"^(alpha|beta|gamma)$",  # No repetition
+            r"(foo|bar)",  # No quantifier after group
+            r"^(red|green|blue)$",
+            r"(one|two|three)",
+        ]
+
+        for pattern in safe_alternation:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is True, f"Should accept safe alternation: {pattern}"
+            assert len(self.validator.errors) == 0
+
+    def test_validate_regex_pattern_optional_groups(self):
+        """Test that optional groups (?) are allowed."""
+        optional_patterns = [
+            r"^[0-9]+(\.[0-9]+)?$",  # Optional decimal part
+            r"^v?[0-9]+\.[0-9]+$",  # Optional 'v' prefix
+            r"^(https?://)?example\.com$",  # Optional protocol
+            r"^[a-z]+(-[a-z]+)?$",  # Optional suffix
+        ]
+
+        for pattern in optional_patterns:
+            self.validator.errors = []
+            result = self.validator.validate_regex_pattern(pattern, "test-pattern")
+            assert result is True, f"Should accept optional group: {pattern}"
+            assert len(self.validator.errors) == 0
