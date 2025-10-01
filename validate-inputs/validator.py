@@ -98,11 +98,12 @@ def main() -> None:
             logger.info("✓ All input validation checks passed for %s", action_type)
         write_output("success", action_type, inputs_validated=len(inputs))
     else:
-        # Report errors
-        for error in validator.errors:
-            logger.error("::error::%s", error)
+        # Report errors (suppress if in quiet mode for tests)
+        if not os.environ.get("VALIDATOR_QUIET"):
+            for error in validator.errors:
+                logger.error("::error::%s", error)
+            logger.error("✗ Input validation failed for %s", action_type)
 
-        logger.error("✗ Input validation failed for %s", action_type)
         write_output(
             "failure",
             action_type,

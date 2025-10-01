@@ -113,7 +113,7 @@ The status should be success
 End
 
 It "rejects extensions with special characters"
-When call python3 "_tests/shared/validation_core.py" --validate "php-laravel-phpunit" "extensions" "mbstring@intl"
+When call validate_input_python "php-laravel-phpunit" "extensions" "mbstring@intl"
 The status should be failure
 End
 
@@ -150,7 +150,7 @@ The status should be success
 End
 
 It "rejects invalid coverage driver"
-When call python3 "_tests/shared/validation_core.py" --validate "php-laravel-phpunit" "coverage" "invalid"
+When call validate_input_python "php-laravel-phpunit" "coverage" "invalid"
 The status should be failure
 End
 
@@ -263,7 +263,7 @@ End
 
 Context "when testing Laravel-specific validations"
 It "validates coverage driver enum values"
-When call python3 "_tests/shared/validation_core.py" --validate "php-laravel-phpunit" "coverage" "invalid-driver"
+When call validate_input_python "php-laravel-phpunit" "coverage" "invalid-driver"
 The status should be failure
 End
 

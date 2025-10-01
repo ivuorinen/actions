@@ -538,6 +538,9 @@ validate_input_python() {
   "version-validator")
     [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
     ;;
+  "release-monthly")
+    [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ;;
   esac
 
   # Set the target input
