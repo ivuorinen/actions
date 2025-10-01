@@ -147,9 +147,9 @@ Always scope permissions to minimum required. Set at workflow, workflow_call, or
 
 ```yaml
 permissions:
-  contents: read        # Default for most workflows
-  packages: write       # Only if publishing packages
-  pull-requests: write  # Only if commenting on PRs
+  contents: read # Default for most workflows
+  packages: write # Only if publishing packages
+  pull-requests: write # Only if commenting on PRs
   # Omit unused permissions
 ```
 

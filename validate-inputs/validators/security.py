@@ -40,7 +40,9 @@ class SecurityValidator(BaseValidator):
             valid &= self.validate_security_patterns(value, input_name)
 
             # Additional checks for specific input types
-            if "path" in input_name or "file" in input_name:
+            if "regex" in input_name or "pattern" in input_name:
+                valid &= self.validate_regex_pattern(value, input_name)
+            elif "path" in input_name or "file" in input_name:
                 valid &= self.validate_path_security(value, input_name)
             elif "url" in input_name or "uri" in input_name:
                 valid &= self.validate_url_security(value, input_name)

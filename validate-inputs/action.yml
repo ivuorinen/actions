@@ -117,6 +117,56 @@ inputs:
     description: 'Release tag prefix'
     required: false
 
+  # CodeQL-specific inputs
+  language:
+    description: 'Language to analyze (for CodeQL)'
+    required: false
+  queries:
+    description: 'CodeQL queries to run'
+    required: false
+  packs:
+    description: 'CodeQL query packs'
+    required: false
+  config-file:
+    description: 'CodeQL configuration file path'
+    required: false
+  config:
+    description: 'CodeQL configuration YAML string'
+    required: false
+  build-mode:
+    description: 'Build mode for compiled languages'
+    required: false
+  source-root:
+    description: 'Source code root directory'
+    required: false
+  category:
+    description: 'Analysis category'
+    required: false
+  checkout-ref:
+    description: 'Git reference to checkout'
+    required: false
+  working-directory:
+    description: 'Working directory for analysis'
+    required: false
+  upload-results:
+    description: 'Upload results to GitHub Security'
+    required: false
+  ram:
+    description: 'Memory in MB for CodeQL'
+    required: false
+  threads:
+    description: 'Number of threads for CodeQL'
+    required: false
+  output:
+    description: 'Output path for SARIF results'
+    required: false
+  skip-queries:
+    description: 'Skip running queries'
+    required: false
+  add-snippets:
+    description: 'Add code snippets to SARIF'
+    required: false
+
 outputs:
   validation-status:
     description: 'Overall validation status (success/failure)'
@@ -173,3 +223,19 @@ runs:
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
         INPUT_IS_FIXIMUS: ${{ inputs.is_fiximus }}
         INPUT_PREFIX: ${{ inputs.prefix }}
+        INPUT_LANGUAGE: ${{ inputs.language }}
+        INPUT_QUERIES: ${{ inputs.queries }}
+        INPUT_PACKS: ${{ inputs.packs }}
+        INPUT_CONFIG_FILE: ${{ inputs.config-file }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_BUILD_MODE: ${{ inputs.build-mode }}
+        INPUT_SOURCE_ROOT: ${{ inputs.source-root }}
+        INPUT_CATEGORY: ${{ inputs.category }}
+        INPUT_CHECKOUT_REF: ${{ inputs.checkout-ref }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        INPUT_UPLOAD_RESULTS: ${{ inputs.upload-results }}
+        INPUT_RAM: ${{ inputs.ram }}
+        INPUT_THREADS: ${{ inputs.threads }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_SKIP_QUERIES: ${{ inputs.skip-queries }}
+        INPUT_ADD_SNIPPETS: ${{ inputs.add-snippets }}
