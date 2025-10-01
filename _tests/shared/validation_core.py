@@ -30,10 +30,10 @@ class ValidationCore:
     """Core validation functionality with standardized patterns and functions."""
 
     # Standardized token patterns - resolved based on GitHub documentation
-    # Fine-grained tokens are 82 characters according to GitHub docs
+    # Fine-grained tokens are 50-255 characters with underscores
     TOKEN_PATTERNS = {
         "classic": r"^gh[efpousr]_[a-zA-Z0-9]{36}$",
-        "fine_grained": r"^github_pat_[a-zA-Z0-9_]{82}$",  # GitHub docs: exactly 82 chars
+        "fine_grained": r"^github_pat_[A-Za-z0-9_]{50,255}$",  # 50-255 chars with underscores
         "installation": r"^ghs_[a-zA-Z0-9]{36}$",
         "npm_classic": r"^npm_[a-zA-Z0-9]{40,}$",  # NPM classic tokens
     }
@@ -81,7 +81,7 @@ class ValidationCore:
         return (
             False,
             "Invalid token format. Expected: gh[efpousr]_* (36 chars), "
-            "github_pat_* (82 chars), ghs_* (36 chars), or npm_* (40+ chars)",
+            "github_pat_[A-Za-z0-9_]* (50-255 chars), ghs_* (36 chars), or npm_* (40+ chars)",
         )
 
     def validate_namespace_with_lookahead(self, namespace: str) -> tuple[bool, str]:

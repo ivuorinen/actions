@@ -98,7 +98,8 @@ DOCKER_INVALID = [
 
 # GitHub token test cases
 GITHUB_TOKEN_VALID = [
-    ("github_pat_" + "a" * 71, "Fine-grained PAT"),  # 11 + 71 = 82 chars total
+    ("github_pat_" + "a" * 71, "Fine-grained PAT"),  # 11 + 71 = 82 chars total (in 50-255 range)
+    ("github_pat_" + "a" * 50, "Fine-grained PAT min length"),  # 11 + 50 = 61 chars total (minimum)
     ("ghp_" + "a" * 36, "Classic PAT"),  # 4 + 36 = 40 chars total
     ("gho_" + "a" * 36, "OAuth token"),  # 4 + 36 = 40 chars total
     ("ghu_" + "a" * 36, "User token"),
@@ -113,7 +114,7 @@ GITHUB_TOKEN_INVALID = [
     ("invalid-token", "Invalid format"),
     ("ghp_short", "Too short"),
     ("wrong_prefix_" + "a" * 36, "Wrong prefix"),
-    ("github_pat_" + "a" * 50, "Wrong length for PAT"),
+    ("github_pat_" + "a" * 49, "PAT too short (min 50)"),
 ]
 
 # Email test cases

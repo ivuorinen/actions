@@ -14,7 +14,7 @@ inputs:
   default-version:
     description: 'Default Go version to use if go.mod is not found.'
     required: false
-    default: '1.22'
+    default: '1.25'
 
 outputs:
   go-version:

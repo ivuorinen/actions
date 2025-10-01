@@ -14,7 +14,7 @@ PREVIOUS_GO_VERSION="1.24.0"
 MIN_SUPPORTED_GO_VERSION="1.18"
 MAX_SUPPORTED_GO_VERSION="1.30"
 TOO_OLD_GO_VERSION="1.17"
-TOO_NEW_GO_VERSION="1.26"
+TOO_NEW_GO_VERSION="1.31"
 
 Context "when validating default-version input"
 It "accepts valid semantic version"
