@@ -56,7 +56,7 @@ The status should be success
 End
 
 It "rejects invalid version format"
-When call python3 "_tests/shared/validation_core.py" --validate "prettier-check" "prettier-version" "v3.0.0"
+When call validate_input_python "prettier-check" "prettier-version" "v3.0.0"
 The status should be failure
 End
 
@@ -132,12 +132,12 @@ The status should be success
 End
 
 It "rejects pattern with path traversal"
-When call python3 "_tests/shared/validation_core.py" --validate "prettier-check" "file-pattern" "../**/*.js"
+When call validate_input_python "prettier-check" "file-pattern" "../**/*.js"
 The status should be failure
 End
 
 It "rejects pattern with absolute path"
-When call python3 "_tests/shared/validation_core.py" --validate "prettier-check" "file-pattern" "/etc/**/*.conf"
+When call validate_input_python "prettier-check" "file-pattern" "/etc/**/*.conf"
 The status should be failure
 End
 End
@@ -325,7 +325,7 @@ The status should be failure
 End
 
 It "validates against shell expansion in file patterns"
-When call python3 "_tests/shared/validation_core.py" --validate "prettier-check" "file-pattern" "**/*.js\${HOME}"
+When call validate_input_python "prettier-check" "file-pattern" "**/*.js\${HOME}"
 The status should be failure
 End
 End

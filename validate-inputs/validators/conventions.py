@@ -388,7 +388,8 @@ class ConventionBasedValidator(BaseValidator):
                     result = method(value, input_name)
 
                 # Copy errors from the validator module to this validator
-                if hasattr(validator_module, "errors"):
+                # Skip if validator_module is self (for internal validators)
+                if validator_module is not self and hasattr(validator_module, "errors"):
                     for error in validator_module.errors:
                         if error not in self.errors:
                             self.add_error(error)
@@ -512,7 +513,9 @@ class ConventionBasedValidator(BaseValidator):
 
                 self._validator_modules["security"] = security.SecurityValidator()
             if validator_type == "prefix":
-                return self._validator_modules["security"], "validate_prefix_security"
+                # Use no_injection for prefix - checks for injection patterns
+                # without character restrictions
+                return self._validator_modules["security"], "validate_no_injection"
             return self._validator_modules["security"], f"validate_{validator_type}"
 
         # CodeQL validators
@@ -522,6 +525,11 @@ class ConventionBasedValidator(BaseValidator):
 
                 self._validator_modules["codeql"] = codeql.CodeQLValidator()
             return self._validator_modules["codeql"], f"validate_{validator_type}"
+
+        # PHP-specific validators
+        if validator_type in ["php_extensions", "coverage_driver"]:
+            # Return self for PHP-specific validation methods
+            return self, f"_validate_{validator_type}"
 
         # Package manager and report format validators
         if validator_type in ["package_manager_enum", "report_format"]:
@@ -553,3 +561,50 @@ class ConventionBasedValidator(BaseValidator):
                 pass
         # Default range
         return 0, 100
+
+    def _validate_php_extensions(self, value: str, input_name: str) -> bool:
+        """Validate PHP extensions format.
+
+        Args:
+            value: The extensions value (comma-separated list)
+            input_name: The input name for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        import re
+
+        if not value:
+            return True
+
+        # Check for injection patterns
+        if re.search(r"[;&|`$()@#]", value):
+            self.add_error(f"Potential injection detected in {input_name}: {value}")
+            return False
+
+        # Check format - should be alphanumeric, underscores, commas, spaces only
+        if not re.match(r"^[a-zA-Z0-9_,\s]+$", value):
+            self.add_error(f"Invalid format for {input_name}: {value}")
+            return False
+
+        return True
+
+    def _validate_coverage_driver(self, value: str, input_name: str) -> bool:
+        """Validate coverage driver enum.
+
+        Args:
+            value: The coverage driver value
+            input_name: The input name for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        valid_drivers = ["none", "xdebug", "pcov", "xdebug3"]
+
+        if value and value not in valid_drivers:
+            self.add_error(
+                f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_drivers)}"
+            )
+            return False
+
+        return True
