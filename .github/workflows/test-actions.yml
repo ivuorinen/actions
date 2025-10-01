@@ -43,6 +43,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     container:
       image: ghcr.io/ivuorinen/actions:testing-tools
       credentials:
@@ -116,6 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     container:
       image: ghcr.io/ivuorinen/actions:testing-tools
       credentials:
@@ -176,6 +178,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     container:
       image: ghcr.io/ivuorinen/actions:testing-tools
       credentials:
@@ -241,6 +244,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      packages: read
     container:
       image: ghcr.io/ivuorinen/actions:testing-tools
       credentials:
