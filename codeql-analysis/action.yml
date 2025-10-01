@@ -133,10 +133,22 @@ runs:
         skip-queries: ${{ inputs.skip-queries }}
         add-snippets: ${{ inputs.add-snippets }}
 
+    - name: Validate checkout safety
+      shell: bash
+      env:
+        CHECKOUT_REF: ${{ inputs.checkout-ref }}
+        EVENT_NAME: ${{ github.event_name }}
+      run: |
+        # Security check: Warn if checking out custom ref on pull_request_target
+        if [[ "$EVENT_NAME" == "pull_request_target" ]] && [[ -n "$CHECKOUT_REF" ]]; then
+          echo "::warning::Using custom checkout-ref on pull_request_target is potentially unsafe"
+          echo "::warning::Ensure the ref is validated before running untrusted code"
+        fi
+
     - name: Checkout repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
-        ref: ${{ inputs.checkout-ref }}
+        ref: ${{ inputs.checkout-ref || github.sha }}
         token: ${{ inputs.token }}
 
     - name: Set analysis category

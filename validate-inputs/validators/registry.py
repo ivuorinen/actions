@@ -193,6 +193,7 @@ class ValidatorRegistry:
                 # Create an instance with a dummy action type
                 return validator_class("temp")
         except (ImportError, AttributeError):
+            # Silently ignore if custom validator module doesn't exist or class not found
             pass
 
         return None

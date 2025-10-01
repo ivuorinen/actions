@@ -287,7 +287,9 @@ runs:
       env:
         TOKEN: ${{ inputs.token }}
       run: |
-        echo "NODE_AUTH_TOKEN=$TOKEN" >> $GITHUB_ENV
+        # Sanitize token by removing newlines to prevent env var injection
+        sanitized_token="$(echo "$TOKEN" | tr -d '\n\r')"
+        printf 'NODE_AUTH_TOKEN=%s\n' "$sanitized_token" >> "$GITHUB_ENV"
 
     - name: Cache Dependencies
       if: inputs.cache == 'true'
@@ -346,7 +348,9 @@ runs:
       env:
         PACKAGE_MANAGER: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
       run: |
-        echo "PACKAGE_MANAGER=$PACKAGE_MANAGER" >> $GITHUB_ENV
+        # Sanitize package manager by removing newlines to prevent env var injection
+        sanitized_pm="$(echo "$PACKAGE_MANAGER" | tr -d '\n\r')"
+        printf 'PACKAGE_MANAGER=%s\n' "$sanitized_pm" >> "$GITHUB_ENV"
 
     - name: Install Dependencies
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
