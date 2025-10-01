@@ -24,17 +24,17 @@ End
 
 Context "when validating dry-run input"
 It "accepts true value"
-When call python3 "_tests/shared/validation_core.py" --validate "release-monthly" "dry-run" "true"
+When call validate_input_python "release-monthly" "dry-run" "true"
 The status should be success
 End
 It "accepts false value"
-When call python3 "_tests/shared/validation_core.py" --validate "release-monthly" "dry-run" "false"
+When call validate_input_python "release-monthly" "dry-run" "false"
 The status should be success
 End
 # NOTE: Test framework uses default validation for 'dry-run'
 # Default validation only checks injection patterns, not boolean format
 It "accepts invalid boolean (framework default validation)"
-When call python3 "_tests/shared/validation_core.py" --validate "release-monthly" "dry-run" "maybe"
+When call validate_input_python "release-monthly" "dry-run" "maybe"
 The status should be failure
 End
 It "rejects injection in dry-run"
@@ -44,27 +44,27 @@ End
 End
 
 Context "when validating prefix input"
-# NOTE: Test framework treats all empty values as failure by default
-It "rejects empty prefix (framework treats empty as failure)"
+# NOTE: prefix has default: '' so empty values are accepted
+It "accepts empty prefix (has empty default)"
 When call validate_input_python "release-monthly" "prefix" ""
-The status should be failure
+The status should be success
 End
 It "accepts valid prefix"
-When call python3 "_tests/shared/validation_core.py" --validate "release-monthly" "prefix" "v"
+When call validate_input_python "release-monthly" "prefix" "v"
 The status should be success
 End
 It "accepts alphanumeric prefix"
-When call python3 "_tests/shared/validation_core.py" --validate "release-monthly" "prefix" "release-v1.0-"
+When call validate_input_python "release-monthly" "prefix" "release-v1.0-"
 The status should be success
 End
 # NOTE: Test framework uses default validation for 'prefix'
 # Default validation only checks injection patterns, not character restrictions
 It "accepts special characters in prefix (framework default validation)"
-When call python3 "_tests/shared/validation_core.py" --validate "release-monthly" "prefix" "invalid@prefix"
+When call validate_input_python "release-monthly" "prefix" "invalid@prefix"
 The status should be success
 End
 It "accepts spaces in prefix (framework default validation)"
-When call python3 "_tests/shared/validation_core.py" --validate "release-monthly" "prefix" "invalid prefix"
+When call validate_input_python "release-monthly" "prefix" "invalid prefix"
 The status should be success
 End
 It "rejects injection in prefix"

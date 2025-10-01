@@ -65,8 +65,8 @@ class CustomValidator(BaseValidator):
             if ";" in value and not value.startswith("${{"):
                 self.add_error(f"Invalid extensions format in extensions: {value}")
                 valid = False
-            # Check for dangerous characters
-            if any(char in value for char in ["`", "$", "&", "|", ">", "<", "\n", "\r"]):
+            # Check for dangerous characters and invalid format (@ is not valid in PHP extensions)
+            if any(char in value for char in ["`", "$", "&", "|", ">", "<", "@", "\n", "\r"]):
                 self.add_error(f"Invalid characters in extensions: {value}")
                 valid = False
 
@@ -74,7 +74,7 @@ class CustomValidator(BaseValidator):
         if inputs.get("coverage"):
             value = inputs["coverage"]
             # Valid coverage drivers for PHPUnit
-            valid_coverage = ["none", "xdebug", "xdebug3", "pcov", "codecov"]
+            valid_coverage = ["none", "xdebug", "xdebug3", "pcov"]
             if value not in valid_coverage:
                 # Check for command injection attempts
                 if any(char in value for char in [";", "`", "$", "&", "|", ">", "<", "\n", "\r"]):

@@ -18,11 +18,11 @@ End
 # NOTE: Test framework uses default validation for 'pre-commit-config' input
 # Default validation only checks for injection patterns (;, &&, $()
 It "rejects path traversal"
-When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "pre-commit-config" "../config.yaml"
+When call validate_input_python "pre-commit" "pre-commit-config" "../config.yaml"
 The status should be failure
 End
 It "rejects absolute paths"
-When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "pre-commit-config" "/etc/passwd"
+When call validate_input_python "pre-commit" "pre-commit-config" "/etc/passwd"
 The status should be failure
 End
 It "accepts non-yaml extensions (framework default validation)"
@@ -55,11 +55,11 @@ End
 # NOTE: Test framework uses default validation for 'base-branch'
 # Default validation only checks for injection patterns (;, &&, $()
 It "accepts branch with tilde (framework default validation)"
-When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "base-branch" "branch~1"
+When call validate_input_python "pre-commit" "base-branch" "branch~1"
 The status should be success
 End
 It "accepts branch starting with dot (framework default validation)"
-When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "base-branch" ".hidden-branch"
+When call validate_input_python "pre-commit" "base-branch" ".hidden-branch"
 The status should be success
 End
 It "rejects injection patterns in branch"
@@ -141,7 +141,7 @@ End
 
 Context "when validating security"
 It "rejects path traversal"
-When call python3 "_tests/shared/validation_core.py" --validate "pre-commit" "pre-commit-config" "../../malicious.yaml"
+When call validate_input_python "pre-commit" "pre-commit-config" "../../malicious.yaml"
 The status should be failure
 End
 

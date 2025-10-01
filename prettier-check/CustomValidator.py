@@ -47,16 +47,23 @@ class CustomValidator(BaseValidator):
         if prettier_version_key:
             value = inputs[prettier_version_key]
             if value and value != "latest":
-                # Must be a semantic version
-                result = self.version_validator.validate_semantic_version(
-                    value, prettier_version_key
-                )
-                for error in self.version_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.version_validator.clear_errors()
-                if not result:
+                # Prettier versions should not have 'v' prefix (npm package versions)
+                if value.startswith("v"):
+                    self.add_error(
+                        f"{prettier_version_key}: Prettier version should not have 'v' prefix"
+                    )
                     valid = False
+                else:
+                    # Must be a semantic version
+                    result = self.version_validator.validate_semantic_version(
+                        value, prettier_version_key
+                    )
+                    for error in self.version_validator.errors:
+                        if error not in self.errors:
+                            self.add_error(error)
+                    self.version_validator.clear_errors()
+                    if not result:
+                        valid = False
             # Remove both versions from inputs for convention validation
             if "prettier-version" in inputs_copy:
                 del inputs_copy["prettier-version"]

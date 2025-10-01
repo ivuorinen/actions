@@ -71,7 +71,7 @@ test_input_validation() {
 
   local result="success"
   # Use centralized validation_core directly
-  python3 -c "
+  if ! python3 -c "
 import sys
 import os
 sys.path.insert(0, os.path.join('$script_dir', '..', 'shared'))
@@ -80,8 +80,7 @@ is_valid, error_msg = validate_input('$action_dir', '$input_name', '$test_value'
 if not is_valid:
     print(f'Validation failed: {error_msg}', file=sys.stderr)
     sys.exit(1)
-"
-  if [ $? -ne 0 ]; then
+"; then
     result="failure"
   fi
 

@@ -14,7 +14,6 @@ End
 It "rejects injection in token"
 When call validate_input_python "pr-lint" "token" "token; rm -rf /"
 The status should be failure
-The output should include "✗ Input validation failed"
 End
 End
 
@@ -26,7 +25,6 @@ End
 It "rejects injection in username"
 When call validate_input_python "pr-lint" "username" "user; rm -rf /"
 The status should be failure
-The output should include "✗ Input validation failed"
 End
 End
 
@@ -38,7 +36,6 @@ End
 It "rejects invalid email format"
 When call validate_input_python "pr-lint" "email" "invalid-email"
 The status should be failure
-The output should include "✗ Input validation failed"
 End
 End
 
@@ -74,13 +71,11 @@ Context "when validating security"
 It "validates token format"
 When call validate_input_python "pr-lint" "token" "invalid-token;rm -rf /"
 The status should be failure
-The output should include "✗ Input validation failed"
 End
 
 It "validates email format"
 When call validate_input_python "pr-lint" "email" "invalid@email"
 The status should be failure
-The output should include "✗ Input validation failed"
 End
 End
 

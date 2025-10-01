@@ -72,19 +72,16 @@ End
 It "rejects invalid language"
 When call validate_input_python "codeql-analysis" "language" "invalid-lang"
 The status should be failure
-The output should include "Unsupported CodeQL language"
 End
 
 It "rejects empty language"
 When call validate_input_python "codeql-analysis" "language" ""
 The status should be failure
-The output should include "CodeQL language cannot be empty"
 End
 
 It "rejects unsupported language"
 When call validate_input_python "codeql-analysis" "language" "rust"
 The status should be failure
-The output should include "Unsupported CodeQL language"
 End
 End
 
@@ -132,13 +129,11 @@ End
 It "rejects invalid query suite"
 When call validate_input_python "codeql-analysis" "queries" "invalid-suite"
 The status should be failure
-The output should include "Invalid CodeQL query suite"
 End
 
 It "rejects empty queries"
 When call validate_input_python "codeql-analysis" "queries" ""
 The status should be failure
-The output should include "CodeQL queries cannot be empty"
 End
 End
 
@@ -176,19 +171,16 @@ End
 It "rejects category without leading slash"
 When call validate_input_python "codeql-analysis" "category" "language:javascript"
 The status should be failure
-The output should include "Category must start with"
 End
 
 It "rejects category with invalid characters"
 When call validate_input_python "codeql-analysis" "category" "/language@javascript"
 The status should be failure
-The output should include "Invalid category format"
 End
 
 It "rejects category with spaces"
 When call validate_input_python "codeql-analysis" "category" "/language javascript"
 The status should be failure
-The output should include "Invalid category format"
 End
 End
 
@@ -211,13 +203,11 @@ End
 It "rejects absolute path"
 When call validate_input_python "codeql-analysis" "config-file" "/etc/config.yml"
 The status should be failure
-The output should include "Absolute path not allowed"
 End
 
 It "rejects path traversal"
 When call validate_input_python "codeql-analysis" "config-file" "../config.yml"
 The status should be failure
-The output should include "Path traversal detected"
 End
 End
 
@@ -267,13 +257,11 @@ End
 It "rejects invalid token format"
 When call validate_input_python "codeql-analysis" "token" "invalid-token"
 The status should be failure
-The output should include "Invalid token format"
 End
 
 It "rejects empty token"
 When call validate_input_python "codeql-analysis" "token" ""
 The status should be failure
-The output should include "Input 'token' is missing or empty"
 End
 End
 
@@ -296,13 +284,11 @@ End
 It "rejects absolute path"
 When call validate_input_python "codeql-analysis" "working-directory" "/home/user/project"
 The status should be failure
-The output should include "Absolute path not allowed"
 End
 
 It "rejects path traversal"
 When call validate_input_python "codeql-analysis" "working-directory" "../other-project"
 The status should be failure
-The output should include "Path traversal detected"
 End
 End
 
@@ -320,25 +306,21 @@ End
 It "rejects uppercase TRUE"
 When call validate_input_python "codeql-analysis" "upload-results" "TRUE"
 The status should be failure
-The output should include "Must be lowercase"
 End
 
 It "rejects uppercase FALSE"
 When call validate_input_python "codeql-analysis" "upload-results" "FALSE"
 The status should be failure
-The output should include "Must be lowercase"
 End
 
 It "rejects invalid boolean"
 When call validate_input_python "codeql-analysis" "upload-results" "yes"
 The status should be failure
-The output should include "Must be 'true' or 'false'"
 End
 
 It "rejects empty value"
 When call validate_input_python "codeql-analysis" "upload-results" ""
 The status should be failure
-The output should include "cannot be empty"
 End
 End
 

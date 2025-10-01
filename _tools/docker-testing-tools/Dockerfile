@@ -14,10 +14,13 @@ LABEL org.opencontainers.image.source="https://github.com/ivuorinen/actions"
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
 
+# Set shell to bash with pipefail for better error handling
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Install system dependencies and common tools
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
   --no-install-recommends \
-  # Base utilities
   curl \
   git \
   unzip \
@@ -27,23 +30,17 @@ RUN apt-get update && apt-get install -y \
   ca-certificates \
   gnupg \
   lsb-release \
-  # Build tools
   build-essential \
-  # Shell tools
   shellcheck \
-  # Coverage tools
   kcov \
-  # Python for validation scripts
   python3 \
   python3-pip \
   python3-yaml \
-  # User management
-  sudo \
-  # Clean up
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
 # Install Node.js LTS
+# hadolint ignore=DL3008
 RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
   && apt-get install -y nodejs --no-install-recommends \
   && apt-get clean \
@@ -52,27 +49,32 @@ RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
 # Stage 2: Tool installation
 FROM base AS tools
 
+# Set shell to bash with pipefail for better error handling
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # Install Trivy security scanner
+# hadolint ignore=DL3008
 RUN curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - \
   && echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list \
   && apt-get update \
-  && apt-get install -y trivy --no-install-recommends \
+  && apt-get install -y --no-install-recommends trivy \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
 # Install GitHub CLI
+# hadolint ignore=DL3008
 RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
   && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
   && apt-get update \
-  && apt-get install -y gh --no-install-recommends \
+  && apt-get install -y --no-install-recommends gh \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
 # Install additional dependencies needed by install scripts
+# hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
   --no-install-recommends \
-  wget \
   xz-utils \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
@@ -89,18 +91,21 @@ RUN curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/dow
   && actionlint --version
 
 # Install nektos/act (use temp directory to avoid any /bin conflicts)
-RUN mkdir -p /tmp/act-install \
-  && cd /tmp/act-install \
-  && curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | bash \
-  && mv bin/act /usr/local/bin/act \
-  && cd / \
-  && rm -rf /tmp/act-install \
+RUN mkdir -p /tmp/act-install
+WORKDIR /tmp/act-install
+RUN curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | bash \
+  && mv bin/act /usr/local/bin/act
+WORKDIR /
+RUN rm -rf /tmp/act-install \
   && act --version \
   && echo "Verifying system integrity..." \
   && test -f /bin/sh && test -f /bin/bash && echo "✓ Shell binaries intact"
 
 # Stage 3: Final image with non-root user
 FROM tools AS final
+
+# Set shell to bash with pipefail for better error handling
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Create non-root user for security
 ARG USERNAME=runner
@@ -115,9 +120,7 @@ ENV HOME="/home/$USERNAME"
 
 # Create the user and group
 RUN groupadd --gid $USER_GID $USERNAME \
-  && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash \
-  && echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
-  && chmod 0440 /etc/sudoers.d/$USERNAME
+  && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash
 
 # Create workspace directory with proper permissions (as root)
 RUN mkdir -p /workspace \
@@ -128,6 +131,7 @@ USER $USERNAME
 WORKDIR /workspace
 
 # Install ShellSpec testing framework in user's home
+# hadolint ignore=SC2016
 RUN curl -fsSL https://git.io/shellspec | sh -s -- --yes \
   && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
 
