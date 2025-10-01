@@ -106,10 +106,12 @@ runs:
           echo "✅ Valid $language version: $cleaned_version" >&2
         else
           error_msg="Invalid $language version format: '$input_version' (cleaned: '$cleaned_version'). Expected pattern: $regex"
+          # Sanitize error message by removing newlines to prevent GITHUB_OUTPUT injection
+          error_msg_sanitized="$(echo "$error_msg" | tr -d '\n\r')"
           {
             echo "is-valid=false"
             echo "validated-version="
-            printf 'error-message=%s\n' "$error_msg"
+            printf 'error-message=%s\n' "$error_msg_sanitized"
           } >> "$GITHUB_OUTPUT"
           echo "❌ $error_msg" >&2
         fi

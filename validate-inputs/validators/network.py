@@ -343,8 +343,8 @@ class NetworkValidator(BaseValidator):
             return True
 
         # Simplified IPv6 pattern (full validation is complex)
-        # This covers most common cases
-        ipv6_pattern = r"^(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}$|^::1$|^::$"
+        # This covers most common cases: full form, loopback (::1), and unspecified (::)
+        ipv6_pattern = r"^(?:(?:[0-9a-fA-F]{1,4}:){7}[0-9a-fA-F]{1,4}|::1|::)$"
         if re.match(ipv6_pattern, ip):
             return True
 

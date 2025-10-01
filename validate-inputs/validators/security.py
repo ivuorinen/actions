@@ -170,8 +170,8 @@ class SecurityValidator(BaseValidator):
         if not content or content.strip() == "":
             return True
 
-        # Check for script tags
-        if re.search(r"<script[^>]*>.*?</script>", content, re.IGNORECASE | re.DOTALL):
+        # Check for script tags (match any content between script and >)
+        if re.search(r"<script[^>]*>.*?</script[^>]*>", content, re.IGNORECASE | re.DOTALL):
             self.add_error(f"Security issue in {name}: script tags not allowed")
             return False
 

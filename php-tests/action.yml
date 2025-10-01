@@ -52,9 +52,10 @@ runs:
         set -euo pipefail
 
         # Validate GitHub token format (basic validation)
-        if [[ -n "$GITHUB_TOKEN" ]] && [[ "$GITHUB_TOKEN" != "\${{ github.token }}" ]]; then
-          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters or gho_36characters"
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+          # Skip validation for GitHub expressions (they'll be resolved at runtime)
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
           fi
         fi
 

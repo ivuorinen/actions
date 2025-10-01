@@ -268,7 +268,9 @@ runs:
       run: |
         set -euo pipefail
 
-        printf 'APPLY_FIXES_IF=%s\n' "$APPLY_FIXES_CONDITION" >> "${GITHUB_ENV}"
+        # Sanitize by removing newlines to prevent env var injection
+        sanitized_condition="$(echo "$APPLY_FIXES_CONDITION" | tr -d '\n\r')"
+        printf 'APPLY_FIXES_IF=%s\n' "$sanitized_condition" >> "${GITHUB_ENV}"
 
     # Set APPLY_FIXES_IF_* vars for use in future steps
     - name: Set APPLY_FIXES_IF_* vars
@@ -279,8 +281,12 @@ runs:
       run: |
         set -euo pipefail
 
-        printf 'APPLY_FIXES_IF_PR=%s\n' "$APPLY_FIXES_IF_PR_CONDITION" >> "${GITHUB_ENV}"
-        printf 'APPLY_FIXES_IF_COMMIT=%s\n' "$APPLY_FIXES_IF_COMMIT_CONDITION" >> "${GITHUB_ENV}"
+        # Sanitize by removing newlines to prevent env var injection
+        sanitized_pr="$(echo "$APPLY_FIXES_IF_PR_CONDITION" | tr -d '\n\r')"
+        sanitized_commit="$(echo "$APPLY_FIXES_IF_COMMIT_CONDITION" | tr -d '\n\r')"
+
+        printf 'APPLY_FIXES_IF_PR=%s\n' "$sanitized_pr" >> "${GITHUB_ENV}"
+        printf 'APPLY_FIXES_IF_COMMIT=%s\n' "$sanitized_commit" >> "${GITHUB_ENV}"
 
     # Create pull request if applicable
     # (for now works only on PR from same repository, not from forks)

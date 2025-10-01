@@ -55,8 +55,8 @@ runs:
         set -euo pipefail
 
         # Validate GitHub token presence (no format validation to avoid false warnings)
-        if [[ -n "$GITHUB_TOKEN" ]] && [[ "$GITHUB_TOKEN" != "\${{ github.token }}" ]]; then
-          # Token is present and not the default expression, assume it's valid
+        if [[ -n "$GITHUB_TOKEN" ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
+          # Token is present and not a GitHub expression, assume it's valid
           echo "Using provided GitHub token"
         fi
 
