@@ -47,7 +47,7 @@ class ValidationCore:
         r"\$\([^)]*\)",  # Command substitution
         # Path traversal only dangerous when combined with commands
         r"\.\./.*;\s*(rm|del|format|shutdown|reboot)",
-        r"\\\.\\\.\\\.*;\s*(rm|del|format|shutdown|reboot)",
+        r"\.\.\\+.*;\s*(rm|del|format|shutdown|reboot)",  # Windows: ..\ or ..\\ patterns
     ]
 
     def __init__(self):
@@ -173,7 +173,7 @@ class ValidationCore:
         # (for composer-version, etc.)
         if re.match(r"^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$", value):
             return True, ""
-        return True, ""
+        return False, f"Invalid version format: {value}"
 
     def validate_file_path(self, value: str, *, allow_traversal: bool = False) -> tuple[bool, str]:
         """Validate file path format."""
@@ -278,8 +278,8 @@ class ValidationCore:
             if re.search(r"[;&|`$()]", directory):
                 return False, f"Potential injection detected in directory path: {directory}"
 
-            # Check for path traversal
-            if "../" in directory or "..\\\\" in directory:
+            # Check for path traversal (both Unix and Windows)
+            if re.search(r"\.\.(?:/|\\)", directory):
                 return False, f"Path traversal not allowed in directory: {directory}"
 
             # Check for absolute paths

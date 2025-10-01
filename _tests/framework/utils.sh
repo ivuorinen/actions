@@ -21,7 +21,10 @@ validate_action_yml() {
 
   # Check if it's valid YAML
   if ! yq eval '.' "$action_file" >/dev/null 2>&1; then
-    if ! python3 "_tests/shared/validation_core.py" --validate-yaml "$action_file" 2>/dev/null; then
+    # Compute path relative to this script for CWD independence
+    local utils_dir
+    utils_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    if ! python3 "$utils_dir/../shared/validation_core.py" --validate-yaml "$action_file" 2>/dev/null; then
       [[ $quiet_mode == "false" ]] && log_error "Invalid YAML in action file: $action_file"
       return 1
     fi

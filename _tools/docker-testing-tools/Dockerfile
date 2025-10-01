@@ -52,6 +52,12 @@ FROM base AS tools
 # Set shell to bash with pipefail for better error handling
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
+# Version pinning for security and reproducibility
+ARG TRUFFLEHOG_VERSION=3.86.0
+ARG ACTIONLINT_VERSION=1.7.7
+ARG ACT_VERSION=0.2.71
+ARG SHELLSPEC_VERSION=0.28.1
+
 # Install Trivy security scanner
 # hadolint ignore=DL3008
 RUN curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - \
@@ -81,22 +87,48 @@ RUN apt-get update && apt-get install -y \
 
 # Install standalone tools that don't need system packages
 # Split into separate commands for better error reporting
+# All installations download pinned releases directly (no piped scripts)
 
 # Install trufflehog
-RUN curl -sSfL https://raw.githubusercontent.com/trufflesecurity/trufflehog/main/scripts/install.sh | sh -s -- -b /usr/local/bin
+RUN arch="$(dpkg --print-architecture)" \
+  && case "${arch}" in \
+    amd64) trufflehog_arch="amd64" ;; \
+    arm64) trufflehog_arch="arm64" ;; \
+    *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
+  esac \
+  && curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_${trufflehog_arch}.tar.gz" -o /tmp/trufflehog.tar.gz \
+  && tar -xzf /tmp/trufflehog.tar.gz -C /tmp \
+  && chmod +x /tmp/trufflehog \
+  && mv /tmp/trufflehog /usr/local/bin/trufflehog \
+  && rm -f /tmp/trufflehog.tar.gz \
+  && trufflehog --version
 
-# Install actionlint (note: rhysd not rhymond)
-RUN curl -sL https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash | bash \
-  && mv actionlint /usr/local/bin/ \
+# Install actionlint
+RUN arch="$(dpkg --print-architecture)" \
+  && case "${arch}" in \
+    amd64) actionlint_arch="amd64" ;; \
+    arm64) actionlint_arch="arm64" ;; \
+    *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
+  esac \
+  && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" -o /tmp/actionlint.tar.gz \
+  && tar -xzf /tmp/actionlint.tar.gz -C /tmp \
+  && chmod +x /tmp/actionlint \
+  && mv /tmp/actionlint /usr/local/bin/actionlint \
+  && rm -f /tmp/actionlint.tar.gz \
   && actionlint --version
 
-# Install nektos/act (use temp directory to avoid any /bin conflicts)
-RUN mkdir -p /tmp/act-install
-WORKDIR /tmp/act-install
-RUN curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | bash \
-  && mv bin/act /usr/local/bin/act
-WORKDIR /
-RUN rm -rf /tmp/act-install \
+# Install nektos/act
+RUN arch="$(dpkg --print-architecture)" \
+  && case "${arch}" in \
+    amd64) act_arch="Linux_x86_64" ;; \
+    arm64) act_arch="Linux_arm64" ;; \
+    *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
+  esac \
+  && curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_${act_arch}.tar.gz" -o /tmp/act.tar.gz \
+  && tar -xzf /tmp/act.tar.gz -C /tmp \
+  && chmod +x /tmp/act \
+  && mv /tmp/act /usr/local/bin/act \
+  && rm -f /tmp/act.tar.gz \
   && act --version \
   && echo "Verifying system integrity..." \
   && test -f /bin/sh && test -f /bin/bash && echo "✓ Shell binaries intact"
@@ -111,10 +143,10 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG USERNAME=runner
 ARG USER_UID=1001
 ARG USER_GID=$USER_UID
+ARG SHELLSPEC_VERSION
 
 # Set up environment for testing
 ENV PATH="/home/$USERNAME/.local/bin:$PATH"
-ENV SHELLSPEC_VERSION=0.28.1
 ENV USER=$USERNAME
 ENV HOME="/home/$USERNAME"
 
@@ -132,8 +164,14 @@ WORKDIR /workspace
 
 # Install ShellSpec testing framework in user's home
 # hadolint ignore=SC2016
-RUN curl -fsSL https://git.io/shellspec | sh -s -- --yes \
-  && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+RUN mkdir -p ~/.local/bin \
+  && curl -fsSL "https://github.com/shellspec/shellspec/archive/${SHELLSPEC_VERSION}.tar.gz" -o /tmp/shellspec.tar.gz \
+  && tar -xzf /tmp/shellspec.tar.gz -C /tmp \
+  && cd "/tmp/shellspec-${SHELLSPEC_VERSION}" \
+  && make install PREFIX="$HOME/.local" \
+  && rm -rf /tmp/shellspec.tar.gz "/tmp/shellspec-${SHELLSPEC_VERSION}" \
+  && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
+  && shellspec --version
 
 # Verify installations (run as root to access all tools)
 RUN echo "=== Tool Versions ===" \

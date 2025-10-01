@@ -19,6 +19,7 @@ optional_inputs:
   - validation-regex
 conventions:
   version: flexible_version
+  validation-regex: regex_pattern
 overrides: {}
 statistics:
   total_inputs: 3

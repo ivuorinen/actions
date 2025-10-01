@@ -76,8 +76,8 @@ End
 End
 
 Context "when testing input requirements"
-It "requires token input"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "inputs" "optional"
+It "token input is optional"
+When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "optional"
 The output should equal "optional"
 End
 End

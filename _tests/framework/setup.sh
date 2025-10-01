@@ -103,20 +103,13 @@ create_mock_repo() {
   "node")
     create_mock_node_repo
     ;;
-  "php")
-    create_mock_php_repo
-    ;;
-  "python")
-    create_mock_python_repo
-    ;;
-  "go")
-    create_mock_go_repo
-    ;;
-  "dotnet")
-    create_mock_dotnet_repo
+  "php" | "python" | "go" | "dotnet")
+    log_error "Unsupported repo type: $repo_type. Only 'node' is currently supported."
+    return 1
     ;;
   *)
-    log_warning "Unknown repo type: $repo_type"
+    log_warning "Unknown repo type: $repo_type, defaulting to node"
+    create_mock_node_repo
     ;;
   esac
 }

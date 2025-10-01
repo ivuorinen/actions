@@ -343,7 +343,7 @@ export INPUT_QUERIES="security-extended"
 export INPUT_CONFIG_FILE=".github/codeql/config.yml"
 export INPUT_CATEGORY="/custom/python-analysis"
 export INPUT_CHECKOUT_REF="main"
-export INPUT_GITHUB_TOKEN="ghp_1234567890abcdef1234567890abcdef12345678"
+export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef1234"
 export INPUT_WORKING_DIRECTORY="backend"
 export INPUT_UPLOAD_RESULTS="true"
 

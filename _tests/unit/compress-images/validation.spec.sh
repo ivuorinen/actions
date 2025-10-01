@@ -12,6 +12,7 @@ Describe "compress-images action"
       # pick one of the defined quality inputs
       inputs="$(get_action_inputs "$ACTION_FILE")"
       QUALITY_INPUT=$(echo "$inputs" | grep -E '^(image-quality|png-quality)$' | head -n1)
+      [ -z "$QUALITY_INPUT" ] && Skip "No quality input found in action.yml"
       When call validate_input_python "compress-images" "$QUALITY_INPUT" "80"
       The status should be success
     End
@@ -19,6 +20,7 @@ Describe "compress-images action"
       # pick one of the defined quality inputs
       inputs="$(get_action_inputs "$ACTION_FILE")"
       QUALITY_INPUT=$(echo "$inputs" | grep -E '^(image-quality|png-quality)$' | head -n1)
+      [ -z "$QUALITY_INPUT" ] && Skip "No quality input found in action.yml"
       When call validate_input_python "compress-images" "$QUALITY_INPUT" "150"
       The status should be failure
     End

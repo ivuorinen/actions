@@ -43,7 +43,12 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Validate Inputs
+    - name: Validate Inputs (Centralized)
+      uses: ./validate-inputs
+      with:
+        action: biome-check
+
+    - name: Validate Inputs (Additional)
       id: validate
       shell: bash
       env:
@@ -127,13 +132,18 @@ runs:
         key-prefix: 'biome-check-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Biome
-      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       env:
         PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
         MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail
+
+        # Check if biome is already installed
+        if command -v biome >/dev/null 2>&1; then
+          echo "✅ Biome already installed: $(biome --version)"
+          exit 0
+        fi
 
         echo "Installing Biome using $PACKAGE_MANAGER..."
 
@@ -184,8 +194,20 @@ runs:
 
         echo "Running Biome check..."
 
-        # Run Biome check with JSON output
-        if biome check . --reporter=json > biome-report.json; then
+        # Run Biome check twice: JSON for counts and SARIF for upload
+        biome_exit_code=0
+        biome check . --reporter=json > biome-report.json || biome_exit_code=$?
+
+        # Generate SARIF report with explicit error handling
+        sarif_exit_code=0
+        biome check . --reporter=sarif > biome-report.sarif || sarif_exit_code=$?
+        if [ $sarif_exit_code -ne 0 ]; then
+          echo "::warning::SARIF report generation failed with exit code $sarif_exit_code"
+          # Create empty SARIF file to avoid upload errors
+          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > biome-report.sarif
+        fi
+
+        if [ $biome_exit_code -eq 0 ]; then
           echo "status=success" >> $GITHUB_OUTPUT
           echo "errors=0" >> $GITHUB_OUTPUT
           echo "warnings=0" >> $GITHUB_OUTPUT
@@ -206,4 +228,4 @@ runs:
     - name: Upload Biome Results
       uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
       with:
-        sarif_file: biome-report.json
+        sarif_file: biome-report.sarif

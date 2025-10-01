@@ -11,6 +11,7 @@ validate_inputs_path = Path(__file__).parent.parent / "validate-inputs"
 sys.path.insert(0, str(validate_inputs_path))
 
 from validators.base import BaseValidator
+from validators.security import SecurityValidator
 from validators.version import VersionValidator
 
 
@@ -21,6 +22,7 @@ class CustomValidator(BaseValidator):
         """Initialize version-validator validator."""
         super().__init__(action_type)
         self.version_validator = VersionValidator()
+        self.security_validator = SecurityValidator()
 
     def validate_inputs(self, inputs: dict[str, str]) -> bool:
         """Validate version-validator action inputs."""
@@ -38,13 +40,16 @@ class CustomValidator(BaseValidator):
             if not result:
                 valid = False
 
-        # Validate optional input: validation-regex (accept any value for now)
-        # The action itself will validate the regex pattern
-        if "validation-regex" in inputs and inputs.get("validation-regex"):
-            # Basic check that it's not malicious
-            regex_value = inputs["validation-regex"]
-            if ";" in regex_value or "$(" in regex_value or "`" in regex_value:
-                self.add_error("validation-regex contains potentially dangerous characters")
+        # Validate optional input: validation-regex
+        # Check both underscore and dash versions
+        regex_value = inputs.get("validation-regex") or inputs.get("validation_regex")
+        if regex_value:
+            result = self.security_validator.validate_regex_pattern(regex_value, "validation-regex")
+            for error in self.security_validator.errors:
+                if error not in self.errors:
+                    self.add_error(error)
+            self.security_validator.clear_errors()
+            if not result:
                 valid = False
 
         # Validate optional input: language (accept any value)

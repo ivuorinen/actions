@@ -23,15 +23,13 @@ We will respond within 48 hours and work on a fix if validated.
 This repository implements:
 
 - CodeQL scanning
-- OWASP Dependency Check
-- Snyk vulnerability scanning
+- Semgrep static analysis
 - Gitleaks secret scanning
-- Trivy vulnerability scanner
+- Dependency Review
 - MegaLinter code analysis
 - Regular security updates
 - Automated fix PRs
-- Daily security scans
-- Weekly metrics collection
+- Continuous security scanning on PRs
 
 ## Security Best Practices
 
@@ -46,39 +44,44 @@ When using these actions:
 
 ## Required Secrets
 
+> **Note**: `GITHUB_TOKEN` is automatically provided by GitHub Actions and does not require manual repository secret configuration.
+
 The following secrets should be configured in your repository:
 
-| Secret Name        | Description                           | Required |
-| ------------------ | ------------------------------------- | -------- |
-| `SNYK_TOKEN`       | Token for Snyk vulnerability scanning | Optional |
-| `GITLEAKS_LICENSE` | License for Gitleaks scanning         | Optional |
-| `SLACK_WEBHOOK`    | Webhook URL for Slack notifications   | Optional |
-| `SONAR_TOKEN`      | Token for SonarCloud analysis         | Optional |
-| `FIXIMUS_TOKEN`    | Token for automated fixes             | Optional |
+| Secret Name          | Description                                                      | Requirement |
+| -------------------- | ---------------------------------------------------------------- | ----------- |
+| `GITHUB_TOKEN`       | GitHub token for workflow authentication (automatically provided) | Auto        |
+| `GITLEAKS_LICENSE`   | License for Gitleaks scanning                                     | Optional    |
+| `FIXIMUS_TOKEN`      | Enhanced token for automated fix PRs                              | Optional    |
+| `SEMGREP_APP_TOKEN`  | Token for Semgrep static analysis                                 | Optional    |
 
 ## Security Workflows
 
 This repository includes several security-focused workflows:
 
-1. **Daily Security Checks** (`security.yml`)
-   - Runs comprehensive security scans
+1. **PR Security Analysis** (`security-suite.yml`)
+   - Comprehensive security scanning on pull requests
+   - Semgrep static analysis
+   - Dependency vulnerability checks
    - Creates automated fix PRs
-   - Generates security reports
 
 2. **Action Security** (`action-security.yml`)
    - Validates GitHub Action files
    - Checks for hardcoded credentials
-   - Scans for vulnerabilities
+   - Gitleaks secret scanning
+   - Scans for vulnerabilities in action definitions
 
-3. **CodeQL Analysis** (`codeql.yml`)
+3. **CodeQL Analysis** (`codeql.yml` and `codeql-new.yml`)
    - Analyzes code for security issues
-   - Runs on multiple languages
-   - Weekly scheduled scans
+   - Runs on multiple languages (Python, JavaScript/TypeScript)
+   - Automated on pushes and pull requests
+   - SARIF report generation
 
-4. **Security Metrics** (`security-metrics.yml`)
-   - Collects security metrics
-   - Generates trend reports
-   - Weekly analysis
+4. **Dependency Review** (`dependency-review.yml`)
+   - Reviews dependency changes in pull requests
+   - Checks for known vulnerabilities
+   - License compliance validation
+   - Blocks PRs with critical vulnerabilities
 
 ## Security Reports
 

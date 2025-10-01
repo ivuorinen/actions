@@ -39,7 +39,7 @@ Flat structure. Each action self-contained with `action.yml`.
 Linting (ansible-lint-fix, biome-check, biome-fix, csharp-lint-check, eslint-check, eslint-fix, go-lint, pr-lint, pre-commit, prettier-check, prettier-fix, python-lint-fix, terraform-lint-fix),
 Testing (php-tests, php-laravel-phpunit, php-composer), Build (csharp-build, go-build, docker-build),
 Publishing (npm-publish, docker-publish, docker-publish-gh, docker-publish-hub, csharp-publish),
-Repository (github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry)
+Repository (github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry, codeql-analysis)
 
 ## Commands
 
