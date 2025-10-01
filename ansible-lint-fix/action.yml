@@ -1,5 +1,8 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write          # Required for committing and pushing fixes
+#   - security-events: write   # Required for uploading SARIF results
+---
 name: Ansible Lint and Fix
 description: 'Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report.'
 author: 'Ismo Vuorinen'
@@ -8,36 +11,131 @@ branding:
   icon: 'play'
   color: 'green'
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  max-retries:
+    description: 'Maximum number of retry attempts for pip install operations'
+    required: false
+    default: '3'
+
+outputs:
+  files_changed:
+    description: 'Number of files changed by linting'
+    value: ${{ steps.lint.outputs.files_changed }}
+  lint_status:
+    description: 'Linting status (success/failure)'
+    value: ${{ steps.lint.outputs.status }}
+  sarif_path:
+    description: 'Path to SARIF report file'
+    value: 'ansible-lint.sarif'
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+          # Skip validation for GitHub expressions (they'll be resolved at runtime)
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
+          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="$USERNAME"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Check for Ansible Files
       shell: bash
       run: |
+        set -euo pipefail
+
         if ! find . -name "*.yml" | grep -q .; then
           echo "No Ansible files found. Skipping lint and fix."
           exit 0
         fi
 
+    - name: Cache Python Dependencies
+      id: cache-pip
+      uses: ./common-cache
+      with:
+        type: 'pip'
+        paths: '~/.cache/pip'
+        key-files: 'requirements*.txt,pyproject.toml,setup.py,setup.cfg'
+        key-prefix: 'ansible-lint-fix'
+
     - name: Install ansible-lint
-      shell: bash
-      run: |
-        pip install ansible-lint==6.22.1 || {
-          echo "::error::Failed to install ansible-lint"
-          exit 1
-        }
+      if: steps.cache-pip.outputs.cache-hit != 'true'
+      uses: ./common-retry
+      with:
+        command: 'pip install ansible-lint==6.22.1'
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Installing Python dependencies (ansible-lint)'
 
     - name: Run ansible-lint
+      id: lint
       shell: bash
       run: |
+        set -euo pipefail
+
         ansible-lint --write --parseable-severity --format sarif > ansible-lint.sarif
 
     - name: Set Git Config for Fixes
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Commit Fixes
       shell: bash
       run: |
+        set -euo pipefail
+
         if git diff --quiet; then
           echo "No changes to commit."
         else

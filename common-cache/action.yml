@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for reading cache contents
+---
 name: Common Cache
 description: 'Standardized caching strategy for all actions'
 author: 'Ismo Vuorinen'
@@ -48,28 +50,46 @@ runs:
   steps:
     - id: prepare
       shell: bash
+      env:
+        RUNNER_OS: ${{ runner.os }}
+        CACHE_TYPE: ${{ inputs.type }}
+        KEY_PREFIX: ${{ inputs.key-prefix }}
+        KEY_FILES: ${{ inputs.key-files }}
+        ENV_VARS: ${{ inputs.env-vars }}
+        CACHE_PATHS: ${{ inputs.paths }}
       run: |
+        set -euo pipefail
+
         # Generate standardized cache key components
-        os_key="${{ runner.os }}"
-        type_key="${{ inputs.type }}"
-        prefix_key="${{ inputs.key-prefix }}"
+        os_key="$RUNNER_OS"
+        type_key="$CACHE_TYPE"
+        prefix_key="$KEY_PREFIX"
 
         # Process file hashes
+        # Note: For simple glob patterns, hashFiles() function could be used directly
+        # in the cache key. This manual approach is used to support comma-separated
+        # file lists with complex cache key construction.
         files_hash=""
-        if [ -n "${{ inputs.key-files }}" ]; then
-          IFS=',' read -ra FILES <<< "${{ inputs.key-files }}"
+        if [ -n "$KEY_FILES" ]; then
+          IFS=',' read -ra FILES <<< "$KEY_FILES"
+          existing_files=()
           for file in "${FILES[@]}"; do
+            # Trim whitespace
+            file=$(echo "$file" | xargs)
             if [ -f "$file" ]; then
-              file_hash=$(sha256sum "$file" | cut -d' ' -f1)
-              files_hash="${files_hash}-${file_hash}"
+              existing_files+=("$file")
             fi
           done
+          # Hash all files together for better performance
+          if [ ${#existing_files[@]} -gt 0 ]; then
+            files_hash=$(cat "${existing_files[@]}" | sha256sum | cut -d' ' -f1)
+          fi
         fi
 
         # Process environment variables
         env_hash=""
-        if [ -n "${{ inputs.env-vars }}" ]; then
-          IFS=',' read -ra VARS <<< "${{ inputs.env-vars }}"
+        if [ -n "$ENV_VARS" ]; then
+          IFS=',' read -ra VARS <<< "$ENV_VARS"
           for var in "${VARS[@]}"; do
             if [ -n "${!var}" ]; then
               env_hash="${env_hash}-${var}-${!var}"
@@ -87,7 +107,7 @@ runs:
         echo "cache-key=${cache_key}" >> $GITHUB_OUTPUT
 
         # Process cache paths
-        IFS=',' read -ra PATHS <<< "${{ inputs.paths }}"
+        IFS=',' read -ra PATHS <<< "$CACHE_PATHS"
         cache_paths=""
         for path in "${PATHS[@]}"; do
           cache_paths="${cache_paths}${path}\n"
