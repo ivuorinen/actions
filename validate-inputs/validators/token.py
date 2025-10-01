@@ -19,8 +19,8 @@ class TokenValidator(BaseValidator):
         # ghp_ + 36 = 40 chars total
         "github_classic": r"^ghp_[a-zA-Z0-9]{36}$",
         # Fine-grained PAT:
-        # github_pat_ + 71 = 82 chars total (11 char prefix + 71 char token)
-        "github_fine_grained": r"^github_pat_[a-zA-Z0-9_]{71}$",
+        # github_pat_ + 22 chars + _ + 59 chars = 93 chars total
+        "github_fine_grained": r"^github_pat_[A-Za-z0-9]{22}_[A-Za-z0-9]{59}$",
         # OAuth access token: gho_ + 36 = 40 chars total
         "github_oauth": r"^gho_[a-zA-Z0-9]{36}$",
         # User access token for GitHub App:
@@ -106,7 +106,7 @@ class TokenValidator(BaseValidator):
 
         self.add_error(
             "Invalid token format. Expected: ghp_* (40 chars), "
-            "github_pat_* (82 chars), gho_* (40 chars), ghu_* (40 chars), "
+            "github_pat_* (93 chars), gho_* (40 chars), ghu_* (40 chars), "
             "ghs_* (40 chars), ghr_* (40 chars), ghe_* (40 chars), or ${{ github.token }}",
         )
         return False

@@ -183,8 +183,11 @@ runs:
         # Output image name for reuse
         echo "image-name=${image_name}" >> $GITHUB_OUTPUT
 
+        # Normalize repository owner to lowercase for GHCR compatibility
+        repo_owner_lower=$(echo "$REPO_OWNER" | tr '[:upper:]' '[:lower:]')
+
         # Construct full image name with registry
-        full_name="$REGISTRY/$REPO_OWNER/${image_name}"
+        full_name="$REGISTRY/${repo_owner_lower}/${image_name}"
         echo "full-name=${full_name}" >> $GITHUB_OUTPUT
 
         # Process tags
@@ -340,7 +343,7 @@ runs:
             fi
 
             if [[ "$SBOM" == "true" ]]; then
-              sbom_path="$REGISTRY/$REPO_OWNER/$IMAGE_NAME.sbom"
+              sbom_path="$REGISTRY/$REPO_OWNER_LOWER/$IMAGE_NAME.sbom"
               echo "sbom=${sbom_path}" >> $GITHUB_OUTPUT
             fi
 

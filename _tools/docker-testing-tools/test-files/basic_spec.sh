@@ -4,12 +4,14 @@
 Describe 'Docker Testing Environment'
   It 'has correct user'
     When call whoami
-    The output should equal "runner"
+    The status should be success
+    The output should equal "${EXPECTED_USER:-runner}"
   End
 
   It 'can access workspace'
     When call pwd
-    The output should include "/workspace"
+    The status should be success
+    The output should include "${EXPECTED_WORKSPACE:-/workspace}"
   End
 
   It 'has ShellSpec available'

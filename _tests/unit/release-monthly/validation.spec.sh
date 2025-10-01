@@ -31,9 +31,9 @@ It "accepts false value"
 When call validate_input_python "release-monthly" "dry-run" "false"
 The status should be success
 End
-# NOTE: Test framework uses default validation for 'dry-run'
-# Default validation only checks injection patterns, not boolean format
-It "accepts invalid boolean (framework default validation)"
+# NOTE: Convention-based validation applies boolean validation to 'dry-run'
+# Boolean validator rejects non-boolean values
+It "rejects invalid boolean value"
 When call validate_input_python "release-monthly" "dry-run" "maybe"
 The status should be failure
 End

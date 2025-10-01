@@ -117,7 +117,7 @@ runs:
         echo "tests_run=$tests_run" >> $GITHUB_OUTPUT
         echo "tests_passed=$tests_passed" >> $GITHUB_OUTPUT
         echo "status=$status" >> $GITHUB_OUTPUT
-        echo "coverage_path=coverage" >> $GITHUB_OUTPUT
+        echo "coverage_path=coverage.xml" >> $GITHUB_OUTPUT
 
         # Exit with original code to maintain test failure behavior
         exit $phpunit_exit_code

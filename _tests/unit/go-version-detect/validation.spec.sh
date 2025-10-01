@@ -7,24 +7,33 @@ Describe "go-version-detect action"
 ACTION_DIR="go-version-detect"
 ACTION_FILE="$ACTION_DIR/action.yml"
 
+# Test version constants (update these when Go releases new versions)
+CURRENT_STABLE_GO_VERSION="1.25"
+CURRENT_STABLE_GO_PATCH="1.25.0"
+PREVIOUS_GO_VERSION="1.24.0"
+MIN_SUPPORTED_GO_VERSION="1.18"
+MAX_SUPPORTED_GO_VERSION="1.30"
+TOO_OLD_GO_VERSION="1.17"
+TOO_NEW_GO_VERSION="1.26"
+
 Context "when validating default-version input"
 It "accepts valid semantic version"
-When call validate_input_python "go-version-detect" "default-version" "1.22"
+When call validate_input_python "go-version-detect" "default-version" "$CURRENT_STABLE_GO_VERSION"
 The status should be success
 End
 
 It "accepts semantic version with patch"
-When call validate_input_python "go-version-detect" "default-version" "1.21.5"
+When call validate_input_python "go-version-detect" "default-version" "$PREVIOUS_GO_VERSION"
 The status should be success
 End
 
 It "accepts minimum supported Go version"
-When call validate_input_python "go-version-detect" "default-version" "1.18"
+When call validate_input_python "go-version-detect" "default-version" "$MIN_SUPPORTED_GO_VERSION"
 The status should be success
 End
 
 It "accepts current stable Go version"
-When call validate_input_python "go-version-detect" "default-version" "1.22.1"
+When call validate_input_python "go-version-detect" "default-version" "$CURRENT_STABLE_GO_PATCH"
 The status should be success
 End
 
@@ -39,12 +48,12 @@ The status should be failure
 End
 
 It "rejects version with command injection"
-When call validate_input_python "go-version-detect" "default-version" "1.22; rm -rf /"
+When call validate_input_python "go-version-detect" "default-version" "${CURRENT_STABLE_GO_VERSION}; rm -rf /"
 The status should be failure
 End
 
 It "rejects version with shell expansion"
-When call validate_input_python "go-version-detect" "default-version" "1.22\$(echo test)"
+When call validate_input_python "go-version-detect" "default-version" "${CURRENT_STABLE_GO_VERSION}\$(echo test)"
 The status should be failure
 End
 
@@ -54,12 +63,12 @@ The status should be failure
 End
 
 It "rejects too old minor version"
-When call validate_input_python "go-version-detect" "default-version" "1.15"
+When call validate_input_python "go-version-detect" "default-version" "$TOO_OLD_GO_VERSION"
 The status should be failure
 End
 
 It "rejects too new minor version"
-When call validate_input_python "go-version-detect" "default-version" "1.50"
+When call validate_input_python "go-version-detect" "default-version" "$TOO_NEW_GO_VERSION"
 The status should be failure
 End
 
@@ -69,12 +78,12 @@ The status should be failure
 End
 
 It "rejects version with leading v"
-When call validate_input_python "go-version-detect" "default-version" "v1.22"
+When call validate_input_python "go-version-detect" "default-version" "v${CURRENT_STABLE_GO_VERSION}"
 The status should be failure
 End
 
 It "rejects version with prerelease"
-When call validate_input_python "go-version-detect" "default-version" "1.22-beta"
+When call validate_input_python "go-version-detect" "default-version" "${CURRENT_STABLE_GO_VERSION}-beta"
 The status should be failure
 End
 End
@@ -111,28 +120,28 @@ End
 
 It "has correct default version"
 When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "default-version" "default"
-The output should equal "1.22"
+The output should equal "$CURRENT_STABLE_GO_VERSION"
 End
 End
 
 Context "when testing security validations"
 It "validates against path traversal in version"
-When call validate_input_python "go-version-detect" "default-version" "../1.22"
+When call validate_input_python "go-version-detect" "default-version" "../${CURRENT_STABLE_GO_VERSION}"
 The status should be failure
 End
 
 It "validates against shell metacharacters in version"
-When call validate_input_python "go-version-detect" "default-version" "1.22|echo"
+When call validate_input_python "go-version-detect" "default-version" "${CURRENT_STABLE_GO_VERSION}|echo"
 The status should be failure
 End
 
 It "validates against backtick injection"
-When call validate_input_python "go-version-detect" "default-version" "1.22\`whoami\`"
+When call validate_input_python "go-version-detect" "default-version" "${CURRENT_STABLE_GO_VERSION}\`whoami\`"
 The status should be failure
 End
 
 It "validates against variable expansion"
-When call validate_input_python "go-version-detect" "default-version" "1.22\${HOME}"
+When call validate_input_python "go-version-detect" "default-version" "${CURRENT_STABLE_GO_VERSION}\${HOME}"
 The status should be failure
 End
 End
@@ -140,22 +149,22 @@ End
 Context "when testing version range validation"
 It "validates reasonable Go version range boundaries"
 # Test boundary conditions for Go version validation
-When call validate_input_python "go-version-detect" "default-version" "1.16"
+When call validate_input_python "go-version-detect" "default-version" "$TOO_OLD_GO_VERSION"
 The status should be failure
 End
 
 It "validates upper boundary"
-When call validate_input_python "go-version-detect" "default-version" "1.31"
+When call validate_input_python "go-version-detect" "default-version" "$TOO_NEW_GO_VERSION"
 The status should be failure
 End
 
 It "validates exact boundary valid values"
-When call validate_input_python "go-version-detect" "default-version" "1.18"
+When call validate_input_python "go-version-detect" "default-version" "$MIN_SUPPORTED_GO_VERSION"
 The status should be success
 End
 
 It "validates exact boundary valid values upper"
-When call validate_input_python "go-version-detect" "default-version" "1.30"
+When call validate_input_python "go-version-detect" "default-version" "$MAX_SUPPORTED_GO_VERSION"
 The status should be success
 End
 End

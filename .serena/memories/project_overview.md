@@ -82,7 +82,7 @@ validate-inputs/
 
 - `php-tests`, `php-laravel-phpunit`, `php-composer`
 
-### Repository Management (8+)
+### Repository Management (9)
 
 - `github-release`, `release-monthly`, `sync-labels`, `stale`
 - `compress-images`, `common-cache`, `common-file-check`, `common-retry`
