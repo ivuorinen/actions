@@ -549,20 +549,8 @@ validate_input_python() {
   return $exit_code
 }
 
-# Helper function to check if all inputs are optional
-check_all_optional() {
-  python3 -c "
-import yaml
-with open('php-laravel-phpunit/action.yml') as f:
-    data = yaml.safe_load(f)
-    inputs = data.get('inputs', {})
-    required_inputs = [k for k, v in inputs.items() if v.get('required', False)]
-    print('none' if not required_inputs else ','.join(required_inputs))
-"
-}
-
 # Export all new simplified helpers (functions are moved above)
-export -f validate_action_yml_quiet validate_input_python check_all_optional
+export -f validate_action_yml_quiet validate_input_python
 
 # Removed EXIT trap setup to avoid conflicts with ShellSpec
 # ShellSpec handles its own cleanup, and our framework cleanup is handled in setup.sh
