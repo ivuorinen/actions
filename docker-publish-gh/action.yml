@@ -29,7 +29,7 @@ inputs:
   token:
     description: 'GitHub token with package write permissions'
     required: false
-    default: ${{ github.token }}
+    default: ''
   provenance:
     description: 'Enable SLSA provenance generation'
     required: false
@@ -107,9 +107,14 @@ runs:
     - name: Mask Secrets
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
+        INPUT_TOKEN: ${{ inputs.token }}
       run: |
-        echo "::add-mask::$GITHUB_TOKEN"
+        set -euo pipefail
+        # Use provided token or fall back to GITHUB_TOKEN
+        TOKEN="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
+        if [ -n "$TOKEN" ]; then
+          echo "::add-mask::$TOKEN"
+        fi
 
     - name: Validate Inputs
       id: validate
@@ -204,7 +209,7 @@ runs:
       with:
         registry: ${{ inputs.registry }}
         username: ${{ github.actor }}
-        password: ${{ inputs.token }}
+        password: ${{ inputs.token || github.token }}
 
     - name: Set up Cosign
       if: inputs.provenance == 'true' || inputs.sign-image == 'true'
@@ -365,25 +370,28 @@ runs:
       if: inputs.scan-image == 'true'
       shell: bash
       env:
-        INPUT_TAGS: ${{ inputs.tags }}
+        IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
         FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
       run: |
         set -euo pipefail
+
+        # Validate digest availability
+        if [ -z "$IMAGE_DIGEST" ] || [ "$IMAGE_DIGEST" == "unknown" ]; then
+          echo "::error::No valid image digest available for scanning"
+          exit 1
+        fi
 
         # Install Trivy
         wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
         echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
         sudo apt-get update && sudo apt-get install -y trivy
 
-        # Get first tag for scanning
-        IFS=',' read -ra TAGS <<< "$INPUT_TAGS"
-
-        # Scan the published image
+        # Scan the exact digest that was just built (not tags which could be stale)
         trivy image \
           --severity HIGH,CRITICAL \
           --format json \
           --output /tmp/scan-results.json \
-          "$FULL_IMAGE_NAME:${TAGS[0]}"
+          "$FULL_IMAGE_NAME@${IMAGE_DIGEST}"
 
         # Output results
         scan_results=$(cat /tmp/scan-results.json | jq -c '.')
@@ -400,20 +408,23 @@ runs:
       if: inputs.sign-image == 'true'
       shell: bash
       env:
-        INPUT_TAGS: ${{ inputs.tags }}
+        IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
         FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
       run: |
         set -euo pipefail
 
-        # Sign all tags
-        IFS=',' read -ra TAGS <<< "$INPUT_TAGS"
-        for tag in "${TAGS[@]}"; do
-          echo "Signing $FULL_IMAGE_NAME:${tag}"
+        # Validate digest availability
+        if [ -z "$IMAGE_DIGEST" ] || [ "$IMAGE_DIGEST" == "unknown" ]; then
+          echo "::error::No valid image digest available for signing"
+          exit 1
+        fi
 
-          # Using keyless signing with OIDC
-          export COSIGN_EXPERIMENTAL=1
-          cosign sign --yes "$FULL_IMAGE_NAME:${tag}"
-        done
+        # Sign the exact digest that was just built (not tags which could be stale)
+        echo "Signing $FULL_IMAGE_NAME@${IMAGE_DIGEST}"
+
+        # Using keyless signing with OIDC
+        export COSIGN_EXPERIMENTAL=1
+        cosign sign --yes "$FULL_IMAGE_NAME@${IMAGE_DIGEST}"
 
         echo "signature=signed" >> $GITHUB_OUTPUT
 
@@ -421,7 +432,7 @@ runs:
       id: verify
       shell: bash
       env:
-        INPUT_TAGS: ${{ inputs.tags }}
+        IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
         FULL_IMAGE_NAME: ${{ steps.metadata.outputs.full-name }}
         AUTO_DETECT_PLATFORMS: ${{ inputs.auto-detect-platforms }}
         DETECTED_PLATFORMS: ${{ steps.detect-platforms.outputs.platforms }}
@@ -430,14 +441,17 @@ runs:
       run: |
         set -euo pipefail
 
-        # Verify image existence and accessibility
-        IFS=',' read -ra TAGS <<< "$INPUT_TAGS"
-        for tag in "${TAGS[@]}"; do
-          if ! docker buildx imagetools inspect "$FULL_IMAGE_NAME:${tag}" >/dev/null 2>&1; then
-            echo "::error::Published image not found: $tag"
-            exit 1
-          fi
-        done
+        # Validate digest availability
+        if [ -z "$IMAGE_DIGEST" ] || [ "$IMAGE_DIGEST" == "unknown" ]; then
+          echo "::error::No valid image digest available for verification"
+          exit 1
+        fi
+
+        # Verify the exact digest that was just built
+        if ! docker buildx imagetools inspect "$FULL_IMAGE_NAME@${IMAGE_DIGEST}" >/dev/null 2>&1; then
+          echo "::error::Published image not found at digest: $IMAGE_DIGEST"
+          exit 1
+        fi
 
         # Determine platforms to verify
         if [ "$AUTO_DETECT_PLATFORMS" == "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
@@ -446,22 +460,24 @@ runs:
           platforms="$DEFAULT_PLATFORMS"
         fi
 
-        # Verify platforms
-        IFS=',' read -ra PLATFORMS <<< "${platforms}"
-        for platform in "${PLATFORMS[@]}"; do
-          if ! docker buildx imagetools inspect "$FULL_IMAGE_NAME:${TAGS[0]}" | grep -q "$platform"; then
+        # Verify platforms using the exact digest
+        IFS=',' read -ra PLATFORM_ARRAY <<< "${platforms}"
+        for platform in "${PLATFORM_ARRAY[@]}"; do
+          if ! docker buildx imagetools inspect "$FULL_IMAGE_NAME@${IMAGE_DIGEST}" | grep -q "$platform"; then
             echo "::warning::Platform $platform not found in published image"
+          else
+            echo "✅ Verified platform: $platform"
           fi
         done
 
-        # Verify signature if signing was enabled
+        # Verify signature if signing was enabled (verify the digest)
         if [ "$SIGN_IMAGE" == "true" ]; then
           export COSIGN_EXPERIMENTAL=1
-          for tag in "${TAGS[@]}"; do
-            if ! cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" "$FULL_IMAGE_NAME:${tag}" >/dev/null 2>&1; then
-              echo "::warning::Could not verify signature for ${tag}"
-            fi
-          done
+          if ! cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" "$FULL_IMAGE_NAME@${IMAGE_DIGEST}" >/dev/null 2>&1; then
+            echo "::warning::Could not verify signature for digest: $IMAGE_DIGEST"
+          else
+            echo "✅ Signature verified for digest: $IMAGE_DIGEST"
+          fi
         fi
 
     - name: Clean up

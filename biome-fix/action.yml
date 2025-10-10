@@ -111,13 +111,18 @@ runs:
         key-prefix: 'biome-fix-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Biome
-      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
       env:
         PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
         MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail
+
+        # Check if biome is already installed
+        if command -v biome >/dev/null 2>&1; then
+          echo "✅ Biome already installed: $(biome --version)"
+          exit 0
+        fi
 
         echo "Installing Biome using $PACKAGE_MANAGER..."
 

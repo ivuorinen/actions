@@ -381,7 +381,7 @@ runs:
       shell: bash
       env:
         FULL_NAME: ${{ steps.metadata.outputs.full-name }}
-        TAGS: ${{ inputs.tags }}
+        IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
       run: |
         set -euo pipefail
 
@@ -390,15 +390,12 @@ runs:
         echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee -a /etc/apt/sources.list.d/trivy.list
         sudo apt-get update && sudo apt-get install -y trivy
 
-        # Get first tag for scanning
-        IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
-
-        # Scan the published image
+        # Scan the exact digest that was just built (not tags which could be stale)
         trivy image \
           --severity HIGH,CRITICAL \
           --format json \
           --output /tmp/scan-results.json \
-          "$FULL_NAME:${TAG_ARRAY[0]}"
+          "$FULL_NAME@${IMAGE_DIGEST}"
 
         # Output results
         scan_results=$(cat /tmp/scan-results.json | jq -c '.')
@@ -441,7 +438,7 @@ runs:
       shell: bash
       env:
         FULL_NAME: ${{ steps.metadata.outputs.full-name }}
-        TAGS: ${{ inputs.tags }}
+        IMAGE_DIGEST: ${{ steps.publish.outputs.digest }}
         AUTO_DETECT: ${{ inputs.auto-detect-platforms }}
         DETECTED_PLATFORMS: ${{ steps.detect-platforms.outputs.platforms }}
         DEFAULT_PLATFORMS: ${{ inputs.platforms }}
@@ -449,14 +446,19 @@ runs:
       run: |
         set -euo pipefail
 
-        # Verify image existence and accessibility
-        IFS=',' read -ra TAG_ARRAY <<< "$TAGS"
-        for tag in "${TAG_ARRAY[@]}"; do
-          if ! docker buildx imagetools inspect "$FULL_NAME:${tag}" >/dev/null 2>&1; then
-            echo "::error::Published image not found: $tag"
-            exit 1
-          fi
-        done
+        # Verify image existence and accessibility using exact digest
+        if [ -z "$IMAGE_DIGEST" ] || [ "$IMAGE_DIGEST" == "unknown" ]; then
+          echo "::error::No valid image digest available for verification"
+          exit 1
+        fi
+
+        # Verify the exact digest that was just built
+        if ! docker buildx imagetools inspect "$FULL_NAME@${IMAGE_DIGEST}" >/dev/null 2>&1; then
+          echo "::error::Published image not found at digest: $IMAGE_DIGEST"
+          exit 1
+        fi
+
+        echo "✅ Verified image at digest: $IMAGE_DIGEST"
 
         # Determine platforms to verify
         if [ "$AUTO_DETECT" == "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
@@ -465,22 +467,24 @@ runs:
           platforms="$DEFAULT_PLATFORMS"
         fi
 
-        # Verify platforms
+        # Verify platforms using the exact digest
         IFS=',' read -ra PLATFORM_ARRAY <<< "${platforms}"
         for platform in "${PLATFORM_ARRAY[@]}"; do
-          if ! docker buildx imagetools inspect "$FULL_NAME:${TAG_ARRAY[0]}" | grep -q "$platform"; then
+          if ! docker buildx imagetools inspect "$FULL_NAME@${IMAGE_DIGEST}" | grep -q "$platform"; then
             echo "::warning::Platform $platform not found in published image"
+          else
+            echo "✅ Verified platform: $platform"
           fi
         done
 
-        # Verify signature if signing was enabled
+        # Verify signature if signing was enabled (use digest for verification)
         if [ "$SIGN_IMAGE" == "true" ]; then
           export COSIGN_EXPERIMENTAL=1
-          for tag in "${TAG_ARRAY[@]}"; do
-            if ! cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" "$FULL_NAME:${tag}" >/dev/null 2>&1; then
-              echo "::warning::Could not verify signature for ${tag}"
-            fi
-          done
+          if ! cosign verify --certificate-identity-regexp ".*" --certificate-oidc-issuer-regexp ".*" "$FULL_NAME@${IMAGE_DIGEST}" >/dev/null 2>&1; then
+            echo "::warning::Could not verify signature for digest ${IMAGE_DIGEST}"
+          else
+            echo "✅ Verified signature for digest: $IMAGE_DIGEST"
+          fi
         fi
 
     - name: Clean up

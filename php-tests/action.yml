@@ -14,7 +14,7 @@ inputs:
   token:
     description: 'GitHub token for authentication'
     required: false
-    default: ${{ github.token }}
+    default: ''
   username:
     description: 'GitHub username for commits'
     required: false
@@ -83,7 +83,7 @@ runs:
     - name: Set Git Config
       uses: ./set-git-config
       with:
-        token: ${{ inputs.token }}
+        token: ${{ inputs.token != '' && inputs.token || github.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
 

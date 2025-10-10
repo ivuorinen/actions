@@ -194,31 +194,34 @@ runs:
 
         echo "Running Biome check..."
 
-        # Run Biome check twice: JSON for counts and SARIF for upload
+        # Run Biome check with SARIF reporter
         biome_exit_code=0
-        biome check . --reporter=json > biome-report.json || biome_exit_code=$?
+        biome check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
 
-        # Generate SARIF report with explicit error handling
-        sarif_exit_code=0
-        biome check . --reporter=sarif > biome-report.sarif || sarif_exit_code=$?
-        if [ $sarif_exit_code -ne 0 ]; then
-          echo "::warning::SARIF report generation failed with exit code $sarif_exit_code"
+        # Handle failures gracefully
+        if [ $biome_exit_code -ne 0 ] && [ ! -s biome-report.sarif ]; then
+          echo "::warning::SARIF report generation failed with exit code $biome_exit_code"
           # Create empty SARIF file to avoid upload errors
           echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > biome-report.sarif
         fi
 
-        if [ $biome_exit_code -eq 0 ]; then
-          echo "status=success" >> $GITHUB_OUTPUT
-          echo "errors=0" >> $GITHUB_OUTPUT
-          echo "warnings=0" >> $GITHUB_OUTPUT
+        # Parse SARIF output for error counts
+        if [ -f biome-report.sarif ]; then
+          errors=$(jq '[.runs[]?.results[]? | select(.level == "error" or .level == "warning")] | length' biome-report.sarif 2>/dev/null || echo "0")
+          warnings="0"  # Biome doesn't separate warnings in SARIF output
         else
-          # Parse JSON output for errors and warnings count
-          errors=$(node -e "try{const r=require('./biome-report.json'); console.log((r.diagnostics||[]).length)}catch(e){console.log(0)}")
-          warnings="0"  # Biome doesn't separate warnings in JSON output
+          errors="0"
+          warnings="0"
+        fi
 
-          echo "status=failure" >> $GITHUB_OUTPUT
-          echo "errors=$errors" >> $GITHUB_OUTPUT
-          echo "warnings=$warnings" >> $GITHUB_OUTPUT
+        if [ $biome_exit_code -eq 0 ]; then
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "errors=0" >> "$GITHUB_OUTPUT"
+          echo "warnings=0" >> "$GITHUB_OUTPUT"
+        else
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "errors=$errors" >> "$GITHUB_OUTPUT"
+          echo "warnings=$warnings" >> "$GITHUB_OUTPUT"
 
           echo "::error::Biome check found $errors issues"
         fi
