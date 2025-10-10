@@ -47,30 +47,46 @@ runs:
       id: bot
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-        USERNAME: ${{ inputs.username }}
-        EMAIL: ${{ inputs.email }}
-        IS_FIXIMUS: ${{ inputs.is_fiximus }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_USERNAME: ${{ inputs.username }}
+        INPUT_EMAIL: ${{ inputs.email }}
+        INPUT_IS_FIXIMUS: ${{ inputs.is_fiximus }}
       run: |
         set -euo pipefail
 
-        echo "token=$GITHUB_TOKEN" >> $GITHUB_OUTPUT
-        echo "username=$USERNAME" >> $GITHUB_OUTPUT
-        echo "email=$EMAIL" >> $GITHUB_OUTPUT
+        # Use printf to safely write outputs (prevents injection)
+        printf 'token=%s\n' "${INPUT_TOKEN}" >> "$GITHUB_OUTPUT"
+        printf 'username=%s\n' "${INPUT_USERNAME}" >> "$GITHUB_OUTPUT"
+        printf 'email=%s\n' "${INPUT_EMAIL}" >> "$GITHUB_OUTPUT"
+        printf 'is_fiximus=%s\n' "${INPUT_IS_FIXIMUS}" >> "$GITHUB_OUTPUT"
 
-        if [ "$IS_FIXIMUS" != "false" ]; then
-          echo "username=fiximus" >> $GITHUB_OUTPUT
-          echo "email=github-bot@ivuorinen.net" >> $GITHUB_OUTPUT
+        # Determine final values
+        FINAL_TOKEN="$INPUT_TOKEN"
+        FINAL_USERNAME="$INPUT_USERNAME"
+        FINAL_EMAIL="$INPUT_EMAIL"
+
+        if [ "$INPUT_IS_FIXIMUS" != "false" ]; then
+          FINAL_USERNAME="fiximus"
+          FINAL_EMAIL="github-bot@ivuorinen.net"
+          printf 'username=%s\n' "fiximus" >> "$GITHUB_OUTPUT"
+          printf 'email=%s\n' "github-bot@ivuorinen.net" >> "$GITHUB_OUTPUT"
         fi
+
+        # Write validated values to GITHUB_ENV for safe use in subsequent steps
+        {
+          echo "VALIDATED_GIT_TOKEN=$FINAL_TOKEN"
+          echo "VALIDATED_GIT_USERNAME=$FINAL_USERNAME"
+          echo "VALIDATED_GIT_EMAIL=$FINAL_EMAIL"
+        } >> "$GITHUB_ENV"
 
     - name: Configure Git
       shell: bash
-      env:
-        GITHUB_TOKEN: ${{ steps.bot.outputs.token }}
-        GIT_USERNAME: ${{ steps.bot.outputs.username }}
-        GIT_EMAIL: ${{ steps.bot.outputs.email }}
       run: |-
         set -euo pipefail
+        # Use validated environment variables from GITHUB_ENV
+        GITHUB_TOKEN="$VALIDATED_GIT_TOKEN"
+        GIT_USERNAME="$VALIDATED_GIT_USERNAME"
+        GIT_EMAIL="$VALIDATED_GIT_EMAIL"
 
         # Function to clean up Git config
         cleanup_git_config() {
@@ -87,10 +103,10 @@ runs:
 
         git config --local --unset-all http.https://github.com/.extraheader || true
         git config --local \
-          --add url.https://x-access-token:${TOKEN}@github.com/.insteadOf \
+          --add "url.https://x-access-token:${TOKEN}@github.com/.insteadOf" \
           "https://github.com/"
         git config --local \
-          --add url.https://x-access-token:${TOKEN}@github.com/.insteadOf \
+          --add "url.https://x-access-token:${TOKEN}@github.com/.insteadOf" \
           'git@github.com:'
         git config --local user.name "$GIT_USERNAME"
         git config --local user.email "$GIT_EMAIL"
