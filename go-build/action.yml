@@ -121,11 +121,23 @@ runs:
         set -euo pipefail
         echo "Running Go tests..."
         if find . -name "*_test.go" | grep -q .; then
-          # Check if race flag is supported on this platform
+          # Check if race detector is supported on this platform
+          # The race detector is only supported on specific GOOS/GOARCH combinations:
+          # linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64,
+          # freebsd/amd64, netbsd/amd64
           RACE_FLAG=""
-          if go tool dist list | grep -q "$(go env GOOS)/$(go env GOARCH)"; then
-            RACE_FLAG="-race"
-          fi
+          GOOS=$(go env GOOS)
+          GOARCH=$(go env GOARCH)
+
+          case "${GOOS}/${GOARCH}" in
+            linux/amd64|linux/arm64|darwin/amd64|darwin/arm64|windows/amd64|freebsd/amd64|netbsd/amd64)
+              RACE_FLAG="-race"
+              echo "Race detector enabled for ${GOOS}/${GOARCH}"
+              ;;
+            *)
+              echo "Race detector not supported on ${GOOS}/${GOARCH}, skipping -race flag"
+              ;;
+          esac
 
           if go test -v ./... $RACE_FLAG -coverprofile=coverage.out; then
             echo "status=success" >> "$GITHUB_OUTPUT"

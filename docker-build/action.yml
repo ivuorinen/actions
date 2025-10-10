@@ -46,7 +46,7 @@ inputs:
   token:
     description: 'GitHub token for authentication'
     required: false
-    default: ${{ github.token }}
+    default: ''
   buildx-version:
     description: 'Specific Docker Buildx version to use'
     required: false
@@ -285,12 +285,12 @@ runs:
         echo "secrets=${secrets}" >> $GITHUB_OUTPUT
 
     - name: Login to GitHub Container Registry
-      if: ${{ inputs.push == 'true' || inputs.token != '' }}
+      if: ${{ inputs.push == 'true' }}
       uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ inputs.token }}
+        password: ${{ inputs.token || github.token }}
 
     - name: Set up Build Cache
       id: cache
@@ -300,10 +300,13 @@ runs:
         CACHE_FROM: ${{ inputs.cache-from }}
         CACHE_EXPORT: ${{ inputs.cache-export }}
         PUSH: ${{ inputs.push }}
-        TOKEN: ${{ inputs.token }}
+        INPUT_TOKEN: ${{ inputs.token }}
         CACHE_MODE: ${{ inputs.cache-mode }}
       run: |
         set -euo pipefail
+
+        # Use provided token or fall back to GITHUB_TOKEN
+        TOKEN="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
 
         cache_from=""
         cache_to=""
@@ -452,9 +455,9 @@ runs:
                 echo "EOF"
               } >> "$GITHUB_OUTPUT"
 
-              # Extract SBOM location
-              sbom_location=$(echo "$metadata" | jq -r '.sbom.location // ""')
-              echo "sbom-location=${sbom_location}" >> $GITHUB_OUTPUT
+              # Extract SBOM location directly from file
+              sbom_location=$(jq -r '.sbom.location // ""' /tmp/build-metadata.json)
+              echo "sbom-location=${sbom_location}" >> "$GITHUB_OUTPUT"
             fi
 
             # Calculate build time
