@@ -56,7 +56,7 @@ The status should be success
 End
 
 It "rejects username too long"
-When call validate_input_python "python-lint-fix" "username" "$(printf 'a%.0s' {1..40})"
+When call validate_input_python "python-lint-fix" "username" "$(awk 'BEGIN{for(i=1;i<=40;i++)printf "a"}')"
 The status should be failure
 End
 
@@ -125,16 +125,7 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-# Skip this test due to Python syntax complexity in ShellSpec
-Skip "Python syntax issue with ShellSpec"
-When call python3 -c "
-      import yaml
-      with open('$ACTION_FILE') as f:
-      data = yaml.safe_load(f)
-      inputs = data.get('inputs', {})
-      required_inputs = [k for k, v in inputs.items() if v.get('required', False)]
-      print('none' if not required_inputs else ','.join(required_inputs))
-      "
+When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 End

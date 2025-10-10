@@ -263,7 +263,7 @@ End
 
 Context "when testing Prettier-specific validations"
 It "validates username length boundaries for Git"
-When call validate_input_python "prettier-fix" "username" "$(printf 'a%.0s' {1..40})"
+When call validate_input_python "prettier-fix" "username" "$(awk 'BEGIN{for(i=1;i<=40;i++)printf "a"}')"
 The status should be failure
 End
 

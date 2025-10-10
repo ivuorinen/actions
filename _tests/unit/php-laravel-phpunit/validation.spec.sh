@@ -224,7 +224,7 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call check_all_optional
+When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 

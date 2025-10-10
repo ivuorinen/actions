@@ -1,12 +1,12 @@
-#!/usr/bin/env bash
+#!/bin/sh
 # ShellSpec helper for Docker testing environment
 
 # Set up common test environment
-set -euo pipefail
+set -eu
 
 # Helper functions for tests
 ensure_workspace() {
-  [[ -d /workspace ]] || mkdir -p /workspace
+  [ -d /workspace ] || mkdir -p /workspace
 }
 
 cleanup_test_files() {
