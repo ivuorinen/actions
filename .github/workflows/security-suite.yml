@@ -181,22 +181,30 @@ jobs:
               console.log('Semgrep SARIF parsing completed');
             }
 
-            // Parse TruffleHog results (they output to stdout)
+            // Parse TruffleHog results (NDJSON format - one JSON object per line)
             try {
-              const truffleOutput = execSync('cat /tmp/trufflehog_output.json || echo "[]"', { encoding: 'utf8' });
-              const truffleResults = JSON.parse(truffleOutput);
-              if (Array.isArray(truffleResults)) {
-                truffleResults.forEach(result => {
+              const truffleOutput = execSync('cat /tmp/trufflehog_output.json || echo ""', { encoding: 'utf8' });
+              const truffleLines = truffleOutput.trim().split('\n').filter(line => line.length > 0);
+
+              truffleLines.forEach(line => {
+                try {
+                  const result = JSON.parse(line);
                   findings.secrets.push({
                     file: result.SourceMetadata?.Data?.Filesystem?.file || 'Unknown',
                     line: result.SourceMetadata?.Data?.Filesystem?.line || 0,
                     detector: result.DetectorName,
                     verified: result.Verified || false
                   });
-                });
+                } catch (parseError) {
+                  console.log('Failed to parse TruffleHog line:', line);
+                }
+              });
+
+              if (truffleLines.length === 0) {
+                console.log('No secrets detected');
               }
             } catch (error) {
-              console.log('No secrets detected');
+              console.log('No TruffleHog output file found');
             }
 
             // Generate clean comment sections

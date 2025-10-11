@@ -36,6 +36,7 @@ RUN apt-get update && apt-get install -y \
   python3 \
   python3-pip \
   python3-yaml \
+  sudo \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -46,7 +47,7 @@ RUN NODE_MAJOR=20 \
   && gpg --dearmor -o /usr/share/keyrings/nodesource.gpg < /tmp/nodesource.gpg.key \
   && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
   && apt-get update \
-  && apt-get install -y nodejs --no-install-recommends \
+  && apt-get install -y --no-install-recommends nodejs \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* /tmp/nodesource.gpg.key
 
@@ -168,6 +169,10 @@ ENV HOME="/home/$USERNAME"
 # Create the user and group
 RUN groupadd --gid $USER_GID $USERNAME \
   && useradd --uid $USER_UID --gid $USER_GID -m $USERNAME -s /bin/bash
+
+# Grant passwordless sudo to runner user for testing scenarios
+RUN echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/$USERNAME \
+  && chmod 0440 /etc/sudoers.d/$USERNAME
 
 # Create workspace directory with proper permissions (as root)
 RUN mkdir -p /workspace \

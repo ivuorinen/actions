@@ -102,7 +102,7 @@ Describe "stale action"
     It "has correct action name"
       name=$(get_action_name "$ACTION_FILE")
       When call echo "$name"
-      The output should equal "Close Stale Issues"
+      The output should equal "Stale"
     End
 
     It "defines expected inputs"
