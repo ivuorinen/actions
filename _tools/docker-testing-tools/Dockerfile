@@ -159,7 +159,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG USERNAME=runner
 ARG USER_UID=1001
 ARG USER_GID=$USER_UID
-ARG SHELLSPEC_VERSION
+ARG SHELLSPEC_VERSION=0.28.1
 
 # Set up environment for testing
 ENV PATH="/home/$USERNAME/.local/bin:$PATH"

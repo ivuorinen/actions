@@ -128,12 +128,12 @@ Describe "stale action"
 
     It "validates against variable expansion in days"
       When call validate_input_python "stale" "days-before-stale" "30\${HOME}"
-      The status should be success
+      The status should be failure
     End
 
     It "validates against shell metacharacters in days"
       When call validate_input_python "stale" "days-before-close" "7; rm -rf /"
-      The status should be success
+      The status should be failure
     End
   End
 End
