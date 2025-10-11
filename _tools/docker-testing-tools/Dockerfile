@@ -99,9 +99,9 @@ RUN apt-get update && apt-get install -y \
 # Install trufflehog with checksum verification
 RUN arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
-    amd64) trufflehog_arch="amd64" ;; \
-    arm64) trufflehog_arch="arm64" ;; \
-    *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
+  amd64) trufflehog_arch="amd64" ;; \
+  arm64) trufflehog_arch="arm64" ;; \
+  *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
   && tarball="trufflehog_${TRUFFLEHOG_VERSION}_linux_${trufflehog_arch}.tar.gz" \
   && curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/${tarball}" -o "/tmp/${tarball}" \
@@ -116,9 +116,9 @@ RUN arch="$(dpkg --print-architecture)" \
 # Install actionlint with checksum verification
 RUN arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
-    amd64) actionlint_arch="amd64" ;; \
-    arm64) actionlint_arch="arm64" ;; \
-    *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
+  amd64) actionlint_arch="amd64" ;; \
+  arm64) actionlint_arch="arm64" ;; \
+  *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
   && tarball="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" \
   && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}" -o "/tmp/${tarball}" \
@@ -133,9 +133,9 @@ RUN arch="$(dpkg --print-architecture)" \
 # Install nektos/act with checksum verification
 RUN arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
-    amd64) act_arch="Linux_x86_64" ;; \
-    arm64) act_arch="Linux_arm64" ;; \
-    *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
+  amd64) act_arch="Linux_x86_64" ;; \
+  arm64) act_arch="Linux_arm64" ;; \
+  *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
   && tarball="act_${act_arch}.tar.gz" \
   && curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/${tarball}" -o "/tmp/${tarball}" \
@@ -218,4 +218,4 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD shellcheck --version && jq --version || exit 1
 
 # Default command runs as non-root user
-CMD ["/bin/bash"]
+CMD ["sleep", "infinity"]
