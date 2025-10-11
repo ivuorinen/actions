@@ -211,11 +211,8 @@ RUN echo "=== Tool Versions ===" \
 
 # Verify user-installed tools
 RUN shellspec --version \
-  && echo "=== User tools verified ==="
+  && echo "=== User tools verified ===" \
+  && echo "=== Build complete ==="
 
-# Health check to verify essential tools are available
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD shellcheck --version && jq --version || exit 1
-
-# Default command runs as non-root user
-CMD ["sleep", "infinity"]
+# Default command keeps container running for GitHub Actions
+CMD ["/bin/bash", "-c", "tail -f /dev/null"]
