@@ -105,7 +105,7 @@ RUN arch="$(dpkg --print-architecture)" \
   && tarball="trufflehog_${TRUFFLEHOG_VERSION}_linux_${trufflehog_arch}.tar.gz" \
   && curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/${tarball}" -o "/tmp/${tarball}" \
   && curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt" -o /tmp/checksums.txt \
-  && grep "${tarball}" /tmp/checksums.txt | sha256sum -c - \
+  && grep "${tarball}" /tmp/checksums.txt | sed "s|${tarball}|/tmp/${tarball}|" | sha256sum -c - \
   && tar -xzf "/tmp/${tarball}" -C /tmp \
   && chmod +x /tmp/trufflehog \
   && mv /tmp/trufflehog /usr/local/bin/trufflehog \
@@ -122,7 +122,7 @@ RUN arch="$(dpkg --print-architecture)" \
   && tarball="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" \
   && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}" -o "/tmp/${tarball}" \
   && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o /tmp/checksums.txt \
-  && grep "${tarball}" /tmp/checksums.txt | sha256sum -c - \
+  && grep "${tarball}" /tmp/checksums.txt | sed "s|${tarball}|/tmp/${tarball}|" | sha256sum -c - \
   && tar -xzf "/tmp/${tarball}" -C /tmp \
   && chmod +x /tmp/actionlint \
   && mv /tmp/actionlint /usr/local/bin/actionlint \
@@ -139,7 +139,7 @@ RUN arch="$(dpkg --print-architecture)" \
   && tarball="act_${act_arch}.tar.gz" \
   && curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/${tarball}" -o "/tmp/${tarball}" \
   && curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/checksums.txt" -o /tmp/checksums.txt \
-  && grep "${tarball}" /tmp/checksums.txt | sha256sum -c - \
+  && grep "${tarball}" /tmp/checksums.txt | sed "s|${tarball}|/tmp/${tarball}|" | sha256sum -c - \
   && tar -xzf "/tmp/${tarball}" -C /tmp \
   && chmod +x /tmp/act \
   && mv /tmp/act /usr/local/bin/act \
@@ -177,19 +177,17 @@ RUN mkdir -p /workspace \
 USER $USERNAME
 WORKDIR /workspace
 
-# Install ShellSpec testing framework in user's home with checksum verification
+# Install ShellSpec testing framework in user's home
+# Note: ShellSpec does not provide checksum files in releases, using official dist tarball
 # hadolint ignore=SC2016
 RUN mkdir -p ~/.local/bin \
-  && tarball="${SHELLSPEC_VERSION}.tar.gz" \
-  && curl -fsSL "https://github.com/shellspec/shellspec/archive/${tarball}" -o "/tmp/${tarball}" \
-  && curl -fsSL "https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/SHA256SUMS" -o /tmp/SHA256SUMS \
-  && grep "${tarball}" /tmp/SHA256SUMS | sed "s|${tarball}|/tmp/${tarball}|" | sha256sum -c - \
-  && tar -xzf "/tmp/${tarball}" -C /tmp \
-  && cd "/tmp/shellspec-${SHELLSPEC_VERSION}" \
-  && make install PREFIX="$HOME/.local" \
-  && rm -rf "/tmp/${tarball}" "/tmp/shellspec-${SHELLSPEC_VERSION}" /tmp/SHA256SUMS \
+  && tarball="shellspec-dist.tar.gz" \
+  && curl -fsSL "https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/${tarball}" -o "/tmp/${tarball}" \
+  && tar -xzf "/tmp/${tarball}" -C "$HOME/.local" \
+  && ln -s "$HOME/.local/shellspec/shellspec" "$HOME/.local/bin/shellspec" \
   && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
-  && shellspec --version
+  && shellspec --version \
+  && rm -f "/tmp/${tarball}"
 
 # Verify installations (run as root to access all tools)
 RUN echo "=== Tool Versions ===" \
