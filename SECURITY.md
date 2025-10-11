@@ -177,8 +177,12 @@ We take security vulnerabilities seriously. If you discover a security issue:
 ### Reporting Process
 
 1. **DO NOT** open a public issue
-2. **DO** email security concerns to the repository owner
-3. **DO** include:
+2. **DO** report via GitHub Security Advisories (preferred):
+   - Go to the repository's Security tab
+   - Click "Report a vulnerability"
+   - Create a private security advisory
+3. **Alternatively**, email security concerns to the repository owner if GitHub Security Advisories are unavailable
+4. **DO** include:
    - Description of the vulnerability
    - Steps to reproduce
    - Potential impact
@@ -264,7 +268,10 @@ This security policy is part of the repository and follows the same license.
 
 ## Contact
 
-For security concerns: Create a private security advisory in the repository's Security tab.
+**For security vulnerabilities:**
+
+- **Primary**: Create a private security advisory in the repository's Security tab
+- **Fallback**: Email the repository owner if Security Advisories are unavailable
 
 ---
 

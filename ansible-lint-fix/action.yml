@@ -90,16 +90,22 @@ runs:
         echo "Input validation completed successfully"
 
     - name: Check for Ansible Files
+      id: check-files
       shell: bash
       run: |
         set -euo pipefail
 
-        if ! find . -name "*.yml" | grep -q .; then
+        # Check for both .yml and .yaml files
+        if find . \( -name "*.yml" -o -name "*.yaml" \) -type f | grep -q .; then
+          echo "files_found=true" >> "$GITHUB_OUTPUT"
+          echo "Found Ansible files, proceeding with lint and fix."
+        else
+          echo "files_found=false" >> "$GITHUB_OUTPUT"
           echo "No Ansible files found. Skipping lint and fix."
-          exit 0
         fi
 
     - name: Cache Python Dependencies
+      if: steps.check-files.outputs.files_found == 'true'
       id: cache-pip
       uses: ./common-cache
       with:
@@ -109,7 +115,7 @@ runs:
         key-prefix: 'ansible-lint-fix'
 
     - name: Install ansible-lint
-      if: steps.cache-pip.outputs.cache-hit != 'true'
+      if: steps.check-files.outputs.files_found == 'true' && steps.cache-pip.outputs.cache-hit != 'true'
       uses: ./common-retry
       with:
         command: 'pip install ansible-lint==6.22.1'
@@ -117,14 +123,38 @@ runs:
         description: 'Installing Python dependencies (ansible-lint)'
 
     - name: Run ansible-lint
+      if: steps.check-files.outputs.files_found == 'true'
       id: lint
       shell: bash
       run: |
         set -euo pipefail
 
-        ansible-lint --write --parseable-severity --format sarif > ansible-lint.sarif
+        # Run ansible-lint and capture exit code
+        if ansible-lint --write --parseable-severity --format sarif > ansible-lint.sarif; then
+          lint_exit_code=0
+        else
+          lint_exit_code=$?
+        fi
+
+        # Count files changed by linting
+        files_changed=$(git diff --name-only | wc -l | tr -d '[:space:]')
+
+        # Determine lint status
+        if [ "$lint_exit_code" -eq 0 ]; then
+          lint_status="success"
+        else
+          lint_status="failure"
+        fi
+
+        # Write outputs to GITHUB_OUTPUT
+        printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"
+        printf 'status=%s\n' "$lint_status" >> "$GITHUB_OUTPUT"
+
+        # Exit with the original ansible-lint exit code
+        exit "$lint_exit_code"
 
     - name: Set Git Config for Fixes
+      if: steps.check-files.outputs.files_found == 'true'
       uses: ./set-git-config
       with:
         token: ${{ inputs.token }}
@@ -132,6 +162,7 @@ runs:
         email: ${{ inputs.email }}
 
     - name: Commit Fixes
+      if: steps.check-files.outputs.files_found == 'true'
       shell: bash
       run: |
         set -euo pipefail
@@ -145,6 +176,7 @@ runs:
         fi
 
     - name: Upload SARIF Report
+      if: steps.check-files.outputs.files_found == 'true'
       uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
       with:
         sarif_file: ansible-lint.sarif

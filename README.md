@@ -22,15 +22,16 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 ## 📚 Action Catalog
 
-This repository contains **41 reusable GitHub Actions** for CI/CD automation.
+This repository contains **43 reusable GitHub Actions** for CI/CD automation.
 
-### Quick Reference (41 Actions)
+### Quick Reference (43 Actions)
 
 | Icon | Action                                                 | Category   | Description                                                     | Key Features                                 |
 |:----:|:-------------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
 |  📦  | [`ansible-lint-fix`][ansible-lint-fix]                 | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Token auth, Outputs                          |
 |  ✅   | [`biome-check`][biome-check]                           | Linting    | Run Biome check on the repository                               | Token auth, Outputs                          |
 |  ✅   | [`biome-fix`][biome-fix]                               | Linting    | Run Biome fix on the repository                                 | Token auth, Outputs                          |
+| 🛡️  | [`codeql-analysis`][codeql-analysis]                   | Other      | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
 |  💾  | [`common-cache`][common-cache]                         | Repository | Standardized caching strategy for all actions                   | Caching, Outputs                             |
 |  📦  | [`common-file-check`][common-file-check]               | Repository | A reusable action to check if a specific file or type of fil... | Outputs                                      |
 |  🔄  | [`common-retry`][common-retry]                         | Repository | Standardized retry utility for network operations and flaky ... | Outputs                                      |
@@ -156,6 +157,7 @@ This repository contains **41 reusable GitHub Actions** for CI/CD automation.
 | [`ansible-lint-fix`][ansible-lint-fix]                 |    -    |       -        |     ✅      |    ✅    |
 | [`biome-check`][biome-check]                           |    -    |       -        |     ✅      |    ✅    |
 | [`biome-fix`][biome-fix]                               |    -    |       -        |     ✅      |    ✅    |
+| [`codeql-analysis`][codeql-analysis]                   |    -    |       ✅        |     ✅      |    ✅    |
 | [`common-cache`][common-cache]                         |    ✅    |       -        |     -      |    ✅    |
 | [`common-file-check`][common-file-check]               |    -    |       -        |     -      |    ✅    |
 | [`common-retry`][common-retry]                         |    -    |       -        |     -      |    ✅    |
@@ -233,6 +235,7 @@ All actions can be used independently in your workflows:
 [ansible-lint-fix]: ansible-lint-fix/README.md
 [biome-check]: biome-check/README.md
 [biome-fix]: biome-fix/README.md
+[codeql-analysis]: codeql-analysis/README.md
 [common-cache]: common-cache/README.md
 [common-file-check]: common-file-check/README.md
 [common-retry]: common-retry/README.md

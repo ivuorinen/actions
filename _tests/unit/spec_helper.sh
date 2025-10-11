@@ -389,6 +389,14 @@ shellspec_test_input_validation() {
   local temp_output_file
   temp_output_file=$(mktemp)
 
+  # Capture original INPUT_ACTION_TYPE state to restore after test
+  local original_action_type_set=false
+  local original_action_type_value=""
+  if [[ -n "${INPUT_ACTION_TYPE+x}" ]]; then
+    original_action_type_set=true
+    original_action_type_value="$INPUT_ACTION_TYPE"
+  fi
+
   # Set environment variables for the validation script
   # Only set INPUT_ACTION_TYPE if we're not testing the action input
   if [[ "$input_name" != "action" ]]; then
@@ -428,6 +436,13 @@ shellspec_test_input_validation() {
 
   # Clean up default inputs
   cleanup_default_inputs "$action_name" "$input_name"
+
+  # Restore original INPUT_ACTION_TYPE state
+  if [[ "$original_action_type_set" == "true" ]]; then
+    export INPUT_ACTION_TYPE="$original_action_type_value"
+  else
+    unset INPUT_ACTION_TYPE
+  fi
 
   # Return based on expected result
   if [[ $actual_result == "$expected_result" ]]; then

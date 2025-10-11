@@ -289,12 +289,12 @@ class ValidationCore:
         return True, ""
 
     def validate_tools(self, value: str) -> tuple[bool, str]:
-        """Validate Composer tools format."""
+        """Validate Composer tools format (allows @ for stability flags like dev-master@dev)."""
         if not value:
             return True, ""
 
-        # Check for injection patterns
-        if re.search(r"[;&|`$()@]", value):
+        # Check for injection patterns (@ removed to allow Composer stability flags)
+        if re.search(r"[;&|`$()]", value):
             return False, f"Potential injection detected in tools: {value}"
 
         return True, ""
@@ -376,8 +376,8 @@ class ValidationCore:
         return True, ""
 
     def _validate_tools(self, value: str) -> tuple[bool, str]:
-        """Validate tools input."""
-        if re.search(r"[@#$&*(){}[\]|\\]", value):
+        """Validate tools input (@ allowed for Composer stability flags like dev-master@dev)."""
+        if re.search(r"[#$&*(){}[\]|\\]", value):
             return False, f"Invalid characters in tools specification: {value}"
         return True, ""
 

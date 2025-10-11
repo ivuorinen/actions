@@ -95,9 +95,13 @@ class CustomValidator(BaseValidator):
             elif tools:
                 if not self.is_github_expression(tools):
                     # Tools should be comma-separated list with optional version constraints
-                    # Allow: letters, numbers, dash, underscore, colon, dot, caret, tilde,
+                    # Allow: letters, numbers, dash, underscore, colon, dot, caret, tilde, @, /
+                    # @ symbol allows Composer stability flags like dev-master@dev
+                    # / allows vendor/package format like monolog/monolog@dev
                     # spaces after commas
-                    if not re.match(r"^[a-zA-Z0-9_:.\-^~]+(\s*,\s*[a-zA-Z0-9_:.\-^~]+)*$", tools):
+                    if not re.match(
+                        r"^[a-zA-Z0-9_:.@/\-^~]+(\s*,\s*[a-zA-Z0-9_:.@/\-^~]+)*$", tools
+                    ):
                         self.add_error("Invalid tools format: must be comma-separated list")
                         valid = False
 

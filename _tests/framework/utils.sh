@@ -63,6 +63,9 @@ test_input_validation() {
   local test_value="$3"
   local expected_result="${4:-success}" # success or failure
 
+  # Normalize action_dir to absolute path before setup_test_env changes working directory
+  action_dir="$(cd "$action_dir" && pwd)"
+
   log_info "Testing input validation: $input_name = '$test_value'"
 
   # Setup test environment
@@ -98,6 +101,9 @@ test_input_validation() {
 test_action_outputs() {
   local action_dir="$1"
   shift
+
+  # Normalize action_dir to absolute path before setup_test_env changes working directory
+  action_dir="$(cd "$action_dir" && pwd)"
 
   log_info "Testing action outputs for: $(basename "$action_dir")"
 
@@ -219,6 +225,9 @@ measure_action_time() {
   local action_dir="$1"
   shift
 
+  # Normalize action_dir to absolute path for consistent behavior
+  action_dir="$(cd "$action_dir" && pwd)"
+
   log_info "Measuring execution time for: $(basename "$action_dir")"
 
   local start_time
@@ -246,6 +255,9 @@ measure_action_time() {
 run_action_tests() {
   local action_dir="$1"
   local test_type="${2:-all}" # all, unit, integration, outputs
+
+  # Normalize action_dir to absolute path for consistent behavior
+  action_dir="$(cd "$action_dir" && pwd)"
 
   local action_name
   action_name=$(basename "$action_dir")

@@ -10,7 +10,7 @@ Detects the Go version from the project's go.mod file or defaults to a specified
 
 | name              | description                                              | required | default |
 |-------------------|----------------------------------------------------------|----------|---------|
-| `default-version` | <p>Default Go version to use if go.mod is not found.</p> | `false`  | `1.22`  |
+| `default-version` | <p>Default Go version to use if go.mod is not found.</p> | `false`  | `1.25`  |
 
 ### Outputs
 
@@ -31,5 +31,5 @@ This action is a `composite` action.
     # Default Go version to use if go.mod is not found.
     #
     # Required: false
-    # Default: 1.22
+    # Default: 1.25
 ```

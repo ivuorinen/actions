@@ -5,9 +5,26 @@
 set -eu
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-IMAGE_NAME="ghcr.io/ivuorinen/actions"
-IMAGE_TAG="${1:-testing-tools}"
-FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"
+
+# Accept full image reference or component parts
+# Priority: IMAGE_REF env > FULL_IMAGE env > digest in first arg > construct from parts
+if [ -n "${IMAGE_REF:-}" ]; then
+  # Explicit full image reference (supports both tag and digest)
+  FULL_IMAGE_NAME="$IMAGE_REF"
+elif [ -n "${FULL_IMAGE:-}" ]; then
+  # Alternative env var for full image reference
+  FULL_IMAGE_NAME="$FULL_IMAGE"
+elif [ $# -gt 0 ] && echo "$1" | grep -q '@'; then
+  # First arg is a digest-based reference (e.g., ghcr.io/owner/repo@sha256:...)
+  FULL_IMAGE_NAME="$1"
+else
+  # Construct from component parts with defaults
+  IMAGE_OWNER="${IMAGE_OWNER:-ivuorinen}"
+  IMAGE_REPO="${IMAGE_REPO:-actions}"
+  # For backwards compatibility, use first arg as tag if no IMAGE_TAG env var set
+  IMAGE_TAG="${IMAGE_TAG:-${1:-testing-tools}}"
+  FULL_IMAGE_NAME="ghcr.io/${IMAGE_OWNER}/${IMAGE_REPO}:${IMAGE_TAG}"
+fi
 
 echo "Testing GitHub Actions Testing Docker Image: $FULL_IMAGE_NAME"
 echo "=============================================================="

@@ -279,15 +279,19 @@ jobs:
         run: |
           # Set base SHA for comparison (works with forked PRs)
           BASE_SHA="${{ github.event.pull_request.base.sha }}"
+          BASE_REF="${{ github.base_ref }}"
+
           if [[ -z "$BASE_SHA" ]]; then
-            BASE_SHA="origin/${{ github.base_ref }}"
+            BASE_SHA="origin/$BASE_REF"
           fi
 
           echo "Comparing against base: $BASE_SHA"
 
-          # Fetch the base SHA to ensure it's available (important for forked PRs)
-          if [[ "$BASE_SHA" != origin/* ]]; then
-            git fetch origin "$BASE_SHA"
+          # Fetch the base branch ref to materialize the commit locally (important for forked PRs)
+          # We fetch the branch ref, not the raw commit hash, then use BASE_SHA for comparison
+          if [[ "$BASE_SHA" != origin/* ]] && [[ -n "$BASE_REF" ]]; then
+            echo "Fetching base branch: $BASE_REF"
+            git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
           fi
 
           # Get list of changed action.yml files

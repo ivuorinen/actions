@@ -39,12 +39,16 @@ RUN apt-get update && apt-get install -y \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
-# Install Node.js LTS
+# Install Node.js LTS (avoid curl | bash by using repository directly)
 # hadolint ignore=DL3008
-RUN curl -fsSL https://deb.nodesource.com/setup_lts.x | bash - \
+RUN NODE_MAJOR=20 \
+  && curl -fsSL https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key -o /tmp/nodesource.gpg.key \
+  && gpg --dearmor -o /usr/share/keyrings/nodesource.gpg < /tmp/nodesource.gpg.key \
+  && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
+  && apt-get update \
   && apt-get install -y nodejs --no-install-recommends \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* /tmp/nodesource.gpg.key
 
 # Stage 2: Tool installation
 FROM base AS tools
@@ -58,24 +62,26 @@ ARG ACTIONLINT_VERSION=1.7.7
 ARG ACT_VERSION=0.2.71
 ARG SHELLSPEC_VERSION=0.28.1
 
-# Install Trivy security scanner
+# Install Trivy security scanner (avoid curl | apt-key, use signed-by)
 # hadolint ignore=DL3008
-RUN curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key | apt-key add - \
-  && echo "deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list \
+RUN curl -fsSL https://aquasecurity.github.io/trivy-repo/deb/public.key -o /tmp/trivy.key \
+  && gpg --dearmor -o /usr/share/keyrings/trivy.gpg < /tmp/trivy.key \
+  && echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | tee -a /etc/apt/sources.list.d/trivy.list \
   && apt-get update \
   && apt-get install -y --no-install-recommends trivy \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* /tmp/trivy.key
 
-# Install GitHub CLI
+# Install GitHub CLI with GPG verification (avoid piping to shell)
 # hadolint ignore=DL3008
-RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
+RUN curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/githubcli-archive-keyring.gpg \
+  && cat /tmp/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
   && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
   && apt-get update \
   && apt-get install -y --no-install-recommends gh \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/*
+  && rm -rf /var/lib/apt/lists/* /tmp/githubcli-archive-keyring.gpg
 
 # Install additional dependencies needed by install scripts
 # hadolint ignore=DL3008
@@ -89,46 +95,55 @@ RUN apt-get update && apt-get install -y \
 # Split into separate commands for better error reporting
 # All installations download pinned releases directly (no piped scripts)
 
-# Install trufflehog
+# Install trufflehog with checksum verification
 RUN arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
     amd64) trufflehog_arch="amd64" ;; \
     arm64) trufflehog_arch="arm64" ;; \
     *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
-  && curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_${trufflehog_arch}.tar.gz" -o /tmp/trufflehog.tar.gz \
-  && tar -xzf /tmp/trufflehog.tar.gz -C /tmp \
+  && tarball="trufflehog_${TRUFFLEHOG_VERSION}_linux_${trufflehog_arch}.tar.gz" \
+  && curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/${tarball}" -o "/tmp/${tarball}" \
+  && curl -fsSL "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt" -o /tmp/checksums.txt \
+  && grep "${tarball}" /tmp/checksums.txt | sha256sum -c - \
+  && tar -xzf "/tmp/${tarball}" -C /tmp \
   && chmod +x /tmp/trufflehog \
   && mv /tmp/trufflehog /usr/local/bin/trufflehog \
-  && rm -f /tmp/trufflehog.tar.gz \
+  && rm -f "/tmp/${tarball}" /tmp/checksums.txt \
   && trufflehog --version
 
-# Install actionlint
+# Install actionlint with checksum verification
 RUN arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
     amd64) actionlint_arch="amd64" ;; \
     arm64) actionlint_arch="arm64" ;; \
     *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
-  && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" -o /tmp/actionlint.tar.gz \
-  && tar -xzf /tmp/actionlint.tar.gz -C /tmp \
+  && tarball="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" \
+  && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${tarball}" -o "/tmp/${tarball}" \
+  && curl -fsSL "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o /tmp/checksums.txt \
+  && grep "${tarball}" /tmp/checksums.txt | sha256sum -c - \
+  && tar -xzf "/tmp/${tarball}" -C /tmp \
   && chmod +x /tmp/actionlint \
   && mv /tmp/actionlint /usr/local/bin/actionlint \
-  && rm -f /tmp/actionlint.tar.gz \
+  && rm -f "/tmp/${tarball}" /tmp/checksums.txt \
   && actionlint --version
 
-# Install nektos/act
+# Install nektos/act with checksum verification
 RUN arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
     amd64) act_arch="Linux_x86_64" ;; \
     arm64) act_arch="Linux_arm64" ;; \
     *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
-  && curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_${act_arch}.tar.gz" -o /tmp/act.tar.gz \
-  && tar -xzf /tmp/act.tar.gz -C /tmp \
+  && tarball="act_${act_arch}.tar.gz" \
+  && curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/${tarball}" -o "/tmp/${tarball}" \
+  && curl -fsSL "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/checksums.txt" -o /tmp/checksums.txt \
+  && grep "${tarball}" /tmp/checksums.txt | sha256sum -c - \
+  && tar -xzf "/tmp/${tarball}" -C /tmp \
   && chmod +x /tmp/act \
   && mv /tmp/act /usr/local/bin/act \
-  && rm -f /tmp/act.tar.gz \
+  && rm -f "/tmp/${tarball}" /tmp/checksums.txt \
   && act --version \
   && echo "Verifying system integrity..." \
   && test -f /bin/sh && test -f /bin/bash && echo "✓ Shell binaries intact"
@@ -162,14 +177,17 @@ RUN mkdir -p /workspace \
 USER $USERNAME
 WORKDIR /workspace
 
-# Install ShellSpec testing framework in user's home
+# Install ShellSpec testing framework in user's home with checksum verification
 # hadolint ignore=SC2016
 RUN mkdir -p ~/.local/bin \
-  && curl -fsSL "https://github.com/shellspec/shellspec/archive/${SHELLSPEC_VERSION}.tar.gz" -o /tmp/shellspec.tar.gz \
-  && tar -xzf /tmp/shellspec.tar.gz -C /tmp \
+  && tarball="${SHELLSPEC_VERSION}.tar.gz" \
+  && curl -fsSL "https://github.com/shellspec/shellspec/archive/${tarball}" -o "/tmp/${tarball}" \
+  && curl -fsSL "https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/SHA256SUMS" -o /tmp/SHA256SUMS \
+  && grep "${tarball}" /tmp/SHA256SUMS | sed "s|${tarball}|/tmp/${tarball}|" | sha256sum -c - \
+  && tar -xzf "/tmp/${tarball}" -C /tmp \
   && cd "/tmp/shellspec-${SHELLSPEC_VERSION}" \
   && make install PREFIX="$HOME/.local" \
-  && rm -rf /tmp/shellspec.tar.gz "/tmp/shellspec-${SHELLSPEC_VERSION}" \
+  && rm -rf "/tmp/${tarball}" "/tmp/shellspec-${SHELLSPEC_VERSION}" /tmp/SHA256SUMS \
   && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
   && shellspec --version
 

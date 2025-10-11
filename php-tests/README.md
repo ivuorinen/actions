@@ -10,7 +10,7 @@ Run PHPUnit tests on the repository
 
 | name       | description                            | required | default                     |
 |------------|----------------------------------------|----------|-----------------------------|
-| `token`    | <p>GitHub token for authentication</p> | `false`  | `${{ github.token }}`       |
+| `token`    | <p>GitHub token for authentication</p> | `false`  | `""`                        |
 | `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
 | `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
 
@@ -36,7 +36,7 @@ This action is a `composite` action.
     # GitHub token for authentication
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 
     username:
     # GitHub username for commits
