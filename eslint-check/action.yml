@@ -1,5 +1,8 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - security-events: write  # Required for uploading SARIF results
+#   - contents: read          # Required for checking out repository
+---
 name: ESLint Check
 description: 'Run ESLint check on the repository with advanced configuration and reporting'
 author: Ismo Vuorinen
@@ -70,66 +73,192 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        ESLINT_VERSION: ${{ inputs.eslint-version }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
+        FILE_EXTENSIONS: ${{ inputs.file-extensions }}
+        CACHE: ${{ inputs.cache }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        MAX_WARNINGS: ${{ inputs.max-warnings }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail
 
-        # Validate working directory
-        if [ ! -d "${{ inputs.working-directory }}" ]; then
-          echo "::error::Working directory does not exist: ${{ inputs.working-directory }}"
+        # Validate working directory exists
+        if [ ! -d "$WORKING_DIRECTORY" ]; then
+          echo "::error::Working directory not found at '$WORKING_DIRECTORY'"
           exit 1
         fi
 
-        # Validate file extensions
-        if ! [[ "${{ inputs.file-extensions }}" =~ ^[.,a-zA-Z0-9]+$ ]]; then
-          echo "::error::Invalid file extensions format"
+        # Validate working directory path security (prevent traversal)
+        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
+          echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
           exit 1
         fi
 
-        # Validate max warnings
-        if ! [[ "${{ inputs.max-warnings }}" =~ ^[0-9]+$ ]]; then
-          echo "::error::Invalid max warnings value"
+        # Validate ESLint version format
+        if [[ -n "$ESLINT_VERSION" ]] && [[ "$ESLINT_VERSION" != "latest" ]]; then
+          if ! [[ "$ESLINT_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid eslint-version format: '$ESLINT_VERSION'. Expected format: X.Y.Z or 'latest' (e.g., 8.57.0, latest)"
+            exit 1
+          fi
+        fi
+
+        # Validate config file path if not default
+        if [[ "$CONFIG_FILE" != ".eslintrc" ]] && [[ "$CONFIG_FILE" == *".."* ]]; then
+          echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate ignore file path if not default
+        if [[ "$IGNORE_FILE" != ".eslintignore" ]] && [[ "$IGNORE_FILE" == *".."* ]]; then
+          echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate file extensions format
+        if ! [[ "$FILE_EXTENSIONS" =~ ^(\.[a-zA-Z0-9]+)(,\.[a-zA-Z0-9]+)*$ ]]; then
+          echo "::error::Invalid file extensions format: '$FILE_EXTENSIONS'. Expected format: .js,.jsx,.ts,.tsx"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        validate_boolean() {
+          local value="$1"
+          local name="$2"
+
+          case "${value,,}" in
+            true|false)
+              ;;
+            *)
+              echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
+              exit 1
+              ;;
+          esac
+        }
+
+        validate_boolean "$CACHE" "cache"
+        validate_boolean "$FAIL_ON_ERROR" "fail-on-error"
+
+        # Validate max warnings (positive integer)
+        if ! [[ "$MAX_WARNINGS" =~ ^[0-9]+$ ]]; then
+          echo "::error::Invalid max-warnings: '$MAX_WARNINGS'. Must be a non-negative integer (e.g., 0, 10)"
+          exit 1
+        fi
+
+        # Validate report format enumerated values
+        case "$REPORT_FORMAT" in
+          stylish|json|sarif|checkstyle|compact|html|jslint-xml|junit|tap|unix)
+            ;;
+          *)
+            echo "::error::Invalid report-format: '$REPORT_FORMAT'. Allowed values: stylish, json, sarif, checkstyle, compact, html, jslint-xml, junit, tap, unix"
+            exit 1
+            ;;
+        esac
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
     - name: Setup Node.js
-      uses: ivuorinen/actions/node-setup@main
+      id: node-setup
+      uses: ./node-setup
+
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ./common-cache
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'eslint-check-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        ESLINT_VERSION: ${{ inputs.eslint-version }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
-        # Install ESLint and required dependencies
-        echo "Installing ESLint dependencies..."
+        echo "Installing ESLint dependencies using $PACKAGE_MANAGER..."
 
         # Function to install with retries
         install_with_retries() {
           local attempt=1
-          local max_attempts=${{ inputs.max-retries }}
 
-          while [ $attempt -le $max_attempts ]; do
-            echo "Installation attempt $attempt of $max_attempts"
+          while [ $attempt -le "$MAX_RETRIES" ]; do
+            echo "Installation attempt $attempt of $MAX_RETRIES"
 
-            if npm install \
-              eslint@${{ inputs.eslint-version }} \
-              @typescript-eslint/parser \
-              @typescript-eslint/eslint-plugin \
-              eslint-plugin-import \
-              eslint-config-prettier \
-              typescript; then
-              return 0
-            fi
+            case "$PACKAGE_MANAGER" in
+              "pnpm")
+                if pnpm add -D \
+                  "eslint@$ESLINT_VERSION" \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+              "yarn")
+                if yarn add -D \
+                  "eslint@$ESLINT_VERSION" \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+              "bun")
+                if bun add -D \
+                  "eslint@$ESLINT_VERSION" \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+              "npm"|*)
+                if npm install \
+                  "eslint@$ESLINT_VERSION" \
+                  @typescript-eslint/parser \
+                  @typescript-eslint/eslint-plugin \
+                  @microsoft/eslint-formatter-sarif \
+                  eslint-plugin-import \
+                  eslint-config-prettier \
+                  typescript; then
+                  return 0
+                fi
+                ;;
+            esac
 
             attempt=$((attempt + 1))
-            if [ $attempt -le $max_attempts ]; then
+            if [ $attempt -le "$MAX_RETRIES" ]; then
               echo "Installation failed, waiting 10 seconds before retry..."
               sleep 10
             fi
           done
 
-          echo "::error::Failed to install dependencies after $max_attempts attempts"
+          echo "::error::Failed to install dependencies after $MAX_RETRIES attempts"
           return 1
         }
 
@@ -138,15 +267,19 @@ runs:
     - name: Prepare ESLint Configuration
       id: config
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Create default config if none exists
-        if [ ! -f "${{ inputs.config-file }}" ]; then
+        if [ ! -f "$CONFIG_FILE" ]; then
           echo "Creating default ESLint configuration..."
-          cat > "${{ inputs.config-file }}" <<EOF
+          cat > "$CONFIG_FILE" <<EOF
         {
           "root": true,
           "extends": [
@@ -172,9 +305,9 @@ runs:
         fi
 
         # Create default ignore file if none exists
-        if [ ! -f "${{ inputs.ignore-file }}" ]; then
+        if [ ! -f "$IGNORE_FILE" ]; then
           echo "Creating default ESLint ignore file..."
-          cat > "${{ inputs.ignore-file }}" <<EOF
+          cat > "$IGNORE_FILE" <<EOF
         node_modules/
         dist/
         build/
@@ -186,36 +319,69 @@ runs:
     - name: Run ESLint Check
       id: lint
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        FILE_EXTENSIONS: ${{ inputs.file-extensions }}
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
+        CACHE: ${{ inputs.cache }}
+        MAX_WARNINGS: ${{ inputs.max-warnings }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Create reports directory
         mkdir -p reports
 
         # Prepare file extensions for ESLint
-        IFS=',' read -ra EXTENSIONS <<< "${{ inputs.file-extensions }}"
+        IFS=',' read -ra EXTENSIONS <<< "$FILE_EXTENSIONS"
         ext_pattern=""
         for ext in "${EXTENSIONS[@]}"; do
           ext_pattern="$ext_pattern --ext $ext"
         done
 
         # Run ESLint
-        echo "Running ESLint..."
-        npx eslint \
-          $ext_pattern \
-          --config ${{ inputs.config-file }} \
-          --ignore-path ${{ inputs.ignore-file }} \
-          ${{ inputs.cache == 'true' && '--cache' || '' }} \
-          --max-warnings ${{ inputs.max-warnings }} \
-          --format=${{ inputs.report-format }} \
-          --output-file=reports/eslint.${{ inputs.report-format }} \
+        echo "Running ESLint with $PACKAGE_MANAGER..."
+
+        # Build ESLint command based on package manager
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            eslint_cmd="pnpm exec eslint"
+            ;;
+          "yarn")
+            eslint_cmd="yarn eslint"
+            ;;
+          "bun")
+            eslint_cmd="bunx eslint"
+            ;;
+          "npm"|*)
+            eslint_cmd="npx eslint"
+            ;;
+        esac
+
+        # Prepare cache flag
+        cache_flag=""
+        if [ "$CACHE" = "true" ]; then
+          cache_flag="--cache"
+        fi
+
+        # Execute ESLint with all arguments
+        $eslint_cmd $ext_pattern \
+          --config "$CONFIG_FILE" \
+          --ignore-path "$IGNORE_FILE" \
+          ${cache_flag} \
+          --max-warnings "$MAX_WARNINGS" \
+          --format="$REPORT_FORMAT" \
+          --output-file="reports/eslint.$REPORT_FORMAT" \
           . || {
             error_code=$?
 
             # Count errors and warnings
-            if [ "${{ inputs.report-format }}" = "json" ]; then
+            if [ "$REPORT_FORMAT" = "json" ]; then
               error_count=$(jq '[.[] | .errorCount] | add' reports/eslint.json)
               warning_count=$(jq '[.[] | .warningCount] | add' reports/eslint.json)
             else
@@ -226,7 +392,7 @@ runs:
             echo "error_count=${error_count}" >> $GITHUB_OUTPUT
             echo "warning_count=${warning_count}" >> $GITHUB_OUTPUT
 
-            if [ "${{ inputs.fail-on-error }}" = "true" ] && [ $error_code -ne 0 ]; then
+            if [ "$FAIL_ON_ERROR" = "true" ] && [ $error_code -ne 0 ]; then
               echo "::error::ESLint found ${error_count} errors and ${warning_count} warnings"
               exit $error_code
             fi
@@ -239,7 +405,7 @@ runs:
 
     - name: Upload ESLint Results
       if: always() && inputs.report-format == 'sarif'
-      uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
+      uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
       with:
         sarif_file: ${{ inputs.working-directory }}/reports/eslint.sarif
         category: eslint
@@ -247,10 +413,12 @@ runs:
     - name: Cache Cleanup
       if: always()
       shell: bash
-      run: |
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |-
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Clean up ESLint cache if it exists
         if [ -f ".eslintcache" ]; then

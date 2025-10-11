@@ -1,0 +1,17 @@
+---
+# CodeQL configuration for GitHub Actions repository
+name: 'Actions Security Scanning'
+
+# Exclude third-party and generated code from analysis
+paths-ignore:
+  - node_modules/**
+  - '**/node_modules/**'
+  - '**/*.min.js'
+  - '_tests/reports/**'
+  - '_tests/coverage/**'
+  - '*.sarif'
+  - '**/*.sarif'
+
+# Use security and quality query suite
+queries:
+  - uses: security-and-quality

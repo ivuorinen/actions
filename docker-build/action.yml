@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - (none required)  # Build action, publishing handled by separate actions
+---
 name: Docker Build
 description: 'Builds a Docker image for multiple architectures with enhanced security and reliability.'
 author: 'Ismo Vuorinen'
@@ -41,6 +43,73 @@ inputs:
     description: 'Maximum number of retry attempts for build and push operations'
     required: false
     default: '3'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
+  buildx-version:
+    description: 'Specific Docker Buildx version to use'
+    required: false
+    default: 'latest'
+  buildkit-version:
+    description: 'Specific BuildKit version to use'
+    required: false
+    default: 'v0.11.0'
+  cache-mode:
+    description: 'Cache mode for build layers (min, max, or inline)'
+    required: false
+    default: 'max'
+  build-contexts:
+    description: 'Additional build contexts in format name=path,name2=path2'
+    required: false
+  network:
+    description: 'Network mode for build (host, none, or default)'
+    required: false
+    default: 'default'
+  secrets:
+    description: 'Build secrets in format id=path,id2=path2'
+    required: false
+  auto-detect-platforms:
+    description: 'Automatically detect and build for all available platforms'
+    required: false
+    default: 'false'
+  platform-build-args:
+    description: 'Platform-specific build args in JSON format'
+    required: false
+  parallel-builds:
+    description: 'Number of parallel platform builds (0 for auto)'
+    required: false
+    default: '0'
+  cache-export:
+    description: 'Export cache destination (e.g., type=local,dest=/tmp/cache)'
+    required: false
+  cache-import:
+    description: 'Import cache sources (e.g., type=local,src=/tmp/cache)'
+    required: false
+  dry-run:
+    description: 'Perform a dry run without actually building'
+    required: false
+    default: 'false'
+  verbose:
+    description: 'Enable verbose logging with platform-specific output'
+    required: false
+    default: 'false'
+  platform-fallback:
+    description: 'Continue building other platforms if one fails'
+    required: false
+    default: 'true'
+  scan-image:
+    description: 'Scan built image for vulnerabilities'
+    required: false
+    default: 'false'
+  sign-image:
+    description: 'Sign the built image with cosign'
+    required: false
+    default: 'false'
+  sbom-format:
+    description: 'SBOM format (spdx-json, cyclonedx-json, or syft-json)'
+    required: false
+    default: 'spdx-json'
 
 outputs:
   image-digest:
@@ -52,42 +121,45 @@ outputs:
   platforms:
     description: 'Successfully built platforms'
     value: ${{ steps.platforms.outputs.built }}
+  platform-matrix:
+    description: 'Build status per platform in JSON format'
+    value: ${{ steps.build.outputs.platform-matrix }}
+  build-time:
+    description: 'Total build time in seconds'
+    value: ${{ steps.build.outputs.build-time }}
+  scan-results:
+    description: 'Vulnerability scan results if scanning enabled'
+    value: ${{ steps.scan-output.outputs.results }}
+  signature:
+    description: 'Image signature if signing enabled'
+    value: ${{ steps.sign.outputs.signature }}
+  sbom-location:
+    description: 'SBOM document location'
+    value: ${{ steps.build.outputs.sbom-location }}
 
 runs:
   using: composite
   steps:
     - name: Validate Inputs
       id: validate
+      uses: ./validate-inputs
+      with:
+        action-type: 'docker-build'
+        image-name: ${{ inputs.image-name }}
+        tag: ${{ inputs.tag }}
+        architectures: ${{ inputs.architectures }}
+        dockerfile: ${{ inputs.dockerfile }}
+        build-args: ${{ inputs.build-args }}
+        buildx-version: ${{ inputs.buildx-version }}
+        parallel-builds: ${{ inputs.parallel-builds }}
+
+    - name: Check Dockerfile Exists
       shell: bash
+      env:
+        DOCKERFILE: ${{ inputs.dockerfile }}
       run: |
-        set -euo pipefail
-
-        # Validate image name
-        if [ -n "${{ inputs.image-name }}" ]; then
-          if ! [[ "${{ inputs.image-name }}" =~ ^[a-z0-9]+(?:[._-][a-z0-9]+)*$ ]]; then
-            echo "::error::Invalid image name format. Must match ^[a-z0-9]+(?:[._-][a-z0-9]+)*$"
-            exit 1
-          fi
-        fi
-
-        # Validate tag
-        if ! [[ "${{ inputs.tag }}" =~ ^(v?[0-9]+\.[0-9]+\.[0-9]+(-[\w.]+)?(\+[\w.]+)?|latest|[a-zA-Z][-a-zA-Z0-9._]{0,127})$ ]]; then
-          echo "::error::Invalid tag format. Must be semver or valid Docker tag"
-          exit 1
-        fi
-
-        # Validate architectures
-        IFS=',' read -ra ARCHS <<< "${{ inputs.architectures }}"
-        for arch in "${ARCHS[@]}"; do
-          if ! [[ "$arch" =~ ^linux/(amd64|arm64|arm/v7|arm/v6|386|ppc64le|s390x)$ ]]; then
-            echo "::error::Invalid architecture format: $arch"
-            exit 1
-          fi
-        done
-
-        # Validate Dockerfile existence
-        if [ ! -f "${{ inputs.dockerfile }}" ]; then
-          echo "::error::Dockerfile not found at ${{ inputs.dockerfile }}"
+        if [ ! -f "$DOCKERFILE" ]; then
+          echo "::error::Dockerfile not found at $DOCKERFILE"
           exit 1
         fi
 
@@ -100,51 +172,175 @@ runs:
       id: buildx
       uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
       with:
-        version: latest
+        version: ${{ inputs.buildx-version }}
         platforms: ${{ inputs.architectures }}
+        buildkitd-flags: --debug
+        driver-opts: |
+          network=${{ inputs.network }}
+          image=moby/buildkit:${{ inputs.buildkit-version }}
+
+    - name: Detect Available Platforms
+      id: detect-platforms
+      if: inputs.auto-detect-platforms == 'true'
+      shell: bash
+      env:
+        ARCHITECTURES: ${{ inputs.architectures }}
+      run: |
+        set -euo pipefail
+
+        # Get available platforms from buildx
+        available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed 's/,$//')
+
+        if [ -n "$available_platforms" ]; then
+          echo "platforms=${available_platforms}" >> $GITHUB_OUTPUT
+          echo "Detected platforms: ${available_platforms}"
+        else
+          echo "platforms=$ARCHITECTURES" >> $GITHUB_OUTPUT
+          echo "Using default platforms: $ARCHITECTURES"
+        fi
 
     - name: Determine Image Name
       id: image-name
       shell: bash
+      env:
+        IMAGE_NAME: ${{ inputs.image-name }}
       run: |
         set -euo pipefail
 
-        if [ -z "${{ inputs.image-name }}" ]; then
+        if [ -z "$IMAGE_NAME" ]; then
           repo_name=$(basename "${GITHUB_REPOSITORY}")
           echo "name=${repo_name}" >> $GITHUB_OUTPUT
         else
-          echo "name=${{ inputs.image-name }}" >> $GITHUB_OUTPUT
+          echo "name=$IMAGE_NAME" >> $GITHUB_OUTPUT
         fi
 
     - name: Parse Build Arguments
       id: build-args
       shell: bash
+      env:
+        BUILD_ARGS_INPUT: ${{ inputs.build-args }}
       run: |
         set -euo pipefail
 
         args=""
-        if [ -n "${{ inputs.build-args }}" ]; then
-          IFS=',' read -ra BUILD_ARGS <<< "${{ inputs.build-args }}"
+        if [ -n "$BUILD_ARGS_INPUT" ]; then
+          IFS=',' read -ra BUILD_ARGS <<< "$BUILD_ARGS_INPUT"
           for arg in "${BUILD_ARGS[@]}"; do
             args="$args --build-arg $arg"
           done
         fi
         echo "args=${args}" >> $GITHUB_OUTPUT
 
-    - name: Set up Build Cache
-      id: cache
+    - name: Parse Build Contexts
+      id: build-contexts
       shell: bash
+      env:
+        BUILD_CONTEXTS: ${{ inputs.build-contexts }}
       run: |
         set -euo pipefail
 
+        contexts=""
+        if [ -n "$BUILD_CONTEXTS" ]; then
+          IFS=',' read -ra CONTEXTS <<< "$BUILD_CONTEXTS"
+          for ctx in "${CONTEXTS[@]}"; do
+            contexts="$contexts --build-context $ctx"
+          done
+        fi
+        echo "contexts=${contexts}" >> $GITHUB_OUTPUT
+
+    - name: Parse Secrets
+      id: secrets
+      shell: bash
+      env:
+        INPUT_SECRETS: ${{ inputs.secrets }}
+      run: |
+        set -euo pipefail
+
+        secrets=""
+        if [ -n "$INPUT_SECRETS" ]; then
+          IFS=',' read -ra SECRETS <<< "$INPUT_SECRETS"
+          for secret in "${SECRETS[@]}"; do
+            # Trim whitespace
+            secret=$(echo "$secret" | xargs)
+
+            if [[ "$secret" == *"="* ]]; then
+              # Parse id=src format
+              id="${secret%%=*}"
+              src="${secret#*=}"
+
+              # Validate id and src are not empty
+              if [[ -z "$id" || -z "$src" ]]; then
+                echo "::error::Invalid secret format: '$secret'. Expected 'id=src' where both id and src are non-empty"
+                exit 1
+              fi
+
+              secrets="$secrets --secret id=$id,src=$src"
+            else
+              # Handle legacy format - treat as id only (error for now)
+              echo "::error::Invalid secret format: '$secret'. Expected 'id=src' format for Buildx compatibility"
+              exit 1
+            fi
+          done
+        fi
+        echo "secrets=${secrets}" >> $GITHUB_OUTPUT
+
+    - name: Login to GitHub Container Registry
+      if: ${{ inputs.push == 'true' }}
+      uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token || github.token }}
+
+    - name: Set up Build Cache
+      id: cache
+      shell: bash
+      env:
+        CACHE_IMPORT: ${{ inputs.cache-import }}
+        CACHE_FROM: ${{ inputs.cache-from }}
+        CACHE_EXPORT: ${{ inputs.cache-export }}
+        PUSH: ${{ inputs.push }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        CACHE_MODE: ${{ inputs.cache-mode }}
+      run: |
+        set -euo pipefail
+
+        # Use provided token or fall back to GITHUB_TOKEN
+        TOKEN="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
+
         cache_from=""
-        if [ -n "${{ inputs.cache-from }}" ]; then
-          cache_from="--cache-from ${{ inputs.cache-from }}"
+        cache_to=""
+
+        # Handle cache import
+        if [ -n "$CACHE_IMPORT" ]; then
+          cache_from="--cache-from $CACHE_IMPORT"
+        elif [ -n "$CACHE_FROM" ]; then
+          cache_from="--cache-from $CACHE_FROM"
         fi
 
-        # Local cache configuration
+        # Handle cache export
+        if [ -n "$CACHE_EXPORT" ]; then
+          cache_to="--cache-to $CACHE_EXPORT"
+        fi
+
+        # Registry cache configuration for better performance (only if authenticated)
+        if [ "$PUSH" == "true" ] || [ -n "$TOKEN" ]; then
+          normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
+          registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
+          cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
+
+          # Set cache mode
+          cache_mode="$CACHE_MODE"
+          if [ -z "$cache_to" ]; then
+            cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=${cache_mode}"
+          fi
+        fi
+
+        # Also include local cache as fallback
         cache_from="$cache_from --cache-from type=local,src=/tmp/.buildx-cache"
-        cache_to="--cache-to type=local,dest=/tmp/.buildx-cache-new,mode=max"
+        if [[ "$cache_to" != *"type=local"* ]]; then
+          cache_to="$cache_to --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=${cache_mode}"
+        fi
 
         echo "from=${cache_from}" >> $GITHUB_OUTPUT
         echo "to=${cache_to}" >> $GITHUB_OUTPUT
@@ -152,34 +348,137 @@ runs:
     - name: Build Multi-Architecture Docker Image
       id: build
       shell: bash
+      env:
+        AUTO_DETECT_PLATFORMS: ${{ inputs.auto-detect-platforms }}
+        DETECTED_PLATFORMS: ${{ steps.detect-platforms.outputs.platforms }}
+        ARCHITECTURES: ${{ inputs.architectures }}
+        PUSH: ${{ inputs.push }}
+        DRY_RUN: ${{ inputs.dry-run }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        VERBOSE: ${{ inputs.verbose }}
+        SBOM_FORMAT: ${{ inputs.sbom-format }}
+        IMAGE_NAME: ${{ steps.image-name.outputs.name }}
+        TAG: ${{ inputs.tag }}
+        BUILD_ARGS: ${{ steps.build-args.outputs.args }}
+        BUILD_CONTEXTS: ${{ steps.build-contexts.outputs.contexts }}
+        SECRETS: ${{ steps.secrets.outputs.secrets }}
+        CACHE_FROM: ${{ steps.cache.outputs.from }}
+        CACHE_TO: ${{ steps.cache.outputs.to }}
+        DOCKERFILE: ${{ inputs.dockerfile }}
+        CONTEXT: ${{ inputs.context }}
       run: |
         set -euo pipefail
 
+        # Track build start time
+        build_start=$(date +%s)
+
+        # Determine platforms to build
+        if [ "$AUTO_DETECT_PLATFORMS" == "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
+          platforms="$DETECTED_PLATFORMS"
+        else
+          platforms="$ARCHITECTURES"
+        fi
+
+        # For local load (push=false), restrict to single platform
+        if [ "$PUSH" != "true" ]; then
+          # Extract first platform only for local load
+          platforms=$(echo "$platforms" | cut -d',' -f1)
+          echo "Local build mode: restricting to single platform: $platforms"
+        fi
+
+        # Initialize platform matrix tracking
+        platform_matrix="{}"
+
+        # Check for dry run
+        if [ "$DRY_RUN" == "true" ]; then
+          echo "[DRY RUN] Would build for platforms: $platforms"
+          echo "digest=dry-run-no-digest" >> $GITHUB_OUTPUT
+          echo "platform-matrix={}" >> $GITHUB_OUTPUT
+          echo "build-time=0" >> $GITHUB_OUTPUT
+          exit 0
+        fi
+
         attempt=1
-        max_attempts=${{ inputs.max-retries }}
+        max_attempts="$MAX_RETRIES"
+
+        # Prepare verbose flag
+        verbose_flag=""
+        if [ "$VERBOSE" == "true" ]; then
+          verbose_flag="--progress=plain"
+        fi
+
+        # Prepare SBOM options
+        sbom_flag="--sbom=true"
+        if [ -n "$SBOM_FORMAT" ]; then
+          sbom_flag="--sbom=true --sbom-format=$SBOM_FORMAT"
+        fi
 
         while [ $attempt -le $max_attempts ]; do
           echo "Build attempt $attempt of $max_attempts"
 
+          # Build command with platform restriction for local load
+          if [ "$PUSH" == "true" ]; then
+            build_action="--push"
+          else
+            build_action="--load"
+          fi
+
           if docker buildx build \
-            --platform=${{ inputs.architectures }} \
-            --tag ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} \
-            ${{ steps.build-args.outputs.args }} \
-            ${{ steps.cache.outputs.from }} \
-            ${{ steps.cache.outputs.to }} \
-            --file ${{ inputs.dockerfile }} \
-            ${{ inputs.push == 'true' && '--push' || '--load' }} \
+            --platform=${platforms} \
+            --tag "$IMAGE_NAME:$TAG" \
+            $BUILD_ARGS \
+            $BUILD_CONTEXTS \
+            $SECRETS \
+            $CACHE_FROM \
+            $CACHE_TO \
+            --file "$DOCKERFILE" \
+            ${build_action} \
             --provenance=true \
-            --sbom=true \
-            ${{ inputs.context }}; then
+            ${sbom_flag} \
+            ${verbose_flag} \
+            --metadata-file=/tmp/build-metadata.json \
+            "$CONTEXT"; then
 
             # Get image digest
-            digest=$(docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} --raw)
+            if [ "$PUSH" == "true" ]; then
+              digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$TAG" --raw | jq -r '.digest // "unknown"' || echo "unknown")
+            else
+              digest=$(docker inspect "$IMAGE_NAME:$TAG" --format='{{.Id}}' || echo "unknown")
+            fi
             echo "digest=${digest}" >> $GITHUB_OUTPUT
 
+            # Parse metadata
+            if [ -f /tmp/build-metadata.json ]; then
+              {
+                echo "metadata<<EOF"
+                cat /tmp/build-metadata.json
+                echo "EOF"
+              } >> "$GITHUB_OUTPUT"
+
+              # Extract SBOM location directly from file
+              sbom_location=$(jq -r '.sbom.location // ""' /tmp/build-metadata.json)
+              echo "sbom-location=${sbom_location}" >> "$GITHUB_OUTPUT"
+            fi
+
+            # Calculate build time
+            build_end=$(date +%s)
+            build_time=$((build_end - build_start))
+            echo "build-time=${build_time}" >> $GITHUB_OUTPUT
+
+            # Build platform matrix
+            IFS=',' read -ra PLATFORM_ARRAY <<< "${platforms}"
+            platform_matrix="{"
+            for p in "${PLATFORM_ARRAY[@]}"; do
+              platform_matrix="${platform_matrix}\"${p}\":\"success\","
+            done
+            platform_matrix="${platform_matrix%,}}"
+            echo "platform-matrix=${platform_matrix}" >> $GITHUB_OUTPUT
+
             # Move cache
-            rm -rf /tmp/.buildx-cache
-            mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+            if [ -d /tmp/.buildx-cache-new ]; then
+              rm -rf /tmp/.buildx-cache
+              mv /tmp/.buildx-cache-new /tmp/.buildx-cache
+            fi
 
             break
           fi
@@ -194,26 +493,88 @@ runs:
           fi
         done
 
-    - name: Verify Build
-      id: verify
+    - name: Scan Image for Vulnerabilities
+      id: scan
+      if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
+      uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
+      with:
+        scan-type: 'image'
+        image-ref: ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
+        format: 'json'
+        output: 'trivy-results.json'
+        severity: 'HIGH,CRITICAL'
+
+    - name: Process Scan Results
+      id: scan-output
+      if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
       shell: bash
       run: |
         set -euo pipefail
 
-        # Verify image exists
-        if ! docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} >/dev/null 2>&1; then
-          echo "::error::Built image not found"
-          exit 1
+        # Read and format scan results for output
+        scan_results=$(cat trivy-results.json | jq -c '.')
+        echo "results=${scan_results}" >> $GITHUB_OUTPUT
+
+        # Check for critical vulnerabilities
+        critical_count=$(cat trivy-results.json | jq '.Results[] | (.Vulnerabilities // [])[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
+        if [ "$critical_count" -gt 0 ]; then
+          echo "::warning::Found $critical_count critical vulnerabilities in image"
         fi
 
-        # Get and verify platform support
-        platforms=$(docker buildx imagetools inspect ${{ steps.image-name.outputs.name }}:${{ inputs.tag }} | grep "Platform:" | cut -d' ' -f2)
-        echo "built=${platforms}" >> $GITHUB_OUTPUT
+    - name: Install Cosign
+      if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
+      uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
+
+    - name: Sign Image
+      id: sign
+      if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
+      shell: bash
+      env:
+        IMAGE_NAME: ${{ steps.image-name.outputs.name }}
+        IMAGE_TAG: ${{ inputs.tag }}
+      run: |
+        set -euo pipefail
+
+        # Sign the image (using keyless signing with OIDC)
+        export COSIGN_EXPERIMENTAL=1
+        cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
+
+        echo "signature=signed" >> $GITHUB_OUTPUT
+
+    - name: Verify Build
+      id: verify
+      if: inputs.dry-run != 'true'
+      shell: bash
+      env:
+        PUSH: ${{ inputs.push }}
+        IMAGE_NAME: ${{ steps.image-name.outputs.name }}
+        IMAGE_TAG: ${{ inputs.tag }}
+      run: |
+        set -euo pipefail
+
+        # Verify image exists
+        if [ "$PUSH" == "true" ]; then
+          if ! docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "::error::Built image not found"
+            exit 1
+          fi
+
+          # Get and verify platform support
+          platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2)
+          echo "built=${platforms}" >> $GITHUB_OUTPUT
+        else
+          # For local builds, just verify it exists
+          if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
+            echo "::error::Built image not found locally"
+            exit 1
+          fi
+          echo "built=local" >> $GITHUB_OUTPUT
+        fi
 
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      run: |-
         set -euo pipefail
 
         # Cleanup temporary files

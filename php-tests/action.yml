@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking out repository
+---
 name: PHP Tests
 description: Run PHPUnit tests on the repository
 author: Ismo Vuorinen
@@ -8,15 +10,114 @@ branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+
+outputs:
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  tests_run:
+    description: 'Number of tests executed'
+    value: ${{ steps.test.outputs.tests_run }}
+  tests_passed:
+    description: 'Number of tests passed'
+    value: ${{ steps.test.outputs.tests_passed }}
+  coverage_path:
+    description: 'Path to coverage report'
+    value: 'coverage.xml'
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+          # Skip validation for GitHub expressions (they'll be resolved at runtime)
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
+          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="$USERNAME"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
+      with:
+        token: ${{ inputs.token != '' && inputs.token || github.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Composer Install
-      uses: ivuorinen/actions/php-composer@main
+      uses: ./php-composer
 
     - name: Run PHPUnit Tests
+      id: test
       shell: bash
-      run: vendor/bin/phpunit --verbose
+      run: |-
+        set -euo pipefail
+
+        # Run PHPUnit and capture results
+        phpunit_exit_code=0
+        phpunit_output=$(vendor/bin/phpunit --verbose 2>&1) || phpunit_exit_code=$?
+
+        echo "$phpunit_output"
+
+        # Parse test results from output
+        tests_run=$(echo "$phpunit_output" | grep -E "Tests:|tests" | head -1 | grep -oE '[0-9]+' | head -1 || echo "0")
+        tests_passed=$(echo "$phpunit_output" | grep -oE 'OK.*[0-9]+ tests' | grep -oE '[0-9]+' || echo "0")
+
+        # Determine status
+        if [ $phpunit_exit_code -eq 0 ]; then
+          status="success"
+        else
+          status="failure"
+        fi
+
+        # Output results
+        echo "tests_run=$tests_run" >> $GITHUB_OUTPUT
+        echo "tests_passed=$tests_passed" >> $GITHUB_OUTPUT
+        echo "status=$status" >> $GITHUB_OUTPUT
+        echo "coverage_path=coverage.xml" >> $GITHUB_OUTPUT
+
+        # Exit with original code to maintain test failure behavior
+        exit $phpunit_exit_code

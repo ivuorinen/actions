@@ -1,0 +1,246 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - (none required) # Permissions depend on the command being executed
+---
+name: Common Retry
+description: 'Standardized retry utility for network operations and flaky commands'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: refresh-cw
+  color: orange
+
+inputs:
+  command:
+    description: 'Command to execute with retry logic'
+    required: true
+  max-retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '3'
+  retry-delay:
+    description: 'Initial delay between retries in seconds'
+    required: false
+    default: '5'
+  backoff-strategy:
+    description: 'Backoff strategy (linear, exponential, fixed)'
+    required: false
+    default: 'exponential'
+  timeout:
+    description: 'Timeout for each attempt in seconds'
+    required: false
+    default: '300'
+  working-directory:
+    description: 'Working directory to execute command in'
+    required: false
+    default: '.'
+  shell:
+    description: 'Shell to use for command execution'
+    required: false
+    default: 'bash'
+  success-codes:
+    description: 'Comma-separated list of success exit codes'
+    required: false
+    default: '0'
+  retry-codes:
+    description: 'Comma-separated list of exit codes that should trigger retry'
+    required: false
+    default: '1,2,124,126,127'
+  description:
+    description: 'Human-readable description of the operation for logging'
+    required: false
+    default: 'Command execution'
+
+outputs:
+  success:
+    description: 'Whether the command succeeded (true/false)'
+    value: ${{ steps.execute.outputs.success }}
+  attempts:
+    description: 'Number of attempts made'
+    value: ${{ steps.execute.outputs.attempts }}
+  exit-code:
+    description: 'Final exit code of the command'
+    value: ${{ steps.execute.outputs.exit-code }}
+  duration:
+    description: 'Total execution duration in seconds'
+    value: ${{ steps.execute.outputs.duration }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        RETRY_DELAY: ${{ inputs.retry-delay }}
+        BACKOFF_STRATEGY: ${{ inputs.backoff-strategy }}
+        TIMEOUT: ${{ inputs.timeout }}
+        SHELL: ${{ inputs.shell }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set -euo pipefail
+
+        # Validate max-retries (1-10)
+        if ! [[ "$MAX_RETRIES" =~ ^[1-9]$|^10$ ]]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be 1-10"
+          exit 1
+        fi
+
+        # Validate retry-delay (1-300)
+        if ! [[ "$RETRY_DELAY" =~ ^[1-9][0-9]?$|^[12][0-9][0-9]$|^300$ ]]; then
+          echo "::error::Invalid retry-delay: '$RETRY_DELAY'. Must be 1-300 seconds"
+          exit 1
+        fi
+
+        # Validate backoff-strategy
+        if ! [[ "$BACKOFF_STRATEGY" =~ ^(linear|exponential|fixed)$ ]]; then
+          echo "::error::Invalid backoff-strategy: '$BACKOFF_STRATEGY'. Must be linear, exponential, or fixed"
+          exit 1
+        fi
+
+        # Validate timeout (1-3600)
+        if ! [[ "$TIMEOUT" =~ ^[1-9][0-9]?$|^[1-9][0-9][0-9]$|^[12][0-9][0-9][0-9]$|^3[0-5][0-9][0-9]$|^3600$ ]]; then
+          echo "::error::Invalid timeout: '$TIMEOUT'. Must be 1-3600 seconds"
+          exit 1
+        fi
+
+        # Validate shell (only bash supported due to script features)
+        if ! [[ "$SHELL" =~ ^bash$ ]]; then
+          echo "::error::Invalid shell: '$SHELL'. Must be bash (sh not supported due to pipefail requirement)"
+          exit 1
+        fi
+
+        # Validate working directory doesn't contain path traversal
+        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Path traversal (..) not allowed"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
+    - name: Execute with Retry Logic
+      id: execute
+      shell: ${{ inputs.shell }}
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        SUCCESS_CODES_INPUT: ${{ inputs.success-codes }}
+        RETRY_CODES_INPUT: ${{ inputs.retry-codes }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        RETRY_DELAY: ${{ inputs.retry-delay }}
+        TIMEOUT: ${{ inputs.timeout }}
+        BACKOFF_STRATEGY: ${{ inputs.backoff-strategy }}
+        OPERATION_DESCRIPTION: ${{ inputs.description }}
+        COMMAND: ${{ inputs.command }}
+      run: |-
+        set -euo pipefail
+
+        # Parse success and retry codes
+        IFS=',' read -ra SUCCESS_CODES <<< "$SUCCESS_CODES_INPUT"
+        IFS=',' read -ra RETRY_CODES <<< "$RETRY_CODES_INPUT"
+
+        # Initialize variables
+        attempt=1
+        max_attempts="$MAX_RETRIES"
+        base_delay="$RETRY_DELAY"
+        timeout_seconds="$TIMEOUT"
+        backoff_strategy="$BACKOFF_STRATEGY"
+        operation_description="$OPERATION_DESCRIPTION"
+        start_time=$(date +%s)
+
+        echo "Starting retry execution: $operation_description"
+        echo "Command: $COMMAND"
+        echo "Max attempts: $max_attempts"
+        echo "Base delay: ${base_delay}s"
+        echo "Backoff strategy: $backoff_strategy"
+        echo "Timeout per attempt: ${timeout_seconds}s"
+
+        # Function to check if exit code is in array
+        contains_code() {
+          local code=$1
+          shift
+          local codes=("$@")
+          for c in "${codes[@]}"; do
+            if [[ "$c" == "$code" ]]; then
+              return 0
+            fi
+          done
+          return 1
+        }
+
+        # Function to calculate delay based on backoff strategy
+        calculate_delay() {
+          local attempt_num=$1
+          case "$backoff_strategy" in
+            "linear")
+              echo $((base_delay * attempt_num))
+              ;;
+            "exponential")
+              echo $((base_delay * (2 ** (attempt_num - 1))))
+              ;;
+            "fixed")
+              echo $base_delay
+              ;;
+          esac
+        }
+
+        # Main retry loop
+        while [ $attempt -le $max_attempts ]; do
+          echo "Attempt $attempt of $max_attempts: $operation_description"
+
+          # Execute command with timeout
+          exit_code=0
+          if timeout "$timeout_seconds" bash -c "$COMMAND"; then
+            exit_code=0
+          else
+            exit_code=$?
+          fi
+
+          # Check if exit code indicates success
+          if contains_code "$exit_code" "${SUCCESS_CODES[@]}"; then
+            end_time=$(date +%s)
+            duration=$((end_time - start_time))
+            echo "success=true" >> $GITHUB_OUTPUT
+            echo "attempts=$attempt" >> $GITHUB_OUTPUT
+            echo "exit-code=$exit_code" >> $GITHUB_OUTPUT
+            echo "duration=$duration" >> $GITHUB_OUTPUT
+            echo "✅ Operation succeeded on attempt $attempt (exit code: $exit_code, duration: ${duration}s)"
+            exit 0
+          fi
+
+          # Check if we should retry this exit code
+          if ! contains_code "$exit_code" "${RETRY_CODES[@]}"; then
+            end_time=$(date +%s)
+            duration=$((end_time - start_time))
+            echo "success=false" >> $GITHUB_OUTPUT
+            echo "attempts=$attempt" >> $GITHUB_OUTPUT
+            echo "exit-code=$exit_code" >> $GITHUB_OUTPUT
+            echo "duration=$duration" >> $GITHUB_OUTPUT
+            echo "::error::Operation failed with non-retryable exit code: $exit_code"
+            exit $exit_code
+          fi
+
+          # Calculate delay for next attempt
+          if [ $attempt -lt $max_attempts ]; then
+            delay=$(calculate_delay $attempt)
+            max_delay=300  # Cap delay at 5 minutes
+            if [ $delay -gt $max_delay ]; then
+              delay=$max_delay
+            fi
+
+            echo "❌ Attempt $attempt failed (exit code: $exit_code). Waiting ${delay}s before retry..."
+            sleep $delay
+          fi
+
+          attempt=$((attempt + 1))
+        done
+
+        # All attempts exhausted
+        end_time=$(date +%s)
+        duration=$((end_time - start_time))
+        echo "success=false" >> $GITHUB_OUTPUT
+        echo "attempts=$max_attempts" >> $GITHUB_OUTPUT
+        echo "exit-code=$exit_code" >> $GITHUB_OUTPUT
+        echo "duration=$duration" >> $GITHUB_OUTPUT
+        echo "::error::Operation failed after $max_attempts attempts (final exit code: $exit_code, total duration: ${duration}s)"
+        exit $exit_code
