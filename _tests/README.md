@@ -93,15 +93,21 @@ Describe "my-action validation"
       test_boolean_input "verbose"
       test_boolean_input "dry-run"
 
-      test_numeric_range_input "max-retries" 1 10
-      test_numeric_range_input "timeout" 1 3600
+      # Numeric range validations (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "max-retries" "1" "success"
+      test_input_validation "$ACTION_DIR" "max-retries" "10" "success"
+      test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
 
-      test_enum_input "strategy" "fast" "comprehensive" "custom"
-      test_enum_input "format" "json" "yaml" "xml"
+      # Enum validations (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "strategy" "fast" "success"
+      test_input_validation "$ACTION_DIR" "format" "json" "success"
 
-      test_version_input "tool-version"
-      test_security_input "command"
-      test_path_input "working-directory"
+      # Version validations (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "tool-version" "1.0.0" "success"
+
+      # Security and path validations (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "command" "echo test" "success"
+      test_input_validation "$ACTION_DIR" "working-directory" "." "success"
     End
   End
 
@@ -160,46 +166,49 @@ test_boolean_input "dry-run"
 #### Numeric Range Testing
 
 ```bash
-test_numeric_range_input "max-retries" 1 10    # Tests: min, max, edge cases
-test_numeric_range_input "timeout" 1 3600
-test_numeric_range_input "parallel-jobs" 1 16
+# Note: test_numeric_range_input helper is not yet implemented.
+# Use test_input_validation with appropriate test values instead:
+test_input_validation "$ACTION_DIR" "max-retries" "1" "success"    # min value
+test_input_validation "$ACTION_DIR" "max-retries" "10" "success"   # max value
+test_input_validation "$ACTION_DIR" "max-retries" "0" "failure"    # below min
+test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
+test_input_validation "$ACTION_DIR" "parallel-jobs" "8" "success"
 ```
 
 #### Version Testing
 
 ```bash
-test_version_input "version"          # Tests: semver, v-prefix, pre-release
-test_version_input "tool-version"
+# Note: test_version_input helper is not yet implemented.
+# Use test_input_validation with appropriate test values instead:
+test_input_validation "$ACTION_DIR" "version" "1.0.0" "success"           # semver
+test_input_validation "$ACTION_DIR" "version" "v1.0.0" "success"          # v-prefix
+test_input_validation "$ACTION_DIR" "version" "1.0.0-rc.1" "success"      # pre-release
+test_input_validation "$ACTION_DIR" "tool-version" "2.3.4" "success"
 ```
 
 #### Enum Testing
 
 ```bash
-test_enum_input "strategy" "linear" "exponential" "fixed"
-test_enum_input "format" "json" "yaml" "xml"
+# Note: test_enum_input helper is not yet implemented.
+# Use test_input_validation with appropriate test values instead:
+test_input_validation "$ACTION_DIR" "strategy" "linear" "success"
+test_input_validation "$ACTION_DIR" "strategy" "exponential" "success"
+test_input_validation "$ACTION_DIR" "strategy" "invalid" "failure"
+test_input_validation "$ACTION_DIR" "format" "json" "success"
+test_input_validation "$ACTION_DIR" "format" "yaml" "success"
 ```
 
 #### Docker-Specific Testing
 
 ```bash
-test_docker_image_input "image-name"  # Tests: valid names, rejects invalid
-test_docker_tag_input "tag"           # Tests: semantic versions, latest
-test_docker_platforms_input "platforms"  # Tests: architecture formats
-```
+# Available framework helpers:
+test_input_validation "$action_dir" "$input_name" "$test_value" "$expected_result"
+test_action_outputs "$action_dir"
+test_external_usage "$action_dir"
 
-#### Security Testing
-
-```bash
-test_security_input "command"         # Tests: injection patterns, escaping
-test_security_input "build-args"      # Tests: command injection, pipes
-test_path_input "working-directory"   # Tests: path traversal, absolute paths
-```
-
-#### Action Structure Testing
-
-```bash
-test_standard_action_structure "$ACTION_FILE" "Action Name"
-# Tests: YAML syntax, required fields, input/output definitions
+# Note: Docker-specific helpers (test_docker_image_input, test_docker_tag_input,
+# test_docker_platforms_input) are referenced in examples but not yet implemented.
+# Use test_input_validation with appropriate test values instead.
 ```
 
 ### Complete Action Validation Example
@@ -216,30 +225,31 @@ Describe "comprehensive-action validation"
       test_boolean_input "enable-cache"
       test_boolean_input "dry-run"
 
-      # Numeric ranges
-      test_numeric_range_input "max-retries" 1 10
-      test_numeric_range_input "timeout" 1 3600
-      test_numeric_range_input "parallel-jobs" 1 16
+      # Numeric ranges (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "max-retries" "1" "success"
+      test_input_validation "$ACTION_DIR" "max-retries" "10" "success"
+      test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
+      test_input_validation "$ACTION_DIR" "parallel-jobs" "8" "success"
 
-      # Enums
-      test_enum_input "strategy" "fast" "comprehensive" "custom"
-      test_enum_input "format" "json" "yaml" "xml"
+      # Enums (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "strategy" "fast" "success"
+      test_input_validation "$ACTION_DIR" "format" "json" "success"
 
-      # Docker-specific
-      test_docker_image_input "image-name"
-      test_docker_tag_input "tag"
-      test_docker_platforms_input "platforms"
+      # Docker-specific (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "image-name" "myapp:latest" "success"
+      test_input_validation "$ACTION_DIR" "tag" "1.0.0" "success"
+      test_input_validation "$ACTION_DIR" "platforms" "linux/amd64,linux/arm64" "success"
 
-      # Security validation
-      test_security_input "command"
-      test_security_input "build-args"
+      # Security validation (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "command" "echo test" "success"
+      test_input_validation "$ACTION_DIR" "build-args" "ARG1=value" "success"
 
-      # Paths
-      test_path_input "working-directory"
-      test_path_input "output-directory"
+      # Paths (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "working-directory" "." "success"
+      test_input_validation "$ACTION_DIR" "output-directory" "./output" "success"
 
-      # Versions
-      test_version_input "tool-version"
+      # Versions (use test_input_validation helper)
+      test_input_validation "$ACTION_DIR" "tool-version" "1.0.0" "success"
 
       # Action structure
       test_standard_action_structure "$ACTION_FILE" "Comprehensive Action"
@@ -268,7 +278,8 @@ Context "version detection"
   End
 
   It "falls back to default when no version found"
-    test_version_input "default-version"
+    # Use test_input_validation helper for version validation
+    test_input_validation "$ACTION_DIR" "default-version" "1.0.0" "success"
   End
 End
 ```
@@ -284,8 +295,9 @@ Context "file processing"
 
   It "validates inputs and processes files"
     test_boolean_input "fix-only"
-    test_path_input "working-directory"
-    test_security_input "custom-command"
+    # Use test_input_validation helper for path and security validations
+    test_input_validation "$ACTION_DIR" "working-directory" "." "success"
+    test_input_validation "$ACTION_DIR" "custom-command" "echo test" "success"
 
     # Mock file processing
     echo "files_changed=3" >> "$GITHUB_OUTPUT"
@@ -307,10 +319,11 @@ Context "build process"
   AfterEach "cleanup_test_env 'build-test'"
 
   It "validates build inputs"
-    test_docker_image_input "image-name"
-    test_docker_tag_input "tag"
-    test_docker_platforms_input "platforms"
-    test_numeric_range_input "parallel-builds" 1 16
+    # Use test_input_validation helper for Docker inputs
+    test_input_validation "$ACTION_DIR" "image-name" "myapp:latest" "success"
+    test_input_validation "$ACTION_DIR" "tag" "1.0.0" "success"
+    test_input_validation "$ACTION_DIR" "platforms" "linux/amd64,linux/arm64" "success"
+    test_input_validation "$ACTION_DIR" "parallel-builds" "8" "success"
 
     # Mock successful build
     echo "build-status=success" >> "$GITHUB_OUTPUT"
@@ -332,9 +345,11 @@ Context "publishing"
   AfterEach "cleanup_mock_environment"
 
   It "validates publishing inputs"
-    test_version_input "package-version"
-    test_security_input "registry-token"
-    test_enum_input "registry" "npm" "github" "dockerhub"
+    # Use test_input_validation helper for version, security, and enum validations
+    test_input_validation "$ACTION_DIR" "package-version" "1.0.0" "success"
+    test_input_validation "$ACTION_DIR" "registry-token" "ghp_test123" "success"
+    test_input_validation "$ACTION_DIR" "registry" "npm" "success"
+    test_input_validation "$ACTION_DIR" "registry" "github" "success"
 
     # Mock successful publish
     echo "publish-status=success" >> "$GITHUB_OUTPUT"
@@ -407,8 +422,9 @@ make test-action ACTION=name # Test specific action
    ```bash
    # Focus on using helpers for comprehensive coverage
    test_boolean_input "verbose"
-   test_numeric_range_input "timeout" 1 3600
-   test_security_input "command"
+   # Use test_input_validation helper for numeric, security, and other validations
+   test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
+   test_input_validation "$ACTION_DIR" "command" "echo test" "success"
    test_standard_action_structure "$ACTION_FILE" "New Action"
    ```
 
@@ -443,16 +459,18 @@ make test-action ACTION=name # Test specific action
 
 ```bash
 test_boolean_input "verbose"
-test_numeric_range_input "timeout" 1 3600
-test_enum_input "format" "json" "yaml" "xml"
+# Use test_input_validation helper for other validations
+test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
+test_input_validation "$ACTION_DIR" "format" "json" "success"
 ```
 
 ❌ **Avoid**:
 
 ```bash
-# Don't write manual tests for common patterns
+# Don't write manual tests for boolean inputs when test_boolean_input exists
 When call test_input_validation "$ACTION_DIR" "verbose" "true" "success"
 When call test_input_validation "$ACTION_DIR" "verbose" "false" "success"
+# Use test_boolean_input "verbose" instead
 ```
 
 ### 2. Group Related Validations
@@ -463,9 +481,10 @@ When call test_input_validation "$ACTION_DIR" "verbose" "false" "success"
 Context "complete input validation"
   It "validates all input types"
     test_boolean_input "verbose"
-    test_numeric_range_input "timeout" 1 3600
-    test_enum_input "format" "json" "yaml"
-    test_security_input "command"
+    # Use test_input_validation helper for other validations
+    test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
+    test_input_validation "$ACTION_DIR" "format" "json" "success"
+    test_input_validation "$ACTION_DIR" "command" "echo test" "success"
   End
 End
 ```
@@ -475,9 +494,10 @@ End
 ✅ **Always include**:
 
 ```bash
-test_security_input "command"
-test_security_input "user-script"
-test_path_input "working-directory"
+# Use test_input_validation helper for security and path validations
+test_input_validation "$ACTION_DIR" "command" "echo test" "success"
+test_input_validation "$ACTION_DIR" "user-script" "#!/bin/bash" "success"
+test_input_validation "$ACTION_DIR" "working-directory" "." "success"
 ```
 
 ### 4. Write Descriptive Test Names

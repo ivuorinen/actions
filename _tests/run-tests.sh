@@ -113,7 +113,7 @@ parse_args() {
   # Export for use in other functions
   export TEST_TYPE="$test_type"
   export ACTION_FILTER="$action_filter"
-  export TARGET_ACTIONS=("${actions[@]}")
+  TARGET_ACTIONS=("${actions[@]}")
 }
 
 # Discover available actions

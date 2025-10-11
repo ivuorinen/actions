@@ -121,7 +121,7 @@ When call echo "$name"
 The output should equal "pre-commit"
 End
 
-It "defines required inputs"
+It "defines expected inputs"
 inputs=$(get_action_inputs "$ACTION_FILE")
 When call echo "$inputs"
 The output should include "pre-commit-config"
@@ -129,6 +129,11 @@ The output should include "base-branch"
 The output should include "token"
 The output should include "commit_user"
 The output should include "commit_email"
+End
+
+It "has all inputs as optional"
+When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+The output should equal "none"
 End
 
 It "defines expected outputs"
