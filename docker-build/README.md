@@ -19,7 +19,7 @@ Builds a Docker image for multiple architectures with enhanced security and reli
 | `cache-from`            | <p>External cache sources (e.g., type=registry,ref=user/app:cache)</p>              | `false`  | `""`                                                |
 | `push`                  | <p>Whether to push the image after building</p>                                     | `false`  | `true`                                              |
 | `max-retries`           | <p>Maximum number of retry attempts for build and push operations</p>               | `false`  | `3`                                                 |
-| `token`                 | <p>GitHub token for authentication</p>                                              | `false`  | `${{ github.token }}`                               |
+| `token`                 | <p>GitHub token for authentication</p>                                              | `false`  | `""`                                                |
 | `buildx-version`        | <p>Specific Docker Buildx version to use</p>                                        | `false`  | `latest`                                            |
 | `buildkit-version`      | <p>Specific BuildKit version to use</p>                                             | `false`  | `v0.11.0`                                           |
 | `cache-mode`            | <p>Cache mode for build layers (min, max, or inline)</p>                            | `false`  | `max`                                               |
@@ -118,7 +118,7 @@ This action is a `composite` action.
     # GitHub token for authentication
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 
     buildx-version:
     # Specific Docker Buildx version to use

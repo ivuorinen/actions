@@ -107,8 +107,18 @@ When call validate_input_python "php-composer" "tools" "phpcs, phpstan:1.10"
 The status should be success
 End
 
-It "rejects tools with special characters"
-When call validate_input_python "php-composer" "tools" "composer@malicious"
+It "accepts tools with stability flags (@ allowed)"
+When call validate_input_python "php-composer" "tools" "dev-master@dev"
+The status should be success
+End
+
+It "accepts tools with version and stability flag"
+When call validate_input_python "php-composer" "tools" "monolog/monolog@dev"
+The status should be success
+End
+
+It "rejects tools with backticks"
+When call validate_input_python "php-composer" "tools" "composer\`whoami\`"
 The status should be failure
 End
 

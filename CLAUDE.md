@@ -35,11 +35,12 @@
 
 Flat structure. Each action self-contained with `action.yml`.
 
-**Actions**: Setup (node-setup, set-git-config, php-version-detect, python-version-detect, python-version-detect-v2, go-version-detect, dotnet-version-detect), Utilities (version-file-parser, version-validator),
+**43 Actions**: Setup (node-setup, set-git-config, php-version-detect, python-version-detect, python-version-detect-v2, go-version-detect, dotnet-version-detect), Utilities (version-file-parser, version-validator),
 Linting (ansible-lint-fix, biome-check, biome-fix, csharp-lint-check, eslint-check, eslint-fix, go-lint, pr-lint, pre-commit, prettier-check, prettier-fix, python-lint-fix, terraform-lint-fix),
 Testing (php-tests, php-laravel-phpunit, php-composer), Build (csharp-build, go-build, docker-build),
 Publishing (npm-publish, docker-publish, docker-publish-gh, docker-publish-hub, csharp-publish),
-Repository (github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry, codeql-analysis)
+Repository (github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry, codeql-analysis),
+Validation (validate-inputs)
 
 ## Commands
 

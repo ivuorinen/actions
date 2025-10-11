@@ -187,9 +187,9 @@ When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "
 The output should equal "none"
 End
 
-It "has correct default token"
+It "has empty default token (runtime fallback)"
 When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "default"
-The output should equal "\${{ github.token }}"
+The output should equal "no-default"
 End
 
 It "has correct default username"

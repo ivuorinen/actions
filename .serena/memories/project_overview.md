@@ -59,6 +59,8 @@ validate-inputs/
 
 ## Action Categories
 
+**Total: 43 actions** across 8 categories
+
 ### Setup Actions (7)
 
 - `node-setup`, `set-git-config`, `php-version-detect`, `python-version-detect`,
@@ -82,7 +84,7 @@ validate-inputs/
 
 - `php-tests`, `php-laravel-phpunit`, `php-composer`
 
-### Repository Management (9)
+### Repository (9)
 
 - `github-release`, `release-monthly`, `sync-labels`, `stale`
 - `compress-images`, `common-cache`, `common-file-check`, `common-retry`
@@ -91,6 +93,10 @@ validate-inputs/
 ### Utilities (2)
 
 - `version-file-parser`, `version-validator`
+
+### Validation (1)
+
+- `validate-inputs` (centralized input validation system)
 
 ## Development Workflow
 

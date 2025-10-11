@@ -11,12 +11,28 @@ FULL_IMAGE_NAME="${IMAGE_NAME}:${IMAGE_TAG}"
 echo "Building GitHub Actions Testing Docker Image..."
 echo "Image: $FULL_IMAGE_NAME"
 
+# Enable BuildKit for better caching and performance
+export DOCKER_BUILDKIT=1
+
 # Build the multi-stage image
-docker build \
+# Try buildx first for multi-arch support, fall back to standard build
+if docker buildx build \
+  --pull \
   --tag "$FULL_IMAGE_NAME" \
   --file "$SCRIPT_DIR/Dockerfile" \
   --target final \
-  "$SCRIPT_DIR"
+  --load \
+  "$SCRIPT_DIR" 2>/dev/null; then
+  echo "✅ Built with buildx (multi-arch capable)"
+else
+  echo "⚠️  buildx not available, using standard docker build"
+  docker build \
+    --pull \
+    --tag "$FULL_IMAGE_NAME" \
+    --file "$SCRIPT_DIR/Dockerfile" \
+    --target final \
+    "$SCRIPT_DIR"
+fi
 
 echo "Build completed successfully!"
 echo ""

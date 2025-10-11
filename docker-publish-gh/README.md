@@ -14,7 +14,7 @@ Publishes a Docker image to GitHub Packages with advanced security and reliabili
 | `tags`                  | <p>Comma-separated list of tags for the Docker image.</p>                        | `true`   | `""`                      |
 | `platforms`             | <p>Platforms to publish (comma-separated). Defaults to amd64 and arm64.</p>      | `false`  | `linux/amd64,linux/arm64` |
 | `registry`              | <p>GitHub Container Registry URL</p>                                             | `false`  | `ghcr.io`                 |
-| `token`                 | <p>GitHub token with package write permissions</p>                               | `false`  | `${{ github.token }}`     |
+| `token`                 | <p>GitHub token with package write permissions</p>                               | `false`  | `""`                      |
 | `provenance`            | <p>Enable SLSA provenance generation</p>                                         | `false`  | `true`                    |
 | `sbom`                  | <p>Generate Software Bill of Materials</p>                                       | `false`  | `true`                    |
 | `max-retries`           | <p>Maximum number of retry attempts for publishing</p>                           | `false`  | `3`                       |
@@ -77,7 +77,7 @@ This action is a `composite` action.
     # GitHub token with package write permissions
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 
     provenance:
     # Enable SLSA provenance generation
