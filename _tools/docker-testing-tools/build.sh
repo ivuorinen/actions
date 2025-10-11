@@ -15,15 +15,16 @@ echo "Image: $FULL_IMAGE_NAME"
 export DOCKER_BUILDKIT=1
 
 # Build the multi-stage image
-# Try buildx first for multi-arch support, fall back to standard build
-if docker buildx build \
-  --pull \
-  --tag "$FULL_IMAGE_NAME" \
-  --file "$SCRIPT_DIR/Dockerfile" \
-  --target final \
-  --load \
-  "$SCRIPT_DIR" 2>/dev/null; then
-  echo "✅ Built with buildx (multi-arch capable)"
+# Check for buildx support up front, then run the appropriate build command
+if docker buildx version >/dev/null 2>&1; then
+  echo "Using buildx (multi-arch capable)"
+  docker buildx build \
+    --pull \
+    --tag "$FULL_IMAGE_NAME" \
+    --file "$SCRIPT_DIR/Dockerfile" \
+    --target final \
+    --load \
+    "$SCRIPT_DIR"
 else
   echo "⚠️  buildx not available, using standard docker build"
   docker build \

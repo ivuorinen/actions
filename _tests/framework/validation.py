@@ -85,6 +85,10 @@ class ActionValidator:
         if token == "${{ github.token }}" or (token.startswith("${{") and token.endswith("}}")):
             return True, ""
 
+        # Check for environment variable reference (e.g., $GITHUB_TOKEN)
+        if re.match(r"^\$[A-Za-z_][A-Za-z0-9_]*$", token):
+            return True, ""
+
         # Check against all known token patterns
         for token_type, pattern in self.TOKEN_PATTERNS.items():
             if re.match(pattern, token):

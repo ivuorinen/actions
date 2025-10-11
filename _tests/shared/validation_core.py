@@ -169,9 +169,16 @@ class ValidationCore:
             return False, f"Version should not start with 'v': {value}"
         if value.startswith("v"):
             value = value[1:]  # Remove v prefix for validation
-        # More flexible version pattern that also accepts simple numbers
-        # (for composer-version, etc.)
-        if re.match(r"^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$", value):
+        # SemVer pattern: major.minor.patch with optional prerelease and build metadata
+        # Also accepts simpler forms like major or major.minor
+        # Prerelease uses hyphen prefix with dot-separated alphanumeric identifiers
+        # Build metadata uses plus prefix with dot-separated alphanumeric identifiers
+        pattern = (
+            r"^[0-9]+(\.[0-9]+(\.[0-9]+)?)?"
+            r"(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?"
+            r"(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"
+        )
+        if re.match(pattern, value):
             return True, ""
         return False, f"Invalid version format: {value}"
 
