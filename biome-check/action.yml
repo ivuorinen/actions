@@ -228,7 +228,11 @@ runs:
 
         echo "✅ Biome check completed"
 
+        # Exit with biome's exit code to fail the job on errors
+        exit $biome_exit_code
+
     - name: Upload Biome Results
+      if: always()
       uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
       with:
         sarif_file: biome-report.sarif

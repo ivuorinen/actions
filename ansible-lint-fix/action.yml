@@ -115,7 +115,7 @@ runs:
         key-prefix: 'ansible-lint-fix'
 
     - name: Install ansible-lint
-      if: steps.check-files.outputs.files_found == 'true' && steps.cache-pip.outputs.cache-hit != 'true'
+      if: steps.check-files.outputs.files_found == 'true'
       uses: ./common-retry
       with:
         command: 'pip install ansible-lint==6.22.1'

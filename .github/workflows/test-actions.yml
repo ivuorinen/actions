@@ -44,6 +44,8 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: write
+      security-events: write
     container:
       image: ghcr.io/ivuorinen/actions:testing-tools
       credentials:
@@ -118,6 +120,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: write
     container:
       image: ghcr.io/ivuorinen/actions:testing-tools
       credentials:
@@ -179,6 +182,7 @@ jobs:
     permissions:
       contents: read
       packages: read
+      actions: write
     container:
       image: ghcr.io/ivuorinen/actions:testing-tools
       credentials:

@@ -18,6 +18,7 @@
 .dynamodb/
 .env
 !.env.example
+!.env.sample
 .env*.local
 .env.development.local
 .env.local
