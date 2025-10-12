@@ -36,6 +36,9 @@ class CustomValidator(BaseValidator):
             if action_input == "":
                 self.add_error("Action name cannot be empty")
                 valid = False
+            # Allow GitHub expressions
+            elif action_input.startswith("${{") and action_input.endswith("}}"):
+                pass  # GitHub expressions are valid
             # Check for dangerous characters
             elif any(
                 char in action_input
@@ -45,9 +48,8 @@ class CustomValidator(BaseValidator):
                 valid = False
             # Validate action name format (should be lowercase with hyphens or underscores)
             elif action_input and not re.match(r"^[a-z][a-z0-9_-]*[a-z0-9]$", action_input):
-                if not action_input.startswith("${{"):
-                    self.add_error(f"Invalid action name format: {action_input}")
-                    valid = False
+                self.add_error(f"Invalid action name format: {action_input}")
+                valid = False
 
         # Validate rules-file if provided
         if inputs.get("rules-file"):

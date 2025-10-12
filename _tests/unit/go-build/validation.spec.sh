@@ -139,17 +139,17 @@ End
 
 Context "when testing input defaults"
 It "has default destination"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "destination" "default"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "destination" "default"
 The output should equal "./bin"
 End
 
 It "has default max-retries"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "max-retries" "default"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "max-retries" "default"
 The output should equal "3"
 End
 
 It "has all inputs as optional"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 End

@@ -62,14 +62,29 @@ parse_args() {
   while [[ $# -gt 0 ]]; do
     case $1 in
     -t | --type)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        usage
+        exit 1
+      fi
       test_type="$2"
       shift 2
       ;;
     -a | --action)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        usage
+        exit 1
+      fi
       action_filter="$2"
       shift 2
       ;;
     -j | --jobs)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        usage
+        exit 1
+      fi
       PARALLEL_JOBS="$2"
       shift 2
       ;;
@@ -82,6 +97,11 @@ parse_args() {
       shift
       ;;
     -f | --format)
+      if [[ $# -lt 2 ]]; then
+        echo "Error: $1 requires an argument" >&2
+        usage
+        exit 1
+      fi
       REPORT_FORMAT="$2"
       shift 2
       ;;
@@ -432,40 +452,50 @@ EOF
 
 # Generate SARIF test report
 generate_sarif_report() {
+  # Check for jq availability
+  if ! command -v jq >/dev/null 2>&1; then
+    log_warning "jq not found, skipping SARIF report generation"
+    return 0
+  fi
+
   local report_file="${TEST_ROOT}/reports/test-results.sarif"
   local run_id
   run_id="github-actions-test-$(date +%s)"
+  local timestamp
+  timestamp="$(date -Iseconds)"
 
-  # Initialize SARIF structure
-  cat >"$report_file" <<EOF
-{
-  "\$schema": "https://json.schemastore.org/sarif-2.1.0.json",
-  "version": "2.1.0",
-  "runs": [
-    {
-      "automationDetails": {
-        "id": "$run_id"
-      },
-      "tool": {
-        "driver": {
-          "name": "GitHub Actions Testing Framework",
-          "version": "1.0.0",
-          "informationUri": "https://github.com/ivuorinen/actions",
-          "rules": []
-        }
-      },
-      "results": [],
-      "invocations": [
+  # Initialize SARIF structure using jq to ensure proper escaping
+  jq -n \
+    --arg run_id "$run_id" \
+    --arg timestamp "$timestamp" \
+    --arg test_type "$TEST_TYPE" \
+    '{
+      "$schema": "https://json.schemastore.org/sarif-2.1.0.json",
+      "version": "2.1.0",
+      "runs": [
         {
-          "executionSuccessful": true,
-          "startTimeUtc": "$(date -Iseconds)",
-          "arguments": ["--type", "$TEST_TYPE", "--format", "sarif"]
+          "automationDetails": {
+            "id": $run_id
+          },
+          "tool": {
+            "driver": {
+              "name": "GitHub Actions Testing Framework",
+              "version": "1.0.0",
+              "informationUri": "https://github.com/ivuorinen/actions",
+              "rules": []
+            }
+          },
+          "results": [],
+          "invocations": [
+            {
+              "executionSuccessful": true,
+              "startTimeUtc": $timestamp,
+              "arguments": ["--type", $test_type, "--format", "sarif"]
+            }
+          ]
         }
       ]
-    }
-  ]
-}
-EOF
+    }' >"$report_file"
 
   # Parse test results and add SARIF findings
   local results_array="[]"
@@ -485,7 +515,7 @@ EOF
           failure_message=$(grep -E "(Fatal error|failure|FAILED)" "$test_file" | head -1 || echo "Test failed")
 
           # Add rule if not exists
-          if ! echo "$rules_array" | jq -e ".[] | select(.id == \"test-failure\")" >/dev/null 2>&1; then
+          if ! echo "$rules_array" | jq -e '.[] | select(.id == "test-failure")' >/dev/null 2>&1; then
             rules_array=$(echo "$rules_array" | jq '. + [{
               "id": "test-failure",
               "name": "TestFailure",
@@ -495,18 +525,21 @@ EOF
             }]')
           fi
 
-          # Add result
-          results_array=$(echo "$results_array" | jq ". + [{
-            \"ruleId\": \"test-failure\",
-            \"level\": \"error\",
-            \"message\": {\"text\": \"$failure_message\"},
-            \"locations\": [{
-              \"physicalLocation\": {
-                \"artifactLocation\": {\"uri\": \"$action_name/action.yml\"},
-                \"region\": {\"startLine\": 1, \"startColumn\": 1}
-              }
-            }]
-          }]")
+          # Add result using jq --arg to safely escape dynamic strings
+          results_array=$(echo "$results_array" | jq \
+            --arg failure_msg "$failure_message" \
+            --arg action_name "$action_name" \
+            '. + [{
+              "ruleId": "test-failure",
+              "level": "error",
+              "message": {"text": $failure_msg},
+              "locations": [{
+                "physicalLocation": {
+                  "artifactLocation": {"uri": ($action_name + "/action.yml")},
+                  "region": {"startLine": 1, "startColumn": 1}
+                }
+              }]
+            }]')
         fi
       fi
     done
@@ -524,7 +557,7 @@ EOF
           failure_message=$(grep -E "(FAILED|ERROR|error:)" "$test_file" | head -1 || echo "Integration test failed")
 
           # Add integration rule if not exists
-          if ! echo "$rules_array" | jq -e ".[] | select(.id == \"integration-failure\")" >/dev/null 2>&1; then
+          if ! echo "$rules_array" | jq -e '.[] | select(.id == "integration-failure")' >/dev/null 2>&1; then
             rules_array=$(echo "$rules_array" | jq '. + [{
               "id": "integration-failure",
               "name": "IntegrationFailure",
@@ -534,17 +567,21 @@ EOF
             }]')
           fi
 
-          results_array=$(echo "$results_array" | jq ". + [{
-            \"ruleId\": \"integration-failure\",
-            \"level\": \"warning\",
-            \"message\": {\"text\": \"$failure_message\"},
-            \"locations\": [{
-              \"physicalLocation\": {
-                \"artifactLocation\": {\"uri\": \"$action_name/action.yml\"},
-                \"region\": {\"startLine\": 1, \"startColumn\": 1}
-              }
-            }]
-          }]")
+          # Add result using jq --arg to safely escape dynamic strings
+          results_array=$(echo "$results_array" | jq \
+            --arg failure_msg "$failure_message" \
+            --arg action_name "$action_name" \
+            '. + [{
+              "ruleId": "integration-failure",
+              "level": "warning",
+              "message": {"text": $failure_msg},
+              "locations": [{
+                "physicalLocation": {
+                  "artifactLocation": {"uri": ($action_name + "/action.yml")},
+                  "region": {"startLine": 1, "startColumn": 1}
+                }
+              }]
+            }]')
         fi
       fi
     done

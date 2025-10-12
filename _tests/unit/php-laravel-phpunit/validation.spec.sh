@@ -224,17 +224,17 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 
 It "has correct default php-version"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "php-version" "default"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "php-version" "default"
 The output should equal "latest"
 End
 
 It "has correct default php-version-file"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "php-version-file" "default"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "php-version-file" "default"
 The output should equal ".php-version"
 End
 End

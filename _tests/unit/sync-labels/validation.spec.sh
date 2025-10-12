@@ -9,12 +9,12 @@ ACTION_FILE="$ACTION_DIR/action.yml"
 
 Context "when validating token input"
 It "accepts GitHub token expression"
-When call python3 "_tests/shared/validation_core.py" --validate "sync-labels" "token" "\${{ github.token }}"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --validate "sync-labels" "token" "\${{ github.token }}"
 The status should be success
 End
 
 It "accepts GitHub fine-grained token"
-When call python3 "_tests/shared/validation_core.py" --validate "sync-labels" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --validate "sync-labels" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
 The status should be success
 End
 
@@ -31,12 +31,12 @@ End
 
 Context "when validating config-file input"
 It "accepts valid config file"
-When call python3 "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.yml"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.yml"
 The status should be success
 End
 
 It "accepts config file with json extension"
-When call python3 "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.json"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.json"
 The status should be success
 End
 
@@ -77,7 +77,7 @@ End
 
 Context "when testing input requirements"
 It "token input is optional"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "optional"
 The output should equal "optional"
 End
 End

@@ -74,7 +74,7 @@ End
 
 Context "when testing input requirements"
 It "has default-version as optional input"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "default-version" "optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "default-version" "optional"
 The output should equal "optional"
 End
 End

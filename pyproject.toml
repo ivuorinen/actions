@@ -6,7 +6,7 @@ name = "ivuorinen-actions"
 version = "1.0.0"
 description = "Reusable GitHub Actions with Python validation and testing framework"
 authors = [{name = "Ismo Vuorinen", email = "ismo@ivuorinen.net"}]
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 dependencies = [
     "PyYAML>=6.0",
 ]
@@ -28,7 +28,7 @@ packages = ["validate-inputs"]
 
 [tool.ruff]
 # Ruff configuration for Python linting and formatting
-target-version = "py38"
+target-version = "py310"
 line-length = 100
 indent-width = 4
 
@@ -178,6 +178,8 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "RET504",  # Allow unnecessary assignments in tests
     "PT006",   # Allow string parametrize arguments in pytest
     "SLF001",  # Allow access to private members in tests
+    "N999",    # Allow hyphens in test filenames (match action names)
+    "E402",    # Allow imports after sys.path manipulation for CustomValidator tests
 ]
 
 # Scripts can have relaxed import rules

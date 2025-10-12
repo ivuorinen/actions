@@ -11,9 +11,9 @@ It "accepts valid image name"
 When call validate_input_python "docker-build" "image-name" "myapp"
 The status should be success
 End
-It "rejects image name with registry prefix (slashes not allowed)"
+It "accepts image name with registry prefix"
 When call validate_input_python "docker-build" "image-name" "registry.example.com/myapp"
-The status should be failure
+The status should be success
 End
 It "rejects command injection in image name"
 When call validate_input_python "docker-build" "image-name" "app; rm -rf /"

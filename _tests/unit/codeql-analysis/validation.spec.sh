@@ -330,7 +330,7 @@ It "validates all required inputs with minimal config"
 export INPUT_ACTION_TYPE="codeql-analysis"
 export INPUT_LANGUAGE="javascript"
 
-When call python3 validate-inputs/validator.py
+When call "${PROJECT_ROOT}/.venv/bin/python3" validate-inputs/validator.py
 The status should be success
 The stderr should include "All input validation checks passed"
 End
@@ -347,7 +347,7 @@ export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef1234"
 export INPUT_WORKING_DIRECTORY="backend"
 export INPUT_UPLOAD_RESULTS="true"
 
-When call python3 validate-inputs/validator.py
+When call "${PROJECT_ROOT}/.venv/bin/python3" validate-inputs/validator.py
 The status should be success
 The stderr should include "All input validation checks passed"
 End
@@ -357,7 +357,7 @@ It "fails validation with missing required language"
 export INPUT_ACTION_TYPE="codeql-analysis"
 unset INPUT_LANGUAGE
 
-When call python3 validate-inputs/validator.py
+When call "${PROJECT_ROOT}/.venv/bin/python3" validate-inputs/validator.py
 The status should be failure
 The stderr should include "Required input 'language' is missing"
 End
@@ -368,7 +368,7 @@ export INPUT_ACTION_TYPE="codeql-analysis"
 export INPUT_LANGUAGE="invalid-lang"
 export INPUT_QUERIES="invalid-suite"
 
-When call python3 validate-inputs/validator.py
+When call "${PROJECT_ROOT}/.venv/bin/python3" validate-inputs/validator.py
 The status should be failure
 The stderr should include "Unsupported CodeQL language"
 The stderr should include "Invalid CodeQL query suite"

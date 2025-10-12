@@ -167,8 +167,7 @@ class ValidationCore:
             return True, ""
         if not allow_v_prefix and value.startswith("v"):
             return False, f"Version should not start with 'v': {value}"
-        if value.startswith("v"):
-            value = value[1:]  # Remove v prefix for validation
+        value = value.removeprefix("v")  # Remove v prefix for validation
         # SemVer pattern: major.minor.patch with optional prerelease and build metadata
         # Also accepts simpler forms like major or major.minor
         # Prerelease uses hyphen prefix with dot-separated alphanumeric identifiers
@@ -206,7 +205,7 @@ class ValidationCore:
         if not value:
             return True, ""
         if not re.match(
-            r"^[a-z0-9]+((\\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\\.|_|__|-+)[a-z0-9]+)*)*$",
+            r"^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$",
             value,
         ):
             return False, f"Invalid docker image name format: {value}"

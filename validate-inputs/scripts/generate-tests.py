@@ -592,7 +592,8 @@ class Test{class_name}:
         """Test valid Docker image names."""
         assert self.validator.validate_image_name("myapp") is True
         assert self.validator.validate_image_name("my-app_v2") is True
-        assert self.validator.validate_image_name("company.com/myapp") is False  # No slashes
+        # Registry paths supported
+        assert self.validator.validate_image_name("registry.example.com/myapp") is True
 
     def test_valid_tags(self):
         """Test valid Docker tags."""

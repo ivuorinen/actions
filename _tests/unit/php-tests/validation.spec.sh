@@ -183,22 +183,22 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 
 It "has empty default token (runtime fallback)"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "default"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "default"
 The output should equal "no-default"
 End
 
 It "has correct default username"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "username" "default"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "username" "default"
 The output should equal "github-actions"
 End
 
 It "has correct default email"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "email" "default"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "email" "default"
 The output should equal "github-actions@github.com"
 End
 End

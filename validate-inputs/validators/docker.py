@@ -65,6 +65,13 @@ class DockerValidator(BaseValidator):
     def validate_image_name(self, image_name: str, name: str = "image-name") -> bool:
         """Validate Docker image name format.
 
+        Supports full Docker image references including:
+        - Simple names: myapp, nginx
+        - Names with separators: my-app, my_app, my.app
+        - Registry paths: registry.example.com/myapp
+        - Multi-part paths: docker.io/library/nginx
+        - Complex paths: registry.example.com/namespace/app.name
+
         Args:
             image_name: The image name to validate
             name: The input name for error messages
@@ -79,14 +86,17 @@ class DockerValidator(BaseValidator):
         if self.is_github_expression(image_name):
             return True
 
-        # Docker image name pattern (no slashes allowed per docker-build action)
-        pattern = r"^[a-z0-9]+([._-][a-z0-9]+)*$"
+        # Docker image name pattern supporting registry paths with slashes
+        # Component: [a-z0-9]+ followed by optional (.|_|__|-+)[a-z0-9]+
+        # Path: optional (/component)* for registry/namespace/image structure
+        pattern = r"^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$"
         if re.match(pattern, image_name):
             return True
 
         self.add_error(
             f'Invalid {name}: "{image_name}". Must contain only '
-            "lowercase letters, digits, periods, hyphens, and underscores",
+            "lowercase letters, digits, periods, hyphens, and underscores. "
+            "Registry paths are supported (e.g., registry.example.com/namespace/image)",
         )
         return False
 

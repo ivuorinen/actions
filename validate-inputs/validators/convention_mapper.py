@@ -5,7 +5,10 @@ Maps input names to appropriate validators based on naming conventions.
 
 from __future__ import annotations
 
-from typing import Any, Callable, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 
 class ConventionMapper:

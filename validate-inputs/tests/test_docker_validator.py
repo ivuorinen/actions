@@ -25,18 +25,39 @@ class TestDockerValidator:
         assert "architectures" in rules
 
     def test_validate_docker_image_valid(self):
-        """Test Docker image name validation with valid names."""
+        """Test Docker image name validation with valid names.
+
+        Tests comprehensive Docker image name formats including simple names,
+        names with separators, and full registry paths.
+        """
         valid_names = [
+            # Simple names
             "myapp",
-            "my-app",
-            "my_app",
             "app123",
             "nginx",
             "ubuntu",
             "node",
             "python",
-            "my.app",  # Dots allowed
+            # Names with separators
+            "my-app",
+            "my_app",
+            "my.app",  # Dots allowed (regression test for \. fix)
             "my-app_v2",  # Mixed separators
+            "app.with.dots",  # Multiple dots in image name (regression test)
+            # Registry paths (dots in domain names)
+            "registry.example.com/myapp",  # Registry with dots and namespace
+            "docker.io/library/nginx",  # Multi-part registry path
+            "ghcr.io/owner/repo",  # GitHub Container Registry
+            "gcr.io/project-id/image",  # Google Container Registry
+            "quay.io/organization/app",  # Quay.io registry
+            "harbor.example.com/project/image",  # Harbor registry
+            "nexus.company.local/docker/app",  # Nexus registry
+            # Complex paths with dots
+            "my.registry.local/app.name",  # Dots in both registry and image
+            "registry.example.com/namespace/app.name",  # Complex path with dots
+            "gcr.io/my-project/my.app.name",  # GCR with dots in image
+            # Multiple namespace levels
+            "registry.io/org/team/project/app",  # Deep namespace hierarchy
         ]
 
         for name in valid_names:
@@ -47,21 +68,42 @@ class TestDockerValidator:
     def test_validate_docker_image_invalid(self):
         """Test Docker image name validation with invalid names."""
         invalid_names = [
-            "MyApp",  # Uppercase not allowed
-            "my app",  # Spaces not allowed
+            # Uppercase not allowed
+            "MyApp",
+            "NGINX",
+            "Ubuntu",
+            # Spaces not allowed
+            "my app",
+            "app name",
+            # Invalid separators/positions
             "-myapp",  # Leading dash
             "myapp-",  # Trailing dash
             "_myapp",  # Leading underscore
-            "my/app",  # Slash not allowed (that's for namespace)
-            "",  # Empty
+            "myapp_",  # Trailing underscore
+            ".myapp",  # Leading dot
+            "myapp.",  # Trailing dot
+            # Note: Double dash (app--name) and double underscore (app__name) are allowed by Docker
+            # Invalid paths
+            "/myapp",  # Leading slash
+            "myapp/",  # Trailing slash
+            "registry/",  # Trailing slash after registry
+            "/registry/app",  # Leading slash
+            "registry//app",  # Double slash
+            # Special characters
+            "app@latest",  # @ not allowed in name
+            "app:tag",  # : not allowed in name
+            "app#1",  # # not allowed
+            "app$name",  # $ not allowed
+            # Empty or whitespace
+            "",  # Empty (may be optional)
+            "   ",  # Whitespace only
         ]
 
         for name in invalid_names:
             self.validator.errors = []
             result = self.validator.validate_docker_image_name(name)
-            if name == "":  # Empty might be required
-                # Depends on whether image is required
-                assert isinstance(result, bool)
+            if name == "" or name.strip() == "":  # Empty might be allowed (optional field)
+                assert isinstance(result, bool), f"Empty/whitespace handling for: {name}"
             else:
                 assert result is False, f"Should reject image name: {name}"
 

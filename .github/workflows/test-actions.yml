@@ -43,27 +43,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
       actions: write
       security-events: write
-    container:
-      image: ghcr.io/ivuorinen/actions:testing-tools
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 10
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
-      - name: Setup Python
+      - name: Install uv
+        uses: astral-sh/setup-uv@11c111b51546935c13007c2f58b5ab5b0f9e3c67 # v5.2.2
+        with:
+          enable-cache: true
+
+      - name: Set up Python
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          python-version: '3.x'
+          python-version-file: "pyproject.toml"
 
-      - name: Install PyYAML
-        run: pip install PyYAML
+      - name: Install Python dependencies
+        run: uv sync --frozen
 
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
@@ -71,15 +70,24 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        shell: bash
+      - name: Install Node dependencies
         run: npm ci
 
-      - name: Verify pre-installed tools
-        shell: bash
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends jq shellcheck
+
+      - name: Install ShellSpec
+        run: |
+          curl -fsSL https://git.io/shellspec | sh -s -- --yes
+          sudo ln -s ~/.local/lib/shellspec/shellspec /usr/local/bin/shellspec
+
+      - name: Verify tools
         run: |
           shellspec --version
           jq --version
+          uv --version
 
       - name: Run unit tests
         shell: bash
@@ -119,41 +127,56 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
       actions: write
-    container:
-      image: ghcr.io/ivuorinen/actions:testing-tools
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 20
     if: github.event.inputs.test-type != 'unit'
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      - name: Setup Python
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@11c111b51546935c13007c2f58b5ab5b0f9e3c67 # v5.2.2
+        with:
+          enable-cache: true
+
+      - name: Set up Python
         uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
         with:
-          python-version: '3.x'
+          python-version-file: "pyproject.toml"
 
-      - name: Install PyYAML
-        run: pip install PyYAML
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        shell: bash
+      - name: Install Node dependencies
         run: npm ci
 
-      - name: Verify pre-installed tools
-        shell: bash
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends jq shellcheck
+
+      - name: Install ShellSpec
+        run: |
+          curl -fsSL https://git.io/shellspec | sh -s -- --yes
+          sudo ln -s ~/.local/lib/shellspec/shellspec /usr/local/bin/shellspec
+
+      - name: Install act
+        run: |
+          curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+
+      - name: Verify tools
         run: |
           act --version
           shellspec --version
+          jq --version
+          uv --version
 
       - name: Run integration tests
         shell: bash
@@ -181,13 +204,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
       actions: write
-    container:
-      image: ghcr.io/ivuorinen/actions:testing-tools
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 15
     needs:
       - unit-tests
@@ -197,22 +214,44 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@11c111b51546935c13007c2f58b5ab5b0f9e3c67 # v5.2.2
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        shell: bash
+      - name: Install Node dependencies
         run: npm ci
 
-      - name: Verify pre-installed tools
-        shell: bash
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends jq shellcheck kcov
+
+      - name: Install ShellSpec
+        run: |
+          curl -fsSL https://git.io/shellspec | sh -s -- --yes
+          sudo ln -s ~/.local/lib/shellspec/shellspec /usr/local/bin/shellspec
+
+      - name: Verify tools
         run: |
           shellspec --version
           kcov --version
           jq --version
+          uv --version
 
       - name: Generate coverage report
         run: make test-coverage
@@ -248,12 +287,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      packages: read
-    container:
-      image: ghcr.io/ivuorinen/actions:testing-tools
-      credentials:
-        username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
     timeout-minutes: 15
     if: github.event_name == 'pull_request'
 
@@ -263,19 +296,43 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Install uv
+        uses: astral-sh/setup-uv@11c111b51546935c13007c2f58b5ab5b0f9e3c67 # v5.2.2
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+        with:
+          python-version-file: "pyproject.toml"
+
+      - name: Install Python dependencies
+        run: uv sync --frozen
+
       - name: Setup Node.js
         uses: actions/setup-node@a0853c24544627f65ddf259abe73b1d18a591444 # v5.0.0
         with:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install dependencies
-        shell: bash
+      - name: Install Node dependencies
         run: npm ci
 
-      - name: Verify pre-installed tools
-        shell: bash
-        run: shellspec --version
+      - name: Install system tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends jq shellcheck
+
+      - name: Install ShellSpec
+        run: |
+          curl -fsSL https://git.io/shellspec | sh -s -- --yes
+          sudo ln -s ~/.local/lib/shellspec/shellspec /usr/local/bin/shellspec
+
+      - name: Verify tools
+        run: |
+          shellspec --version
+          jq --version
+          uv --version
 
       - name: Detect changed actions
         id: changed-actions

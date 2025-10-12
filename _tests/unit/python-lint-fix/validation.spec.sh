@@ -98,7 +98,7 @@ The status should be failure
 End
 
 It "accepts empty email (uses default)"
-When call python3 "_tests/shared/validation_core.py" --validate "python-lint-fix" "email" ""
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --validate "python-lint-fix" "email" ""
 The status should be success
 End
 End
@@ -125,7 +125,7 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 End

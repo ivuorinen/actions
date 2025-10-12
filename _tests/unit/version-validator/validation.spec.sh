@@ -177,17 +177,17 @@ End
 
 Context "when testing input requirements"
 It "requires version input"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "version" "required"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "version" "required"
 The status should be success
 The output should equal "required"
 End
 It "has validation-regex as optional input"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "validation-regex" "optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "validation-regex" "optional"
 The status should be success
 The output should equal "optional"
 End
 It "has language as optional input"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "language" "optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "language" "optional"
 The status should be success
 The output should equal "optional"
 End

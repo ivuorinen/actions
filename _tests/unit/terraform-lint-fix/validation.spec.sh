@@ -51,7 +51,7 @@ The status should be success
 End
 
 It "accepts terraform version with v prefix"
-When call python3 "_tests/shared/validation_core.py" --validate "terraform-lint-fix" "terraform-version" "v1.5.0"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --validate "terraform-lint-fix" "terraform-version" "v1.5.0"
 The status should be success
 End
 
@@ -120,7 +120,7 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call python3 "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 End

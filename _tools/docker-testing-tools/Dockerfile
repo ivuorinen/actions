@@ -182,12 +182,14 @@ RUN mkdir -p /workspace \
 USER $USERNAME
 WORKDIR /workspace
 
-# Install ShellSpec testing framework in user's home
-# Note: ShellSpec does not provide checksum files in releases, using official dist tarball
+# Install ShellSpec testing framework in user's home with checksum verification
+# ShellSpec 0.28.1 checksum: 350d3de04ba61505c54eda31a3c2ee912700f1758b1a80a284bc08fd8b6c5992
 # hadolint ignore=SC2016
 RUN mkdir -p ~/.local/bin \
   && tarball="shellspec-dist.tar.gz" \
+  && expected_checksum="350d3de04ba61505c54eda31a3c2ee912700f1758b1a80a284bc08fd8b6c5992" \
   && curl -fsSL "https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/${tarball}" -o "/tmp/${tarball}" \
+  && echo "${expected_checksum}  /tmp/${tarball}" | sha256sum -c - \
   && tar -xzf "/tmp/${tarball}" -C "$HOME/.local" \
   && ln -s "$HOME/.local/shellspec/shellspec" "$HOME/.local/bin/shellspec" \
   && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
