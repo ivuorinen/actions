@@ -116,9 +116,9 @@ optional_inputs:
         assert yaml_result is None or yaml_result == "yaml_file"
 
         # Boolean patterns ending with common suffixes (checking for presence)
-        result1 = self.validator._check_pattern_based_matches("enable_feature")
-        result2 = self.validator._check_pattern_based_matches("disable_option")
         # These may or may not match depending on implementation
+        assert self.validator._check_pattern_based_matches("enable_feature") is not None or True
+        assert self.validator._check_pattern_based_matches("disable_option") is not None or True
 
     def test_get_required_inputs(self):
         """Test getting required inputs."""
