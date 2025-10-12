@@ -177,6 +177,15 @@ jobs:
           shellspec --version
           jq --version
           uv --version
+          docker --version
+
+      - name: Setup Docker and act configuration
+        run: |
+          # Ensure Docker is running
+          docker ps > /dev/null 2>&1 || (echo "Docker is not running" && exit 1)
+
+          # Pre-pull the act Docker image to avoid interactive prompts
+          docker pull catthehacker/ubuntu:act-latest
 
       - name: Run integration tests
         shell: bash

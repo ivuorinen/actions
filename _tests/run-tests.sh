@@ -322,6 +322,7 @@ run_integration_tests() {
           -W "$workflow_file" \
           --container-architecture linux/amd64 \
           --artifact-server-path "$artifacts_dir" \
+          -P ubuntu-latest=catthehacker/ubuntu:act-latest \
           >"$output_file" 2>&1; then
 
           log_success "Integration tests passed: $action"
