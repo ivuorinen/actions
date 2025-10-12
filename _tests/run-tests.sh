@@ -243,9 +243,10 @@ run_unit_tests() {
       # Run shellspec and capture both exit code and output
       # Note: ShellSpec returns non-zero exit codes for warnings (101) and other conditions
       # We need to check the actual output to determine if tests failed
+      # Pass action name relative to --default-path (_tests/unit) for proper spec_helper loading
       (cd "$TEST_ROOT/.." && shellspec \
         --format documentation \
-        "$unit_test_dir") >"$output_file" 2>&1 || true
+        "$action") >"$output_file" 2>&1 || true
 
       # Parse the output to determine if tests actually failed
       # Look for the summary line which shows "X examples, Y failures"

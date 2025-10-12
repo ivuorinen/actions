@@ -157,6 +157,7 @@ jobs:
           !contains(github.event.head_commit.message, 'skip fix')
         uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
         with:
+          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
           branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
           commit_message: |
             style: apply MegaLinter fixes
