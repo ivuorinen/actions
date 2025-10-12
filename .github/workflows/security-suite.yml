@@ -77,6 +77,7 @@ jobs:
         continue-on-error: true
 
       - name: Analyze Security Results
+        id: analyze
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |-
@@ -289,6 +290,15 @@ jobs:
               sections.push(depSection.join('\n'));
             }
 
+            // Count critical issues for output
+            const criticalCount =
+              findings.secrets.filter(s => s.verified).length +
+              (findings.vulnerabilities.filter(v => v.severity.toUpperCase() === 'ERROR').length || 0) +
+              (findings.dependencies.filter(d => d.severity.toUpperCase() === 'CRITICAL').length || 0);
+
+            // Export critical count as output
+            core.setOutput('critical_issues', criticalCount.toString());
+
             // Generate final comment
             let comment = '## ✅ Security Analysis\n\n';
             if (sections.length === 0) {
@@ -325,4 +335,19 @@ jobs:
                 issue_number: context.issue.number,
                 body: comment
               });
+            }
+
+      - name: Check Critical Issues
+        if: always()
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        env:
+          CRITICAL_COUNT: ${{ steps.analyze.outputs.critical_issues }}
+        with:
+          script: |-
+            const criticalCount = parseInt(process.env.CRITICAL_COUNT || '0', 10);
+
+            if (criticalCount > 0) {
+              core.setFailed(`Found ${criticalCount} critical security issue(s). Please review and address them before merging.`);
+            } else {
+              console.log('No critical security issues found.');
             }

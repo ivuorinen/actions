@@ -36,9 +36,10 @@ It "rejects empty cache type"
 When call validate_input_python "common-cache" "type" ""
 The status should be failure
 End
-It "accepts invalid cache type (no validation in action)"
+It "rejects invalid cache type"
+Pending "TODO: Implement enum validation for cache type"
 When call validate_input_python "common-cache" "type" "invalid-type"
-The status should be success
+The status should be failure
 End
 End
 

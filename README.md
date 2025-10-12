@@ -11,7 +11,7 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 - **Production-Ready Actions** covering setup, linting, building, testing, and deployment
 - **Self-Contained Design** - each action works independently without dependencies
-- **External Usage Ready** - use any action as `ivuorinen/actions/action-name@main`
+- **External Usage Ready** - use any action with pinned refs: `ivuorinen/actions/action-name@2025-01-15` or `@<commit-sha>` for supply-chain security
 - **Multi-Language Support** including Node.js, PHP, Python, Go, C#, and more
 - **Standardized Patterns** with consistent error handling and input/output interfaces
 - **Comprehensive Testing** with dual testing framework (ShellSpec + pytest)
@@ -225,10 +225,18 @@ This repository contains **43 reusable GitHub Actions** for CI/CD automation.
 All actions can be used independently in your workflows:
 
 ```yaml
-- uses: ivuorinen/actions/action-name@main
+# Recommended: Use pinned refs for supply-chain security
+- uses: ivuorinen/actions/action-name@2025-01-15  # Date-based tag
+  with:
+    # action-specific inputs
+
+# Alternative: Use commit SHA for immutability
+- uses: ivuorinen/actions/action-name@abc123def456  # Full commit SHA
   with:
     # action-specific inputs
 ```
+
+> **Security Note**: Always pin to specific tags or commit SHAs instead of `@main` to ensure reproducible workflows and supply-chain integrity.
 
 <!-- Reference Links -->
 
@@ -284,22 +292,28 @@ All actions can be used independently in your workflows:
 
 ### Using Actions Externally
 
-All actions in this repository can be used in your workflows like any other GitHub Action:
+All actions in this repository can be used in your workflows like any other GitHub Action.
+
+**⚠️ Security Best Practice**: Always pin actions to specific tags or commit SHAs instead of `@main` to ensure:
+
+- **Reproducibility**: Workflows behave consistently over time
+- **Supply-chain integrity**: Protection against unexpected changes or compromises
+- **Immutability**: Reference exact versions that cannot be modified
 
 ```yaml
 steps:
   - name: Setup Node.js with Auto-Detection
-    uses: ivuorinen/actions/node-setup@main
+    uses: ivuorinen/actions/node-setup@2025-01-15  # Date-based tag
     with:
       default-version: '20'
 
   - name: Detect PHP Version
-    uses: ivuorinen/actions/php-version-detect@main
+    uses: ivuorinen/actions/php-version-detect@abc123def456  # Commit SHA
     with:
       default-version: '8.2'
 
   - name: Universal Version Parser
-    uses: ivuorinen/actions/version-file-parser@main
+    uses: ivuorinen/actions/version-file-parser@2025-01-15
     with:
       language: 'python'
       tool-versions-key: 'python'
@@ -314,7 +328,7 @@ Actions achieve modularity through composition:
 steps:
   - name: Parse Version
     id: parse-version
-    uses: ivuorinen/actions/version-file-parser@main
+    uses: ivuorinen/actions/version-file-parser@2025-01-15
     with:
       language: 'node'
       tool-versions-key: 'nodejs'

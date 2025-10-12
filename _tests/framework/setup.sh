@@ -20,7 +20,10 @@ MOCKS_DIR="${FRAMEWORK_DIR}/mocks"
 
 # Export directories for use by other scripts
 export FIXTURES_DIR MOCKS_DIR
-TEMP_DIR=$(mktemp -d) || exit 1
+# Only create TEMP_DIR if not already set
+if [ -z "${TEMP_DIR:-}" ]; then
+  TEMP_DIR=$(mktemp -d) || exit 1
+fi
 
 # Colors for output
 RED='\033[0;31m'
@@ -82,6 +85,13 @@ cleanup_test_env() {
   log_info "Cleaning up test environment for: $test_name"
 
   if [[ -n ${TEST_TEMP_DIR:-} && -d $TEST_TEMP_DIR ]]; then
+    # Check if current directory is inside TEST_TEMP_DIR
+    local current_dir
+    current_dir="$(pwd)"
+    if [[ "$current_dir" == "$TEST_TEMP_DIR"* ]]; then
+      cd "$GITHUB_WORKSPACE" || cd /tmp || true
+    fi
+
     rm -rf "$TEST_TEMP_DIR"
     log_success "Test environment cleanup complete"
   fi
@@ -90,6 +100,13 @@ cleanup_test_env() {
 # Cleanup framework temp directory
 cleanup_framework_temp() {
   if [[ -n ${TEMP_DIR:-} && -d $TEMP_DIR ]]; then
+    # Check if current directory is inside TEMP_DIR
+    local current_dir
+    current_dir="$(pwd)"
+    if [[ "$current_dir" == "$TEMP_DIR"* ]]; then
+      cd "$GITHUB_WORKSPACE" || cd /tmp || true
+    fi
+
     rm -rf "$TEMP_DIR"
     log_info "Framework temp directory cleaned up"
   fi

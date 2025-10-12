@@ -227,7 +227,7 @@ class ValidationCore:
             return True, ""
         if re.search(r"[;&|`$()@#]", value):
             return False, f"Potential injection detected in PHP extensions: {value}"
-        if not re.match(r"^[a-zA-Z0-9_,\\s]+$", value):
+        if not re.match(r"^[a-zA-Z0-9_,\s]+$", value):
             return False, f"Invalid PHP extensions format: {value}"
         return True, ""
 
@@ -377,13 +377,13 @@ class ValidationCore:
 
     def _validate_extensions(self, value: str) -> tuple[bool, str]:
         """Validate PHP extensions input."""
-        if re.search(r"[@#$&*(){}[\]|\\]", value):
+        if re.search(r"[@#$&*(){}\[\]|\\]", value):
             return False, f"Invalid characters in PHP extensions: {value}"
         return True, ""
 
     def _validate_tools(self, value: str) -> tuple[bool, str]:
         """Validate tools input (@ allowed for Composer stability flags like dev-master@dev)."""
-        if re.search(r"[#$&*(){}[\]|\\]", value):
+        if re.search(r"[#$&*(){}\[\]|\\]", value):
             return False, f"Invalid characters in tools specification: {value}"
         return True, ""
 

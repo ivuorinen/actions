@@ -46,7 +46,7 @@ When using these actions:
 
 > **Note**: `GITHUB_TOKEN` is automatically provided by GitHub Actions and does not require manual repository secret configuration.
 
-The following secrets should be configured in your repository:
+The following table shows available secrets (auto-provisioned secrets are provided by GitHub, optional secrets require manual repository configuration):
 
 | Secret Name         | Description                                                       | Requirement |
 | ------------------- | ----------------------------------------------------------------- | ----------- |

@@ -169,7 +169,7 @@ jobs:
 
       - name: Install act
         run: |
-          curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+          curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin
 
       - name: Verify tools
         run: |
@@ -239,7 +239,8 @@ jobs:
       - name: Install system tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y --no-install-recommends jq shellcheck kcov
+          sudo apt-get install -y --no-install-recommends jq shellcheck
+          sudo apt-get install -y --no-install-recommends kcov || true
 
       - name: Install ShellSpec
         run: |

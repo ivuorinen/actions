@@ -41,17 +41,17 @@ The status should be success
 End
 
 It "rejects path traversal in config file"
-When call validate_input_python "sync-labels" "config-file" "../../../etc/passwd"
+When call validate_input_python "sync-labels" "labels" "../../../etc/passwd"
 The status should be failure
 End
 
 It "rejects absolute path in config file"
-When call validate_input_python "sync-labels" "config-file" "/etc/passwd"
+When call validate_input_python "sync-labels" "labels" "/etc/passwd"
 The status should be failure
 End
 
 It "rejects config file with command injection"
-When call validate_input_python "sync-labels" "config-file" "labels.yml; rm -rf /"
+When call validate_input_python "sync-labels" "labels" "labels.yml; rm -rf /"
 The status should be failure
 End
 End
@@ -84,7 +84,7 @@ End
 
 Context "when testing security validations"
 It "validates against path traversal in config file"
-When call validate_input_python "sync-labels" "config-file" "../../malicious.yml"
+When call validate_input_python "sync-labels" "labels" "../../malicious.yml"
 The status should be failure
 End
 
@@ -94,7 +94,7 @@ The status should be failure
 End
 
 It "validates against shell metacharacters in config file"
-When call validate_input_python "sync-labels" "config-file" "labels.yml && rm -rf /"
+When call validate_input_python "sync-labels" "labels" "labels.yml && rm -rf /"
 The status should be failure
 End
 End

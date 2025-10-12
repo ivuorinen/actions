@@ -68,8 +68,8 @@ When call validate_input_python "dotnet-version-detect" "default-version" "8.0;m
 The status should be failure
 End
 
-It "validates path security"
-When call validate_input_python "dotnet-version-detect" "default-version" "src&&dangerous"
+It "validates version security"
+When call validate_input_python "dotnet-version-detect" "default-version" "8.0&&malicious"
 The status should be failure
 End
 End

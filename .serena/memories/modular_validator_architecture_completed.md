@@ -19,8 +19,9 @@ All 7 phases completed with 100% test pass rate and zero linting issues.
 
 2. **ValidatorRegistry** (`validators/registry.py`)
    - Dynamic validator discovery and loading
-   - Custom validator support via CustomValidator.py files
-   - Fallback to convention-based validation
+   - Custom validator support via action-specific `<action-name>/CustomValidator.py` files
+   - Searches project root for `<action-dir>/CustomValidator.py` (e.g., `docker-build/CustomValidator.py`)
+   - Fallback to convention-based validation when no custom validator exists
    - Added get_validator_by_type method for direct type access
 
 3. **ConventionBasedValidator** (`validators/conventions.py`)
@@ -47,9 +48,11 @@ All 7 phases completed with 100% test pass rate and zero linting issues.
 
 ### Custom Validators
 
-- Action-specific validation via CustomValidator.py
+- Action-specific validation via `<action-name>/CustomValidator.py` files
+- Located in each action's directory (e.g., `docker-build/CustomValidator.py`, `npm-publish/CustomValidator.py`)
 - Extends ConventionBasedValidator or BaseValidator
-- Examples: docker-build, sync-labels
+- Registry discovers custom validators by searching action directories in project root
+- Examples: docker-build, sync-labels, npm-publish, php-laravel-phpunit, validate-inputs
 
 ## Testing Infrastructure
 
@@ -141,7 +144,14 @@ validate-inputs/
 │   ├── benchmark-validator.py # Performance
 │   └── update-validators.py # Rule generation
 ├── docs/                    # Documentation
+├── CustomValidator.py       # Custom validator for validate-inputs action
 └── validator.py            # Main entry point
+
+# Custom validators in action directories (examples):
+docker-build/CustomValidator.py
+npm-publish/CustomValidator.py
+php-laravel-phpunit/CustomValidator.py
+version-validator/CustomValidator.py
 ```
 
 ## Key Achievements

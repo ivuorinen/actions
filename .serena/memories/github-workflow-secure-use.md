@@ -25,7 +25,20 @@ Comprehensive guide for secure use of GitHub Actions workflows.
 - Hard-code secrets in workflow files
 - Echo secrets to logs
 - Store secrets in environment variables without masking
-- Use structured data (JSON, YAML) as secrets
+
+⚠️ **USE WITH CAUTION:**
+
+- **Structured secrets (JSON, YAML, multi-line keys)**: While sometimes necessary (e.g., service account keys, certificate bundles), they carry additional risks:
+  - **Risks**: Parsing errors can expose content, accidental logging during manipulation, partial leaks when extracting fields
+  - **Mitigations**:
+    - Treat secrets as opaque blobs whenever possible (pass entire secret to tools without parsing)
+    - Never print, echo, or log secrets during parsing/extraction
+    - Use `::add-mask::` before any manipulation
+    - Prefer base64-encoded single-line format for transport
+    - Consider secrets managers (Vault, AWS Secrets Manager) for complex credentials
+    - Write secrets to temporary files with restricted permissions rather than parsing in shell
+    - Limit secret scope and access (repository-level, not organization-wide)
+    - Parse/validate only in secure, well-audited code paths with proper error handling
 
 **Example:**
 

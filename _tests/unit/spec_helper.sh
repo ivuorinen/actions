@@ -15,7 +15,10 @@ MOCKS_DIR="${FRAMEWORK_DIR}/mocks"
 
 # Export directories for use by test cases
 export FIXTURES_DIR MOCKS_DIR
-TEMP_DIR=$(mktemp -d) || exit 1
+# Only create TEMP_DIR if not already set (framework setup.sh will create it)
+if [ -z "${TEMP_DIR:-}" ]; then
+  TEMP_DIR=$(mktemp -d) || exit 1
+fi
 
 # Load framework utilities
 # shellcheck source=_tests/framework/setup.sh

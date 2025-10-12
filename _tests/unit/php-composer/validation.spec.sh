@@ -85,7 +85,7 @@ When call validate_input_python "php-composer" "extensions" "mbstring; rm -rf /"
 The status should be failure
 End
 
-It "accepts empty extensions"
+It "rejects empty extensions"
 When call validate_input_python "php-composer" "extensions" ""
 The status should be failure
 End
@@ -127,7 +127,7 @@ When call validate_input_python "php-composer" "tools" "composer; rm -rf /"
 The status should be failure
 End
 
-It "accepts empty tools"
+It "rejects empty tools"
 When call validate_input_python "php-composer" "tools" ""
 The status should be failure
 End
@@ -228,7 +228,7 @@ When call validate_input_python "php-composer" "cache-directories" "cache; rm -r
 The status should be failure
 End
 
-It "accepts empty cache directories"
+It "rejects empty cache directories"
 When call validate_input_python "php-composer" "cache-directories" ""
 The status should be failure
 End

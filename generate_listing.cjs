@@ -61,6 +61,10 @@ const CATEGORIES = {
   'common-cache': 'Repository',
   'common-file-check': 'Repository',
   'common-retry': 'Repository',
+  'codeql-analysis': 'Repository',
+
+  // Validation
+  'validate-inputs': 'Validation',
 };
 
 // Language support mappings
@@ -93,6 +97,13 @@ const LANGUAGE_SUPPORT = {
   'biome-check': ['JavaScript', 'TypeScript', 'JSON'],
   'biome-fix': ['JavaScript', 'TypeScript', 'JSON'],
   'npm-publish': ['Node.js', 'npm'],
+  'codeql-analysis': ['JavaScript', 'TypeScript', 'Python', 'Java', 'C#', 'C++', 'Go', 'Ruby'],
+  'validate-inputs': ['YAML', 'GitHub Actions'],
+  'pre-commit': ['Python', 'Multiple Languages'],
+  'pr-lint': ['Conventional Commits'],
+  'sync-labels': ['YAML', 'GitHub'],
+  'version-file-parser': ['Multiple Languages'],
+  'version-validator': ['Semantic Versioning', 'CalVer'],
 };
 
 // Icon mapping for GitHub branding
@@ -135,6 +146,7 @@ const CATEGORY_ICONS = {
   Build: '🏗️',
   Publishing: '🚀',
   Repository: '📦',
+  Validation: '✅',
 };
 
 function getActionDetails(actionPath) {
@@ -238,7 +250,7 @@ function generateCategoryTables(actions) {
   let output = '';
 
   // Sort categories by priority
-  const categoryOrder = ['Setup', 'Utilities', 'Linting', 'Testing', 'Build', 'Publishing', 'Repository'];
+  const categoryOrder = ['Setup', 'Utilities', 'Linting', 'Testing', 'Build', 'Publishing', 'Repository', 'Validation'];
 
   for (const category of categoryOrder) {
     if (!categories[category]) continue;
