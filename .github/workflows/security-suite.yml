@@ -38,6 +38,7 @@ jobs:
         uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
         with:
           fetch-depth: 0
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Fetch PR Base
@@ -62,7 +63,6 @@ jobs:
         uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: 'auto'
-          generateSarif: 'true'
         env:
           SEMGREP_APP_TOKEN: ${{ github.event_name != 'pull_request_target' && secrets.SEMGREP_APP_TOKEN || '' }}
         continue-on-error: true
@@ -341,7 +341,7 @@ jobs:
         if: always()
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         env:
-          CRITICAL_COUNT: ${{ steps.analyze.outputs.critical_issues }}
+          CRITICAL_COUNT: ${{ steps.analyze.outputs.critical_issues || '0' }}
         with:
           script: |-
             const criticalCount = parseInt(process.env.CRITICAL_COUNT || '0', 10);

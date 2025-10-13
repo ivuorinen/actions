@@ -3,11 +3,12 @@
 from pathlib import Path
 import sys
 
-import pytest
+import pytest  # pylint: disable=import-error
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# pylint: disable=wrong-import-position
 from validators.version import VersionValidator
 
 from tests.fixtures.version_test_data import (
@@ -18,10 +19,10 @@ from tests.fixtures.version_test_data import (
 )
 
 
-class TestVersionValidator:
+class TestVersionValidator:  # pylint: disable=too-many-public-methods
     """Test cases for VersionValidator."""
 
-    def setup_method(self):
+    def setup_method(self):  # pylint: disable=attribute-defined-outside-init
         """Set up test environment."""
         self.validator = VersionValidator()
 

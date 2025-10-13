@@ -226,12 +226,12 @@ All actions can be used independently in your workflows:
 
 ```yaml
 # Recommended: Use pinned refs for supply-chain security
-- uses: ivuorinen/actions/action-name@2025-01-15  # Date-based tag
+- uses: ivuorinen/actions/action-name@2025-01-15 # Date-based tag
   with:
     # action-specific inputs
 
 # Alternative: Use commit SHA for immutability
-- uses: ivuorinen/actions/action-name@abc123def456  # Full commit SHA
+- uses: ivuorinen/actions/action-name@abc123def456 # Full commit SHA
   with:
     # action-specific inputs
 ```
@@ -303,12 +303,12 @@ All actions in this repository can be used in your workflows like any other GitH
 ```yaml
 steps:
   - name: Setup Node.js with Auto-Detection
-    uses: ivuorinen/actions/node-setup@2025-01-15  # Date-based tag
+    uses: ivuorinen/actions/node-setup@2025-01-15 # Date-based tag
     with:
       default-version: '20'
 
   - name: Detect PHP Version
-    uses: ivuorinen/actions/php-version-detect@abc123def456  # Commit SHA
+    uses: ivuorinen/actions/php-version-detect@abc123def456 # Commit SHA
     with:
       default-version: '8.2'
 

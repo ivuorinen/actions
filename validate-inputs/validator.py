@@ -14,7 +14,7 @@ import sys
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from validators.registry import get_validator
+from validators.registry import get_validator  # pylint: disable=wrong-import-position
 
 # Configure logging for GitHub Actions
 logging.basicConfig(
@@ -59,7 +59,7 @@ def write_output(status: str, action_type: str, **kwargs) -> None:
         # Try to create parent directory if it doesn't exist
         output_path.parent.mkdir(parents=True, exist_ok=True)
 
-        with output_path.open("a") as f:
+        with output_path.open("a", encoding="utf-8") as f:
             lines = [
                 f"status={status}\n",
                 f"action={action_type}\n",

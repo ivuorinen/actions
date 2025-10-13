@@ -3,11 +3,12 @@
 from pathlib import Path
 import sys
 
-import pytest
+import pytest  # pylint: disable=import-error
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# pylint: disable=wrong-import-position
 from validators.token import TokenValidator
 
 from tests.fixtures.version_test_data import GITHUB_TOKEN_INVALID, GITHUB_TOKEN_VALID
@@ -16,13 +17,13 @@ from tests.fixtures.version_test_data import GITHUB_TOKEN_INVALID, GITHUB_TOKEN_
 class TestTokenValidator:
     """Test cases for TokenValidator."""
 
-    def setup_method(self):
+    def setup_method(self):  # pylint: disable=attribute-defined-outside-init
         """Set up test environment."""
         self.validator = TokenValidator()
 
     def test_initialization(self):
         """Test validator initialization."""
-        assert self.validator.errors == []
+        assert not self.validator.errors
         assert "github_classic" in self.validator.TOKEN_PATTERNS
         assert "github_fine_grained" in self.validator.TOKEN_PATTERNS
         assert "npm_classic" in self.validator.TOKEN_PATTERNS

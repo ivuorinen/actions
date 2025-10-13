@@ -135,7 +135,7 @@ class NetworkValidator(BaseValidator):
                 return False
 
         # Basic URL validation (with optional port)
-        url_pattern = r"^https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s]*)?$"
+        url_pattern = r"^https?://[\w.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s]*)?$"
         if not re.match(url_pattern, value):
             self.add_error(f'Invalid {name}: "{value}". Invalid URL format')
             return False
@@ -336,8 +336,8 @@ class NetworkValidator(BaseValidator):
 
         # IPv4 pattern
         ipv4_pattern = (
-            r"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}"
-            r"(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"
+            r"^(?:(?:25[0-5]|2[0-4]\d|[01]?\d\d?)\.){3}"
+            r"(?:25[0-5]|2[0-4]\d|[01]?\d\d?)$"
         )
         if re.match(ipv4_pattern, ip):
             return True

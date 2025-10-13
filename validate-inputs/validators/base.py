@@ -195,12 +195,12 @@ class BaseValidator(ABC):
             return {}
 
         try:
-            import yaml
+            import yaml  # pylint: disable=import-error,import-outside-toplevel
 
-            with rules_path.open() as f:
+            with rules_path.open(encoding="utf-8") as f:
                 self._rules = yaml.safe_load(f) or {}
                 return self._rules
-        except Exception as e:
+        except Exception as e:  # pylint: disable=broad-exception-caught
             self.add_error(f"Failed to load rules from {rules_path}: {e}")
             return {}
 

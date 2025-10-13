@@ -4,6 +4,7 @@
 This script generates test files for actions and validators based on their
 definitions, without overwriting existing tests.
 """
+# pylint: disable=invalid-name  # Script name matches convention
 
 from __future__ import annotations
 
@@ -13,7 +14,7 @@ from pathlib import Path
 import re
 import sys
 
-import yaml
+import yaml  # pylint: disable=import-error
 
 # Set up logging
 logging.basicConfig(

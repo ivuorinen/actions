@@ -3,11 +3,12 @@
 from pathlib import Path
 import sys
 
-import pytest
+import pytest  # pylint: disable=import-error
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# pylint: disable=wrong-import-position
 from validators.numeric import NumericValidator
 
 from tests.fixtures.version_test_data import NUMERIC_RANGE_INVALID, NUMERIC_RANGE_VALID
@@ -16,13 +17,13 @@ from tests.fixtures.version_test_data import NUMERIC_RANGE_INVALID, NUMERIC_RANG
 class TestNumericValidator:
     """Test cases for NumericValidator."""
 
-    def setup_method(self):
+    def setup_method(self):  # pylint: disable=attribute-defined-outside-init
         """Set up test environment."""
         self.validator = NumericValidator()
 
     def test_initialization(self):
         """Test validator initialization."""
-        assert self.validator.errors == []
+        assert not self.validator.errors
         rules = self.validator.get_validation_rules()
         assert rules is not None
 

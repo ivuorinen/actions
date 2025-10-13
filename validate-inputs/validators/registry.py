@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import importlib
 import importlib.util
+import logging
 from pathlib import Path
 import sys
 from typing import TYPE_CHECKING
@@ -115,10 +116,13 @@ class ValidatorRegistry:
                 validator_class = module.CustomValidator
                 return validator_class(action_type)
 
-        except Exception as e:
+        except (ImportError, AttributeError, TypeError, ValueError) as e:
             # Log at debug level - custom validators are optional
-            import logging
-
+            # Catch common errors during dynamic module loading:
+            # - ImportError: Module dependencies not found
+            # - AttributeError: Module doesn't have CustomValidator
+            # - TypeError: Validator instantiation failed
+            # - ValueError: Invalid validator configuration
             logger = logging.getLogger(__name__)
             logger.debug("Could not load custom validator for %s: %s", action_type, e)
 

@@ -17,7 +17,7 @@ runs:
   using: composite
   steps:
     - name: Install uv
-      uses: astral-sh/setup-uv@eb1897b8dc4b5d5bfe39a428a8f2304605e0983c # v7.0.0
+      uses: astral-sh/setup-uv@3259c6206f993105e3a61b142c2d97bf4b9ef83d # v7.1.0
       with:
         enable-cache: true
 
@@ -46,7 +46,10 @@ runs:
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends jq shellcheck
         if [[ "${{ inputs.install-kcov }}" == "true" ]]; then
-          sudo apt-get install -y --no-install-recommends kcov || true
+          if ! sudo apt-get install -y --no-install-recommends kcov; then
+            echo "kcov installation failed" >&2
+            exit 1
+          fi
         fi
 
     - name: Install ShellSpec

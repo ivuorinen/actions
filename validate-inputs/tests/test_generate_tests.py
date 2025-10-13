@@ -1,11 +1,12 @@
 """Tests for the test generation system."""
+# pylint: disable=protected-access  # Testing private methods is intentional
 
 import importlib.util
 from pathlib import Path
 import sys
 import tempfile
 
-import yaml
+import yaml  # pylint: disable=import-error
 
 # Import the test generator
 scripts_path = Path(__file__).parent.parent / "scripts"
@@ -24,15 +25,14 @@ GeneratorClass = generate_tests.TestGenerator
 class TestTestGenerator:
     """Test cases for the test generation system."""
 
-    def setup_method(self):
+    def setup_method(self):  # pylint: disable=attribute-defined-outside-init
         """Set up test fixtures."""
         self.temp_dir = Path(tempfile.mkdtemp())
         self.generator = GeneratorClass(self.temp_dir)
 
     def teardown_method(self):
         """Clean up test fixtures."""
-        # Clean up temp directory
-        import shutil
+        import shutil  # pylint: disable=import-outside-toplevel
 
         if self.temp_dir.exists():
             shutil.rmtree(self.temp_dir)

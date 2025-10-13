@@ -7,11 +7,12 @@ from pathlib import Path
 import sys
 from unittest.mock import MagicMock, patch
 
-import pytest
+import pytest  # pylint: disable=import-error
 
 # Add validate-inputs directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+# pylint: disable=wrong-import-position
 from modular_validator import main
 
 

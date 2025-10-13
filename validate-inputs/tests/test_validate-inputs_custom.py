@@ -1,4 +1,5 @@
 """Tests for validate-inputs custom validator."""
+# pylint: disable=invalid-name  # Test file name matches action name
 
 from pathlib import Path
 import sys

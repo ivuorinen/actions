@@ -100,7 +100,7 @@ jobs:
             echo "\`\`\`"
             echo ""
             echo "### Pre-installed Tools"
-            echo "- ShellSpec ${{ env.SHELLSPEC_VERSION || '0.28.1' }}"
+            echo "- ShellSpec"
             echo "- nektos/act (latest)"
             echo "- Trivy security scanner (latest)"
             echo "- TruffleHog secrets scanner (latest)"

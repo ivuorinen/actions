@@ -19,7 +19,7 @@ from pathlib import Path
 import re
 import sys
 
-import yaml
+import yaml  # pylint: disable=import-error
 
 
 class ActionValidator:
@@ -56,7 +56,7 @@ class ActionValidator:
         Returns:
             True if pattern requires PCRE features, False otherwise
         """
-        for feature, regex in self.COMPLEX_PATTERNS.items():
+        for regex in self.COMPLEX_PATTERNS.values():
             if re.search(regex, pattern):
                 return True
         return False
@@ -90,7 +90,7 @@ class ActionValidator:
             return True, ""
 
         # Check against all known token patterns
-        for token_type, pattern in self.TOKEN_PATTERNS.items():
+        for pattern in self.TOKEN_PATTERNS.values():
             if re.match(pattern, token):
                 return True, ""
 
@@ -189,7 +189,7 @@ def extract_validation_patterns(action_file: str) -> dict[str, list[str]]:
     patterns = {}
 
     try:
-        with Path(action_file).open() as f:
+        with Path(action_file).open(encoding="utf-8") as f:
             content = f.read()
 
         # Look for validation patterns in the shell scripts
@@ -216,13 +216,13 @@ def extract_validation_patterns(action_file: str) -> dict[str, list[str]]:
                     patterns[input_name] = []
                 patterns[input_name].append(pattern)
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Error extracting patterns from {action_file}: {e}", file=sys.stderr)
 
     return patterns
 
 
-def get_input_property(action_file: str, input_name: str, property_check: str) -> str:
+def get_input_property(action_file: str, input_name: str, property_check: str) -> str:  # pylint: disable=too-many-return-statements
     """
     Get a property of an input from an action.yml file.
 
@@ -270,7 +270,7 @@ def get_input_property(action_file: str, input_name: str, property_check: str) -
 
         return f"unknown-property-{property_check}"
 
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         return f"error: {e}"
 
 
@@ -457,7 +457,7 @@ def _validate_registry(input_value: str, action_name: str) -> tuple[bool, str]:
     if action_name == "docker-publish":
         if input_value not in ["dockerhub", "github", "both"]:
             return False, "Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
-    elif input_value and not re.match(r"^[a-zA-Z0-9.-]+(\:[0-9]+)?$", input_value):
+    elif input_value and not re.match(r"^[\w.-]+(:\d+)?$", input_value):
         return False, f"Invalid registry format: {input_value}"
     return True, ""
 
@@ -516,14 +516,14 @@ def _validate_go_version(input_value: str) -> tuple[bool, str]:
     """Validate Go version format."""
     if input_value in ["stable", "latest"]:
         return True, ""
-    if input_value and not re.match(r"^v?[0-9]+\.[0-9]+(\.[0-9]+)?", input_value):
+    if input_value and not re.match(r"^v?\d+\.\d+(\.\d+)?", input_value):
         return False, f"Invalid Go version format: {input_value}"
     return True, ""
 
 
 def _validate_timeout_with_unit(input_value: str) -> tuple[bool, str]:
     """Validate timeout with unit format."""
-    if input_value and not re.match(r"^[0-9]+[smh]$", input_value):
+    if input_value and not re.match(r"^\d+[smh]$", input_value):
         return False, "Invalid timeout format. Use format like '5m', '300s', or '1h'"
     return True, ""
 
@@ -541,7 +541,7 @@ def _validate_version_types(input_value: str) -> tuple[bool, str]:
         return True, ""
     if input_value.startswith("v"):
         return False, f"Version should not start with 'v': {input_value}"
-    if not re.match(r"^[0-9]+\.[0-9]+(\.[0-9]+)?", input_value):
+    if not re.match(r"^\d+\.\d+(\.\d+)?", input_value):
         return False, f"Invalid version format: {input_value}"
     return True, ""
 
@@ -584,7 +584,7 @@ def _validate_terraform_version(input_value: str) -> tuple[bool, str]:
         return True, ""
     if input_value and input_value.startswith("v"):
         return False, f"Terraform version should not start with 'v': {input_value}"
-    if input_value and not re.match(r"^[0-9]+\.[0-9]+(\.[0-9]+)?", input_value):
+    if input_value and not re.match(r"^\d+\.\d+(\.\d+)?", input_value):
         return False, f"Invalid terraform version format: {input_value}"
     return True, ""
 
@@ -645,7 +645,7 @@ def _load_validation_rules(action_dir: str) -> tuple[dict, bool]:
     try:
         with Path(rules_file).open(encoding="utf-8") as f:
             return yaml.safe_load(f), True
-    except Exception as e:
+    except Exception as e:  # pylint: disable=broad-exception-caught
         print(f"Warning: Could not load centralized rules for {action_name}: {e}", file=sys.stderr)
         return {}, False
 

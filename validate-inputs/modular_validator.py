@@ -15,7 +15,7 @@ import sys
 # Add validators module to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from validators.registry import get_validator
+from validators.registry import get_validator  # pylint: disable=wrong-import-position
 
 # Configure logging for GitHub Actions
 logging.basicConfig(
@@ -34,7 +34,7 @@ def main() -> None:
         if not action_type:
             logger.error("::error::action-type is required but not provided")
             output_path = Path(os.environ["GITHUB_OUTPUT"])
-            with output_path.open("a") as f:
+            with output_path.open("a", encoding="utf-8") as f:
                 f.write("status=failure\n")
                 f.write("error=action-type is required\n")
             sys.exit(1)
@@ -63,13 +63,13 @@ def main() -> None:
         output_path = Path(os.environ["GITHUB_OUTPUT"])
         if validator.validate_inputs(inputs):
             logger.info("::notice::All input validation checks passed")
-            with output_path.open("a") as f:
+            with output_path.open("a", encoding="utf-8") as f:
                 f.write("status=success\n")
         else:
             logger.error("::error::Input validation failed")
             for error in validator.errors:
                 logger.error("::error::%s", error)
-            with output_path.open("a") as f:
+            with output_path.open("a", encoding="utf-8") as f:
                 f.write("status=failure\n")
                 f.write(f"error={'; '.join(validator.errors)}\n")
             sys.exit(1)
@@ -78,7 +78,7 @@ def main() -> None:
         logger.exception("::error::Validation script error")
         github_output = os.environ.get("GITHUB_OUTPUT", "")
         output_path = Path(github_output) if github_output else Path.home() / "github_output"
-        with output_path.open("a") as f:
+        with output_path.open("a", encoding="utf-8") as f:
             f.write("status=failure\n")
             f.write("error=Validation script error\n")
         sys.exit(1)

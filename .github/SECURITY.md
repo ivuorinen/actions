@@ -44,9 +44,11 @@ When using these actions:
 
 ## Required Secrets
 
-> **Note**: `GITHUB_TOKEN` is automatically provided by GitHub Actions and does not require manual repository secret configuration.
+> **Note**: `GITHUB_TOKEN` is automatically provided by GitHub Actions and does
+> not require manual repository secret configuration.
 
-The following table shows available secrets (auto-provisioned secrets are provided by GitHub, optional secrets require manual repository configuration):
+The following table shows available secrets (auto-provisioned secrets are provided by
+GitHub, optional secrets require manual repository configuration):
 
 | Secret Name         | Description                                                       | Requirement |
 | ------------------- | ----------------------------------------------------------------- | ----------- |
@@ -81,7 +83,28 @@ This repository includes several security-focused workflows:
    - Reviews dependency changes in pull requests
    - Checks for known vulnerabilities
    - License compliance validation
-   - Blocks PRs with critical vulnerabilities
+   - Fails PRs with critical vulnerabilities (gated by branch protection)
+
+   How to enforce gating
+   - Update .github/workflows/dependency-review.yml: add the `fail-on-severity: critical`
+     input to the Dependency Review step. Example:
+
+   ```yaml
+   - name: Dependency Review
+     uses: github/dependency-review-action@v3
+     with:
+     fail-on-severity: critical
+   ```
+
+   - Require the Dependency Review workflow in branch protection:
+     - Go to Repository → Settings → Branches → Branch protection rules → Edit (or create)
+       rule for your protected branch.
+     - Under "Require status checks to pass before merging", add the exact status check
+       name shown in PR checks (e.g., "Dependency Review") and save.
+   - Verify: open a test PR with a simulated critical vulnerability or run the workflow
+     to confirm it fails and the branch protection blocks merging until the check is green.
+   - Optional: If you manage protections via config or API, add the workflow status
+     check name to your protection rule programmatically.
 
 ## Security Reports
 

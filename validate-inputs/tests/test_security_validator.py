@@ -262,16 +262,16 @@ class TestSecurityValidator:
     def test_validate_regex_pattern_safe_patterns(self):
         """Test that safe regex patterns pass validation."""
         safe_patterns = [
-            r"^[0-9]+$",
-            r"^[a-zA-Z0-9]+$",
-            r"^[0-9]+\.[0-9]+$",
-            r"^[0-9]+\.[0-9]+\.[0-9]+$",
-            r"^v?[0-9]+\.[0-9]+(\.[0-9]+)?$",
-            r"^[a-zA-Z0-9_-]+$",
+            r"^\d+$",
+            r"^[\w]+$",
+            r"^\d+\.\d+$",
+            r"^\d+\.\d+\.\d+$",
+            r"^v?\d+\.\d+(\.\d+)?$",
+            r"^[\w-]+$",
             r"^(alpha|beta|gamma)$",
-            r"^[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}$",
+            r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$",
             r"^[a-z]+@[a-z]+\.[a-z]+$",
-            r"^https?://[a-zA-Z0-9.-]+$",
+            r"^https?://[\w.-]+$",
         ]
 
         for pattern in safe_patterns:
@@ -372,7 +372,7 @@ class TestSecurityValidator:
     def test_validate_regex_pattern_command_injection(self):
         """Test that command injection in regex patterns is detected."""
         injection_patterns = [
-            r"^[0-9]+$; rm -rf /",
+            r"^\d+$; rm -rf /",
             r"test && cat /etc/passwd",
             r"pattern | sh",
             r"$(whoami)",
@@ -427,8 +427,8 @@ class TestSecurityValidator:
     def test_validate_regex_pattern_optional_groups(self):
         """Test that optional groups (?) are allowed."""
         optional_patterns = [
-            r"^[0-9]+(\.[0-9]+)?$",  # Optional decimal part
-            r"^v?[0-9]+\.[0-9]+$",  # Optional 'v' prefix
+            r"^\d+(\.\d+)?$",  # Optional decimal part
+            r"^v?\d+\.\d+$",  # Optional 'v' prefix
             r"^(https?://)?example\.com$",  # Optional protocol
             r"^[a-z]+(-[a-z]+)?$",  # Optional suffix
         ]

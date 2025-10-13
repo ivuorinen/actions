@@ -170,6 +170,9 @@ version-validator/CustomValidator.py
 
 ```python
 # docker-build/CustomValidator.py
+from validate-inputs.validators.conventions import ConventionBasedValidator
+from validate-inputs.validators.docker import DockerValidator
+
 class CustomValidator(ConventionBasedValidator):
     def __init__(self, action_type: str):
         super().__init__(action_type)

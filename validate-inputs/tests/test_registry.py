@@ -30,10 +30,10 @@ class MockValidator(BaseValidator):
         return {"test": "rules"}
 
 
-class TestValidatorRegistry(unittest.TestCase):
+class TestValidatorRegistry(unittest.TestCase):  # pylint: disable=too-many-public-methods
     """Test the ValidatorRegistry class."""
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=attribute-defined-outside-init
         """Set up test fixtures."""
         self.registry = ValidatorRegistry()
         # Clear any cached validators
@@ -96,7 +96,7 @@ class CustomValidator(BaseValidator):
             ):
                 # This test would need more setup to properly test dynamic loading
                 # For now, we'll just verify the method exists
-                result = self.registry._load_custom_validator("test_action")
+                result = self.registry._load_custom_validator("test_action")  # pylint: disable=protected-access
                 # In a real test environment, this would load the custom validator
                 # For now, it returns None due to path resolution issues in test
                 assert result is None  # Expected in test environment
@@ -117,7 +117,7 @@ class CustomValidator(BaseValidator):
         assert validator2 is not None
 
 
-class TestCustomValidatorIntegration(unittest.TestCase):
+class TestCustomValidatorIntegration(unittest.TestCase):  # pylint: disable=too-many-public-methods
     """Test custom validator integration."""
 
     def test_sync_labels_custom_validator(self):
@@ -133,7 +133,7 @@ class TestCustomValidatorIntegration(unittest.TestCase):
             # Try to import the CustomValidator
             try:
                 # Use dynamic import to avoid static analysis errors
-                import importlib.util
+                import importlib.util  # pylint: disable=import-outside-toplevel
 
                 spec = importlib.util.spec_from_file_location(
                     "CustomValidator",

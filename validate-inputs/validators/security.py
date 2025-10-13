@@ -242,7 +242,7 @@ class SecurityValidator(BaseValidator):
             return False
 
         # Check for single & (background execution)
-        if re.search(r"(?<![&])&(?![&])", value):
+        if re.search(r"(?<!&)&(?!&)", value):
             self.add_error(f"Background execution pattern '&' detected in {name}")
             return False
 
@@ -360,20 +360,16 @@ class SecurityValidator(BaseValidator):
         """Alias for validate_safe_environment_variable for test compatibility."""
         return self.validate_safe_environment_variable(value, name)
 
-    def validate_no_secrets(self, value: str, name: str = "input") -> bool:
-        """Validate that no secrets or sensitive data are present.
+    def _check_github_tokens(self, value: str, name: str) -> bool:
+        """Check for GitHub token patterns.
 
         Args:
             value: The value to check
             name: The input name for error messages
 
         Returns:
-            True if no secrets detected, False otherwise
+            True if no GitHub tokens found, False otherwise
         """
-        if not value or value.strip() == "":
-            return True
-
-        # Check for GitHub tokens
         github_token_patterns = [
             r"ghp_[a-zA-Z0-9]{36}",  # GitHub personal access token
             r"gho_[a-zA-Z0-9]{36}",  # GitHub OAuth token
@@ -387,8 +383,18 @@ class SecurityValidator(BaseValidator):
             if re.search(pattern, value):
                 self.add_error(f"Potential GitHub token detected in {name}")
                 return False
+        return True
 
-        # Check for API key patterns
+    def _check_api_keys(self, value: str, name: str) -> bool:
+        """Check for API key patterns.
+
+        Args:
+            value: The value to check
+            name: The input name for error messages
+
+        Returns:
+            True if no API keys found, False otherwise
+        """
         api_key_patterns = [
             r"api[_-]?key\s*[:=]\s*['\"]?[a-zA-Z0-9]{20,}",  # Generic API key
             r"secret[_-]?key\s*[:=]\s*['\"]?[a-zA-Z0-9]{20,}",  # Secret key
@@ -399,8 +405,18 @@ class SecurityValidator(BaseValidator):
             if re.search(pattern, value, re.IGNORECASE):
                 self.add_error(f"Potential API key detected in {name}")
                 return False
+        return True
 
-        # Check for password patterns
+    def _check_passwords(self, value: str, name: str) -> bool:
+        """Check for password patterns.
+
+        Args:
+            value: The value to check
+            name: The input name for error messages
+
+        Returns:
+            True if no passwords found, False otherwise
+        """
         password_patterns = [
             r"password\s*[:=]\s*['\"]?[^\s'\"]{8,}",  # Password assignment
             r"passwd\s*[:=]\s*['\"]?[^\s'\"]{8,}",  # Passwd assignment
@@ -411,8 +427,18 @@ class SecurityValidator(BaseValidator):
             if re.search(pattern, value, re.IGNORECASE):
                 self.add_error(f"Potential password detected in {name}")
                 return False
+        return True
 
-        # Check for private key markers
+    def _check_private_keys(self, value: str, name: str) -> bool:
+        """Check for private key markers.
+
+        Args:
+            value: The value to check
+            name: The input name for error messages
+
+        Returns:
+            True if no private keys found, False otherwise
+        """
         private_key_markers = [
             "-----BEGIN RSA PRIVATE KEY-----",
             "-----BEGIN PRIVATE KEY-----",
@@ -425,8 +451,18 @@ class SecurityValidator(BaseValidator):
             if marker in value:
                 self.add_error(f"Private key detected in {name}")
                 return False
+        return True
 
-        # Check for Base64 encoded secrets (common for credentials)
+    def _check_encoded_secrets(self, value: str, name: str) -> bool:
+        """Check for Base64 encoded secrets.
+
+        Args:
+            value: The value to check
+            name: The input name for error messages
+
+        Returns:
+            True if no encoded secrets found, False otherwise
+        """
         # Look for long base64 strings that might be credentials
         # and if it contains words like secret, key, token, password
         if re.search(r"[A-Za-z0-9+/]{40,}={0,2}", value) or (
@@ -435,8 +471,29 @@ class SecurityValidator(BaseValidator):
         ):
             self.add_error(f"Potential encoded secret detected in {name}")
             return False
-
         return True
+
+    def validate_no_secrets(self, value: str, name: str = "input") -> bool:
+        """Validate that no secrets or sensitive data are present.
+
+        Args:
+            value: The value to check
+            name: The input name for error messages
+
+        Returns:
+            True if no secrets detected, False otherwise
+        """
+        if not value or value.strip() == "":
+            return True
+
+        # Run all secret detection checks
+        return (
+            self._check_github_tokens(value, name)
+            and self._check_api_keys(value, name)
+            and self._check_passwords(value, name)
+            and self._check_private_keys(value, name)
+            and self._check_encoded_secrets(value, name)
+        )
 
     def _check_command_injection_in_regex(self, pattern: str, name: str) -> bool:
         """Check for command injection patterns in regex.
@@ -487,6 +544,69 @@ class SecurityValidator(BaseValidator):
                 return False
         return True
 
+    def _check_duplicate_alternatives(self, alt1: str, alt2: str, group: str, name: str) -> bool:
+        """Check if two alternatives are exact duplicates.
+
+        Args:
+            alt1: First alternative
+            alt2: Second alternative
+            group: The full group string for error message
+            name: The input name for error messages
+
+        Returns:
+            True if not duplicates, False if duplicates detected
+        """
+        if alt1 == alt2:
+            self.add_error(
+                f"ReDoS risk detected in {name}: duplicate alternatives "
+                f"in repeating group '({group})' can cause "
+                "catastrophic backtracking"
+            )
+            return False
+        return True
+
+    def _check_overlapping_alternatives(self, alt1: str, alt2: str, group: str, name: str) -> bool:
+        """Check if two alternatives have prefix overlap.
+
+        Args:
+            alt1: First alternative
+            alt2: Second alternative
+            group: The full group string for error message
+            name: The input name for error messages
+
+        Returns:
+            True if no overlap, False if overlap detected
+        """
+        if alt1.startswith(alt2) or alt2.startswith(alt1):
+            self.add_error(
+                f"ReDoS risk detected in {name}: overlapping alternatives "
+                f"in repeating group '({group})' can cause "
+                "catastrophic backtracking"
+            )
+            return False
+        return True
+
+    def _validate_alternative_pairs(self, alternatives: list[str], group: str, name: str) -> bool:
+        """Validate all pairs of alternatives for duplicates and overlaps.
+
+        Args:
+            alternatives: List of alternatives to check
+            group: The full group string for error message
+            name: The input name for error messages
+
+        Returns:
+            True if all pairs are safe, False otherwise
+        """
+        for i, alt1 in enumerate(alternatives):
+            for alt2 in alternatives[i + 1 :]:
+                # Check for exact duplicates
+                if not self._check_duplicate_alternatives(alt1, alt2, group, name):
+                    return False
+                # Check for prefix overlaps
+                if not self._check_overlapping_alternatives(alt1, alt2, group, name):
+                    return False
+        return True
+
     def _check_alternation_repetition(self, pattern: str, name: str) -> bool:
         """Check for alternation with repetition that can cause ReDoS.
 
@@ -505,25 +625,9 @@ class SecurityValidator(BaseValidator):
         matches = re.finditer(r"\(([^)]*\|[^)]*)\)[+*{]", pattern)
         for match in matches:
             alternatives = match.group(1).split("|")
-            # Check for exact duplicates or prefix overlaps
-            for i, alt1 in enumerate(alternatives):
-                for alt2 in alternatives[i + 1 :]:
-                    # Exact duplicate
-                    if alt1 == alt2:
-                        self.add_error(
-                            f"ReDoS risk detected in {name}: duplicate alternatives "
-                            f"in repeating group '({match.group(1)})' can cause "
-                            "catastrophic backtracking"
-                        )
-                        return False
-                    # Prefix overlap (one alternative is prefix of another)
-                    if alt1.startswith(alt2) or alt2.startswith(alt1):
-                        self.add_error(
-                            f"ReDoS risk detected in {name}: overlapping alternatives "
-                            f"in repeating group '({match.group(1)})' can cause "
-                            "catastrophic backtracking"
-                        )
-                        return False
+            # Validate all pairs of alternatives
+            if not self._validate_alternative_pairs(alternatives, match.group(1), name):
+                return False
         return True
 
     def _check_consecutive_quantifiers(self, pattern: str, name: str) -> bool:

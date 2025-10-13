@@ -6,7 +6,7 @@ import subprocess
 import sys
 import tempfile
 
-import pytest
+import pytest  # pylint: disable=import-error
 
 
 class TestValidatorIntegration:

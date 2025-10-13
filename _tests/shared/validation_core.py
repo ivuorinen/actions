@@ -23,7 +23,7 @@ import re
 import sys
 from typing import Any
 
-import yaml
+import yaml  # pylint: disable=import-error
 
 
 class ValidationCore:
@@ -37,6 +37,9 @@ class ValidationCore:
         "installation": r"^ghs_[a-zA-Z0-9]{36}$",
         "npm_classic": r"^npm_[a-zA-Z0-9]{40,}$",  # NPM classic tokens
     }
+
+    # Injection detection pattern - characters commonly used in command injection
+    INJECTION_CHARS_PATTERN = r"[;&|`$()]"
 
     # Security injection patterns
     SECURITY_PATTERNS = [
@@ -71,6 +74,10 @@ class ValidationCore:
 
         # Allow GitHub Actions expressions
         if token == "${{ github.token }}" or (token.startswith("${{") and token.endswith("}}")):
+            return True, ""
+
+        # Allow environment variable references (e.g., $GITHUB_TOKEN)
+        if re.match(r"^\$[A-Za-z_][\w]*$", token):
             return True, ""
 
         # Check against standardized token patterns
@@ -168,16 +175,13 @@ class ValidationCore:
         if not allow_v_prefix and value.startswith("v"):
             return False, f"Version should not start with 'v': {value}"
         value = value.removeprefix("v")  # Remove v prefix for validation
-        # SemVer pattern: major.minor.patch with optional prerelease and build metadata
-        # Also accepts simpler forms like major or major.minor
-        # Prerelease uses hyphen prefix with dot-separated alphanumeric identifiers
-        # Build metadata uses plus prefix with dot-separated alphanumeric identifiers
-        pattern = (
-            r"^[0-9]+(\.[0-9]+(\.[0-9]+)?)?"
-            r"(-[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?"
-            r"(\+[0-9A-Za-z-]+(\.[0-9A-Za-z-]+)*)?$"
-        )
-        if re.match(pattern, value):
+        # Split validation to reduce complexity
+        # Base version: major.minor.patch (or simpler forms)
+        base_pattern = r"^[\d]+(\.[\d]+)?(\.[\d]+)?$"
+        # Version with prerelease/build: major.minor.patch-prerelease+build
+        extended_pattern = r"^[\d]+(\.[\d]+)?(\.[\d]+)?[-+][0-9A-Za-z.-]+$"
+
+        if re.match(base_pattern, value) or re.match(extended_pattern, value):
             return True, ""
         return False, f"Invalid version format: {value}"
 
@@ -187,7 +191,7 @@ class ValidationCore:
             return True, ""
 
         # Check for injection patterns
-        if re.search(r"[;&|`$()]", value):
+        if re.search(self.INJECTION_CHARS_PATTERN, value):
             return False, f"Potential injection detected in file path: {value}"
 
         # Check for path traversal (unless explicitly allowed)
@@ -204,21 +208,30 @@ class ValidationCore:
         """Validate docker image name format."""
         if not value:
             return True, ""
-        if not re.match(
-            r"^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$",
-            value,
-        ):
+        # Split validation into parts to reduce regex complexity
+        # Valid format: lowercase alphanumeric with separators (., _, __, -) and optional namespace
+        if not re.match(r"^[a-z0-9]", value):
+            return False, f"Invalid docker image name format: {value}"
+        if not re.match(r"^[a-z0-9._/-]+$", value):
+            return False, f"Invalid docker image name format: {value}"
+        # Check for invalid patterns
+        if value.endswith((".", "_", "-", "/")):
+            return False, f"Invalid docker image name format: {value}"
+        if "//" in value or ".." in value:
             return False, f"Invalid docker image name format: {value}"
         return True, ""
 
     def validate_docker_tag(self, value: str) -> tuple[bool, str]:
-        """Validate docker tag format (handles comma-separated lists)."""
+        """Validate Docker tag format."""
         if not value:
             return True, ""
-        tags = [tag.strip() for tag in value.split(",")]
-        for tag in tags:
-            if not re.match(r"^[a-zA-Z0-9]([a-zA-Z0-9._-]*[a-zA-Z0-9])?$", tag):
-                return False, f"Invalid docker tag format: {tag}"
+        # Docker tags must be valid ASCII and may contain lowercase and uppercase letters,
+        # digits, underscores, periods and dashes. Cannot start with period or dash.
+        # Max length is 128 characters.
+        if len(value) > 128:
+            return False, f"Docker tag too long (max 128 characters): {value}"
+        if not re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9._-]*$", value):
+            return False, f"Invalid docker tag format: {value}"
         return True, ""
 
     def validate_php_extensions(self, value: str) -> tuple[bool, str]:
@@ -252,7 +265,7 @@ class ValidationCore:
         if not value:
             return True, ""
         # PHP versions can be X.Y or X.Y.Z format
-        if re.match(r"^[0-9]+\.[0-9]+(\.[0-9]+)?$", value):
+        if re.match(r"^[\d]+\.[\d]+(\.[\d]+)?$", value):
             return True, ""
         return False, f"Invalid PHP version format: {value}"
 
@@ -281,11 +294,11 @@ class ValidationCore:
                 continue
 
             # Basic path validation
-            if re.search(r"[;&|`$()]", directory):
+            if re.search(self.INJECTION_CHARS_PATTERN, directory):
                 return False, f"Potential injection detected in directory path: {directory}"
 
             # Check for path traversal (both Unix and Windows)
-            if re.search(r"\.\.(?:/|\\)", directory):
+            if re.search(r"\.\.[/\\]", directory):
                 return False, f"Path traversal not allowed in directory: {directory}"
 
             # Check for absolute paths
@@ -300,7 +313,7 @@ class ValidationCore:
             return True, ""
 
         # Check for injection patterns (@ removed to allow Composer stability flags)
-        if re.search(r"[;&|`$()]", value):
+        if re.search(self.INJECTION_CHARS_PATTERN, value):
             return False, f"Potential injection detected in tools: {value}"
 
         return True, ""
@@ -355,7 +368,7 @@ class ValidationCore:
 
     def _validate_php_version(self, value: str) -> tuple[bool, str]:
         """Validate PHP version input."""
-        if not re.match(r"^[0-9]+\.[0-9]+(\.[0-9]+)?$", value):
+        if not re.match(r"^[\d]+\.[\d]+(\.[\d]+)?$", value):
             return False, f"Invalid PHP version format: {value}"
 
         try:
@@ -389,7 +402,7 @@ class ValidationCore:
 
     def _validate_args(self, value: str) -> tuple[bool, str]:
         """Validate args input."""
-        if re.search(r"[;&|`$()]", value):
+        if re.search(self.INJECTION_CHARS_PATTERN, value):
             return False, f"Potentially dangerous characters in args: {value}"
         return True, ""
 
@@ -426,7 +439,7 @@ class ValidationCore:
 
     def _validate_plugins_security(self, value: str) -> tuple[bool, str]:
         """Validate plugins for security issues."""
-        if re.search(r"[;&|`$()]", value):
+        if re.search(self.INJECTION_CHARS_PATTERN, value):
             return False, "Potentially dangerous characters in plugins"
         if re.search(r"\$\{.*\}", value):
             return False, "Variable expansion not allowed in plugins"
@@ -475,7 +488,7 @@ class ActionFileParser:
         try:
             with Path(action_file).open(encoding="utf-8") as f:
                 return yaml.safe_load(f)
-        except Exception as e:
+        except (OSError, yaml.YAMLError) as e:
             msg = f"Failed to load action file {action_file}: {e}"
             raise ValueError(msg) from e
 
@@ -485,7 +498,7 @@ class ActionFileParser:
         try:
             data = ActionFileParser.load_action_file(action_file)
             return data.get("name", "Unknown")
-        except Exception:
+        except (OSError, ValueError, yaml.YAMLError, AttributeError):
             return "Unknown"
 
     @staticmethod
@@ -495,7 +508,7 @@ class ActionFileParser:
             data = ActionFileParser.load_action_file(action_file)
             inputs = data.get("inputs", {})
             return list(inputs.keys())
-        except Exception:
+        except (OSError, ValueError, yaml.YAMLError, AttributeError):
             return []
 
     @staticmethod
@@ -505,8 +518,34 @@ class ActionFileParser:
             data = ActionFileParser.load_action_file(action_file)
             outputs = data.get("outputs", {})
             return list(outputs.keys())
-        except Exception:
+        except (OSError, ValueError, yaml.YAMLError, AttributeError):
             return []
+
+    @staticmethod
+    def _get_required_property(input_data: dict, property_name: str) -> str:
+        """Get the required/optional property."""
+        is_required = input_data.get("required") in [True, "true"]
+        if property_name == "required":
+            return "required" if is_required else "optional"
+        return "optional" if not is_required else "required"
+
+    @staticmethod
+    def _get_default_property(input_data: dict) -> str:
+        """Get the default property."""
+        default_value = input_data.get("default", "")
+        return str(default_value) if default_value else "no-default"
+
+    @staticmethod
+    def _get_description_property(input_data: dict) -> str:
+        """Get the description property."""
+        description = input_data.get("description", "")
+        return description if description else "no-description"
+
+    @staticmethod
+    def _get_all_optional_property(inputs: dict) -> str:
+        """Get the all_optional property (list of required inputs)."""
+        required_inputs = [k for k, v in inputs.items() if v.get("required") in [True, "true"]]
+        return "none" if not required_inputs else ",".join(required_inputs)
 
     @staticmethod
     def get_input_property(action_file: str, input_name: str, property_name: str) -> str:
@@ -531,29 +570,24 @@ class ActionFileParser:
             inputs = data.get("inputs", {})
             input_data = inputs.get(input_name, {})
 
-            if property_name in ["required", "optional"]:
-                is_required = input_data.get("required") in [True, "true"]
-                if property_name == "required":
-                    return "required" if is_required else "optional"
-                return "optional" if not is_required else "required"
+            property_handlers = {
+                "required": lambda: ActionFileParser._get_required_property(
+                    input_data, property_name
+                ),
+                "optional": lambda: ActionFileParser._get_required_property(
+                    input_data, property_name
+                ),
+                "default": lambda: ActionFileParser._get_default_property(input_data),
+                "description": lambda: ActionFileParser._get_description_property(input_data),
+                "all_optional": lambda: ActionFileParser._get_all_optional_property(inputs),
+            }
 
-            if property_name == "default":
-                default_value = input_data.get("default", "")
-                return str(default_value) if default_value else "no-default"
-
-            if property_name == "description":
-                description = input_data.get("description", "")
-                return description if description else "no-description"
-
-            if property_name == "all_optional":
-                required_inputs = [
-                    k for k, v in inputs.items() if v.get("required") in [True, "true"]
-                ]
-                return "none" if not required_inputs else ",".join(required_inputs)
+            if property_name in property_handlers:
+                return property_handlers[property_name]()
 
             return f"unknown-property-{property_name}"
 
-        except Exception as e:
+        except (OSError, ValueError, yaml.YAMLError, AttributeError, KeyError) as e:
             return f"error: {e}"
 
 
@@ -633,7 +667,7 @@ def _load_and_validate_rules(
         validation_type = overrides.get(input_name, conventions.get(input_name))
         return validation_type, rules_data, required_inputs
 
-    except Exception:
+    except (OSError, yaml.YAMLError, KeyError, AttributeError):
         return None, {}, []
 
 
@@ -688,7 +722,7 @@ def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[
                     input_name,
                     required_inputs,
                 )
-            except Exception as e:
+            except (ValueError, AttributeError, KeyError, TypeError) as e:
                 print(
                     f"Warning: Could not apply validation for {action_name}: {e}",
                     file=sys.stderr,
@@ -806,7 +840,7 @@ def _handle_validate_yaml_command(args):
         with Path(args.validate_yaml).open(encoding="utf-8") as f:
             yaml.safe_load(f)
         sys.exit(0)
-    except Exception as e:
+    except (OSError, yaml.YAMLError) as e:
         print(f"Invalid YAML: {e}", file=sys.stderr)
         sys.exit(1)
 
@@ -839,7 +873,7 @@ def main():
 
     try:
         _execute_command(args)
-    except Exception as e:
+    except (ValueError, OSError, AttributeError) as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 

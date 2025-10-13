@@ -297,10 +297,14 @@ class CodeQLValidator(BaseValidator):
             return False
 
     # Convenience methods for convention-based validation
-    def validate_numeric_range_1_128(self, value: str, name: str = "threads") -> bool:  # noqa: ARG002
+    def validate_numeric_range_1_128(  # noqa: ARG002
+        self, value: str, name: str = "threads"
+    ) -> bool:
         """Alias for thread validation."""
         return self.validate_threads(value)
 
-    def validate_numeric_range_256_32768(self, value: str, name: str = "ram") -> bool:  # noqa: ARG002
+    def validate_numeric_range_256_32768(  # noqa: ARG002
+        self, value: str, name: str = "ram"
+    ) -> bool:
         """Alias for RAM validation."""
         return self.validate_ram(value)

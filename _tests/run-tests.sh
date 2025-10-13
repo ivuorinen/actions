@@ -133,7 +133,7 @@ parse_args() {
   # Export for use in other functions
   export TEST_TYPE="$test_type"
   export ACTION_FILTER="$action_filter"
-  TARGET_ACTIONS=("${actions[@]}")
+  TARGET_ACTIONS=("${actions[@]+"${actions[@]}"}")
 }
 
 # Discover available actions
@@ -198,17 +198,64 @@ install_shellspec() {
   local shellspec_version="0.28.1"
   local install_dir="${HOME}/.local"
 
-  # Download and install ShellSpec
-  curl -fsSL "https://github.com/shellspec/shellspec/archive/refs/tags/${shellspec_version}.tar.gz" |
-    tar -xzC /tmp/
+  # Download and install ShellSpec (download -> verify SHA256 -> extract -> install)
+  local tarball
+  tarball="$(mktemp /tmp/shellspec-XXXXXX.tar.gz)"
 
-  cd "/tmp/shellspec-${shellspec_version}"
-  make install PREFIX="$install_dir"
+  # Pinned SHA256 checksum for ShellSpec 0.28.1
+  # Source: https://github.com/shellspec/shellspec/archive/refs/tags/0.28.1.tar.gz
+  local checksum="351e7a63b8df47c07b022c19d21a167b85693f5eb549fa96e64f64844b680024"
+
+  # Ensure cleanup of the downloaded file
+  cleanup() {
+    rm -f "$tarball"
+  }
+  trap cleanup EXIT
+
+  log_info "Downloading ShellSpec ${shellspec_version} to ${tarball}..."
+  if ! curl -fsSL -o "$tarball" "https://github.com/shellspec/shellspec/archive/refs/tags/${shellspec_version}.tar.gz"; then
+    log_error "Failed to download ShellSpec ${shellspec_version}"
+    exit 1
+  fi
+
+  # Compute SHA256 in a portable way
+  local actual_sha
+  if command -v sha256sum >/dev/null 2>&1; then
+    actual_sha="$(sha256sum "$tarball" | awk '{print $1}')"
+  elif command -v shasum >/dev/null 2>&1; then
+    actual_sha="$(shasum -a 256 "$tarball" | awk '{print $1}')"
+  else
+    log_error "No SHA256 utility available (sha256sum or shasum required) to verify download"
+    exit 1
+  fi
+
+  if [[ "$actual_sha" != "$checksum" ]]; then
+    log_error "Checksum mismatch for ShellSpec ${shellspec_version} (expected ${checksum}, got ${actual_sha})"
+    exit 1
+  fi
+
+  log_info "Checksum verified for ShellSpec ${shellspec_version}, extracting..."
+  if ! tar -xzf "$tarball" -C /tmp/; then
+    log_error "Failed to extract ShellSpec archive"
+    exit 1
+  fi
+
+  cd "/tmp/shellspec-${shellspec_version}" || {
+    log_error "Failed to enter extracted ShellSpec directory"
+    exit 1
+  }
+  if ! make install PREFIX="$install_dir"; then
+    log_error "ShellSpec make install failed"
+    exit 1
+  fi
 
   # Add to PATH if not already there
   if [[ ":$PATH:" != *":${install_dir}/bin:"* ]]; then
     export PATH="${install_dir}/bin:$PATH"
-    echo "export PATH=\"${install_dir}/bin:\$PATH\"" >>~/.bashrc
+    # Append to shell rc in an idempotent way
+    if ! grep -qxF "export PATH=\"${install_dir}/bin:\$PATH\"" ~/.bashrc 2>/dev/null; then
+      echo "export PATH=\"${install_dir}/bin:\$PATH\"" >>~/.bashrc
+    fi
   fi
 
   if command -v shellspec >/dev/null 2>&1; then
@@ -645,8 +692,10 @@ main() {
   check_dependencies
 
   # Discover actions to test
-  local actions
-  mapfile -t actions < <(discover_actions)
+  local actions=()
+  while IFS= read -r action; do
+    actions+=("$action")
+  done < <(discover_actions)
 
   if [[ ${#actions[@]} -eq 0 ]]; then
     log_error "No actions found to test"

@@ -29,10 +29,10 @@ class ConcreteValidator(BaseValidator):
         return {"test": "rules"}
 
 
-class TestBaseValidator(unittest.TestCase):
+class TestBaseValidator(unittest.TestCase):  # pylint: disable=too-many-public-methods
     """Test the BaseValidator abstract class."""
 
-    def setUp(self):
+    def setUp(self):  # pylint: disable=attribute-defined-outside-init
         """Set up test fixtures."""
         self.validator = ConcreteValidator("test_action")
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Custom validator for validate-inputs action."""
+# pylint: disable=invalid-name  # Module name matches class name for clarity
 
 from __future__ import annotations
 
@@ -11,6 +12,7 @@ import sys
 validate_inputs_path = Path(__file__).parent
 sys.path.insert(0, str(validate_inputs_path))
 
+# pylint: disable=wrong-import-position
 from validators.base import BaseValidator
 from validators.boolean import BooleanValidator
 from validators.file import FileValidator
@@ -25,7 +27,7 @@ class CustomValidator(BaseValidator):
         self.boolean_validator = BooleanValidator()
         self.file_validator = FileValidator()
 
-    def validate_inputs(self, inputs: dict[str, str]) -> bool:
+    def validate_inputs(self, inputs: dict[str, str]) -> bool:  # pylint: disable=too-many-branches
         """Validate validate-inputs action inputs."""
         valid = True
 

@@ -8,7 +8,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
-import yaml
+import yaml  # pylint: disable=import-error
 
 from .base import BaseValidator
 from .convention_mapper import ConventionMapper

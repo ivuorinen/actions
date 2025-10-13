@@ -59,8 +59,8 @@ Always mask secrets before using them:
 # Mask the secret
 echo "::add-mask::$SECRET_VALUE"
 
-# Now it's safe to use
-echo "Using secret: $SECRET_VALUE"  # Shows: Using secret: ***
+# Use in commands; avoid printing it even when masked
+curl -H "Authorization: Bearer $SECRET_VALUE" https://api.example.com
 ```
 
 ### Secret Rotation
@@ -410,7 +410,7 @@ run: |
 # SAFE
 run: |
   echo "::add-mask::${{ secrets.API_KEY }}"
-  echo "API Key: ${{ secrets.API_KEY }}"
+  curl -H "Authorization: Bearer ${{ secrets.API_KEY }}" https://api.example.com
 ```
 
 ### Privilege Escalation

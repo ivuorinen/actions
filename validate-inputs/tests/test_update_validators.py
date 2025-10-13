@@ -7,7 +7,7 @@ import sys
 import tempfile
 from unittest.mock import patch
 
-import yaml
+import yaml  # pylint: disable=import-error
 
 # Add the scripts directory to the path to import the script
 scripts_dir = Path(__file__).parent.parent / "scripts"
