@@ -26,11 +26,12 @@ jobs:
 | **GitHub CLI** | repo stable¹    | GitHub API interactions         |
 | **shellcheck** | repo stable¹    | Shell script linting            |
 | **jq**         | repo stable¹    | JSON processing                 |
-| **kcov**       | repo stable¹    | Code coverage for shell scripts |
+| **kcov**       | v42 (source)²   | Code coverage for shell scripts |
 | **Node.js**    | LTS             | JavaScript runtime              |
 | **Python**     | 3.x             | Python runtime + PyYAML         |
 
 ¹ _Installed via Ubuntu 22.04 LTS repositories for stability and security_
+² _Built from source (not available in Ubuntu 22.04 repositories)_
 
 ## 🏗️ Building Locally
 
@@ -133,7 +134,8 @@ The image is:
 - name: Install tools
   run: |
     sudo apt-get update
-    sudo apt-get install -y jq shellcheck kcov
+    sudo apt-get install -y jq shellcheck
+    # Note: kcov must be built from source on Ubuntu 22.04+
 ```
 
 ### After (With Container)

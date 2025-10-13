@@ -24,13 +24,18 @@ RUN apt-get update && apt-get install -y \
   --no-install-recommends \
   build-essential \
   ca-certificates \
+  cmake \
   curl \
   git \
   gnupg \
   gzip \
   jq \
-  kcov \
+  libcurl4-openssl-dev \
+  libdw-dev \
+  libelf-dev \
+  libiberty-dev \
   lsb-release \
+  pkg-config \
   python3 \
   python3-pip \
   python3-yaml \
@@ -38,6 +43,7 @@ RUN apt-get update && apt-get install -y \
   sudo \
   tar \
   unzip \
+  zlib1g-dev \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
   && curl -fsSL --proto '=https' --tlsv1.2 https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key -o /tmp/nodesource.gpg.key \
@@ -162,6 +168,17 @@ RUN groupadd --gid "$USER_GID" "$USERNAME" \
   && chmod 0440 "/etc/sudoers.d/$USERNAME" \
   && mkdir -p /workspace \
   && chown -R "$USERNAME:$USERNAME" /workspace
+
+# Build and install kcov from source (as root)
+# kcov is not available in Ubuntu 22.04 apt repositories
+WORKDIR /tmp
+RUN git clone --depth 1 --branch v42 https://github.com/SimonKagstrom/kcov.git
+
+WORKDIR /tmp/kcov/build
+RUN cmake .. \
+  && make \
+  && make install \
+  && rm -rf /tmp/kcov
 
 # Switch to non-root user for ShellSpec installation
 USER "$USERNAME"

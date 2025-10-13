@@ -9,7 +9,7 @@ inputs:
     required: false
     default: 'false'
   install-kcov:
-    description: Whether to install kcov for coverage
+    description: Whether to build and install kcov from source for coverage (v42)
     required: false
     default: 'false'
 
@@ -45,12 +45,35 @@ runs:
       run: |
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends jq shellcheck
-        if [[ "${{ inputs.install-kcov }}" == "true" ]]; then
-          if ! sudo apt-get install -y --no-install-recommends kcov; then
-            echo "kcov installation failed" >&2
-            exit 1
-          fi
-        fi
+
+    - name: Install kcov from source
+      if: inputs.install-kcov == 'true'
+      shell: bash
+      run: |
+        echo "Installing kcov build dependencies..."
+        sudo apt-get install -y --no-install-recommends \
+          cmake \
+          libcurl4-openssl-dev \
+          libdw-dev \
+          libelf-dev \
+          libiberty-dev \
+          pkg-config \
+          zlib1g-dev
+
+        echo "Building kcov from source..."
+        cd /tmp
+        git clone --depth 1 --branch v42 https://github.com/SimonKagstrom/kcov.git
+        cd kcov
+        mkdir build
+        cd build
+        cmake ..
+        make
+        sudo make install
+        cd /
+        rm -rf /tmp/kcov
+
+        echo "Verifying kcov installation..."
+        kcov --version
 
     - name: Install ShellSpec
       shell: bash
@@ -83,7 +106,4 @@ runs:
         if [[ "${{ inputs.install-act }}" == "true" ]]; then
           act --version
           docker --version
-        fi
-        if [[ "${{ inputs.install-kcov }}" == "true" ]]; then
-          kcov --version || echo "kcov not available"
         fi
