@@ -27,17 +27,19 @@ logger = logging.getLogger(__name__)
 class TestGenerator:
     """Generate tests for GitHub Actions and validators."""
 
-    def __init__(self, project_root: Path) -> None:
+    def __init__(self, project_root: Path, *, dry_run: bool = False) -> None:
         """Initialize the test generator.
 
         Args:
             project_root: Path to the project root directory
+            dry_run: If True, don't write files, just show what would be generated
         """
         self.project_root = project_root
         self.validate_inputs_dir = project_root / "validate-inputs"
         self.tests_dir = project_root / "_tests"
         self.generated_count = 0
         self.skipped_count = 0
+        self.dry_run = dry_run
 
     def generate_all_tests(self) -> None:
         """Generate tests for all actions and validators."""
@@ -95,14 +97,19 @@ class TestGenerator:
         with action_yml.open() as f:
             action_def = yaml.safe_load(f)
 
-        # Create test directory
-        test_file.parent.mkdir(parents=True, exist_ok=True)
-
         # Generate test content
         test_content = self._generate_shellspec_content(action_name, action_def)
 
+        if self.dry_run:
+            logger.info("[DRY RUN] Would generate ShellSpec test: %s", test_file)
+            self.generated_count += 1
+            return
+
+        # Create test directory
+        test_file.parent.mkdir(parents=True, exist_ok=True)
+
         # Write test file
-        with test_file.open("w") as f:
+        with test_file.open("w", encoding="utf-8") as f:
             f.write(test_content)
 
         # Make executable
@@ -253,7 +260,11 @@ Describe '{description} Input Validation'
         # Default fallback
         return "test-value"
 
-    def _generate_input_test_cases(self, input_name: str, config: dict) -> list[str]:  # noqa: ARG002
+    def _generate_input_test_cases(
+        self,
+        input_name: str,
+        config: dict,  # noqa: ARG002
+    ) -> list[str]:
         """Generate test cases for a specific input.
 
         Args:
@@ -358,8 +369,13 @@ Describe '{description} Input Validation'
             # Generate test content
             test_content = self._generate_pytest_content(validator_name)
 
+            if self.dry_run:
+                logger.info("[DRY RUN] Would generate pytest test: %s", test_file)
+                self.generated_count += 1
+                continue
+
             # Write test file
-            with test_file.open("w") as f:
+            with test_file.open("w", encoding="utf-8") as f:
                 f.write(test_content)
 
             logger.info("Generated pytest test for %s", validator_name)
@@ -709,8 +725,13 @@ class Test{class_name}:
             # Generate test content
             test_content = self._generate_custom_validator_test(action_name)
 
+            if self.dry_run:
+                logger.info("[DRY RUN] Would generate custom validator test: %s", test_file)
+                self.generated_count += 1
+                continue
+
             # Write test file
-            with test_file.open("w") as f:
+            with test_file.open("w", encoding="utf-8") as f:
                 f.write(test_content)
 
             logger.info("Generated test for %s custom validator", action_name)
@@ -880,12 +901,10 @@ def main() -> None:
         sys.exit(1)
 
     # Run test generation
-    generator = TestGenerator(args.project_root)
-
     if args.dry_run:
         logger.info("DRY RUN MODE - No files will be created")
-        # TODO: Implement dry run mode
 
+    generator = TestGenerator(args.project_root, dry_run=args.dry_run)
     generator.generate_all_tests()
 
 
