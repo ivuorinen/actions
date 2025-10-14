@@ -28,10 +28,10 @@ RUN apt-get update \
 
 # Build kcov from source
 WORKDIR /tmp/kcov-build
-RUN git clone --depth 1 --branch "v${KCOV_VERSION}" https://github.com/SimonKagstrom/kcov.git . \
-  && mkdir build \
-  && cd build \
-  && cmake .. \
+RUN git clone --depth 1 --branch "v${KCOV_VERSION}" https://github.com/SimonKagstrom/kcov.git .
+
+WORKDIR /tmp/kcov-build/build
+RUN cmake .. \
   && make \
   && make install DESTDIR=/kcov-install
 
@@ -227,12 +227,16 @@ RUN set -eux; \
     -o "/tmp/${tarball}"; \
   \
   # Fetch and verify checksum dynamically for the selected version
-  if curl -fsSL --proto '=https' --tlsv1.2 "${checksum_url}" -o "/tmp/checksums.txt" 2>/dev/null; then \
-    grep "${tarball}" /tmp/checksums.txt | sha256sum -c -; \
-    rm -f /tmp/checksums.txt; \
-  else \
-    echo "Warning: No checksums.txt available for ShellSpec ${SHELLSPEC_VERSION}, skipping verification"; \
+  if ! curl -fsSL --proto '=https' --tlsv1.2 "${checksum_url}" -o "/tmp/checksums.txt"; then \
+    echo "Error: Failed to download checksums.txt for ShellSpec ${SHELLSPEC_VERSION}" >&2; \
+    exit 1; \
   fi; \
+  if ! grep "${tarball}" /tmp/checksums.txt | sha256sum -c -; then \
+    echo "Error: Checksum verification failed for ShellSpec ${SHELLSPEC_VERSION}" >&2; \
+    rm -f /tmp/checksums.txt; \
+    exit 1; \
+  fi; \
+  rm -f /tmp/checksums.txt; \
   \
   tar -xzf "/tmp/${tarball}" -C "$HOME/.local"; \
   ln -s "$HOME/.local/shellspec/shellspec" "$HOME/.local/bin/shellspec"; \

@@ -207,8 +207,9 @@ install_shellspec() {
   local checksum="351e7a63b8df47c07b022c19d21a167b85693f5eb549fa96e64f64844b680024"
 
   # Ensure cleanup of the downloaded file
+  # Use ${tarball:-} to handle unbound variable when trap fires after function returns
   cleanup() {
-    rm -f "$tarball"
+    rm -f "${tarball:-}"
   }
   trap cleanup EXIT
 
@@ -260,6 +261,9 @@ install_shellspec() {
 
   if command -v shellspec >/dev/null 2>&1; then
     log_success "ShellSpec installed successfully"
+    # Clear the trap now that we've succeeded to prevent unbound variable error on script exit
+    trap - EXIT
+    rm -f "$tarball"
   else
     log_error "Failed to install ShellSpec"
     exit 1

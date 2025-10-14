@@ -43,9 +43,14 @@ jobs:
 
       - name: Fetch PR Base
         run: |
-          # Fetch from base repository (works for forked PRs)
-          git fetch ${{ github.event.pull_request.base.repo.clone_url }} ${{ github.event.pull_request.base.sha }}
-          git checkout -b pr-base FETCH_HEAD
+          set -euo pipefail
+          # Fetch the base ref from base repository (works for forked PRs)
+          # Using ref instead of SHA because git fetch requires ref names, not raw commit IDs
+          git fetch ${{ github.event.pull_request.base.repo.clone_url }} ${{ github.event.pull_request.base.ref }}:refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}
+          # Record the base commit for diffing without checking it out
+          # Keep PR head checked out so scanners analyze the new changes
+          echo "Base commit: ${{ github.event.pull_request.base.sha }}"
+          git log -1 --oneline ${{ github.event.pull_request.base.sha }} || echo "Warning: Base commit not found in fetched refs"
 
       - name: OWASP Dependency Check
         # Only run on pull_request, not pull_request_target to prevent executing
