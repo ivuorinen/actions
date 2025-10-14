@@ -1,5 +1,8 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for reading repository files
+#   - security-events: write  # Required for uploading SARIF reports
+---
 name: Prettier Check
 description: 'Run Prettier check on the repository with advanced configuration and reporting'
 author: Ismo Vuorinen
@@ -74,70 +77,166 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PRETTIER_VERSION: ${{ inputs.prettier-version }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
+        FILE_PATTERN: ${{ inputs.file-pattern }}
+        CACHE: ${{ inputs.cache }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        CHECK_ONLY: ${{ inputs.check-only }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        PLUGINS: ${{ inputs.plugins }}
       run: |
         set -euo pipefail
 
         # Validate working directory
-        if [ ! -d "${{ inputs.working-directory }}" ]; then
-          echo "::error::Working directory does not exist: ${{ inputs.working-directory }}"
+        if [ ! -d "$WORKING_DIRECTORY" ]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Directory does not exist"
           exit 1
         fi
 
-        # Validate glob pattern
-        if ! echo "${{ inputs.file-pattern }}" | grep -qE '^[*{}\[\].,a-zA-Z0-9/_-]+$'; then
-          echo "::error::Invalid file pattern format"
+        # Validate path security (prevent path traversal)
+        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate prettier version format
+        if [[ "$PRETTIER_VERSION" != "latest" ]]; then
+          if ! [[ "$PRETTIER_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid prettier-version: '$PRETTIER_VERSION'. Expected semantic version (e.g., 3.0.0) or 'latest'"
+            exit 1
+          fi
+        fi
+
+        # Validate config file path security
+        if [[ "$CONFIG_FILE" == *".."* ]] || [[ "$CONFIG_FILE" == "/"* ]]; then
+          echo "::error::Invalid config-file path: '$CONFIG_FILE'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate ignore file path security
+        if [[ "$IGNORE_FILE" == *".."* ]] || [[ "$IGNORE_FILE" == "/"* ]]; then
+          echo "::error::Invalid ignore-file path: '$IGNORE_FILE'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate file pattern format (basic safety check)
+        if [[ "$FILE_PATTERN" == *".."* ]] || [[ "$FILE_PATTERN" == "/"* ]]; then
+          echo "::error::Invalid file-pattern: '$FILE_PATTERN'. Absolute paths and path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        case "$CACHE" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid cache value: '$CACHE'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        case "$FAIL_ON_ERROR" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid fail-on-error value: '$FAIL_ON_ERROR'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        case "$CHECK_ONLY" in
+          true|false) ;;
+          *)
+            echo "::error::Invalid check-only value: '$CHECK_ONLY'. Expected: true or false"
+            exit 1
+            ;;
+        esac
+
+        # Validate report format
+        case "$REPORT_FORMAT" in
+          json|sarif) ;;
+          *)
+            echo "::error::Invalid report-format: '$REPORT_FORMAT'. Expected: json or sarif"
+            exit 1
+            ;;
+        esac
+
+        # Validate max-retries (positive integer)
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer"
+          exit 1
+        fi
+
+        # Validate max-retries range
+        if [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Maximum allowed is 10"
           exit 1
         fi
 
         # Validate plugins format if provided
-        if [ -n "${{ inputs.plugins }}" ]; then
-          if ! echo "${{ inputs.plugins }}" | grep -qE '^[a-zA-Z0-9/@._,-]+$'; then
-            echo "::error::Invalid plugins format"
+        if [ -n "$PLUGINS" ]; then
+          # Check for basic npm package name format and prevent command injection
+          if ! [[ "$PLUGINS" =~ ^[a-zA-Z0-9@/._,-]+$ ]]; then
+            echo "::error::Invalid plugins format: '$PLUGINS'. Use comma-separated npm package names (e.g., plugin1,@scope/plugin2)"
+            exit 1
+          fi
+
+          # Check for suspicious patterns
+          if [[ "$PLUGINS" == *";"* ]] || [[ "$PLUGINS" == *"&&"* ]] || [[ "$PLUGINS" == *"|"* ]]; then
+            echo "::error::Invalid plugins format: '$PLUGINS'. Command injection patterns not allowed"
             exit 1
           fi
         fi
 
     - name: Setup Node.js
-      uses: ivuorinen/actions/node-setup@main
+      id: node-setup
+      uses: ./node-setup
 
     - name: Set up Cache
       id: cache
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: ./common-cache
       if: inputs.cache == 'true'
       with:
-        path: |
-          node_modules/.cache/prettier
-          .prettier-cache
-        key: ${{ runner.os }}-prettier-${{ hashFiles('**/package.json', '**/package-lock.json', '${{ inputs.config-file }}') }}
-        restore-keys: |
-          ${{ runner.os }}-prettier-
+        type: 'npm'
+        paths: 'node_modules/.cache/prettier,.prettier-cache'
+        key-prefix: 'prettier-${{ steps.node-setup.outputs.package-manager }}'
+        key-files: package.json,package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb,${{ inputs.config-file }}
+        restore-keys: '${{ runner.os }}-prettier-'
 
     - name: Install Dependencies
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PRETTIER_VERSION: ${{ inputs.prettier-version }}
+        PLUGINS: ${{ inputs.plugins }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Function to install with retries
         install_with_retries() {
           local attempt=1
-          local max_attempts=${{ inputs.max-retries }}
+          local max_attempts="$MAX_RETRIES"
 
           while [ $attempt -le $max_attempts ]; do
             echo "Installation attempt $attempt of $max_attempts"
 
             # Install Prettier and base dependencies
             if npm install \
-              prettier@${{ inputs.prettier-version }} \
+              "prettier@$PRETTIER_VERSION" \
               @prettier/plugin-xml \
               prettier-plugin-packagejson \
               prettier-plugin-sh; then
 
               # Install additional plugins if specified
-              if [ -n "${{ inputs.plugins }}" ]; then
-                IFS=',' read -ra PLUGINS <<< "${{ inputs.plugins }}"
-                for plugin in "${PLUGINS[@]}"; do
+              if [ -n "$PLUGINS" ]; then
+                IFS=',' read -ra PLUGIN_ARRAY <<< "$PLUGINS"
+                for plugin in "${PLUGIN_ARRAY[@]}"; do
                   if ! npm install "$plugin"; then
                     return 1
                   fi
@@ -163,15 +262,19 @@ runs:
     - name: Prepare Configuration
       id: config
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Create default config if none exists
-        if [ ! -f "${{ inputs.config-file }}" ]; then
+        if [ ! -f "$CONFIG_FILE" ]; then
           echo "Creating default Prettier configuration..."
-          cat > "${{ inputs.config-file }}" <<EOF
+          cat > "$CONFIG_FILE" <<EOF
         {
           "semi": true,
           "singleQuote": true,
@@ -186,9 +289,9 @@ runs:
         fi
 
         # Create default ignore file if none exists
-        if [ ! -f "${{ inputs.ignore-file }}" ]; then
+        if [ ! -f "$IGNORE_FILE" ]; then
           echo "Creating default Prettier ignore file..."
-          cat > "${{ inputs.ignore-file }}" <<EOF
+          cat > "$IGNORE_FILE" <<EOF
         node_modules/
         dist/
         build/
@@ -202,13 +305,28 @@ runs:
     - name: Run Prettier Check
       id: check
       shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CHECK_ONLY: ${{ inputs.check-only }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
+        CACHE: ${{ inputs.cache }}
+        FILE_PATTERN: ${{ inputs.file-pattern }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Create reports directory
         mkdir -p reports
+
+        # Prepare cache flags
+        cache_flags=""
+        if [ "$CACHE" = "true" ]; then
+          cache_flags="--cache --cache-location=.prettier-cache"
+        fi
 
         # Function to convert Prettier output to SARIF
         prettier_to_sarif() {
@@ -261,35 +379,35 @@ runs:
         echo "Running Prettier check..."
         unformatted_files=$(mktemp)
 
-        if [ "${{ inputs.check-only }}" = "true" ]; then
+        if [ "$CHECK_ONLY" = "true" ]; then
           npx prettier \
             --check \
-            --config "${{ inputs.config-file }}" \
-            --ignore-path "${{ inputs.ignore-file }}" \
-            ${{ inputs.cache == 'true' && '--cache --cache-location=.prettier-cache' || '' }} \
+            --config "$CONFIG_FILE" \
+            --ignore-path "$IGNORE_FILE" \
+            $cache_flags \
             --no-error-on-unmatched-pattern \
-            "${{ inputs.file-pattern }}" 2>&1 | \
+            "$FILE_PATTERN" 2>&1 | \
             grep -oE '[^ ]+\.[a-zA-Z]+$' > "$unformatted_files" || true
         else
           npx prettier \
             --write \
             --list-different \
-            --config "${{ inputs.config-file }}" \
-            --ignore-path "${{ inputs.ignore-file }}" \
-            ${{ inputs.cache == 'true' && '--cache --cache-location=.prettier-cache' || '' }} \
+            --config "$CONFIG_FILE" \
+            --ignore-path "$IGNORE_FILE" \
+            $cache_flags \
             --no-error-on-unmatched-pattern \
-            "${{ inputs.file-pattern }}" > "$unformatted_files" || true
+            "$FILE_PATTERN" > "$unformatted_files" || true
         fi
 
         # Count files
-        files_checked=$(find . -type f -name "${{ inputs.file-pattern }}" -not -path "*/node_modules/*" | wc -l)
+        files_checked=$(find . -type f -name "$FILE_PATTERN" -not -path "*/node_modules/*" | wc -l)
         unformatted_count=$(wc -l < "$unformatted_files")
 
         echo "files_checked=${files_checked}" >> $GITHUB_OUTPUT
         echo "unformatted_files=${unformatted_count}" >> $GITHUB_OUTPUT
 
         # Generate SARIF report if requested
-        if [ "${{ inputs.report-format }}" = "sarif" ]; then
+        if [ "$REPORT_FORMAT" = "sarif" ]; then
           prettier_to_sarif "$unformatted_files" "reports/prettier.sarif"
           echo "sarif_file=reports/prettier.sarif" >> $GITHUB_OUTPUT
         fi
@@ -298,14 +416,14 @@ runs:
         rm "$unformatted_files"
 
         # Exit with error if issues found and fail-on-error is true
-        if [ "${{ inputs.fail-on-error }}" = "true" ] && [ "$unformatted_count" -gt 0 ]; then
+        if [ "$FAIL_ON_ERROR" = "true" ] && [ "$unformatted_count" -gt 0 ]; then
           echo "::error::Found $unformatted_count files with formatting issues"
           exit 1
         fi
 
     - name: Upload Prettier Results
       if: always() && inputs.report-format == 'sarif'
-      uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
+      uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
       with:
         sarif_file: ${{ inputs.working-directory }}/reports/prettier.sarif
         category: prettier
@@ -313,16 +431,19 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        CACHE: ${{ inputs.cache }}
+      run: |-
         set -euo pipefail
 
-        cd ${{ inputs.working-directory }}
+        cd "$WORKING_DIRECTORY"
 
         # Remove temporary files
         rm -rf reports/
 
         # Clean cache if exists and not being preserved
-        if [ "${{ inputs.cache }}" != "true" ]; then
+        if [ "$CACHE" != "true" ]; then
           rm -rf .prettier-cache
           rm -rf node_modules/.cache/prettier
         fi

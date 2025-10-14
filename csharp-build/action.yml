@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking out repository
+---
 name: C# Build
 description: 'Builds and tests C# projects.'
 author: 'Ismo Vuorinen'
@@ -12,37 +14,111 @@ inputs:
   dotnet-version:
     description: 'Version of .NET SDK to use.'
     required: false
+  max-retries:
+    description: 'Maximum number of retry attempts for dotnet restore operations'
+    required: false
+    default: '3'
+
+outputs:
+  build_status:
+    description: 'Build completion status (success/failure)'
+    value: ${{ steps.build.outputs.status }}
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  dotnet_version:
+    description: 'Version of .NET SDK used'
+    value: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+  artifacts_path:
+    description: 'Path to build artifacts'
+    value: '**/bin/Release/**/*'
+  test_results_path:
+    description: 'Path to test results'
+    value: '**/*.trx'
 
 runs:
   using: composite
   steps:
     - name: Detect .NET SDK Version
-      uses: ivuorinen/actions/dotnet-version-detect@main
+      id: detect-dotnet-version
+      uses: ./dotnet-version-detect
       with:
-        default-version: '7.0'
+        default-version: "${{ inputs.dotnet-version || '7.0' }}"
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
-        dotnet-version: '${{ steps.detect-dotnet-version.outputs.dotnet-version }}'
+        dotnet-version: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+
+    - name: Cache NuGet packages
+      id: cache-nuget
+      uses: ./common-cache
+      with:
+        type: 'nuget'
+        paths: '~/.nuget/packages'
+        key-files: '**/*.csproj,**/*.props,**/*.targets'
+        key-prefix: 'csharp-build'
 
     - name: Restore Dependencies
-      shell: bash
-      run: dotnet restore
+      if: steps.cache-nuget.outputs.cache-hit != 'true'
+      uses: ./common-retry
+      with:
+        command: |
+          echo "Restoring .NET dependencies..."
+          dotnet restore --verbosity normal
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Restoring .NET dependencies'
 
-    - name: Build Solution
-      shell: bash
-      run: dotnet build --configuration Release --no-restore
-
-    - name: Run Tests
+    - name: Skip Restore (Cache Hit)
+      if: steps.cache-nuget.outputs.cache-hit == 'true'
       shell: bash
       run: |
-        dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --logger "trx;LogFileName=test-results.trx"
+        echo "Cache hit - skipping dotnet restore"
+
+    - name: Build Solution
+      id: build
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Building .NET solution..."
+        if dotnet build --configuration Release --no-restore --verbosity normal; then
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "Build completed successfully"
+        else
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "Build failed"
+          exit 1
+        fi
+
+    - name: Run Tests
+      id: test
+      shell: bash
+      run: |
+        set -euo pipefail
+        echo "Running .NET tests..."
+        if find . -name "*.csproj" | xargs grep -lE "(Microsoft\.NET\.Test\.Sdk|xunit|nunit)" | head -1 | grep -q .; then
+          if dotnet test --configuration Release --no-build \
+            --collect:"XPlat Code Coverage" \
+            --logger "trx;LogFileName=test-results.trx" \
+            --verbosity normal; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "Tests completed successfully"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "Tests failed"
+            exit 1
+          fi
+        else
+          echo "No test projects found, skipping test execution."
+          echo "status=skipped" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Upload Test Results
+      if: always()
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
-        name: test-results
+        name: csharp-test-results
         path: |
           **/*.trx
           **/TestResults/**/coverage.cobertura.xml
+        if-no-files-found: ignore

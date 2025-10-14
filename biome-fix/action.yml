@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for pushing fixes back to repository
+---
 name: Biome Fix
 description: Run Biome fix on the repository
 author: Ismo Vuorinen
@@ -8,31 +10,191 @@ branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  max-retries:
+    description: 'Maximum number of retry attempts for npm install operations'
+    required: false
+    default: '3'
+
+outputs:
+  files_changed:
+    description: 'Number of files changed by formatting'
+    value: ${{ steps.fix.outputs.files_changed }}
+  fix_status:
+    description: 'Fix status (success/failure)'
+    value: ${{ steps.fix.outputs.status }}
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+          # Skip validation for GitHub expressions (they'll be resolved at runtime)
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "$USERNAME" =~ [;&|] ]]; then
+          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="$USERNAME"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Node Setup
-      uses: ivuorinen/actions/node-setup@main
+      id: node-setup
+      uses: ./node-setup
 
-    - name: Install Dependencies
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ./common-cache
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'biome-fix-${{ steps.node-setup.outputs.package-manager }}'
+
+    - name: Install Biome
       shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        npm install -g biome
+        set -euo pipefail
+
+        # Check if biome is already installed
+        if command -v biome >/dev/null 2>&1; then
+          echo "✅ Biome already installed: $(biome --version)"
+          exit 0
+        fi
+
+        echo "Installing Biome using $PACKAGE_MANAGER..."
+
+        for attempt in $(seq 1 "$MAX_RETRIES"); do
+          echo "Attempt $attempt of $MAX_RETRIES"
+
+          case "$PACKAGE_MANAGER" in
+            "pnpm")
+              if pnpm add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if yarn global add @biomejs/biome; then
+                echo "✅ Biome installed successfully with yarn"
+                exit 0
+              fi
+              ;;
+            "bun")
+              if bun add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm install -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt "$MAX_RETRIES" ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install Biome after $MAX_RETRIES attempts"
+        exit 1
 
     - name: Run Biome Fix
+      id: fix
       shell: bash
       run: |
-        biome fix .
+        set -euo pipefail
+
+        echo "Running Biome fix..."
+
+        # Run Biome fix and capture exit code
+        biome_exit_code=0
+        biome check --write . || biome_exit_code=$?
+
+        # Count changed files using git diff (strip whitespace from wc output)
+        files_changed=$(git diff --name-only | wc -l | tr -d ' ')
+
+        # Set status based on biome check result and changes
+        if [ $biome_exit_code -eq 0 ] && [ "$files_changed" -eq 0 ]; then
+          status="success"
+        else
+          status="failure"
+        fi
+
+        echo "files_changed=$files_changed" >> "$GITHUB_OUTPUT"
+        echo "status=$status" >> "$GITHUB_OUTPUT"
+
+        echo "✅ Biome fix completed. Files changed: $files_changed, Status: $status"
 
     - name: Push Fixes
       if: success()
-      uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6.0.1
+      uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
       with:
         commit_message: 'style: autofix Biome violations'
         add_options: '-u'

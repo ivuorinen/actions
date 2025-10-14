@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for reading version files
+---
 name: Go Version Detect
 description: "Detects the Go version from the project's go.mod file or defaults to a specified version."
 author: 'Ismo Vuorinen'
@@ -12,25 +14,53 @@ inputs:
   default-version:
     description: 'Default Go version to use if go.mod is not found.'
     required: false
-    default: '1.22'
+    default: '1.25'
 
 outputs:
   go-version:
     description: 'Detected or default Go version.'
-    value: ${{ steps.detect-go-version.outputs.go-version }}
+    value: ${{ steps.parse-version.outputs.detected-version }}
 
 runs:
   using: composite
   steps:
-    - name: Detect Go Version
-      id: detect-go-version
+    - name: Validate Inputs
+      id: validate
       shell: bash
+      env:
+        DEFAULT_VERSION: ${{ inputs.default-version }}
       run: |
-        if [ -f go.mod ]; then
-          version=$(grep '^go ' go.mod | awk '{print $2}')
-          echo "Detected Go version: $version"
-          echo "go-version=$version" >> $GITHUB_OUTPUT
-        else
-          echo "No go.mod found. Using default Go version."
-          echo "go-version=${{ inputs.default-version }}" >> $GITHUB_OUTPUT
+        set -euo pipefail
+
+        # Validate default-version format
+        if ! [[ "$DEFAULT_VERSION" =~ ^[0-9]+\.[0-9]+(\.[0-9]+)?$ ]]; then
+          echo "::error::Invalid default-version format: '$DEFAULT_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 1.22, 1.21.5)"
+          exit 1
         fi
+
+        # Check for reasonable version range (prevent malicious inputs)
+        major_version=$(echo "$DEFAULT_VERSION" | cut -d'.' -f1)
+        if [ "$major_version" -ne 1 ]; then
+          echo "::error::Invalid default-version: '$DEFAULT_VERSION'. Go major version should be 1"
+          exit 1
+        fi
+
+        # Check minor version range
+        minor_version=$(echo "$DEFAULT_VERSION" | cut -d'.' -f2)
+        if [ "$minor_version" -lt 16 ] || [ "$minor_version" -gt 30 ]; then
+          echo "::error::Invalid default-version: '$DEFAULT_VERSION'. Go minor version should be between 16 and 30"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
+    - name: Parse Go Version
+      id: parse-version
+      uses: ./version-file-parser
+      with:
+        language: 'go'
+        tool-versions-key: 'golang'
+        dockerfile-image: 'golang'
+        version-file: '.go-version'
+        validation-regex: '^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+        default-version: ${{ inputs.default-version }}

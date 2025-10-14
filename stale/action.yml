@@ -1,3 +1,7 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - issues: write        # Required for marking issues as stale
+#   - pull-requests: write # Required for marking PRs as stale
 ---
 name: Stale
 description: 'A GitHub Action to close stale issues and pull requests.'
@@ -7,15 +11,53 @@ branding:
   icon: clock
   color: yellow
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  days-before-stale:
+    description: 'Number of days of inactivity before an issue is marked as stale'
+    required: false
+    default: '30'
+  days-before-close:
+    description: 'Number of days of inactivity before a stale issue is closed'
+    required: false
+    default: '7'
+
+outputs:
+  staled_issues_count:
+    description: 'Number of issues marked as stale'
+    value: ${{ steps.stale.outputs.stale-issues-prs }}
+  closed_issues_count:
+    description: 'Number of issues closed'
+    value: ${{ steps.stale.outputs.closed-issues-prs }}
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+
+        # Check for obvious token misconfigurations
+        if [[ -z "$GITHUB_TOKEN" ]] || [[ "$GITHUB_TOKEN" == *'${{'* ]] || [[ "$GITHUB_TOKEN" == 'secrets.'* ]]; then
+          echo "::warning::GitHub token appears to be unevaluated or misconfigured. Please provide a valid token."
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: 🚀 Run stale
+      id: stale
       uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008 # v10.1.0
       with:
-        repo-token: ${{ github.token }}
-        days-before-stale: 30
-        days-before-close: 7
+        repo-token: ${{ inputs.token }}
+        days-before-stale: ${{ inputs.days-before-stale }}
+        days-before-close: ${{ inputs.days-before-close }}
         remove-stale-when-updated: true
         stale-issue-label: 'stale'
         exempt-issue-labels: 'no-stale,help-wanted'

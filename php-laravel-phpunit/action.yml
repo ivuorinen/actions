@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking out repository
+---
 name: Laravel Setup and Composer test
 description: 'Setup PHP, install dependencies, generate key, create database and run composer test'
 author: 'Ismo Vuorinen'
@@ -25,6 +27,10 @@ inputs:
     description: 'Specify code-coverage driver, see https://github.com/marketplace/actions/setup-php-action#coverage-optional'
     required: false
     default: 'none'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
 
 outputs:
   php-version:
@@ -43,14 +49,31 @@ outputs:
 runs:
   using: composite
   steps:
-    - uses: shivammathur/setup-php@9e72090525849c5e82e596468b86eb55e9cc5401 # v2
+    - name: Mask Secrets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        if [ -n "$GITHUB_TOKEN" ]; then
+          echo "::add-mask::$GITHUB_TOKEN"
+        fi
+
+    - name: Detect PHP Version
+      id: php-version
+      uses: ./php-version-detect
       with:
-        php-version: ${{ inputs.php-version }}
-        php-version-file: ${{ inputs.php-version-file }}
+        default-version: ${{ inputs.php-version }}
+
+    - uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
+      id: setup-php
+      with:
+        php-version: ${{ steps.php-version.outputs.php-version }}
         extensions: ${{ inputs.extensions }}
         coverage: ${{ inputs.coverage }}
 
     - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token != '' && inputs.token || github.token }}
 
     - name: 'Check file existence'
       id: check_files
@@ -61,27 +84,41 @@ runs:
     - name: Copy .env
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: php -r "file_exists('.env') || copy('.env.example', '.env');"
+      run: |
+        set -euo pipefail
+
+        php -r "file_exists('.env') || copy('.env.example', '.env');"
 
     - name: Install Dependencies
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
+      run: |
+        set -euo pipefail
+
+        composer install -q --no-ansi --no-interaction --no-scripts --no-progress --prefer-dist
 
     - name: Generate key
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: php artisan key:generate
+      run: |
+        set -euo pipefail
+
+        php artisan key:generate
 
     - name: Directory Permissions
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
-      run: chmod -R 777 storage bootstrap/cache
+      run: |
+        set -euo pipefail
+
+        chmod -R 777 storage bootstrap/cache
 
     - name: Create Database
       if: steps.check_files.outputs.files_exists == 'true'
       shell: bash
       run: |
+        set -euo pipefail
+
         mkdir -p database
         touch database/database.sqlite
 
@@ -91,4 +128,7 @@ runs:
       env:
         DB_CONNECTION: sqlite
         DB_DATABASE: database/database.sqlite
-      run: composer test
+      run: |-
+        set -euo pipefail
+
+        composer test

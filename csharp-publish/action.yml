@@ -1,5 +1,8 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - packages: write  # Required for publishing to GitHub Packages
+#   - contents: read   # Required for checking out repository
+---
 name: C# Publish
 description: 'Publishes a C# project to GitHub Packages.'
 author: 'Ismo Vuorinen'
@@ -16,41 +19,139 @@ inputs:
     description: 'GitHub namespace for the package.'
     required: true
     default: 'ivuorinen'
+  token:
+    description: 'GitHub token with package write permissions'
+    required: false
+
+outputs:
+  publish_status:
+    description: 'Overall publish status (success/failure)'
+    value: ${{ steps.set-status.outputs.status }}
+  package_version:
+    description: 'Version of the published package'
+    value: ${{ steps.extract-version.outputs.version }}
+  package_url:
+    description: 'URL of the published package'
+    value: ${{ steps.publish-package.outputs.package_url }}
 
 runs:
   using: composite
   steps:
+    - name: Mask Secrets
+      shell: bash
+      env:
+        API_KEY: ${{ inputs.token || github.token }}
+      run: |
+        echo "::add-mask::$API_KEY"
+
+    - name: Validate Inputs
+      id: validate
+      uses: ./validate-inputs
+      with:
+        action-type: 'csharp-publish'
+        token: ${{ inputs.token }}
+        namespace: ${{ inputs.namespace }}
+        dotnet-version: ${{ inputs.dotnet-version }}
+
     - name: Detect .NET SDK Version
-      uses: ivuorinen/actions/dotnet-version-detect@main
+      id: detect-dotnet-version
+      uses: ./dotnet-version-detect
       with:
         default-version: '7.0'
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
-        dotnet-version: '${{ steps.detect-dotnet-version.outputs.dotnet-version }}'
+        dotnet-version: ${{ inputs.dotnet-version || steps.detect-dotnet-version.outputs.dotnet-version }}
+
+    - name: Cache NuGet packages
+      id: cache-nuget
+      uses: ./common-cache
+      with:
+        type: 'nuget'
+        paths: '~/.nuget/packages'
+        key-files: '**/*.csproj,**/*.props,**/*.targets'
+        key-prefix: 'csharp-publish'
 
     - name: Restore Dependencies
       shell: bash
-      run: dotnet restore
+      env:
+        CACHE_HIT: ${{ steps.cache-nuget.outputs.cache-hit }}
+      run: |
+        set -euo pipefail
+
+        # Always run dotnet restore to ensure project.assets.json is present
+        if [[ "$CACHE_HIT" == 'true' ]]; then
+          echo "Cache hit - running fast dotnet restore"
+        fi
+        dotnet restore
 
     - name: Build Solution
       shell: bash
-      run: dotnet build --configuration Release --no-restore
+      run: |
+        set -euo pipefail
+
+        dotnet build --configuration Release --no-restore
 
     - name: Pack Solution
       shell: bash
-      run: dotnet pack --configuration Release --output ./artifacts
+      run: |
+        set -euo pipefail
+
+        dotnet pack --configuration Release --no-build --no-restore --output ./artifacts
+
+    - name: Extract Package Version
+      id: extract-version
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Find the newest .nupkg file by modification time and extract version
+        PACKAGE_FILE=$(find ./artifacts -name "*.nupkg" -type f -printf '%T@ %p\n' | sort -rn | head -n 1 | cut -d' ' -f2-)
+        if [ -n "$PACKAGE_FILE" ]; then
+          # Extract version from filename (assumes standard naming: PackageName.Version.nupkg)
+          VERSION=$(basename "$PACKAGE_FILE" .nupkg | sed 's/.*\.\([0-9]\+\.[0-9]\+\.[0-9]\+.*\)$/\1/')
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "package_file=$PACKAGE_FILE" >> "$GITHUB_OUTPUT"
+        else
+          echo "version=unknown" >> "$GITHUB_OUTPUT"
+          echo "package_file=" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Publish Package
+      id: publish-package
       shell: bash
-      run: dotnet nuget push ./artifacts/*.nupkg \
-        --api-key ${{ github.token }} \
-        --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
-        --skip-duplicate \
-        --no-symbols \
-        || (sleep 5 && dotnet nuget push ./artifacts/*.nupkg \
-        --api-key ${{ github.token }} \
-        --source "https://nuget.pkg.github.com/${{ inputs.namespace }}/index.json" \
-        --skip-duplicate \
-        --no-symbols)
+      env:
+        API_KEY: ${{ inputs.token || github.token }}
+        NAMESPACE: ${{ inputs.namespace }}
+      run: |
+        set -euo pipefail
+
+        PACKAGE_URL="https://github.com/$NAMESPACE/packages/nuget"
+        echo "package_url=$PACKAGE_URL" >> $GITHUB_OUTPUT
+
+        # First attempt
+        if ! dotnet nuget push ./artifacts/*.nupkg \
+          --api-key "$API_KEY" \
+          --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
+          --skip-duplicate \
+          --no-symbols; then
+
+          echo "::warning::First publish attempt failed, retrying after 5 seconds..."
+          sleep 5
+
+          dotnet nuget push ./artifacts/*.nupkg \
+            --api-key "$API_KEY" \
+            --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
+            --skip-duplicate \
+            --no-symbols
+        fi
+
+    - name: Set publish status output
+      if: always()
+      id: set-status
+      shell: bash
+      env:
+        PUBLISH_STATUS: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
+      run: |-
+        echo "status=$PUBLISH_STATUS" >> $GITHUB_OUTPUT

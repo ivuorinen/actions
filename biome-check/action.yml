@@ -1,5 +1,8 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read          # Required for checking out repository
+#   - security-events: write  # Required for uploading SARIF results
+---
 name: Biome Check
 description: Run Biome check on the repository
 author: Ismo Vuorinen
@@ -8,29 +11,228 @@ branding:
   icon: check-circle
   color: green
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  max-retries:
+    description: 'Maximum number of retry attempts for npm install operations'
+    required: false
+    default: '3'
+
+outputs:
+  check_status:
+    description: 'Check status (success/failure)'
+    value: ${{ steps.check.outputs.status }}
+  errors_count:
+    description: 'Number of errors found'
+    value: ${{ steps.check.outputs.errors }}
+  warnings_count:
+    description: 'Number of warnings found'
+    value: ${{ steps.check.outputs.warnings }}
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs (Centralized)
+      uses: ./validate-inputs
+      with:
+        action: biome-check
+
+    - name: Validate Inputs (Additional)
+      id: validate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token presence (no format validation to avoid false warnings)
+        if [[ -n "$GITHUB_TOKEN" ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
+          # Token is present and not a GitHub expression, assume it's valid
+          echo "Using provided GitHub token"
+        fi
+
+        # Validate email format (basic check)
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (GitHub canonical rules)
+        username="$USERNAME"
+
+        # Check length (GitHub limit)
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        # Check allowed characters (letters, digits, hyphens only)
+        if ! [[ "$username" =~ ^[a-zA-Z0-9-]+$ ]]; then
+          echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
+          exit 1
+        fi
+
+        # Check doesn't start or end with hyphen
+        if [[ "$username" == -* ]] || [[ "$username" == *- ]]; then
+          echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
+          exit 1
+        fi
+
+        # Check no consecutive hyphens
+        if [[ "$username" == *--* ]]; then
+          echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
+          exit 1
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Node Setup
-      uses: ivuorinen/actions/node-setup@main
+      id: node-setup
+      uses: ./node-setup
 
-    - name: Install Dependencies
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ./common-cache
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'biome-check-${{ steps.node-setup.outputs.package-manager }}'
+
+    - name: Install Biome
       shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        npm install -g biome
+        set -euo pipefail
+
+        # Check if biome is already installed
+        if command -v biome >/dev/null 2>&1; then
+          echo "✅ Biome already installed: $(biome --version)"
+          exit 0
+        fi
+
+        echo "Installing Biome using $PACKAGE_MANAGER..."
+
+        for attempt in $(seq 1 "$MAX_RETRIES"); do
+          echo "Attempt $attempt of $MAX_RETRIES"
+
+          case "$PACKAGE_MANAGER" in
+            "pnpm")
+              if pnpm add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if yarn global add @biomejs/biome; then
+                echo "✅ Biome installed successfully with yarn"
+                exit 0
+              fi
+              ;;
+            "bun")
+              if bun add -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm install -g @biomejs/biome; then
+                echo "✅ Biome installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt "$MAX_RETRIES" ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install Biome after $MAX_RETRIES attempts"
+        exit 1
 
     - name: Run Biome Check
+      id: check
       shell: bash
       run: |
-        biome check . --json > biome-report.json
+        set -euo pipefail
+
+        echo "Running Biome check..."
+
+        # Run Biome check with SARIF reporter
+        biome_exit_code=0
+        biome check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
+
+        # Handle failures gracefully
+        if [ $biome_exit_code -ne 0 ] && [ ! -s biome-report.sarif ]; then
+          echo "::warning::SARIF report generation failed with exit code $biome_exit_code"
+          # Create empty SARIF file to avoid upload errors
+          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > biome-report.sarif
+        fi
+
+        # Parse SARIF output for error counts
+        if [ -f biome-report.sarif ]; then
+          errors=$(jq '[.runs[]?.results[]? | select(.level == "error" or .level == "warning")] | length' biome-report.sarif 2>/dev/null || echo "0")
+          warnings="0"  # Biome doesn't separate warnings in SARIF output
+        else
+          errors="0"
+          warnings="0"
+        fi
+
+        if [ $biome_exit_code -eq 0 ]; then
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "errors=0" >> "$GITHUB_OUTPUT"
+          echo "warnings=0" >> "$GITHUB_OUTPUT"
+        else
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "errors=$errors" >> "$GITHUB_OUTPUT"
+          echo "warnings=$warnings" >> "$GITHUB_OUTPUT"
+
+          echo "::error::Biome check found $errors issues"
+        fi
+
+        echo "✅ Biome check completed"
+
+        # Exit with biome's exit code to fail the job on errors
+        exit $biome_exit_code
 
     - name: Upload Biome Results
-      uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
+      if: always()
+      uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
       with:
-        sarif_file: biome-report.json
+        sarif_file: biome-report.sarif

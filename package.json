@@ -1,0 +1,53 @@
+{
+  "name": "@ivuorinen/actions",
+  "version": "1.0.0",
+  "private": true,
+  "description": "GitHub Actions monorepo with reusable actions",
+  "scripts": {
+    "generate-catalog": "node generate_listing.cjs",
+    "update-catalog": "node generate_listing.cjs --update",
+    "lint": "npm run lint:markdown && npm run lint:yaml",
+    "lint:markdown": "markdownlint-cli2 '**/*.md' '#node_modules'",
+    "lint:yaml": "npx yaml-lint '**/*.yml' '**/*.yaml'",
+    "format": "npm run format:prettier && npm run format:tables",
+    "format:prettier": "prettier --write '**/*.{md,yml,yaml,json,cjs}'",
+    "format:tables": "markdown-table-formatter '**/*.md'",
+    "format:markdown": "markdownlint-cli2 --fix '**/*.md' '#node_modules'",
+    "docs": "make docs && make format",
+    "test": "make test",
+    "test:unit": "make test-unit",
+    "test:integration": "make test-integration",
+    "test:coverage": "make test-coverage"
+  },
+  "devDependencies": {
+    "action-docs": "^2.4.1",
+    "js-yaml": "^4.1.0",
+    "markdown-table": "^3.0.3",
+    "markdown-table-formatter": "^1.6.0",
+    "markdownlint-cli2": "^0.18.1",
+    "prettier": "^3.3.3",
+    "yaml-lint": "^1.7.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ivuorinen/actions.git"
+  },
+  "keywords": [
+    "github-actions",
+    "ci-cd",
+    "automation",
+    "devops",
+    "linting",
+    "testing",
+    "docker",
+    "node",
+    "python",
+    "php",
+    "go"
+  ],
+  "author": "Ismo Vuorinen",
+  "license": "MIT"
+}

@@ -55,6 +55,7 @@ jobs:
     timeout-minutes: 30
 
     permissions:
+      actions: write
       contents: write
       issues: write
       pull-requests: write
@@ -69,7 +70,7 @@ jobs:
 
       - name: MegaLinter
         id: ml
-        uses: oxsecurity/megalinter/flavors/cupcake@0dcbedd66ea456ba2d54fd350affaa15df8a0da3 # v9.0.1
+        uses: oxsecurity/megalinter/flavors/cupcake@62c799d895af9bcbca5eacfebca29d527f125a57 # v9.1.0
 
       - name: Check MegaLinter Results
         id: check-results
@@ -99,7 +100,7 @@ jobs:
 
       - name: Upload SARIF Report
         if: always() && hashFiles('megalinter-reports/sarif/*.sarif')
-        uses: github/codeql-action/upload-sarif@64d10c13136e1c5bce3e5fbde8d4906eeaafc885 # v3.30.6
+        uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
         with:
           sarif_file: megalinter-reports/sarif
           category: megalinter
@@ -154,8 +155,9 @@ jobs:
           github.ref != 'refs/heads/main' &&
           (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) &&
           !contains(github.event.head_commit.message, 'skip fix')
-        uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6.0.1
+        uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
         with:
+          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
           branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
           commit_message: |
             style: apply MegaLinter fixes
@@ -191,7 +193,7 @@ jobs:
       - name: Cleanup
         if: always()
         shell: bash
-        run: |
+        run: |-
           # Remove temporary files but keep reports
           find . -type f -name "megalinter.*" ! -name "megalinter-reports" -delete || true
           find . -type d -name ".megalinter" -exec rm -rf {} + || true

@@ -1,5 +1,8 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - packages: write  # Required for publishing to Docker registries
+#   - contents: read   # Required for checking out repository
+---
 name: Docker Publish
 description: Publish a Docker image to GitHub Packages and Docker Hub.
 author: Ismo Vuorinen
@@ -17,11 +20,66 @@ inputs:
     description: 'Is this a nightly build? (true or false)'
     required: false
     default: 'false'
+  platforms:
+    description: 'Platforms to build for (comma-separated)'
+    required: false
+    default: 'linux/amd64,linux/arm64,linux/arm/v7'
+  auto-detect-platforms:
+    description: 'Automatically detect and build for all available platforms'
+    required: false
+    default: 'false'
+  scan-image:
+    description: 'Scan images for vulnerabilities'
+    required: false
+    default: 'true'
+  sign-image:
+    description: 'Sign images with cosign'
+    required: false
+    default: 'false'
+  cache-mode:
+    description: 'Cache mode for build layers (min, max, or inline)'
+    required: false
+    default: 'max'
+  buildx-version:
+    description: 'Specific Docker Buildx version to use'
+    required: false
+    default: 'latest'
+  verbose:
+    description: 'Enable verbose logging'
+    required: false
+    default: 'false'
+  dockerhub-username:
+    description: 'Docker Hub username for authentication'
+    required: false
+  dockerhub-password:
+    description: 'Docker Hub password or access token for authentication'
+    required: false
 
 outputs:
   registry:
     description: 'Registry where image was published'
     value: ${{ steps.dest.outputs.reg }}
+  tags:
+    description: 'Tags that were published'
+    value: ${{ steps.tags.outputs.all-tags }}
+  build-time:
+    description: 'Total build time in seconds'
+    value: ${{ steps.build.outputs.build-time }}
+  platform-matrix:
+    description: 'Build status per platform'
+    value: ${{ steps.build.outputs.platform-matrix }}
+  scan-results:
+    description: 'Vulnerability scan results if scanning enabled'
+    value: ${{ steps.build.outputs.scan-results }}
+  image-id:
+    description: 'Published image ID'
+    value: ${{ steps.publish-dockerhub.outputs.image-id || steps.publish-github.outputs.image-id }}
+  image-digest:
+    description: 'Published image digest'
+    value: ${{ steps.publish-dockerhub.outputs.digest || steps.publish-github.outputs.digest }}
+  repository:
+    description: 'Repository where image was published'
+    value: ${{ steps.publish-dockerhub.outputs.repository || steps.publish-github.outputs.repository }}
 
 runs:
   using: composite
@@ -29,11 +87,13 @@ runs:
     - name: Validate Inputs
       id: validate
       shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
       run: |
         set -euo pipefail
 
         # Validate registry input
-        if ! [[ "${{ inputs.registry }}" =~ ^(dockerhub|github|both)$ ]]; then
+        if ! [[ "$REGISTRY" =~ ^(dockerhub|github|both)$ ]]; then
           echo "::error::Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
           exit 1
         fi
@@ -41,21 +101,24 @@ runs:
     - name: Determine Tags
       id: tags
       shell: bash
+      env:
+        NIGHTLY: ${{ inputs.nightly }}
+        RELEASE_TAG: ${{ github.event.release.tag_name }}
       run: |
         set -euo pipefail
 
         # Initialize variables
         declare -a tag_array
 
-        if [[ "${{ inputs.nightly }}" == "true" ]]; then
+        if [[ "$NIGHTLY" == "true" ]]; then
           # Nightly build tags
           current_date=$(date +'%Y%m%d-%H%M')
           tag_array+=("nightly")
           tag_array+=("nightly-${current_date}")
         else
           # Release tags
-          if [[ -n "${{ github.event.release.tag_name }}" ]]; then
-            tag_array+=("${{ github.event.release.tag_name }}")
+          if [[ -n "$RELEASE_TAG" ]]; then
+            tag_array+=("$RELEASE_TAG")
             tag_array+=("latest")
           else
             echo "::error::No release tag found and not a nightly build"
@@ -71,37 +134,74 @@ runs:
     - name: Determine Publish Destination
       id: dest
       shell: bash
+      env:
+        REGISTRY: ${{ inputs.registry }}
       run: |
         set -euo pipefail
 
-        if [[ "${{ inputs.registry }}" == "both" ]]; then
+        if [[ "$REGISTRY" == "both" ]]; then
           echo "reg=github,dockerhub" >> "$GITHUB_OUTPUT"
         else
-          echo "reg=${{ inputs.registry }}" >> "$GITHUB_OUTPUT"
+          echo "reg=$REGISTRY" >> "$GITHUB_OUTPUT"
         fi
 
-        echo "Publishing to: ${{ inputs.registry }}"
+        echo "Publishing to: $REGISTRY"
 
     - name: Build Multi-Arch Docker Image
-      uses: ivuorinen/actions/docker-build@main
+      id: build
+      uses: ./docker-build
       with:
         tag: ${{ steps.tags.outputs.all-tags }}
+        architectures: ${{ inputs.platforms }}
+        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
+        scan-image: ${{ inputs.scan-image }}
+        sign-image: ${{ inputs.sign-image }}
+        cache-mode: ${{ inputs.cache-mode }}
+        buildx-version: ${{ inputs.buildx-version }}
+        verbose: ${{ inputs.verbose }}
+        push: 'false' # Don't push during build, let publish actions handle it
 
     - name: Publish to Docker Hub
+      id: publish-dockerhub
       if: contains(steps.dest.outputs.reg, 'dockerhub')
-      uses: ivuorinen/actions/docker-publish-hub@main
+      uses: ./docker-publish-hub
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
+        platforms: ${{ inputs.platforms }}
+        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
+        scan-image: ${{ inputs.scan-image }}
+        sign-image: ${{ inputs.sign-image }}
+        cache-mode: ${{ inputs.cache-mode }}
+        buildx-version: ${{ inputs.buildx-version }}
+        verbose: ${{ inputs.verbose }}
+        username: ${{ inputs.dockerhub-username }}
+        password: ${{ inputs.dockerhub-password }}
 
     - name: Publish to GitHub Packages
+      id: publish-github
       if: contains(steps.dest.outputs.reg, 'github')
-      uses: ivuorinen/actions/docker-publish-gh@main
+      uses: ./docker-publish-gh
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
+        platforms: ${{ inputs.platforms }}
+        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
+        scan-image: ${{ inputs.scan-image }}
+        sign-image: ${{ inputs.sign-image }}
+        cache-mode: ${{ inputs.cache-mode }}
+        buildx-version: ${{ inputs.buildx-version }}
+        verbose: ${{ inputs.verbose }}
 
     - name: Verify Publications
       id: verify
       shell: bash
+      env:
+        DEST_REG: ${{ steps.dest.outputs.reg }}
+        DOCKERHUB_IMAGE_NAME: ${{ steps.publish-dockerhub.outputs.image-name }}
+        DOCKERHUB_TAGS: ${{ steps.publish-dockerhub.outputs.tags }}
+        GITHUB_IMAGE_NAME: ${{ steps.publish-github.outputs.image-name }}
+        GITHUB_TAGS: ${{ steps.publish-github.outputs.tags }}
+        ALL_TAGS: ${{ steps.tags.outputs.all-tags }}
+        GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
         set -euo pipefail
 
@@ -109,21 +209,61 @@ runs:
         success=true
 
         # Split registry string into array
-        IFS=',' read -ra REGISTRIES <<< "${{ steps.dest.outputs.reg }}"
+        IFS=',' read -ra REGISTRIES <<< "$DEST_REG"
 
         for registry in "${REGISTRIES[@]}"; do
           echo "Checking ${registry} publication..."
           case "${registry}" in
             "dockerhub")
-              if ! curl -s "https://hub.docker.com/v2/repositories/${{ github.repository }}/tags/" | grep -q "${{ steps.tags.outputs.all-tags }}"; then
-                echo "::error::Failed to verify Docker Hub publication"
-                success=false
+              # Get actual image name from publish step output or fallback to repo-based name
+              image_name="$DOCKERHUB_IMAGE_NAME"
+              if [[ -z "$image_name" ]]; then
+                image_name="docker.io/$GITHUB_REPOSITORY"
+              fi
+
+              # Get tags from publish step or fallback to metadata
+              tags="$DOCKERHUB_TAGS"
+              if [[ -z "$tags" ]]; then
+                tags="$ALL_TAGS"
+              fi
+
+              IFS=',' read -ra TAGS <<< "$tags"
+              for tag in "${TAGS[@]}"; do
+                tag=$(echo "$tag" | xargs) # trim whitespace
+                if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
+                  echo "::error::Failed to verify Docker Hub publication for ${tag}"
+                  success=false
+                  break
+                fi
+              done
+              if [[ "${success}" != "true" ]]; then
+                break
               fi
               ;;
             "github")
-              if ! gh api "/packages/container/${github.repository}/versions" | grep -q "${{ steps.tags.outputs.all-tags }}"; then
-                echo "::error::Failed to verify GitHub Packages publication"
-                success=false
+              # Get actual image name from publish step output or fallback to repo-based name
+              image_name="$GITHUB_IMAGE_NAME"
+              if [[ -z "$image_name" ]]; then
+                image_name="ghcr.io/$GITHUB_REPOSITORY"
+              fi
+
+              # Get tags from publish step or fallback to metadata
+              tags="$GITHUB_TAGS"
+              if [[ -z "$tags" ]]; then
+                tags="$ALL_TAGS"
+              fi
+
+              IFS=',' read -ra TAGS <<< "$tags"
+              for tag in "${TAGS[@]}"; do
+                tag=$(echo "$tag" | xargs) # trim whitespace
+                if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
+                  echo "::error::Failed to verify GitHub Packages publication for ${tag}"
+                  success=false
+                  break
+                fi
+              done
+              if [[ "${success}" != "true" ]]; then
+                break
               fi
               ;;
           esac
@@ -139,7 +279,9 @@ runs:
     - name: Cleanup
       if: always()
       shell: bash
-      run: |
+      env:
+        DEST_REG: ${{ steps.dest.outputs.reg }}
+      run: |-
         set -euo pipefail
 
         echo "Cleaning up..."
@@ -148,10 +290,10 @@ runs:
         docker buildx prune -f --keep-storage=10GB
 
         # Remove any temporary authentication
-        if [[ "${{ steps.dest.outputs.reg }}" =~ "dockerhub" ]]; then
+        if [[ "$DEST_REG" =~ "dockerhub" ]]; then
           docker logout docker.io || true
         fi
-        if [[ "${{ steps.dest.outputs.reg }}" =~ "github" ]]; then
+        if [[ "$DEST_REG" =~ "github" ]]; then
           docker logout ghcr.io || true
         fi
 

@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for committing and pushing formatting fixes
+---
 name: Prettier Fix
 description: Run Prettier to fix code style violations
 author: 'Ismo Vuorinen'
@@ -8,31 +10,213 @@ branding:
   icon: 'code'
   color: 'blue'
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  max-retries:
+    description: 'Maximum number of retry attempts for npm install operations'
+    required: false
+    default: '3'
+
+outputs:
+  files_changed:
+    description: 'Number of files changed by Prettier'
+    value: ${{ steps.format.outputs.files_changed }}
+  format_status:
+    description: 'Formatting status (success/failure)'
+    value: ${{ steps.format.outputs.status }}
+
 runs:
   using: 'composite'
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ inputs.token }}
+        GITHUB_TOKEN_DEFAULT: ${{ github.token }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+      run: |
+        set -euo pipefail
+
+        # Validate GitHub token format (basic validation)
+        if [[ -n "$GITHUB_TOKEN" ]] && [[ "$GITHUB_TOKEN" != "$GITHUB_TOKEN_DEFAULT" ]]; then
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters (ghp_, gho_, ghs_, ghe_, ghf_, ghu_, etc.)"
+          fi
+        fi
+
+        # Validate email format (basic check)
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
+          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate username length
+        username="$USERNAME"
+        if [ ${#username} -gt 39 ]; then
+          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+          exit 1
+        fi
+
+        # Validate max retries (positive integer with reasonable upper limit)
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
+        echo "Input validation completed successfully"
+
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      uses: ./set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Node Setup
-      uses: ivuorinen/actions/node-setup@main
+      id: node-setup
+      uses: ./node-setup
+
+    - name: Cache npm Dependencies
+      id: cache-npm
+      uses: ./common-cache
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'prettier-fix-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Dependencies
+      if: steps.cache-npm.outputs.cache-hit != 'true'
       shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        npm install
+        set -euo pipefail
+
+        package_manager="$PACKAGE_MANAGER"
+        max_retries="$MAX_RETRIES"
+
+        echo "Installing dependencies using $package_manager..."
+
+        for attempt in $(seq 1 $max_retries); do
+          echo "Attempt $attempt of $max_retries"
+
+          case "$package_manager" in
+            "pnpm")
+              if pnpm install --frozen-lockfile; then
+                echo "✅ Dependencies installed successfully with pnpm"
+                exit 0
+              fi
+              ;;
+            "yarn")
+              if [ -f ".yarnrc.yml" ]; then
+                if yarn install --immutable; then
+                  echo "✅ Dependencies installed successfully with Yarn Berry"
+                  exit 0
+                fi
+              else
+                if yarn install --frozen-lockfile; then
+                  echo "✅ Dependencies installed successfully with Yarn Classic"
+                  exit 0
+                fi
+              fi
+              ;;
+            "bun")
+              if bun install --frozen-lockfile; then
+                echo "✅ Dependencies installed successfully with Bun"
+                exit 0
+              fi
+              ;;
+            "npm"|*)
+              if npm ci; then
+                echo "✅ Dependencies installed successfully with npm"
+                exit 0
+              fi
+              ;;
+          esac
+
+          if [ $attempt -lt $max_retries ]; then
+            echo "❌ Installation failed, retrying in 5 seconds..."
+            sleep 5
+          fi
+        done
+
+        echo "::error::Failed to install dependencies after $max_retries attempts"
+        exit 1
 
     - name: Run Prettier Fix
+      id: format
       shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
       run: |
-        npx prettier --write .
+        set -euo pipefail
+
+        package_manager="$PACKAGE_MANAGER"
+
+        echo "Running Prettier fix with $package_manager..."
+
+        # Count files before fix
+        files_before=$(git status --porcelain | wc -l || echo "0")
+
+        # Run Prettier fix based on package manager
+        case "$package_manager" in
+          "pnpm")
+            pnpm exec prettier --write .
+            ;;
+          "yarn")
+            yarn prettier --write .
+            ;;
+          "bun")
+            bunx prettier --write .
+            ;;
+          "npm"|*)
+            npx prettier --write .
+            ;;
+        esac
+
+        # Count files after fix
+        files_after=$(git status --porcelain | wc -l || echo "0")
+
+        # Calculate absolute difference and set status
+        delta=$((files_after - files_before))
+        files_changed=$((delta < 0 ? -delta : delta))  # Ensure non-negative
+        status=$([ "$files_changed" -eq 0 ] && echo success || echo failure)
+
+        echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
+        echo "status=$status" >> $GITHUB_OUTPUT
+
+        echo "✅ Prettier fix completed. Files changed: $files_changed, Status: $status"
 
     - name: Push Fixes
       if: always()
-      uses: stefanzweifel/git-auto-commit-action@778341af668090896ca464160c2def5d1d1a3eb0 # v6.0.1
+      uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
       with:
         commit_message: 'style: autofix Prettier violations'
         add_options: '-u'

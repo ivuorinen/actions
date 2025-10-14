@@ -1,0 +1,313 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Test GitHub Actions
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '*/action.yml'
+      - '_tests/**'
+      - 'Makefile'
+      - '.github/workflows/test-actions.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '*/action.yml'
+      - '_tests/**'
+      - 'Makefile'
+      - '.github/workflows/test-actions.yml'
+  workflow_dispatch:
+    inputs:
+      test-type:
+        description: 'Type of tests to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - unit
+          - integration
+      action-filter:
+        description: 'Filter tests by action name (optional)'
+        required: false
+        type: string
+
+permissions: {}
+
+jobs:
+  unit-tests:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+      security-events: write
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-environment
+
+      - name: Run unit tests
+        shell: bash
+        run: |
+          if [[ "${{ github.event.inputs.test-type }}" == "unit" || "${{ github.event.inputs.test-type }}" == "all" || -z "${{ github.event.inputs.test-type }}" ]]; then
+            if [[ -n "${{ github.event.inputs.action-filter }}" ]]; then
+              make test-action ACTION="${{ github.event.inputs.action-filter }}"
+            else
+              make test-unit
+            fi
+          else
+            echo "Skipping unit tests (test-type: ${{ github.event.inputs.test-type }})"
+          fi
+
+      - name: Generate SARIF report
+        shell: bash
+        run: ./_tests/run-tests.sh --type unit --format sarif
+        if: always()
+
+      - name: Upload SARIF file
+        uses: github/codeql-action/upload-sarif@f443b600d91635bebf5b0d9ebc620189c0d6fba5 # v4.30.8
+        if: always() && hashFiles('_tests/reports/test-results.sarif') != ''
+        with:
+          sarif_file: _tests/reports/test-results.sarif
+          category: github-actions-tests
+
+      - name: Upload unit test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always()
+        with:
+          name: unit-test-results
+          path: _tests/reports/unit/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  integration-tests:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+    timeout-minutes: 20
+    if: github.event.inputs.test-type != 'unit'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-environment
+        with:
+          install-act: 'true'
+
+      - name: Run integration tests
+        shell: bash
+        run: |
+          if [[ "${{ github.event.inputs.test-type }}" == "integration" || "${{ github.event.inputs.test-type }}" == "all" || -z "${{ github.event.inputs.test-type }}" ]]; then
+            if [[ -n "${{ github.event.inputs.action-filter }}" ]]; then
+              ./_tests/run-tests.sh --type integration --action "${{ github.event.inputs.action-filter }}"
+            else
+              make test-integration
+            fi
+          else
+            echo "Skipping integration tests (test-type: ${{ github.event.inputs.test-type }})"
+          fi
+
+      - name: Check for integration test reports
+        id: check-integration-reports
+        if: always()
+        shell: bash
+        run: |
+          if [ -d "_tests/reports/integration" ] && [ -n "$(find _tests/reports/integration -type f 2>/dev/null)" ]; then
+            echo "reports-found=true" >> $GITHUB_OUTPUT
+            echo "Integration test reports found"
+          else
+            echo "reports-found=false" >> $GITHUB_OUTPUT
+            echo "No integration test reports found"
+          fi
+
+      - name: Upload integration test results
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        if: always() && steps.check-integration-reports.outputs.reports-found == 'true'
+        with:
+          name: integration-test-results
+          path: _tests/reports/integration/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  coverage:
+    name: Test Coverage
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: write
+      issues: write
+      pull-requests: write
+    timeout-minutes: 15
+    needs:
+      - unit-tests
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || github.event_name == 'pull_request'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-environment
+        with:
+          install-kcov: 'true'
+
+      - name: Generate coverage report
+        run: make test-coverage
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: coverage-report
+          path: _tests/coverage/
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Comment coverage summary
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          if [[ -f _tests/coverage/summary.json ]]; then
+            coverage=$(jq -r '.coverage_percent' _tests/coverage/summary.json)
+            tested_actions=$(jq -r '.tested_actions' _tests/coverage/summary.json)
+            total_actions=$(jq -r '.total_actions' _tests/coverage/summary.json)
+
+            cat > coverage_comment.md <<EOF
+          ## 📊 Test Coverage Report
+
+          - **Action Coverage**: ${coverage}% (${tested_actions}/${total_actions} actions)
+          - **Generated**: $(date)
+
+          EOF
+
+            echo "Coverage: ${coverage}%"
+          fi
+
+      - name: Post coverage comment
+        if: github.event_name == 'pull_request' && hashFiles('coverage_comment.md') != ''
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const body = fs.readFileSync('coverage_comment.md', 'utf8');
+            const { owner, repo } = context.repo;
+            const issue_number = context.issue.number;
+            // Create or update a sticky comment
+            const marker = '<!-- coverage-comment -->';
+            const list = await github.rest.issues.listComments({ owner, repo, issue_number });
+            const existing = list.data.find(c => c.body && c.body.includes(marker));
+            const finalBody = `${marker}\n` + body;
+            if (existing) {
+              await github.rest.issues.updateComment({ owner, repo, comment_id: existing.id, body: finalBody });
+            } else {
+              await github.rest.issues.createComment({ owner, repo, issue_number, body: finalBody });
+            }
+
+  security-scan:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-environment
+        with:
+          install-kcov: 'true'
+
+      - name: Scan for secrets
+        uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503
+        with:
+          path: ./
+          base: ${{ github.event.repository.default_branch }}
+          head: HEAD
+          extra_args: --debug --only-verified
+
+      - name: Scan shell scripts
+        shell: bash
+        run: |
+          # Scan all shell scripts in _tests/
+          find _tests/ -name "*.sh" -exec shellcheck -x {} \; || {
+            echo "❌ Shell script security issues found"
+            exit 1
+          }
+
+          echo "✅ Shell script security scan passed"
+
+  test-summary:
+    name: Test Summary
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read # Required to download artifacts
+    needs:
+      - unit-tests
+      - integration-tests
+    if: always()
+
+    steps:
+      - name: Download test results
+        uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5.0.0
+        with:
+          pattern: '*-test-results'
+          merge-multiple: true
+          path: test-results/
+
+      - name: Generate test summary
+        shell: bash
+        run: |
+          {
+            echo "## 🧪 Test Results Summary"
+            echo ""
+
+            # Unit tests
+            unit_count=$(find test-results -type f -path "*/unit/*.txt" | wc -l || true)
+            if [[ "${unit_count:-0}" -gt 0 ]]; then
+              echo "- **Unit Tests**: $unit_count action(s) tested"
+            fi
+
+            # Integration tests
+            integration_count=$(find test-results -type f -path "*/integration/*.txt" | wc -l || true)
+            if [[ "${integration_count:-0}" -gt 0 ]]; then
+              echo "- **Integration Tests**: $integration_count action(s) tested"
+            fi
+
+            echo ""
+            unit_success="${{ needs.unit-tests.result == 'success' }}"
+            integration_ok="${{ needs.integration-tests.result == 'success' || needs.integration-tests.result == 'skipped' }}"
+            if [[ "$unit_success" == "true" && "$integration_ok" == "true" ]]; then
+              status="✅ All tests passed"
+            else
+              status="❌ Some tests failed"
+            fi
+            echo "**Status**: $status"
+
+            # Job status details
+            echo ""
+            echo "### Job Details"
+            echo "- Unit Tests: ${{ needs.unit-tests.result }}"
+            echo "- Integration Tests: ${{ needs.integration-tests.result }}"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Fail if tests failed
+        if: needs.unit-tests.result == 'failure' || needs.integration-tests.result == 'failure'
+        shell: bash
+        run: |-
+          echo "❌ One or more test jobs failed"
+          exit 1

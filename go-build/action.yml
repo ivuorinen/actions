@@ -1,5 +1,7 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: read  # Required for checking out repository
+---
 name: Go Build
 description: 'Builds the Go project.'
 author: 'Ismo Vuorinen'
@@ -16,19 +18,146 @@ inputs:
     description: 'Build destination directory.'
     required: false
     default: './bin'
+  max-retries:
+    description: 'Maximum number of retry attempts for go mod download operations'
+    required: false
+    default: '3'
+
+outputs:
+  build_status:
+    description: 'Build completion status (success/failure)'
+    value: ${{ steps.build.outputs.status }}
+  test_status:
+    description: 'Test execution status (success/failure/skipped)'
+    value: ${{ steps.test.outputs.status }}
+  go_version:
+    description: 'Version of Go used'
+    value: ${{ steps.detect-go-version.outputs.go-version }}
+  binary_path:
+    description: 'Path to built binaries'
+    value: ${{ inputs.destination }}
+  coverage_path:
+    description: 'Path to coverage report'
+    value: 'coverage.out'
 
 runs:
   using: composite
   steps:
     - name: Detect Go Version
-      uses: ivuorinen/actions/go-version-detect@main
+      id: detect-go-version
+      uses: ./go-version-detect
+      with:
+        default-version: "${{ inputs.go-version || '1.21' }}"
 
     - name: Setup Go
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
-        go-version: '${{ steps.detect-go-version.outputs.go-version }}'
+        go-version: ${{ steps.detect-go-version.outputs.go-version }}
+        cache: true
+
+    - name: Cache Go Dependencies
+      id: cache-go
+      uses: ./common-cache
+      with:
+        type: 'go'
+        paths: '~/go/pkg/mod'
+        key-files: 'go.mod,go.sum'
+        key-prefix: 'go-build'
+
+    - name: Download Dependencies
+      if: steps.cache-go.outputs.cache-hit != 'true'
+      uses: ./common-retry
+      with:
+        command: |
+          echo "Downloading Go dependencies..."
+          go mod download
+          go mod verify
+        max-retries: ${{ inputs.max-retries }}
+        description: 'Downloading Go modules'
 
     - name: Build Go Project
+      id: build
+      shell: bash
+      env:
+        DESTINATION: ${{ inputs.destination }}
+      run: |
+        set -euo pipefail
+        echo "Building Go project..."
+
+        # Create destination directory
+        mkdir -p "$DESTINATION"
+
+        build_success=true
+        # Check if there are any main packages
+        if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
+          # Build all main packages
+          find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u | while IFS= read -r main_dir; do
+            echo "Building package in $main_dir..."
+            output_name=$(basename -- "$main_dir")
+            if ! go build -ldflags="-s -w" -o "$DESTINATION/$output_name" "$main_dir"; then
+              build_success=false
+            fi
+          done
+        else
+          echo "No main packages found, building library..."
+          if ! go build ./...; then
+            build_success=false
+          fi
+        fi
+
+        if [ "$build_success" = true ]; then
+          echo "status=success" >> "$GITHUB_OUTPUT"
+          echo "Build completed successfully"
+        else
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+          echo "Build failed"
+          exit 1
+        fi
+
+    - name: Run Tests
+      id: test
       shell: bash
       run: |
-        go build -o ${{ inputs.destination }} ./...
+        set -euo pipefail
+        echo "Running Go tests..."
+        if find . -name "*_test.go" | grep -q .; then
+          # Check if race detector is supported on this platform
+          # The race detector is only supported on specific GOOS/GOARCH combinations:
+          # linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64,
+          # freebsd/amd64, netbsd/amd64
+          RACE_FLAG=""
+          GOOS=$(go env GOOS)
+          GOARCH=$(go env GOARCH)
+
+          case "${GOOS}/${GOARCH}" in
+            linux/amd64|linux/arm64|darwin/amd64|darwin/arm64|windows/amd64|freebsd/amd64|netbsd/amd64)
+              RACE_FLAG="-race"
+              echo "Race detector enabled for ${GOOS}/${GOARCH}"
+              ;;
+            *)
+              echo "Race detector not supported on ${GOOS}/${GOARCH}, skipping -race flag"
+              ;;
+          esac
+
+          if go test -v ./... $RACE_FLAG -coverprofile=coverage.out; then
+            echo "status=success" >> "$GITHUB_OUTPUT"
+            echo "Tests completed successfully"
+          else
+            echo "status=failure" >> "$GITHUB_OUTPUT"
+            echo "Tests failed"
+            exit 1
+          fi
+        else
+          echo "No test files found, skipping test execution."
+          echo "status=skipped" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Upload Build Artifacts
+      if: always()
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+      with:
+        name: go-build-artifacts
+        path: |
+          ${{ inputs.destination }}/*
+          coverage.out
+        if-no-files-found: ignore

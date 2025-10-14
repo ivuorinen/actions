@@ -1,0 +1,241 @@
+---
+name: Test version-file-parser Integration
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'version-file-parser/**'
+      - '_tests/integration/workflows/version-file-parser-test.yml'
+
+jobs:
+  test-version-file-parser:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test-case:
+          - name: 'Node.js project'
+            language: 'node'
+            tool-versions-key: 'nodejs'
+            dockerfile-image: 'node'
+            expected-version: '18.0.0'
+            setup-files: |
+              echo "18.17.0" > .nvmrc
+              cat > package.json <<EOF
+              {
+                "name": "test-project",
+                "engines": { "node": ">=18.0.0" }
+              }
+              EOF
+              touch package-lock.json
+
+          - name: 'PHP project'
+            language: 'php'
+            tool-versions-key: 'php'
+            dockerfile-image: 'php'
+            expected-version: '8.1'
+            setup-files: |
+              cat > composer.json <<EOF
+              {
+                "require": { "php": "^8.1" }
+              }
+              EOF
+
+          - name: 'Python project'
+            language: 'python'
+            tool-versions-key: 'python'
+            dockerfile-image: 'python'
+            expected-version: '3.9'
+            setup-files: |
+              echo "3.9.0" > .python-version
+              cat > pyproject.toml <<EOF
+              [tool.poetry.dependencies]
+              python = "^3.9"
+              EOF
+
+          - name: 'Go project'
+            language: 'go'
+            tool-versions-key: 'golang'
+            dockerfile-image: 'golang'
+            expected-version: '1.21'
+            setup-files: |
+              cat > go.mod <<EOF
+              module test-project
+              go 1.21
+              EOF
+
+          - name: '.tool-versions file'
+            language: 'node'
+            tool-versions-key: 'nodejs'
+            dockerfile-image: 'node'
+            expected-version: '18.16.0'
+            setup-files: |
+              echo "nodejs 18.16.0" > .tool-versions
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clean up test files from previous runs
+        run: |
+          rm -f .nvmrc package.json package-lock.json composer.json .python-version pyproject.toml go.mod .tool-versions
+
+      - name: Setup test files
+        run: ${{ matrix.test-case.setup-files }}
+
+      - name: Test version-file-parser
+        id: test-action
+        uses: ./version-file-parser
+        with:
+          language: ${{ matrix.test-case.language }}
+          tool-versions-key: ${{ matrix.test-case.tool-versions-key }}
+          dockerfile-image: ${{ matrix.test-case.dockerfile-image }}
+          default-version: '1.0.0'
+
+      - name: Validate outputs
+        run: |
+          echo "Test case: ${{ matrix.test-case.name }}"
+          echo "Expected version: ${{ matrix.test-case.expected-version }}"
+          echo "Detected version: ${{ steps.test-action.outputs.detected-version }}"
+          echo "Package manager: ${{ steps.test-action.outputs.package-manager }}"
+
+          # Validate that we got some version
+          if [[ -z "${{ steps.test-action.outputs.detected-version }}" ]]; then
+            echo "❌ ERROR: No version detected"
+            exit 1
+          fi
+
+          # Validate version format (basic semver check)
+          if ! echo "${{ steps.test-action.outputs.detected-version }}" | grep -E '^[0-9]+\.[0-9]+(\.[0-9]+)?'; then
+            echo "❌ ERROR: Invalid version format: ${{ steps.test-action.outputs.detected-version }}"
+            exit 1
+          fi
+
+          # Validate detected version matches expected version (not the fallback)
+          if [[ "${{ steps.test-action.outputs.detected-version }}" != "${{ matrix.test-case.expected-version }}" ]]; then
+            echo "❌ ERROR: Version mismatch"
+            echo "Expected: ${{ matrix.test-case.expected-version }}"
+            echo "Got: ${{ steps.test-action.outputs.detected-version }}"
+            exit 1
+          fi
+
+          echo "✅ Version validation passed"
+
+      # Skip external reference test in local/CI environment to avoid auth issues
+      - name: Test external reference (info only)
+        run: |
+          echo "External reference test would use: ivuorinen/actions/version-file-parser@main"
+          echo "Skipping to avoid authentication issues in local testing"
+
+  test-edge-cases:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clean up test files from previous runs
+        run: |
+          rm -f .nvmrc package.json package-lock.json composer.json .python-version pyproject.toml go.mod .tool-versions
+
+      - name: Setup test files (package.json engines)
+        shell: bash
+        run: |
+          set -Eeuo pipefail
+          cat > package.json <<'EOF'
+          {
+            "name": "edge-case",
+            "engines": { "node": ">=18.0.0" }
+          }
+          EOF
+          echo "18.17.0" > .nvmrc
+
+      - name: Test version detection from existing files
+        id: existing-version
+        uses: ./version-file-parser
+        with:
+          language: 'node'
+          tool-versions-key: 'nodejs'
+          dockerfile-image: 'node'
+          default-version: '20.0.0'
+
+      - name: Validate existing version detection
+        run: |
+          # The action detects Node.js version from package.json engines field
+          # package.json >=18.0.0 is parsed as 18.0.0
+          # Note: .nvmrc exists but package.json takes precedence in this implementation
+          expected_version="18.0.0"
+          detected_version="${{ steps.existing-version.outputs.detected-version }}"
+
+          if [[ "$detected_version" != "$expected_version" ]]; then
+            echo "❌ ERROR: Version mismatch"
+            echo "Expected: $expected_version"
+            echo "Got: $detected_version"
+            exit 1
+          fi
+          echo "✅ Existing version detection works correctly"
+
+      - name: Clean up before invalid regex test
+        run: |
+          rm -f .nvmrc package.json package-lock.json
+
+      - name: Test with invalid regex
+        id: invalid-regex
+        uses: ./version-file-parser
+        with:
+          language: 'node'
+          tool-versions-key: 'nodejs'
+          dockerfile-image: 'node'
+          validation-regex: 'invalid[regex'
+          default-version: '18.0.0'
+        continue-on-error: true
+
+      - name: Validate regex error handling
+        run: |
+          echo "Testing regex error handling completed"
+          # Action should handle invalid regex gracefully
+          if [ "${{ steps.invalid-regex.outcome }}" != "failure" ]; then
+            echo "::error::Expected invalid-regex step to fail, but it was: ${{ steps.invalid-regex.outcome }}"
+            exit 1
+          fi
+          echo "✅ Invalid regex properly failed as expected"
+
+  test-dockerfile-parsing:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Clean up test files from previous runs
+        run: |
+          rm -f .nvmrc package.json package-lock.json composer.json .python-version pyproject.toml go.mod .tool-versions Dockerfile
+
+      - name: Create Dockerfile with Node.js
+        run: |
+          cat > Dockerfile <<EOF
+          FROM node:18.17.0-alpine
+          WORKDIR /app
+          COPY . .
+          EOF
+
+      - name: Test Dockerfile parsing
+        id: dockerfile-test
+        uses: ./version-file-parser
+        with:
+          language: 'node'
+          tool-versions-key: 'nodejs'
+          dockerfile-image: 'node'
+
+      - name: Validate Dockerfile parsing
+        run: |
+          expected_version="18.17.0"
+          detected_version="${{ steps.dockerfile-test.outputs.dockerfile-version }}"
+
+          echo "Expected version: $expected_version"
+          echo "Detected version: $detected_version"
+
+          if [[ "$detected_version" != "$expected_version" ]]; then
+            echo "❌ ERROR: Version mismatch"
+            echo "Expected: $expected_version"
+            echo "Got: $detected_version"
+            exit 1
+          fi
+          echo "✅ Dockerfile parsing successful"

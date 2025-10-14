@@ -1,5 +1,8 @@
----
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write       # Required for creating commits
+#   - pull-requests: write  # Required for creating pull requests
+---
 #
 # Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
 # Open a Pull Request if any images can be compressed.
@@ -11,21 +14,156 @@ branding:
   icon: image
   color: blue
 
+inputs:
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ${{ github.token }}
+  username:
+    description: 'GitHub username for commits'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits'
+    required: false
+    default: 'github-actions@github.com'
+  working-directory:
+    description: 'Directory containing images to compress'
+    required: false
+    default: '.'
+  image-quality:
+    description: 'JPEG compression quality (0-100)'
+    required: false
+    default: '85'
+  png-quality:
+    description: 'PNG compression quality (0-100)'
+    required: false
+    default: '95'
+  ignore-paths:
+    description: 'Paths to ignore during compression (glob patterns)'
+    required: false
+    default: 'node_modules/**,dist/**,build/**'
+
+outputs:
+  images_compressed:
+    description: 'Whether any images were compressed (boolean)'
+    value: ${{ steps.calibre.outputs.markdown != '' && 'true' || 'false' }}
+  compression_report:
+    description: 'Markdown report of compression results'
+    value: ${{ steps.calibre.outputs.markdown }}
+
 runs:
   using: composite
   steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        IMAGE_QUALITY: ${{ inputs.image-quality }}
+        PNG_QUALITY: ${{ inputs.png-quality }}
+        IGNORE_PATHS: ${{ inputs.ignore-paths }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+        GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        set -euo pipefail
+
+        # Validate working directory
+        if [ ! -d "$WORKING_DIRECTORY" ]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Directory does not exist"
+          exit 1
+        fi
+
+        # Validate path security (prevent absolute paths and path traversal)
+        if [[ "$WORKING_DIRECTORY" == "/"* ]] || [[ "$WORKING_DIRECTORY" == "~"* ]] || [[ "$WORKING_DIRECTORY" =~ ^[A-Za-z]:[/\\] ]]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Absolute paths not allowed"
+          exit 1
+        fi
+
+        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate image quality (0-100)
+        if ! [[ "$IMAGE_QUALITY" =~ ^[0-9]+$ ]]; then
+          echo "::error::Invalid image-quality: '$IMAGE_QUALITY'. Must be a number between 0 and 100"
+          exit 1
+        fi
+
+        if [ "$IMAGE_QUALITY" -lt 0 ] || [ "$IMAGE_QUALITY" -gt 100 ]; then
+          echo "::error::Invalid image-quality: '$IMAGE_QUALITY'. Must be between 0 and 100"
+          exit 1
+        fi
+
+        # Validate PNG quality (0-100)
+        if ! [[ "$PNG_QUALITY" =~ ^[0-9]+$ ]]; then
+          echo "::error::Invalid png-quality: '$PNG_QUALITY'. Must be a number between 0 and 100"
+          exit 1
+        fi
+
+        if [ "$PNG_QUALITY" -lt 0 ] || [ "$PNG_QUALITY" -gt 100 ]; then
+          echo "::error::Invalid png-quality: '$PNG_QUALITY'. Must be between 0 and 100"
+          exit 1
+        fi
+
+        # Validate ignore paths format (prevent command injection)
+        if [[ "$IGNORE_PATHS" == *";"* ]] || [[ "$IGNORE_PATHS" == *"&&"* ]] || \
+           [[ "$IGNORE_PATHS" == *"|"* ]] || [[ "$IGNORE_PATHS" == *'`'* ]] || \
+           [[ "$IGNORE_PATHS" == *'$('* ]] || [[ "$IGNORE_PATHS" == *'${'* ]] || \
+           [[ "$IGNORE_PATHS" == *"<"* ]] || [[ "$IGNORE_PATHS" == *">"* ]]; then
+          echo "::error::Invalid ignore-paths: '$IGNORE_PATHS'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate ignore paths for path traversal
+        if [[ "$IGNORE_PATHS" == *".."* ]]; then
+          echo "::error::Invalid ignore-paths: '$IGNORE_PATHS'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate email format (basic check)
+        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+          exit 1
+        fi
+
+        # Validate username format (prevent command injection)
+        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
+          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
+          exit 1
+        fi
+
+        # Validate token format if provided (basic GitHub token pattern)
+        if [[ -n "$GITHUB_TOKEN" ]]; then
+          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]]; then
+            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
+          fi
+        fi
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@main
+      id: set-git-config
+      uses: ./set-git-config
+      with:
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Checkout Repository
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token }}
 
     - name: Compress Images
       id: calibre
-      uses: calibreapp/image-actions@main
+      uses: calibreapp/image-actions@f32575787d333b0579f0b7d506ff03be63a669d1 # 1.4.1
       with:
         compressOnly: true
-        githubToken: ${{ steps.set-git-config.outputs.token }}
+        githubToken: ${{ inputs.token }}
+        jpegQuality: ${{ inputs.image-quality }}
+        pngQuality: ${{ inputs.png-quality }}
+        ignorePaths: ${{ inputs.ignore-paths }}
+        workingDirectory: ${{ inputs.working-directory }}
 
     - name: Create New Pull Request If Needed
       if: steps.calibre.outputs.markdown != ''
