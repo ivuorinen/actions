@@ -422,12 +422,10 @@ generate_coverage_report() {
   # In practice, you'd integrate with kcov or similar tools
 
   # Count tested vs total actions (count directories with action.yml files, excluding hidden/internal dirs and node_modules)
+  local project_root
+  project_root="$(cd "${TEST_ROOT}/.." && pwd)"
   local total_actions
-  total_actions=$(find "${TEST_ROOT}/.." -type f -name "action.yml" 2>/dev/null | \
-    grep -v "/\." | \
-    grep -v "/_" | \
-    grep -v "/node_modules/" | \
-    wc -l | tr -d ' ')
+  total_actions=$(find "$project_root" -mindepth 2 -maxdepth 2 -type f -name "action.yml" 2>/dev/null | wc -l | tr -d ' ')
 
   # Count actions that have unit tests (by checking if validation.spec.sh exists)
   local tested_actions
@@ -445,7 +443,7 @@ generate_coverage_report() {
   "total_actions": $total_actions,
   "tested_actions": $tested_actions,
   "coverage_percent": $coverage_percent,
-  "generated_at": "$(date -Iseconds)"
+  "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF
 
@@ -483,7 +481,7 @@ generate_json_report() {
   cat >"$report_file" <<EOF
 {
   "test_run": {
-    "timestamp": "$(date -Iseconds)",
+    "timestamp": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")",
     "type": "$TEST_TYPE",
     "action_filter": "$ACTION_FILTER",
     "parallel_jobs": $PARALLEL_JOBS,
@@ -511,7 +509,7 @@ generate_sarif_report() {
   local run_id
   run_id="github-actions-test-$(date +%s)"
   local timestamp
-  timestamp="$(date -Iseconds)"
+  timestamp="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 
   # Initialize SARIF structure using jq to ensure proper escaping
   jq -n \
