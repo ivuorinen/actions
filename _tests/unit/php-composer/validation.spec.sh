@@ -255,7 +255,7 @@ When call validate_input_python "php-composer" "token" "invalid-token"
 The status should be failure
 End
 
-It "accepts empty token"
+It "rejects empty token"
 When call validate_input_python "php-composer" "token" ""
 The status should be failure
 End
@@ -304,7 +304,7 @@ When call validate_input_python "php-composer" "args" "--no-progress --prefer-di
 The status should be success
 End
 
-It "accepts empty args"
+It "rejects empty args"
 When call validate_input_python "php-composer" "args" ""
 The status should be failure
 End

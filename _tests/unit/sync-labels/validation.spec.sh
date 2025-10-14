@@ -13,8 +13,13 @@ When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "to
 The status should be success
 End
 
-It "accepts GitHub fine-grained token"
+It "accepts classic GitHub token"
 When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
+The status should be success
+End
+
+It "accepts fine-grained GitHub token"
+When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "token" "github_pat_11ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
 The status should be success
 End
 

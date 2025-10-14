@@ -484,7 +484,7 @@ docker-login: ## Authenticate with GitHub Container Registry
 	@echo "$(BLUE)🔐 Authenticating with ghcr.io...$(RESET)"
 	@TOKEN=""; \
 	TOKEN_SOURCE=""; \
-	if [ -n "$${GITHUB_TOKEN}" ]; then \
+	if [ -n "$${GITHUB_TOKEN-}" ]; then \
 		echo "$(BLUE)Using GITHUB_TOKEN from environment$(RESET)"; \
 		TOKEN="$${GITHUB_TOKEN}"; \
 		TOKEN_SOURCE="env"; \
@@ -523,7 +523,7 @@ docker-login: ## Authenticate with GitHub Container Registry
 			if [ "$$TOKEN_SOURCE" = "gh" ]; then \
 				echo "$(BLUE)GitHub CLI tokens need package permissions.$(RESET)"; \
 				echo ""; \
-				if [ -n "$${GITHUB_TOKEN}" ]; then \
+				if [ -n "$${GITHUB_TOKEN-}" ]; then \
 					echo "$(YELLOW)Note: GITHUB_TOKEN is set in your environment, which prevents gh auth refresh.$(RESET)"; \
 					echo "Clear it first, then refresh:"; \
 					echo ""; \
@@ -580,7 +580,7 @@ docker-push: ## Push the testing-tools image to ghcr.io
 			echo ""; \
 			echo "$(YELLOW)Fix the authentication:$(RESET)"; \
 			echo ""; \
-			if [ -n "$${GITHUB_TOKEN}" ]; then \
+			if [ -n "$${GITHUB_TOKEN-}" ]; then \
 				echo "$(BLUE)Option 1: Clear GITHUB_TOKEN and use gh auth$(RESET)"; \
 				echo ""; \
 				echo "For Fish shell:"; \
