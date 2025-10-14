@@ -44,9 +44,12 @@ jobs:
       - name: Fetch PR Base
         run: |
           set -euo pipefail
-          # Fetch the base ref from base repository (works for forked PRs)
+          # Fetch the base ref from base repository with authentication (works for private repos and forked PRs)
           # Using ref instead of SHA because git fetch requires ref names, not raw commit IDs
-          git fetch ${{ github.event.pull_request.base.repo.clone_url }} ${{ github.event.pull_request.base.ref }}:refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}
+          # Use authenticated URL to avoid 403/404 on private repositories
+          git fetch --no-tags --depth=1 \
+            "https://x-access-token:${{ github.token }}@github.com/${{ github.event.pull_request.base.repo.full_name }}" \
+            ${{ github.event.pull_request.base.ref }}:refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}
           # Record the base commit for diffing without checking it out
           # Keep PR head checked out so scanners analyze the new changes
           echo "Base commit: ${{ github.event.pull_request.base.sha }}"
@@ -70,6 +73,7 @@ jobs:
         uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
         with:
           config: 'auto'
+          generateSarif: 'true'
         env:
           SEMGREP_APP_TOKEN: ${{ github.event_name != 'pull_request_target' && secrets.SEMGREP_APP_TOKEN || '' }}
         continue-on-error: true

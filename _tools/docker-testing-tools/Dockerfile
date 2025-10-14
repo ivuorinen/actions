@@ -231,7 +231,7 @@ RUN set -eux; \
     echo "Error: Failed to download checksums.txt for ShellSpec ${SHELLSPEC_VERSION}" >&2; \
     exit 1; \
   fi; \
-  if ! grep "${tarball}" /tmp/checksums.txt | sha256sum -c -; then \
+  if ! grep "${tarball}" /tmp/checksums.txt | sed "s|${tarball}|/tmp/${tarball}|" | sha256sum -c -; then \
     echo "Error: Checksum verification failed for ShellSpec ${SHELLSPEC_VERSION}" >&2; \
     rm -f /tmp/checksums.txt; \
     exit 1; \

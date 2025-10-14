@@ -183,8 +183,7 @@ check_dependencies() {
   # Check for coverage tools (if enabled)
   if [[ $COVERAGE_ENABLED == "true" ]]; then
     if ! command -v kcov >/dev/null 2>&1; then
-      log_warning "kcov not found, coverage reporting disabled"
-      COVERAGE_ENABLED=false
+      log_warning "kcov not found - coverage will use alternative methods"
     fi
   fi
 
@@ -241,11 +240,7 @@ install_shellspec() {
     exit 1
   fi
 
-  cd "/tmp/shellspec-${shellspec_version}" || {
-    log_error "Failed to enter extracted ShellSpec directory"
-    exit 1
-  }
-  if ! make install PREFIX="$install_dir"; then
+  if ! (cd "/tmp/shellspec-${shellspec_version}" && make install PREFIX="$install_dir"); then
     log_error "ShellSpec make install failed"
     exit 1
   fi
@@ -253,9 +248,11 @@ install_shellspec() {
   # Add to PATH if not already there
   if [[ ":$PATH:" != *":${install_dir}/bin:"* ]]; then
     export PATH="${install_dir}/bin:$PATH"
-    # Append to shell rc in an idempotent way
-    if ! grep -qxF "export PATH=\"${install_dir}/bin:\$PATH\"" ~/.bashrc 2>/dev/null; then
-      echo "export PATH=\"${install_dir}/bin:\$PATH\"" >>~/.bashrc
+    # Append to shell rc only in non-CI environments
+    if [[ -z "${CI:-}" ]]; then
+      if ! grep -qxF "export PATH=\"${install_dir}/bin:\$PATH\"" ~/.bashrc 2>/dev/null; then
+        echo "export PATH=\"${install_dir}/bin:\$PATH\"" >>~/.bashrc
+      fi
     fi
   fi
 
@@ -429,13 +426,8 @@ generate_coverage_report() {
   total_actions=$(find "${TEST_ROOT}/.." -mindepth 1 -maxdepth 1 -type d -name "*-*" | wc -l)
 
   # Count actions that have unit tests (by checking if validation.spec.sh exists)
-  local tested_actions=0
-  for action_dir in "${TEST_ROOT}"/../*-*/; do
-    action_name=$(basename "$action_dir")
-    if [[ -f "${TEST_ROOT}/unit/${action_name}/validation.spec.sh" ]]; then
-      tested_actions=$((tested_actions + 1))
-    fi
-  done
+  local tested_actions
+  tested_actions=$(find "${TEST_ROOT}/unit" -mindepth 2 -maxdepth 2 -type f -name "validation.spec.sh" 2>/dev/null | wc -l | tr -d ' ')
 
   local coverage_percent
   if [[ $total_actions -gt 0 ]]; then
@@ -494,8 +486,8 @@ generate_json_report() {
     "coverage_enabled": $COVERAGE_ENABLED
   },
   "results": {
-    "unit_tests": "$(find "${TEST_ROOT}/reports/unit" -name "*.txt" 2>/dev/null | wc -l)",
-    "integration_tests": "$(find "${TEST_ROOT}/reports/integration" -name "*.txt" 2>/dev/null | wc -l)"
+    "unit_tests": $(find "${TEST_ROOT}/reports/unit" -name "*.txt" 2>/dev/null | wc -l | tr -d ' '),
+    "integration_tests": $(find "${TEST_ROOT}/reports/integration" -name "*.txt" 2>/dev/null | wc -l | tr -d ' ')
   }
 }
 EOF
@@ -676,7 +668,11 @@ generate_console_report() {
   if [[ -f "${TEST_ROOT}/coverage/summary.json" ]]; then
     local coverage
     coverage=$(jq -r '.coverage_percent' "${TEST_ROOT}/coverage/summary.json" 2>/dev/null || echo "N/A")
-    printf "%-25s %4s%%\n" "Test Coverage:" "$coverage"
+    if [[ "$coverage" =~ ^[0-9]+$ ]]; then
+      printf "%-25s %4s%%\n" "Test Coverage:" "$coverage"
+    else
+      printf "%-25s %s\n" "Test Coverage:" "$coverage"
+    fi
   fi
 
   echo "========================================"
