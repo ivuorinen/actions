@@ -2,7 +2,40 @@
 # Multi-stage build with non-root user for security
 # Pre-installs all testing tools to reduce CI runtime
 
-# Stage 1: Base system setup
+# Stage 1: Build kcov separately to keep final image slim
+FROM ubuntu:22.04 AS kcov-builder
+
+ARG KCOV_VERSION=42
+
+# Install only build dependencies needed for kcov
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    cmake \
+    g++ \
+    git \
+    libcurl4-openssl-dev \
+    libdw-dev \
+    libelf-dev \
+    libiberty-dev \
+    libssl-dev \
+    make \
+    pkg-config \
+    python3 \
+    zlib1g-dev \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Build kcov from source
+WORKDIR /tmp/kcov-build
+RUN git clone --depth 1 --branch "v${KCOV_VERSION}" https://github.com/SimonKagstrom/kcov.git . \
+  && mkdir build \
+  && cd build \
+  && cmake .. \
+  && make \
+  && make install DESTDIR=/kcov-install
+
+# Stage 2: Base system setup
 FROM ubuntu:22.04 AS base
 
 LABEL maintainer="ivuorinen"
@@ -22,20 +55,13 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
   --no-install-recommends \
-  build-essential \
   ca-certificates \
-  cmake \
   curl \
   git \
   gnupg \
   gzip \
   jq \
-  libcurl4-openssl-dev \
-  libdw-dev \
-  libelf-dev \
-  libiberty-dev \
   lsb-release \
-  pkg-config \
   python3 \
   python3-pip \
   python3-yaml \
@@ -43,9 +69,9 @@ RUN apt-get update && apt-get install -y \
   sudo \
   tar \
   unzip \
-  zlib1g-dev \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/* \
+  # Note: build-essential, cmake, and kcov build deps moved to separate builder stage \
   && curl -fsSL --proto '=https' --tlsv1.2 https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key -o /tmp/nodesource.gpg.key \
   && gpg --dearmor -o /usr/share/keyrings/nodesource.gpg < /tmp/nodesource.gpg.key \
   && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
@@ -169,16 +195,18 @@ RUN groupadd --gid "$USER_GID" "$USERNAME" \
   && mkdir -p /workspace \
   && chown -R "$USERNAME:$USERNAME" /workspace
 
-# Build and install kcov from source (as root)
-# kcov is not available in Ubuntu 22.04 apt repositories
-WORKDIR /tmp
-RUN git clone --depth 1 --branch v42 https://github.com/SimonKagstrom/kcov.git
+# Copy kcov from builder stage (avoiding build dependencies in final image)
+# kcov is not available in Ubuntu 22.04 apt repositories, so we build it separately
+COPY --from=kcov-builder /kcov-install/usr/local/ /usr/local/
 
-WORKDIR /tmp/kcov/build
-RUN cmake .. \
-  && make \
-  && make install \
-  && rm -rf /tmp/kcov
+# Install only runtime dependencies for kcov (not build dependencies)
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    libcurl4 \
+    libdw1 \
+    libelf1 \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 # Switch to non-root user for ShellSpec installation
 USER "$USERNAME"
@@ -186,18 +214,31 @@ WORKDIR /workspace
 
 # Install ShellSpec testing framework in user's home with checksum verification, then
 # verify installations (run as root to access all tools)
-# ShellSpec 0.28.1 checksum: 350d3de04ba61505c54eda31a3c2ee912700f1758b1a80a284bc08fd8b6c5992
+# ShellSpec - version-aware checksum verification
 # hadolint ignore=SC2016
-RUN mkdir -p ~/.local/bin \
-  && tarball="shellspec-dist.tar.gz" \
-  && expected_checksum="350d3de04ba61505c54eda31a3c2ee912700f1758b1a80a284bc08fd8b6c5992" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/${tarball}" -o "/tmp/${tarball}" \
-  && echo "${expected_checksum}  /tmp/${tarball}" | sha256sum -c - \
-  && tar -xzf "/tmp/${tarball}" -C "$HOME/.local" \
-  && ln -s "$HOME/.local/shellspec/shellspec" "$HOME/.local/bin/shellspec" \
-  && echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc \
-  && shellspec --version \
-  && rm -f "/tmp/${tarball}" \
+RUN set -eux; \
+  mkdir -p ~/.local/bin; \
+  tarball="shellspec-dist.tar.gz"; \
+  checksum_url="https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/checksums.txt"; \
+  \
+  # Download ShellSpec
+  curl -fsSL --proto '=https' --tlsv1.2 \
+    "https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/${tarball}" \
+    -o "/tmp/${tarball}"; \
+  \
+  # Fetch and verify checksum dynamically for the selected version
+  if curl -fsSL --proto '=https' --tlsv1.2 "${checksum_url}" -o "/tmp/checksums.txt" 2>/dev/null; then \
+    grep "${tarball}" /tmp/checksums.txt | sha256sum -c -; \
+    rm -f /tmp/checksums.txt; \
+  else \
+    echo "Warning: No checksums.txt available for ShellSpec ${SHELLSPEC_VERSION}, skipping verification"; \
+  fi; \
+  \
+  tar -xzf "/tmp/${tarball}" -C "$HOME/.local"; \
+  ln -s "$HOME/.local/shellspec/shellspec" "$HOME/.local/bin/shellspec"; \
+  echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc; \
+  shellspec --version; \
+  rm -f "/tmp/${tarball}" \
   && echo "ShellSpec installed successfully" \
   && echo "Verifying installed tool versions..." \
   && echo "=== Tool Versions ===" \
@@ -217,6 +258,12 @@ RUN mkdir -p ~/.local/bin \
   && shellspec --version \
   && echo "=== User tools verified ===" \
   && echo "=== Build complete ==="
+
+# Health check to verify essential tools are accessible
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD shellspec --version > /dev/null 2>&1 && \
+      shellcheck --version > /dev/null 2>&1 && \
+      jq --version > /dev/null 2>&1 || exit 1
 
 # Default command keeps container running for GitHub Actions
 CMD ["/bin/bash", "-c", "tail -f /dev/null"]

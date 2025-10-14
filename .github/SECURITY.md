@@ -93,7 +93,7 @@ This repository includes several security-focused workflows:
    - name: Dependency Review
      uses: github/dependency-review-action@v3
      with:
-     fail-on-severity: critical
+       fail-on-severity: critical
    ```
 
    - Require the Dependency Review workflow in branch protection:

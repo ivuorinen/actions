@@ -43,7 +43,9 @@ jobs:
 
       - name: Fetch PR Base
         run: |
-          git fetch origin ${{ github.event.pull_request.base.ref }}:refs/remotes/origin/${{ github.event.pull_request.base.ref }}
+          # Fetch from base repository (works for forked PRs)
+          git fetch ${{ github.event.pull_request.base.repo.clone_url }} ${{ github.event.pull_request.base.sha }}
+          git checkout -b pr-base FETCH_HEAD
 
       - name: OWASP Dependency Check
         # Only run on pull_request, not pull_request_target to prevent executing
@@ -187,7 +189,7 @@ jobs:
               const truffleOutput = execSync('cat /tmp/trufflehog_output.json || echo ""', { encoding: 'utf8' });
               const truffleLines = truffleOutput.trim().split('\n').filter(line => line.length > 0);
 
-              truffleLines.forEach(line => {
+              truffleLines.forEach((line, index) => {
                 try {
                   const result = JSON.parse(line);
                   findings.secrets.push({
@@ -197,7 +199,8 @@ jobs:
                     verified: result.Verified || false
                   });
                 } catch (parseError) {
-                  console.log('Failed to parse TruffleHog line:', line);
+                  // Log only safe metadata to avoid leaking secrets
+                  console.log('Failed to parse TruffleHog line at index', index, '- Error:', parseError.message, '(line length:', line.length, 'chars)');
                 }
               });
 

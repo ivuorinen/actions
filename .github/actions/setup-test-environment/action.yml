@@ -78,14 +78,48 @@ runs:
     - name: Install ShellSpec
       shell: bash
       run: |
-        curl -fsSL https://git.io/shellspec | sh -s -- --yes
+        # Pin to specific version to avoid supply-chain risks
+        SHELLSPEC_VERSION="0.28.1"
+        SHELLSPEC_URL="https://github.com/shellspec/shellspec/archive/refs/tags/${SHELLSPEC_VERSION}.tar.gz"
+
+        echo "Downloading ShellSpec ${SHELLSPEC_VERSION}..."
+        curl -fsSL "${SHELLSPEC_URL}" -o "/tmp/shellspec.tar.gz"
+
+        echo "Installing ShellSpec..."
+        mkdir -p ~/.local/lib
+        tar -xzf /tmp/shellspec.tar.gz -C ~/.local/lib
+        mv ~/.local/lib/shellspec-${SHELLSPEC_VERSION} ~/.local/lib/shellspec
+        rm /tmp/shellspec.tar.gz
+
         sudo ln -s ~/.local/lib/shellspec/shellspec /usr/local/bin/shellspec
 
     - name: Install act
       if: inputs.install-act == 'true'
       shell: bash
       run: |
-        curl -s https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash -s -- -b /usr/local/bin
+        # Pin to specific version to avoid supply-chain risks
+        ACT_VERSION="0.2.82"
+        ACT_ARCH="Linux_x86_64"
+        ACT_URL="https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_${ACT_ARCH}.tar.gz"
+        ACT_CHECKSUM_URL="https://github.com/nektos/act/releases/download/v${ACT_VERSION}/checksums.txt"
+
+        echo "Downloading act v${ACT_VERSION}..."
+        curl -fsSL "${ACT_URL}" -o "/tmp/act.tar.gz"
+
+        echo "Downloading checksums..."
+        curl -fsSL "${ACT_CHECKSUM_URL}" -o "/tmp/act-checksums.txt"
+
+        echo "Verifying checksum..."
+        cd /tmp
+        grep "act_${ACT_ARCH}.tar.gz" act-checksums.txt | sha256sum -c -
+
+        echo "Installing act..."
+        tar -xzf /tmp/act.tar.gz -C /tmp
+        sudo install -m 755 /tmp/act /usr/local/bin/act
+        rm /tmp/act.tar.gz /tmp/act /tmp/act-checksums.txt
+
+        echo "Verifying act installation..."
+        act --version
 
     - name: Setup Docker and act configuration
       if: inputs.install-act == 'true'

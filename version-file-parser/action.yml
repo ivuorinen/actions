@@ -241,10 +241,10 @@ runs:
           "python")
             # Check pyproject.toml
             if [ -f pyproject.toml ]; then
-              # Try PEP 621 requires-python first
+              # Try PEP 621 requires-python first (allow leading whitespace)
               if command -v jq >/dev/null 2>&1 && grep -q '^\[project\]' pyproject.toml; then
                 # Convert TOML to JSON for PEP 621 parsing (basic approach)
-                version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+                version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
                 if [ -n "$version" ] && validate_version "$version"; then
                   echo "Found Python version in pyproject.toml [project] requires-python: $version" >&2
                   config_version="$version"
@@ -313,7 +313,8 @@ runs:
               shopt -s nullglob
               for csproj in *.csproj; do
                 if [ -f "$csproj" ]; then
-                  version=$(grep -o '<TargetFramework>net[0-9]\+\.[0-9]\+</TargetFramework>' "$csproj" | sed -n 's/.*net\([0-9]\+\.[0-9]\+\).*/\1/p' | head -1)
+                  # Handle both TargetFramework and TargetFrameworks, and handle -windows monikers
+                  version=$(grep -oE '<TargetFrameworks?>net[0-9]+\.[0-9]+(-[a-z]+)?</TargetFrameworks?>' "$csproj" | sed -n 's/.*net\([0-9]\+\.[0-9]\+\).*/\1/p' | head -1)
                   if [ -n "$version" ] && validate_version "$version"; then
                     echo "Found .NET version in $csproj: $version" >&2
                     config_version="$version"

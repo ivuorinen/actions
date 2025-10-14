@@ -601,7 +601,7 @@ generate_sarif_report() {
         local action_name
         action_name=$(basename "$test_file" .txt)
 
-        if grep -q "FAILED\|ERROR\|error:" "$test_file"; then
+        if grep -qE "FAILED|ERROR|error:" "$test_file"; then
           local failure_message
           failure_message=$(grep -E "(FAILED|ERROR|error:)" "$test_file" | head -1 || echo "Integration test failed")
 
