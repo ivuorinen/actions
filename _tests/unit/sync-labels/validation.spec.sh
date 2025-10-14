@@ -85,6 +85,11 @@ It "token input is optional"
 When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "optional"
 The output should equal "optional"
 End
+
+It "labels input is required"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "labels" "required"
+The output should equal "required"
+End
 End
 
 Context "when testing security validations"

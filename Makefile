@@ -267,9 +267,17 @@ check-tools: ## Check if required tools are available
 
 check-syntax: ## Check syntax of shell scripts and YAML files
 	@echo "$(BLUE)🔍 Checking syntax...$(RESET)"
-	@find . -name "*.sh" -exec bash -n {} \; 2>/dev/null || { \
-		echo "$(RED)❌ Shell script syntax errors found$(RESET)"; exit 1; \
-	}
+	@failed=0; \
+	find . -name "*.sh" -print0 | while IFS= read -r -d '' file; do \
+		if ! bash -n "$$file" 2>&1; then \
+			echo "$(RED)❌ Syntax error in $$file$(RESET)" >&2; \
+			failed=1; \
+		fi; \
+	done; \
+	if [ "$$failed" -eq 1 ]; then \
+		echo "$(RED)❌ Shell script syntax errors found$(RESET)"; \
+		exit 1; \
+	fi
 	@echo "$(GREEN)✅ Syntax checks passed$(RESET)"
 
 install-tools: ## Install/update required tools
@@ -511,7 +519,7 @@ docker-login: ## Authenticate with GitHub Container Registry
 		echo "  3. Generate token and use with Option 1"; \
 		exit 1; \
 	fi; \
-	if echo "$${TOKEN}" | docker login ghcr.io -u ivuorinen --password-stdin 2>&1 | tee /tmp/docker-login.log | grep -q "Login Succeeded"; then \
+	if printf '%s' "$${TOKEN}" | docker login ghcr.io -u ivuorinen --password-stdin 2>&1 | tee /tmp/docker-login.log | grep -q "Login Succeeded"; then \
 		echo "$(GREEN)✅ Successfully authenticated with ghcr.io$(RESET)"; \
 		rm -f /tmp/docker-login.log; \
 	else \
@@ -618,7 +626,10 @@ docker-push: ## Push the testing-tools image to ghcr.io
 			if $(MAKE) docker-login; then \
 				echo ""; \
 				echo "$(BLUE)Retrying push...$(RESET)"; \
-				docker push ghcr.io/ivuorinen/actions:testing-tools; \
+				if ! docker push ghcr.io/ivuorinen/actions:testing-tools; then \
+					echo "$(RED)❌ Retry push failed$(RESET)"; \
+					exit 1; \
+				fi; \
 			else \
 				exit 1; \
 			fi; \
