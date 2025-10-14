@@ -356,12 +356,12 @@ End
 
 Context "when testing input requirements"
 It "requires php input"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "php" "required"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "php" "required"
 The output should equal "required"
 End
 
 It "has extensions as optional input"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "extensions" "optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "extensions" "optional"
 The output should equal "optional"
 End
 End

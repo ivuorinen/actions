@@ -127,17 +127,17 @@ End
 
 Context "when testing input requirements"
 It "requires action input"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "action" "required"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "action" "required"
 The output should equal "required"
 End
 
 It "has rules-file as optional input"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "rules-file" "optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "rules-file" "optional"
 The output should equal "optional"
 End
 
 It "has fail-on-error as optional input"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "fail-on-error" "optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "fail-on-error" "optional"
 The output should equal "optional"
 End
 End

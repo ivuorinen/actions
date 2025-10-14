@@ -2,10 +2,17 @@
 # Multi-stage build with non-root user for security
 # Pre-installs all testing tools to reduce CI runtime
 
+# Centralized ARG defaults to avoid version drift across stages
+ARG KCOV_VERSION=42
+ARG TRUFFLEHOG_VERSION=3.86.0
+ARG ACTIONLINT_VERSION=1.7.7
+ARG ACT_VERSION=0.2.71
+ARG SHELLSPEC_VERSION=0.28.1
+
 # Stage 1: Build kcov separately to keep final image slim
 FROM ubuntu:22.04 AS kcov-builder
 
-ARG KCOV_VERSION=42
+ARG KCOV_VERSION
 
 # Install only build dependencies needed for kcov
 RUN apt-get update \
@@ -86,11 +93,11 @@ FROM base AS tools
 # Set shell to bash with pipefail for better error handling
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Version pinning for security and reproducibility
-ARG TRUFFLEHOG_VERSION=3.86.0
-ARG ACTIONLINT_VERSION=1.7.7
-ARG ACT_VERSION=0.2.71
-ARG SHELLSPEC_VERSION=0.28.1
+# Version pinning for security and reproducibility (inherit from global ARGs)
+ARG TRUFFLEHOG_VERSION
+ARG ACTIONLINT_VERSION
+ARG ACT_VERSION
+ARG SHELLSPEC_VERSION
 
 # Install all APT-based and standalone tools in a single optimized layer
 # 1. Configure APT repositories (Trivy, GitHub CLI)
@@ -111,10 +118,9 @@ RUN set -eux \
   && curl -fsSL --proto '=https' --tlsv1.2 https://aquasecurity.github.io/trivy-repo/deb/public.key -o /tmp/trivy.key \
   && gpg --dearmor -o /usr/share/keyrings/trivy.gpg < /tmp/trivy.key \
   && echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" \
-    | tee -a /etc/apt/sources.list.d/trivy.list \
+    | tee /etc/apt/sources.list.d/trivy.list \
   && curl -fsSL --proto '=https' --tlsv1.2 https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/githubcli-archive-keyring.gpg \
-  && cat /tmp/githubcli-archive-keyring.gpg | dd of=/usr/share/keyrings/githubcli-archive-keyring.gpg \
-  && chmod go+r /usr/share/keyrings/githubcli-archive-keyring.gpg \
+  && install -m 0644 /tmp/githubcli-archive-keyring.gpg /usr/share/keyrings/githubcli-archive-keyring.gpg \
   && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
     | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
   # Install APT packages
@@ -178,7 +184,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG USERNAME=runner
 ARG USER_UID=1001
 ARG USER_GID=$USER_UID
-ARG SHELLSPEC_VERSION=0.28.1
+ARG SHELLSPEC_VERSION
 
 # Set up environment for testing
 ENV PATH="/home/$USERNAME/.local/bin:$PATH"
@@ -219,24 +225,25 @@ WORKDIR /workspace
 RUN set -eux; \
   mkdir -p ~/.local/bin; \
   tarball="shellspec-dist.tar.gz"; \
-  checksum_url="https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/checksums.txt"; \
+  # Pinned SHA-256 checksum for ShellSpec 0.28.1 shellspec-dist.tar.gz
+  # Source: https://github.com/shellspec/shellspec/releases/download/0.28.1/shellspec-dist.tar.gz
+  expected_checksum="350d3de04ba61505c54eda31a3c2ee912700f1758b1a80a284bc08fd8b6c5992"; \
   \
   # Download ShellSpec
   curl -fsSL --proto '=https' --tlsv1.2 \
     "https://github.com/shellspec/shellspec/releases/download/${SHELLSPEC_VERSION}/${tarball}" \
     -o "/tmp/${tarball}"; \
   \
-  # Fetch and verify checksum dynamically for the selected version
-  if ! curl -fsSL --proto '=https' --tlsv1.2 "${checksum_url}" -o "/tmp/checksums.txt"; then \
-    echo "Error: Failed to download checksums.txt for ShellSpec ${SHELLSPEC_VERSION}" >&2; \
-    exit 1; \
-  fi; \
-  if ! grep "${tarball}" /tmp/checksums.txt | sed "s|${tarball}|/tmp/${tarball}|" | sha256sum -c -; then \
+  # Verify checksum
+  actual_checksum=$(sha256sum "/tmp/${tarball}" | awk '{print $1}'); \
+  if [ "${actual_checksum}" != "${expected_checksum}" ]; then \
     echo "Error: Checksum verification failed for ShellSpec ${SHELLSPEC_VERSION}" >&2; \
-    rm -f /tmp/checksums.txt; \
+    echo "Expected: ${expected_checksum}" >&2; \
+    echo "Got:      ${actual_checksum}" >&2; \
+    rm -f "/tmp/${tarball}"; \
     exit 1; \
   fi; \
-  rm -f /tmp/checksums.txt; \
+  echo "Checksum verified successfully"; \
   \
   tar -xzf "/tmp/${tarball}" -C "$HOME/.local"; \
   ln -s "$HOME/.local/shellspec/shellspec" "$HOME/.local/bin/shellspec"; \

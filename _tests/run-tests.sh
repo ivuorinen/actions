@@ -421,9 +421,13 @@ generate_coverage_report() {
   # This is a simplified coverage implementation
   # In practice, you'd integrate with kcov or similar tools
 
-  # Count tested vs total actions
+  # Count tested vs total actions (count directories with action.yml files, excluding hidden/internal dirs and node_modules)
   local total_actions
-  total_actions=$(find "${TEST_ROOT}/.." -mindepth 1 -maxdepth 1 -type d -name "*-*" | wc -l)
+  total_actions=$(find "${TEST_ROOT}/.." -type f -name "action.yml" 2>/dev/null | \
+    grep -v "/\." | \
+    grep -v "/_" | \
+    grep -v "/node_modules/" | \
+    wc -l | tr -d ' ')
 
   # Count actions that have unit tests (by checking if validation.spec.sh exists)
   local tested_actions

@@ -308,7 +308,7 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "any" "all_optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "any" "all_optional"
 The output should equal "none"
 End
 End

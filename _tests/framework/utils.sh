@@ -7,7 +7,6 @@ set -euo pipefail
 # Source setup utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
-PYTHON_BIN="${PROJECT_ROOT}/.venv/bin/python3"
 # shellcheck source=_tests/framework/setup.sh
 source "${SCRIPT_DIR}/setup.sh"
 
@@ -26,7 +25,7 @@ validate_action_yml() {
     # Compute path relative to this script for CWD independence
     local utils_dir
     utils_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if ! "$PYTHON_BIN" "$utils_dir/../shared/validation_core.py" --validate-yaml "$action_file" 2>/dev/null; then
+    if ! uv run "$utils_dir/../shared/validation_core.py" --validate-yaml "$action_file" 2>/dev/null; then
       [[ $quiet_mode == "false" ]] && log_error "Invalid YAML in action file: $action_file"
       return 1
     fi
@@ -41,21 +40,21 @@ get_action_inputs() {
   local action_file="$1"
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  "$PYTHON_BIN" "$script_dir/../shared/validation_core.py" --inputs "$action_file"
+  uv run "$script_dir/../shared/validation_core.py" --inputs "$action_file"
 }
 
 get_action_outputs() {
   local action_file="$1"
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  "$PYTHON_BIN" "$script_dir/../shared/validation_core.py" --outputs "$action_file"
+  uv run "$script_dir/../shared/validation_core.py" --outputs "$action_file"
 }
 
 get_action_name() {
   local action_file="$1"
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  "$PYTHON_BIN" "$script_dir/../shared/validation_core.py" --name "$action_file"
+  uv run "$script_dir/../shared/validation_core.py" --name "$action_file"
 }
 
 # Test input validation using Python validation module
@@ -79,7 +78,7 @@ test_input_validation() {
 
   local result="success"
   # Call validation_core CLI with proper argument passing (no injection risk)
-  if ! "$PYTHON_BIN" "$script_dir/../shared/validation_core.py" --validate "$action_dir" "$input_name" "$test_value" 2>&1; then
+  if ! uv run "$script_dir/../shared/validation_core.py" --validate "$action_dir" "$input_name" "$test_value" 2>&1; then
     result="failure"
   fi
 

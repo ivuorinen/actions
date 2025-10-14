@@ -5,7 +5,8 @@
 # Coverage: 56% (5/9 inputs)
 #
 # This file defines validation rules for the php-composer GitHub Action.
-# Rules are automatically applied by validate-inputs action when this action is used.
+# Rules are automatically applied by validate-inputs action when this
+# action is used.
 #
 
 schema_version: '1.0'

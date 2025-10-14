@@ -16,6 +16,14 @@ inputs:
     description: 'GitHub token for authentication'
     required: false
     default: ${{ github.token }}
+  days-before-stale:
+    description: 'Number of days of inactivity before an issue is marked as stale'
+    required: false
+    default: '30'
+  days-before-close:
+    description: 'Number of days of inactivity before a stale issue is closed'
+    required: false
+    default: '7'
 
 outputs:
   staled_issues_count:
@@ -48,8 +56,8 @@ runs:
       uses: actions/stale@5f858e3efba33a5ca4407a664cc011ad407f2008 # v10.1.0
       with:
         repo-token: ${{ inputs.token }}
-        days-before-stale: 30
-        days-before-close: 7
+        days-before-stale: ${{ inputs.days-before-stale }}
+        days-before-close: ${{ inputs.days-before-close }}
         remove-stale-when-updated: true
         stale-issue-label: 'stale'
         exempt-issue-labels: 'no-stale,help-wanted'

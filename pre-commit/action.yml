@@ -76,6 +76,8 @@ runs:
     - name: Run pre-commit
       id: pre-commit
       uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+      env:
+        PRE_COMMIT_USE_UV: '1'
       with:
         extra_args: --config ${{ inputs.pre-commit-config }} ${{ steps.set-option.outputs.option }}
 

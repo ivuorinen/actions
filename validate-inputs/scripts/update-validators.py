@@ -82,9 +82,7 @@ class ValidationRuleGenerator:
             ),
             "numeric_range_1_128": re.compile(r"\bthreads?\b", re.IGNORECASE),
             "numeric_range_256_32768": re.compile(r"\bram\b", re.IGNORECASE),
-            "numeric_range_0_100": re.compile(
-                r"\b(quality|percent|percentage)\b", re.IGNORECASE
-            ),
+            "numeric_range_0_100": re.compile(r"\b(quality|percent|percentage)\b", re.IGNORECASE),
             # File and path patterns
             "file_path": re.compile(
                 r"\b(paths?|files?|dir|directory|config|dockerfile"
@@ -97,9 +95,7 @@ class ValidationRuleGenerator:
             "email": re.compile(r"\b(email|mail)\b", re.IGNORECASE),
             "username": re.compile(r"\b(user|username|commit[_-]?user)\b", re.IGNORECASE),
             # URL patterns (high priority)
-            "url": re.compile(
-                r"\b(url|registry[_-]?url|api[_-]?url|endpoint)\b", re.IGNORECASE
-            ),
+            "url": re.compile(r"\b(url|registry[_-]?url|api[_-]?url|endpoint)\b", re.IGNORECASE),
             # Scope and namespace patterns
             "scope": re.compile(r"\b(scope|namespace)\b", re.IGNORECASE),
             # Security patterns for text content that could contain injection
@@ -113,9 +109,7 @@ class ValidationRuleGenerator:
                 re.IGNORECASE,
             ),
             # Additional validation types
-            "report_format": re.compile(
-                r"\b(report[_-]?format|format)\b", re.IGNORECASE
-            ),
+            "report_format": re.compile(r"\b(report[_-]?format|format)\b", re.IGNORECASE),
             "plugin_list": re.compile(r"\b(plugins?|plugin[_-]?list)\b", re.IGNORECASE),
             "prefix": re.compile(r"\b(prefix|tag[_-]?prefix)\b", re.IGNORECASE),
             # Boolean patterns (broad, should be lower priority)
@@ -146,6 +140,9 @@ class ValidationRuleGenerator:
             "ignore-file": "file_path",
             "readme-file": "file_path",
             "working-directory": "file_path",
+            # Numeric fields that need positive integer validation
+            "days-before-stale": "positive_integer",
+            "days-before-close": "positive_integer",
             # Version fields with specific types
             "buildx-version": "semantic_version",
             "buildkit-version": "semantic_version",

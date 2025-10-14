@@ -5,7 +5,8 @@
 # Coverage: 100% (16/16 inputs)
 #
 # This file defines validation rules for the docker-publish-gh GitHub Action.
-# Rules are automatically applied by validate-inputs action when this action is used.
+# Rules are automatically applied by validate-inputs action when this
+# action is used.
 #
 
 schema_version: '1.0'

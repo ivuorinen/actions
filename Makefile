@@ -43,7 +43,7 @@ help: ## Show this help message
 	@echo "  make check        # Quick syntax checks"
 
 # Main targets
-all: install-tools update-validators docs format lint ## Generate docs, format, and lint everything
+all: install-tools update-validators docs format lint precommit ## Generate docs, format, lint, and run pre-commit
 	@echo "$(GREEN)✅ All tasks completed successfully$(RESET)"
 
 docs: ## Generate documentation for all actions
@@ -68,12 +68,22 @@ docs: ## Generate documentation for all actions
 
 update-validators: ## Update validation rules for all actions
 	@echo "$(BLUE)🔧 Updating validation rules...$(RESET)"
-	@cd validate-inputs && python3 scripts/update-validators.py
+	@if command -v uv >/dev/null 2>&1; then \
+		cd validate-inputs && uv run scripts/update-validators.py; \
+	else \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
+	fi
 	@echo "$(GREEN)✅ Validation rules updated$(RESET)"
 
 update-validators-dry: ## Preview validation rules changes (dry run)
 	@echo "$(BLUE)🔍 Previewing validation rules changes...$(RESET)"
-	@cd validate-inputs && python3 scripts/update-validators.py --dry-run
+	@if command -v uv >/dev/null 2>&1; then \
+		cd validate-inputs && uv run scripts/update-validators.py --dry-run; \
+	else \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
+	fi
 
 format: format-markdown format-yaml-json format-python ## Format all files
 	@echo "$(GREEN)✅ All files formatted$(RESET)"
@@ -91,18 +101,49 @@ clean: ## Clean up temporary files and caches
 	@find . -name ".megalinter" -type d -exec rm -rf {} + 2>/dev/null || true
 	@echo "$(GREEN)✅ Cleanup completed$(RESET)"
 
+precommit: ## Run pre-commit hooks on all files
+	@echo "$(BLUE)🔍 Running pre-commit hooks...$(RESET)"
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		if PRE_COMMIT_USE_UV=1 pre-commit run --all-files; then \
+			echo "$(GREEN)✅ All pre-commit hooks passed$(RESET)"; \
+		else \
+			echo "$(RED)❌ Some pre-commit hooks failed$(RESET)"; \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(RED)❌ pre-commit not found. Please install:$(RESET)"; \
+		echo "  brew install pre-commit"; \
+		echo "  or: pip install pre-commit"; \
+		exit 1; \
+	fi
+
 # Local action reference validation
 check-local-refs: ## Check for ../action-name references that should be ./action-name
 	@echo "$(BLUE)🔍 Checking local action references...$(RESET)"
-	@python3 _tools/fix-local-action-refs.py --check
+	@if command -v uv >/dev/null 2>&1; then \
+		uv run _tools/fix-local-action-refs.py --check; \
+	else \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
+	fi
 
 fix-local-refs: ## Fix ../action-name references to ./action-name
 	@echo "$(BLUE)🔧 Fixing local action references...$(RESET)"
-	@python3 _tools/fix-local-action-refs.py
+	@if command -v uv >/dev/null 2>&1; then \
+		uv run _tools/fix-local-action-refs.py; \
+	else \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
+	fi
 
 fix-local-refs-dry: ## Preview local action reference fixes (dry run)
 	@echo "$(BLUE)🔍 Previewing local action reference fixes...$(RESET)"
-	@python3 _tools/fix-local-action-refs.py --dry-run
+	@if command -v uv >/dev/null 2>&1; then \
+		uv run _tools/fix-local-action-refs.py --dry-run; \
+	else \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
+	fi
 
 # Formatting targets
 format-markdown: ## Format markdown files
@@ -265,8 +306,22 @@ install-tools: ## Install/update required tools
 	else \
 		echo "  uv already installed"; \
 	fi
-	@echo "$(YELLOW)Installing Python dependencies...$(RESET)"
-	@uv pip install PyYAML pytest pytest-cov ruff
+	@echo "$(YELLOW)Checking pre-commit...$(RESET)"
+	@if ! command -v pre-commit >/dev/null 2>&1; then \
+		echo "$(BLUE)ℹ️ pre-commit not found. Installing via uv tool...$(RESET)"; \
+		uv tool install pre-commit; \
+		echo "  pre-commit installed"; \
+	else \
+		echo "  pre-commit already installed"; \
+	fi
+	@echo "$(YELLOW)Installing git hooks with pre-commit...$(RESET)"
+	@if [ -d .git ] && command -v pre-commit >/dev/null 2>&1; then \
+		if ~/.local/bin/pre-commit install 2>/dev/null || pre-commit install 2>/dev/null; then \
+			echo "  Git hooks installed"; \
+		fi; \
+	fi
+	@echo "$(YELLOW)Installing Python dependencies from pyproject.toml...$(RESET)"
+	@uv sync --all-extras
 	@echo "  Python dependencies installed"
 	@echo "$(GREEN)✅ All tools installed/updated$(RESET)"
 
@@ -287,11 +342,11 @@ ci: check docs lint ## CI workflow - check, docs, lint (no formatting)
 # Statistics
 stats: ## Show repository statistics
 	@echo "$(BLUE)📊 Repository Statistics$(RESET)"
-	@echo "Actions: $(shell find . -mindepth 2 -maxdepth 2 -name "action.yml" | wc -l)"
-	@echo "Shell scripts: $(shell find . -name "*.sh" | wc -l)"
-	@echo "YAML files: $(shell find . -name "*.yml" -o -name "*.yaml" | wc -l)"
-	@echo "Markdown files: $(shell find . -name "*.md" | wc -l)"
-	@echo "Total files: $(shell find . -type f | wc -l)"
+	@printf "%-20s %6s\n" "Actions:" "$(shell find . -mindepth 2 -maxdepth 2 -name "action.yml" | wc -l | tr -d ' ')"
+	@printf "%-20s %6s\n" "Shell scripts:" "$(shell find . -name "*.sh" | wc -l | tr -d ' ')"
+	@printf "%-20s %6s\n" "YAML files:" "$(shell find . -name "*.yml" -o -name "*.yaml" | wc -l | tr -d ' ')"
+	@printf "%-20s %6s\n" "Markdown files:" "$(shell find . -name "*.md" | wc -l | tr -d ' ')"
+	@printf "%-20s %6s\n" "Total files:" "$(shell find . -type f | wc -l | tr -d ' ')"
 
 # Watch mode for development
 # Testing targets
@@ -364,24 +419,24 @@ test-action: ## Run tests for specific action (usage: make test-action ACTION=no
 
 generate-tests: ## Generate missing tests for actions and validators (won't overwrite existing tests)
 	@echo "$(BLUE)🧪 Generating missing tests...$(RESET)"
-	@if command -v python3 >/dev/null 2>&1; then \
-		if python3 validate-inputs/scripts/generate-tests.py; then \
+	@if command -v uv >/dev/null 2>&1; then \
+		if uv run validate-inputs/scripts/generate-tests.py; then \
 			echo "$(GREEN)✅ Test generation completed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Test generation failed$(RESET)"; \
 			exit 1; \
 		fi; \
 	else \
-		echo "$(RED)❌ Python 3 not found$(RESET)"; \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
 		exit 1; \
 	fi
 
 generate-tests-dry: ## Preview what tests would be generated without creating files
 	@echo "$(BLUE)👁️ Preview test generation (dry run)...$(RESET)"
-	@if command -v python3 >/dev/null 2>&1; then \
-		python3 validate-inputs/scripts/generate-tests.py --dry-run --verbose; \
+	@if command -v uv >/dev/null 2>&1; then \
+		uv run validate-inputs/scripts/generate-tests.py --dry-run --verbose; \
 	else \
-		echo "$(RED)❌ Python 3 not found$(RESET)"; \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
 		exit 1; \
 	fi
 
@@ -395,8 +450,8 @@ test-generate-tests: ## Test the test generation system itself
 			exit 1; \
 		fi; \
 	else \
-		echo "$(BLUE)ℹ️ uv not available, running with python3$(RESET)"; \
-		python3 -m pytest validate-inputs/tests/test_generate_tests.py -v || exit 1; \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
 	fi
 
 # Docker targets

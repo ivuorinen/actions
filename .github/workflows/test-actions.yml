@@ -6,8 +6,6 @@ on:
   push:
     branches:
       - main
-      - feat/*
-      - fix/*
     paths:
       - '*/action.yml'
       - '_tests/**'
@@ -216,78 +214,6 @@ jobs:
             } else {
               await github.rest.issues.createComment({ owner, repo, issue_number, body: finalBody });
             }
-
-  test-changed-actions:
-    name: Test Changed Actions
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    timeout-minutes: 15
-    if: github.event_name == 'pull_request'
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-        with:
-          fetch-depth: 0
-
-      - name: Setup test environment
-        uses: ./.github/actions/setup-test-environment
-
-      - name: Detect changed actions
-        id: changed-actions
-        shell: bash
-        run: |
-          # Set base SHA for comparison (works with forked PRs)
-          BASE_SHA="${{ github.event.pull_request.base.sha }}"
-          BASE_REF="${{ github.base_ref }}"
-
-          if [[ -z "$BASE_SHA" ]]; then
-            BASE_SHA="origin/$BASE_REF"
-          fi
-
-          echo "Comparing against base: $BASE_SHA"
-
-          # Fetch the base branch ref to materialize the commit locally (important for forked PRs)
-          # We fetch the branch ref, not the raw commit hash, then use BASE_SHA for comparison
-          if [[ "$BASE_SHA" != origin/* ]] && [[ -n "$BASE_REF" ]]; then
-            echo "Fetching base branch: $BASE_REF"
-            git fetch origin "$BASE_REF:refs/remotes/origin/$BASE_REF"
-          fi
-
-          # Get list of changed action.yml files
-          changed_files=$(git diff --name-only "$BASE_SHA"...HEAD)
-          changed_actions=""
-
-          for file in $changed_files; do
-            if [[ $file == */action.yml && $file != _tests/* ]]; then
-              action_name=$(dirname "$file")
-              if [[ -d "$action_name" ]]; then
-                changed_actions="$changed_actions $action_name"
-              fi
-            fi
-          done
-
-          changed_actions=$(echo "$changed_actions" | tr ' ' '\n' | sort -u | tr '\n' ' ')
-          echo "changed-actions=$changed_actions" >> "$GITHUB_OUTPUT"
-          echo "Changed actions: $changed_actions"
-
-      - name: Test changed actions
-        if: steps.changed-actions.outputs.changed-actions != ''
-        shell: bash
-        run: |
-          for action in ${{ steps.changed-actions.outputs.changed-actions }}; do
-            echo "Testing changed action: $action"
-            if ! make test-action ACTION="$action"; then
-              echo "❌ Tests failed for action: $action"
-              exit 1
-            fi
-            echo "✅ Tests passed for action: $action"
-          done
-
-      - name: No changed actions
-        if: steps.changed-actions.outputs.changed-actions == ''
-        run: echo "No actions were changed in this PR"
 
   security-scan:
     name: Security Scan

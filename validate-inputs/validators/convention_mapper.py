@@ -164,6 +164,8 @@ class ConventionMapper:
                 "jpeg-quality": "numeric_0_100",
                 "quality": "numeric_0_100",
                 "max-warnings": "numeric_0_10000",
+                "days-before-stale": "positive_integer",
+                "days-before-close": "positive_integer",
                 "port": "port",
                 "ram": "numeric_256_32768",
                 "memory": "numeric_256_32768",

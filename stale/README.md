@@ -8,9 +8,11 @@ A GitHub Action to close stale issues and pull requests.
 
 ### Inputs
 
-| name    | description                            | required | default               |
-|---------|----------------------------------------|----------|-----------------------|
-| `token` | <p>GitHub token for authentication</p> | `false`  | `${{ github.token }}` |
+| name                | description                                                            | required | default               |
+|---------------------|------------------------------------------------------------------------|----------|-----------------------|
+| `token`             | <p>GitHub token for authentication</p>                                 | `false`  | `${{ github.token }}` |
+| `days-before-stale` | <p>Number of days of inactivity before an issue is marked as stale</p> | `false`  | `30`                  |
+| `days-before-close` | <p>Number of days of inactivity before a stale issue is closed</p>     | `false`  | `7`                   |
 
 ### Outputs
 
@@ -33,4 +35,16 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ${{ github.token }}
+
+    days-before-stale:
+    # Number of days of inactivity before an issue is marked as stale
+    #
+    # Required: false
+    # Default: 30
+
+    days-before-close:
+    # Number of days of inactivity before a stale issue is closed
+    #
+    # Required: false
+    # Default: 7
 ```

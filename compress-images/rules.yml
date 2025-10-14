@@ -5,7 +5,8 @@
 # Coverage: 86% (6/7 inputs)
 #
 # This file defines validation rules for the compress-images GitHub Action.
-# Rules are automatically applied by validate-inputs action when this action is used.
+# Rules are automatically applied by validate-inputs action when this
+# action is used.
 #
 
 schema_version: '1.0'

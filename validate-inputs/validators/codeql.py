@@ -252,11 +252,12 @@ class CodeQLValidator(BaseValidator):
 
         return True
 
-    def validate_threads(self, value: str) -> bool:
+    def validate_threads(self, value: str, name: str = "threads") -> bool:
         """Validate thread count (1-128).
 
         Args:
             value: The thread count to validate
+            name: The input name for error messages
 
         Returns:
             True if valid, False otherwise
@@ -268,17 +269,18 @@ class CodeQLValidator(BaseValidator):
             threads = int(value.strip())
             if 1 <= threads <= 128:
                 return True
-            self.add_error(f"Invalid threads: {threads}. Must be between 1 and 128")
+            self.add_error(f"Invalid {name}: {threads}. Must be between 1 and 128")
             return False
         except ValueError:
-            self.add_error(f'Invalid threads: "{value}". Must be a number')
+            self.add_error(f'Invalid {name}: "{value}". Must be a number')
             return False
 
-    def validate_ram(self, value: str) -> bool:
+    def validate_ram(self, value: str, name: str = "ram") -> bool:
         """Validate RAM in MB (256-32768).
 
         Args:
             value: The RAM value to validate
+            name: The input name for error messages
 
         Returns:
             True if valid, False otherwise
@@ -290,21 +292,17 @@ class CodeQLValidator(BaseValidator):
             ram = int(value.strip())
             if 256 <= ram <= 32768:
                 return True
-            self.add_error(f"Invalid RAM: {ram}. Must be between 256 and 32768 MB")
+            self.add_error(f"Invalid {name}: {ram}. Must be between 256 and 32768 MB")
             return False
         except ValueError:
-            self.add_error(f'Invalid RAM: "{value}". Must be a number')
+            self.add_error(f'Invalid {name}: "{value}". Must be a number')
             return False
 
     # Convenience methods for convention-based validation
-    def validate_numeric_range_1_128(  # noqa: ARG002
-        self, value: str, name: str = "threads"
-    ) -> bool:
+    def validate_numeric_range_1_128(self, value: str, name: str = "threads") -> bool:
         """Alias for thread validation."""
-        return self.validate_threads(value)
+        return self.validate_threads(value, name)
 
-    def validate_numeric_range_256_32768(  # noqa: ARG002
-        self, value: str, name: str = "ram"
-    ) -> bool:
+    def validate_numeric_range_256_32768(self, value: str, name: str = "ram") -> bool:
         """Alias for RAM validation."""
-        return self.validate_ram(value)
+        return self.validate_ram(value, name)

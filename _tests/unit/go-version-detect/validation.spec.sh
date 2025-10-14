@@ -114,12 +114,12 @@ End
 Context "when testing input requirements"
 It "has default-version as optional input"
 # Test that default-version has a default value in action.yml
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "default-version" "optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "default-version" "optional"
 The output should equal "optional"
 End
 
 It "has correct default version"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "default-version" "default"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "default-version" "default"
 The output should equal "$CURRENT_STABLE_GO_VERSION"
 End
 End

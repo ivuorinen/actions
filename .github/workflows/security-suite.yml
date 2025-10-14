@@ -52,8 +52,10 @@ jobs:
             ${{ github.event.pull_request.base.ref }}:refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}
           # Record the base commit for diffing without checking it out
           # Keep PR head checked out so scanners analyze the new changes
-          echo "Base commit: ${{ github.event.pull_request.base.sha }}"
-          git log -1 --oneline ${{ github.event.pull_request.base.sha }} || echo "Warning: Base commit not found in fetched refs"
+          BASE_REF="refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}"
+          echo "BASE_REF=${BASE_REF}" >> $GITHUB_ENV
+          echo "Base ref: ${BASE_REF}"
+          git log -1 --oneline "${BASE_REF}"
 
       - name: OWASP Dependency Check
         # Only run on pull_request, not pull_request_target to prevent executing
@@ -82,7 +84,7 @@ jobs:
         uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503
         with:
           path: ./
-          base: ${{ github.event.pull_request.base.sha }}
+          base: ${{ env.BASE_REF }}
           head: HEAD
           extra_args: --debug --only-verified --json --output /tmp/trufflehog_output.json
         continue-on-error: true
@@ -105,9 +107,10 @@ jobs:
 
             // Analyze GitHub Actions permission changes
             const { execSync } = require('child_process');
+            const baseRef = process.env.BASE_REF;
             try {
               const changedWorkflows = execSync(
-                `git diff --name-only ${{ github.event.pull_request.base.sha }}...${{ github.event.pull_request.head.sha }} | grep -E "\.github/workflows/.*\.ya?ml$" || true`,
+                `git diff --name-only ${baseRef}...HEAD | grep -E "\.github/workflows/.*\.ya?ml$" || true`,
                 { encoding: 'utf8' }
               ).trim().split('\n').filter(Boolean);
 
@@ -115,7 +118,7 @@ jobs:
                 if (!workflow) continue;
 
                 try {
-                  const oldContent = execSync(`git show ${{ github.event.pull_request.base.sha }}:${workflow}`, { encoding: 'utf8' });
+                  const oldContent = execSync(`git show ${baseRef}:${workflow}`, { encoding: 'utf8' });
                   const newContent = fs.readFileSync(workflow, 'utf8');
 
                   // Simple permission extraction (could be enhanced with YAML parsing)

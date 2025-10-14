@@ -219,22 +219,22 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 
 It "has correct default token"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "default"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "default"
 The output should equal "\${{ github.token }}"
 End
 
 It "has correct default username"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "username" "default"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "username" "default"
 The output should equal "github-actions"
 End
 
 It "has correct default email"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "email" "default"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "email" "default"
 The output should equal "github-actions@github.com"
 End
 End

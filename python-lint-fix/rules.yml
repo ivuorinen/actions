@@ -5,7 +5,8 @@
 # Coverage: 100% (9/9 inputs)
 #
 # This file defines validation rules for the python-lint-fix GitHub Action.
-# Rules are automatically applied by validate-inputs action when this action is used.
+# Rules are automatically applied by validate-inputs action when this
+# action is used.
 #
 
 schema_version: '1.0'

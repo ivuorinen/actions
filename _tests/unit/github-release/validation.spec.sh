@@ -117,7 +117,7 @@ End
 
 It "has changelog as optional input"
 # Test that changelog has a default value in action.yml
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "changelog" "optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "changelog" "optional"
 The output should equal "optional"
 End
 End

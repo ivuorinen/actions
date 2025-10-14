@@ -192,7 +192,7 @@ The output should include "npm_token"
 End
 
 It "has registry-url as optional with default"
-When call "${PROJECT_ROOT}/.venv/bin/python3" "_tests/shared/validation_core.py" --property "$ACTION_FILE" "registry-url" "default"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "registry-url" "default"
 The output should include "registry.npmjs.org"
 End
 End
