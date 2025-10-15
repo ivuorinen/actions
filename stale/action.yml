@@ -38,18 +38,12 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-      run: |
-        set -euo pipefail
-
-        # Check for obvious token misconfigurations
-        if [[ -z "$GITHUB_TOKEN" ]] || [[ "$GITHUB_TOKEN" == *'${{'* ]] || [[ "$GITHUB_TOKEN" == 'secrets.'* ]]; then
-          echo "::warning::GitHub token appears to be unevaluated or misconfigured. Please provide a valid token."
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ./validate-inputs
+      with:
+        action: 'stale'
+        token: ${{ inputs.token }}
+        days-before-stale: ${{ inputs.days-before-stale }}
+        days-before-close: ${{ inputs.days-before-close }}
 
     - name: 🚀 Run stale
       id: stale
