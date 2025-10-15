@@ -1,7 +1,7 @@
 """Tests for the VersionValidator module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
@@ -9,14 +9,13 @@ import pytest  # pylint: disable=import-error
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
-from validators.version import VersionValidator
-
 from tests.fixtures.version_test_data import (
     CALVER_INVALID,
     CALVER_VALID,
     SEMVER_INVALID,
     SEMVER_VALID,
 )
+from validators.version import VersionValidator
 
 
 class TestVersionValidator:  # pylint: disable=too-many-public-methods

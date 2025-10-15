@@ -1,16 +1,15 @@
 """Tests for the FileValidator module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from validators.file import FileValidator
-
 from tests.fixtures.version_test_data import FILE_PATH_INVALID, FILE_PATH_VALID
+from validators.file import FileValidator
 
 
 class TestFileValidator:

@@ -4,9 +4,9 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 import re
 import sys
+from pathlib import Path
 
 # Add validate-inputs directory to path to import validators
 validate_inputs_path = Path(__file__).parent

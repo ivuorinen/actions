@@ -2,9 +2,9 @@
 # pylint: disable=protected-access  # Testing private methods is intentional
 
 import importlib.util
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
 
 import yaml  # pylint: disable=import-error
 

@@ -1,9 +1,9 @@
 """Tests for the main validator entry point."""
 
 import os
-from pathlib import Path
 import sys
 import tempfile
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest  # pylint: disable=import-error
@@ -23,7 +23,8 @@ class TestValidatorScript:
                 del os.environ[key]
 
         # Create temporary output file
-        self.temp_output = tempfile.NamedTemporaryFile(mode="w", delete=False)
+        # Need persistent file for teardown, can't use context manager
+        self.temp_output = tempfile.NamedTemporaryFile(mode="w", delete=False)  # noqa: SIM115
         os.environ["GITHUB_OUTPUT"] = self.temp_output.name
         self.temp_output.close()
 
@@ -181,7 +182,8 @@ class TestValidatorIntegration:
 
     def setup_method(self):
         """Set up test environment."""
-        self.temp_output = tempfile.NamedTemporaryFile(mode="w", delete=False)
+        # Need persistent file for teardown, can't use context manager
+        self.temp_output = tempfile.NamedTemporaryFile(mode="w", delete=False)  # noqa: SIM115
         os.environ["GITHUB_OUTPUT"] = self.temp_output.name
         self.temp_output.close()
 

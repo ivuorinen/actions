@@ -8,10 +8,10 @@ from __future__ import annotations
 
 import argparse
 import json
-from pathlib import Path
 import statistics
 import sys
 import time
+from pathlib import Path
 from typing import Any
 
 # Add parent directory to path for imports
@@ -171,8 +171,8 @@ class ValidatorBenchmark:
             inputs: Dictionary of inputs to validate
         """
         import cProfile
-        from io import StringIO
         import pstats
+        from io import StringIO
 
         print(f"\nProfiling {action_type} validator...")
         print("-" * 70)

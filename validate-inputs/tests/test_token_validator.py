@@ -1,7 +1,7 @@
 """Tests for the TokenValidator module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
@@ -9,9 +9,8 @@ import pytest  # pylint: disable=import-error
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
-from validators.token import TokenValidator
-
 from tests.fixtures.version_test_data import GITHUB_TOKEN_INVALID, GITHUB_TOKEN_VALID
+from validators.token import TokenValidator
 
 
 class TestTokenValidator:

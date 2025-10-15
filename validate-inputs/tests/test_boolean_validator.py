@@ -1,16 +1,15 @@
 """Tests for the BooleanValidator module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
-from validators.boolean import BooleanValidator
-
 from tests.fixtures.version_test_data import BOOLEAN_INVALID, BOOLEAN_VALID
+from validators.boolean import BooleanValidator
 
 
 class TestBooleanValidator:
