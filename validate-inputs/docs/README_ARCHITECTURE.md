@@ -5,7 +5,7 @@ A comprehensive, modular validation system for GitHub Actions inputs with automa
 ## Features
 
 - 🔍 **Automatic Validation** - Convention-based input detection
-- 🧩 **Modular Architecture** - 11+ specialized validators
+- 🧩 **Modular Architecture** - 9 specialized validators
 - 🛡️ **Security First** - Injection and traversal protection
 - 🎯 **Custom Validators** - Action-specific validation logic
 - 🧪 **Test Generation** - Automatic test scaffolding
@@ -332,8 +332,8 @@ class CustomValidator(BaseValidator):
 
 ## Quality Metrics
 
-- **Test Coverage**: 100% (303 tests)
-- **Validators**: 11 core + unlimited custom
+- **Test Coverage**: 100% (769 tests)
+- **Validators**: 9 specialized + unlimited custom
 - **Performance**: < 10ms typical validation time
 - **Zero Dependencies**: Uses only Python stdlib + PyYAML
 - **Production Ready**: Zero defects policy

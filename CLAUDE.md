@@ -31,6 +31,42 @@
 - `validate-inputs/` – Python validation system + tests
 - `*/rules.yml` – Auto-generated validation rules
 
+### Memory System
+
+**Location**: `.serena/memories/` (9 consolidated memories for context)
+
+**When to Use**: Read memories at session start or when needed for specific context. Be token-efficient - read only relevant memories for the task.
+
+**Core Memories** (read first for project understanding):
+
+- `repository_overview` – 43 actions, categories, structure, status
+- `validator_system` – Validation architecture, components, usage patterns
+- `development_standards` – Quality rules, workflows, security, completion checklist
+
+**Reference Guides** (read when working on specific areas):
+
+- `code_style_conventions` – EditorConfig, Shell/Python/YAML style, 10 critical prevention rules
+- `suggested_commands` – Make targets, testing commands, tool usage
+- `tech_stack` – Python/Node.js/Shell tools, paths, versions
+
+**GitHub Actions Reference** (read when working with workflows):
+
+- `github-workflow-expressions` – Expression syntax, contexts, operators, common patterns
+- `github-workflow-commands` – Workflow commands (outputs, env, logging, masking)
+- `github-workflow-secure-use` – Security best practices, secrets, injection prevention
+
+**Memory Maintenance**: Update existing memories rather than create new ones. Keep content token-efficient and factual.
+
+### Documentation Locations
+
+**Validation System**: `validate-inputs/docs/` (4 guides: API.md, DEVELOPER_GUIDE.md, ACTION_MAINTAINER.md, README_ARCHITECTURE.md)
+
+**Testing**: `_tests/README.md` (ShellSpec framework, test patterns, running tests)
+
+**Docker Tools**: `_tools/docker-testing-tools/README.md` (CI setup, pre-built testing image)
+
+**See**: `documentation_guide` memory for detailed descriptions and when to read each
+
 ## Repository Structure
 
 Flat structure. Each action self-contained with `action.yml`.

@@ -38,11 +38,12 @@ run: |
 
 ### 2. Secret Masking
 
-**Status**: ✅ Implemented in 6 critical actions
+**Status**: ✅ Implemented in 7 critical actions
 
 Actions that handle sensitive data use GitHub Actions secret masking to prevent accidental exposure in logs:
 
 - `npm-publish` - NPM authentication tokens
+- `docker-publish` - Docker Hub credentials (defense-in-depth masking)
 - `docker-publish-hub` - Docker Hub passwords
 - `docker-publish-gh` - GitHub tokens
 - `csharp-publish` - NuGet API keys
@@ -225,11 +226,11 @@ When security issues are fixed:
 - Added comprehensive input validation
 - Status: ✅ Complete
 
-### Phase 2: Enhanced Security (2024)
+### Phase 2: Enhanced Security (2024-2025)
 
 - Replaced custom Bun installation with official action
 - Replaced custom Trivy installation with official action
-- Added secret masking to 6 critical actions
+- Added secret masking to 7 critical actions (including docker-publish)
 - Optimized file hashing in common-cache
 - Status: ✅ Complete
 

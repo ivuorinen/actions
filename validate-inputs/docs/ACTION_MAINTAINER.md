@@ -200,10 +200,10 @@ class CustomValidator(BaseValidator):
             return False
         return True
 
-        def get_validation_rules(self) -> dict:
-            """Get validation rules."""
-            rules_path = Path(__file__).parent / "rules.yml"
-            return self.load_rules(rules_path)
+    def get_validation_rules(self) -> dict:
+        """Get validation rules."""
+        rules_path = Path(__file__).parent / "rules.yml"
+        return self.load_rules(rules_path)
 ```
 
 1. **Test your validator** (optional but recommended):
