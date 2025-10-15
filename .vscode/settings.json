@@ -3,5 +3,6 @@
     "connectionId": "ivuorinen",
     "projectKey": "ivuorinen_actions"
   },
-  "sarif-viewer.connectToGithubCodeScanning": "on"
+  "sarif-viewer.connectToGithubCodeScanning": "on",
+  "makefile.configureOnOpen": false
 }

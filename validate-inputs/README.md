@@ -35,6 +35,8 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 | `image-quality`     | <p>Image quality percentage</p>                                                    | `false`  | `""`    |
 | `png-quality`       | <p>PNG quality percentage</p>                                                      | `false`  | `""`    |
 | `parallel-builds`   | <p>Number of parallel builds</p>                                                   | `false`  | `""`    |
+| `days-before-stale` | <p>Number of days before marking as stale</p>                                      | `false`  | `""`    |
+| `days-before-close` | <p>Number of days before closing stale items</p>                                   | `false`  | `""`    |
 | `pre-commit-config` | <p>Pre-commit configuration file path</p>                                          | `false`  | `""`    |
 | `base-branch`       | <p>Base branch name</p>                                                            | `false`  | `""`    |
 | `dry-run`           | <p>Dry run mode</p>                                                                | `false`  | `""`    |
@@ -222,6 +224,18 @@ This action is a `composite` action.
 
     parallel-builds:
     # Number of parallel builds
+    #
+    # Required: false
+    # Default: ""
+
+    days-before-stale:
+    # Number of days before marking as stale
+    #
+    # Required: false
+    # Default: ""
+
+    days-before-close:
+    # Number of days before closing stale items
     #
     # Required: false
     # Default: ""
