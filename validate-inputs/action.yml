@@ -95,6 +95,12 @@ inputs:
   parallel-builds:
     description: 'Number of parallel builds'
     required: false
+  days-before-stale:
+    description: 'Number of days before marking as stale'
+    required: false
+  days-before-close:
+    description: 'Number of days before closing stale items'
+    required: false
 
   # File/path inputs
   pre-commit-config:
@@ -218,6 +224,8 @@ runs:
         INPUT_IMAGE_QUALITY: ${{ inputs.image-quality }}
         INPUT_PNG_QUALITY: ${{ inputs.png-quality }}
         INPUT_PARALLEL_BUILDS: ${{ inputs.parallel-builds }}
+        INPUT_DAYS_BEFORE_STALE: ${{ inputs.days-before-stale }}
+        INPUT_DAYS_BEFORE_CLOSE: ${{ inputs.days-before-close }}
         INPUT_PRE_COMMIT_CONFIG: ${{ inputs.pre-commit-config }}
         INPUT_BASE_BRANCH: ${{ inputs.base-branch }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
