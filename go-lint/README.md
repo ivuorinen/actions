@@ -23,6 +23,7 @@ Run golangci-lint with advanced configuration, caching, and reporting
 | `disable-all`           | <p>Disable all linters (useful with --enable-\*)</p> | `false`  | `false`         |
 | `enable-linters`        | <p>Comma-separated list of linters to enable</p>     | `false`  | `""`            |
 | `disable-linters`       | <p>Comma-separated list of linters to disable</p>    | `false`  | `""`            |
+| `token`                 | <p>GitHub token for authentication</p>               | `false`  | `""`            |
 
 ### Outputs
 
@@ -116,6 +117,12 @@ This action is a `composite` action.
 
     disable-linters:
     # Comma-separated list of linters to disable
+    #
+    # Required: false
+    # Default: ""
+
+    token:
+    # GitHub token for authentication
     #
     # Required: false
     # Default: ""

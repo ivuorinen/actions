@@ -1,10 +1,10 @@
 """Integration tests for the validator script execution."""
 
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
@@ -20,7 +20,8 @@ class TestValidatorIntegration:
                 del os.environ[key]
 
         # Create temporary output file
-        self.temp_output = tempfile.NamedTemporaryFile(mode="w", delete=False)
+        # noqa: SIM115 - Need persistent file for teardown, can't use context manager
+        self.temp_output = tempfile.NamedTemporaryFile(mode="w", delete=False)  # noqa: SIM115
         os.environ["GITHUB_OUTPUT"] = self.temp_output.name
         self.temp_output.close()
 

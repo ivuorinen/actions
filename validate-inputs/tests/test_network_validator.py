@@ -1,14 +1,12 @@
 """Tests for the NetworkValidator module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
 # Add the parent directory to the path
 sys.path.insert(0, str(Path(__file__).parent.parent))
-
-from validators.network import NetworkValidator
 
 from tests.fixtures.version_test_data import (
     EMAIL_INVALID,
@@ -16,6 +14,7 @@ from tests.fixtures.version_test_data import (
     USERNAME_INVALID,
     USERNAME_VALID,
 )
+from validators.network import NetworkValidator
 
 
 class TestNetworkValidator:

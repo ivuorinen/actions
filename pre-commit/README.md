@@ -12,7 +12,7 @@ Runs pre-commit on the repository and pushes the fixes back to the repository
 |---------------------|----------------------------------------|----------|-----------------------------|
 | `pre-commit-config` | <p>pre-commit configuration file</p>   | `false`  | `.pre-commit-config.yaml`   |
 | `base-branch`       | <p>Base branch to compare against</p>  | `false`  | `""`                        |
-| `token`             | <p>GitHub token for authentication</p> | `false`  | `${{ github.token }}`       |
+| `token`             | <p>GitHub token for authentication</p> | `false`  | `""`                        |
 | `commit_user`       | <p>Commit user</p>                     | `false`  | `GitHub Actions`            |
 | `commit_email`      | <p>Commit email</p>                    | `false`  | `github-actions@github.com` |
 
@@ -48,7 +48,7 @@ This action is a `composite` action.
     # GitHub token for authentication
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 
     commit_user:
     # Commit user

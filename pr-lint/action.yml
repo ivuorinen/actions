@@ -17,7 +17,7 @@ inputs:
   token:
     description: 'GitHub token for authentication'
     required: false
-    default: ${{ github.token }}
+    default: ''
   username:
     description: 'GitHub username for commits'
     required: false
@@ -53,7 +53,7 @@ runs:
     - name: Checkout Code
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
-        token: ${{ inputs.token }}
+        token: ${{ inputs.token || github.token }}
 
         # If you use VALIDATE_ALL_CODEBASE = true, you can remove this line to
         # improve performance

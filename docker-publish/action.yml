@@ -54,6 +54,10 @@ inputs:
   dockerhub-password:
     description: 'Docker Hub password or access token for authentication'
     required: false
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
 
 outputs:
   registry:
@@ -84,6 +88,18 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Mask Sensitive Inputs
+      shell: bash
+      env:
+        DOCKERHUB_PASSWORD: ${{ inputs.dockerhub-password }}
+      run: |
+        set -euo pipefail
+
+        # Mask Docker Hub credentials to prevent exposure in logs
+        if [[ -n "${DOCKERHUB_PASSWORD}" ]]; then
+          echo "::add-mask::${DOCKERHUB_PASSWORD}"
+        fi
+
     - name: Validate Inputs
       id: validate
       shell: bash
@@ -146,6 +162,11 @@ runs:
         fi
 
         echo "Publishing to: $REGISTRY"
+
+    - name: Checkout Repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token || github.token }}
 
     - name: Build Multi-Arch Docker Image
       id: build

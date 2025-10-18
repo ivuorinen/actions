@@ -1,7 +1,7 @@
 """Tests for the NumericValidator module."""
 
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest  # pylint: disable=import-error
 
@@ -9,9 +9,8 @@ import pytest  # pylint: disable=import-error
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 # pylint: disable=wrong-import-position
-from validators.numeric import NumericValidator
-
 from tests.fixtures.version_test_data import NUMERIC_RANGE_INVALID, NUMERIC_RANGE_VALID
+from validators.numeric import NumericValidator
 
 
 class TestNumericValidator:

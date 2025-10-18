@@ -11,6 +11,7 @@ Detects the Go version from the project's go.mod file or defaults to a specified
 | name              | description                                              | required | default |
 |-------------------|----------------------------------------------------------|----------|---------|
 | `default-version` | <p>Default Go version to use if go.mod is not found.</p> | `false`  | `1.25`  |
+| `token`           | <p>GitHub token for authentication</p>                   | `false`  | `""`    |
 
 ### Outputs
 
@@ -32,4 +33,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 1.25
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

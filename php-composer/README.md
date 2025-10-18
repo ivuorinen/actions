@@ -17,7 +17,7 @@ Runs Composer install on a repository with advanced caching and configuration.
 | `composer-version`  | <p>Composer version to use (1 or 2)</p>                       | `false`  | `2`                                                 |
 | `stability`         | <p>Minimum stability (stable, RC, beta, alpha, dev)</p>       | `false`  | `stable`                                            |
 | `cache-directories` | <p>Additional directories to cache (comma-separated)</p>      | `false`  | `""`                                                |
-| `token`             | <p>GitHub token for private repository access</p>             | `false`  | `${{ github.token }}`                               |
+| `token`             | <p>GitHub token for private repository access</p>             | `false`  | `""`                                                |
 | `max-retries`       | <p>Maximum number of retry attempts for Composer commands</p> | `false`  | `3`                                                 |
 
 ### Outputs
@@ -84,7 +84,7 @@ This action is a `composite` action.
     # GitHub token for private repository access
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 
     max-retries:
     # Maximum number of retry attempts for Composer commands

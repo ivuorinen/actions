@@ -18,7 +18,7 @@ Lints and fixes Terraform files with advanced validation and security checks.
 | `auto-fix`          | <p>Automatically fix issues when possible</p>                  | `false`  | `true`                      |
 | `max-retries`       | <p>Maximum number of retry attempts</p>                        | `false`  | `3`                         |
 | `format`            | <p>Output format (compact, json, checkstyle, junit, sarif)</p> | `false`  | `sarif`                     |
-| `token`             | <p>GitHub token for authentication</p>                         | `false`  | `${{ github.token }}`       |
+| `token`             | <p>GitHub token for authentication</p>                         | `false`  | `""`                        |
 | `username`          | <p>GitHub username for commits</p>                             | `false`  | `github-actions`            |
 | `email`             | <p>GitHub email for commits</p>                                | `false`  | `github-actions@github.com` |
 
@@ -91,7 +91,7 @@ This action is a `composite` action.
     # GitHub token for authentication
     #
     # Required: false
-    # Default: ${{ github.token }}
+    # Default: ""
 
     username:
     # GitHub username for commits

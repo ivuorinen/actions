@@ -15,6 +15,10 @@ inputs:
     description: 'Default Python version to use if no version is detected.'
     required: false
     default: '3.12'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
 
 outputs:
   python-version:
@@ -56,6 +60,11 @@ runs:
         fi
 
         echo "Input validation completed successfully"
+
+    - name: Checkout Repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token || github.token }}
 
     - name: Parse Python Version
       id: parse-version

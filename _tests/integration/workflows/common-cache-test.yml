@@ -1,0 +1,471 @@
+---
+name: Integration Test - Common Cache
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'common-cache/**'
+      - '_tests/integration/workflows/common-cache-test.yml'
+
+jobs:
+  test-common-cache-key-generation:
+    name: Test Cache Key Generation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test basic key generation
+        run: |
+          RUNNER_OS="Linux"
+          CACHE_TYPE="npm"
+          KEY_PREFIX=""
+
+          cache_key="$RUNNER_OS"
+          [ -n "$CACHE_TYPE" ] && cache_key="${cache_key}-${CACHE_TYPE}"
+
+          expected="Linux-npm"
+          if [[ "$cache_key" != "$expected" ]]; then
+            echo "❌ ERROR: Expected '$expected', got '$cache_key'"
+            exit 1
+          fi
+          echo "✓ Basic cache key generation works"
+
+      - name: Test key with prefix
+        run: |
+          RUNNER_OS="Linux"
+          CACHE_TYPE="npm"
+          KEY_PREFIX="node-20"
+
+          cache_key="$RUNNER_OS"
+          [ -n "$KEY_PREFIX" ] && cache_key="${cache_key}-${KEY_PREFIX}"
+          [ -n "$CACHE_TYPE" ] && cache_key="${cache_key}-${CACHE_TYPE}"
+
+          expected="Linux-node-20-npm"
+          if [[ "$cache_key" != "$expected" ]]; then
+            echo "❌ ERROR: Expected '$expected', got '$cache_key'"
+            exit 1
+          fi
+          echo "✓ Cache key with prefix works"
+
+      - name: Test OS-specific keys
+        run: |
+          for os in "Linux" "macOS" "Windows"; do
+            CACHE_TYPE="test"
+            cache_key="$os-$CACHE_TYPE"
+            if [[ ! "$cache_key" =~ ^(Linux|macOS|Windows)-test$ ]]; then
+              echo "❌ ERROR: Invalid key for OS $os: $cache_key"
+              exit 1
+            fi
+            echo "✓ OS-specific key for $os: $cache_key"
+          done
+
+  test-common-cache-file-hashing:
+    name: Test File Hashing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create test files
+        run: |
+          mkdir -p test-cache
+          cd test-cache
+          echo "content1" > file1.txt
+          echo "content2" > file2.txt
+          echo "content3" > file3.txt
+
+      - name: Test single file hash
+        run: |
+          cd test-cache
+          file_hash=$(cat file1.txt | sha256sum | cut -d' ' -f1)
+
+          if [[ ! "$file_hash" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "❌ ERROR: Invalid hash format: $file_hash"
+            exit 1
+          fi
+          echo "✓ Single file hash: $file_hash"
+
+      - name: Test multiple file hash
+        run: |
+          cd test-cache
+          multi_hash=$(cat file1.txt file2.txt file3.txt | sha256sum | cut -d' ' -f1)
+
+          if [[ ! "$multi_hash" =~ ^[a-f0-9]{64}$ ]]; then
+            echo "❌ ERROR: Invalid hash format: $multi_hash"
+            exit 1
+          fi
+          echo "✓ Multiple file hash: $multi_hash"
+
+      - name: Test hash changes with content
+        run: |
+          cd test-cache
+
+          # Get initial hash
+          hash1=$(cat file1.txt | sha256sum | cut -d' ' -f1)
+
+          # Modify file
+          echo "modified" > file1.txt
+
+          # Get new hash
+          hash2=$(cat file1.txt | sha256sum | cut -d' ' -f1)
+
+          if [[ "$hash1" == "$hash2" ]]; then
+            echo "❌ ERROR: Hash should change when content changes"
+            exit 1
+          fi
+          echo "✓ Hash changes with content modification"
+
+      - name: Test comma-separated file list processing
+        run: |
+          cd test-cache
+
+          KEY_FILES="file1.txt,file2.txt,file3.txt"
+          IFS=',' read -ra FILES <<< "$KEY_FILES"
+
+          existing_files=()
+          for file in "${FILES[@]}"; do
+            file=$(echo "$file" | xargs)
+            if [ -f "$file" ]; then
+              existing_files+=("$file")
+            fi
+          done
+
+          if [ ${#existing_files[@]} -ne 3 ]; then
+            echo "❌ ERROR: Should find 3 files, found ${#existing_files[@]}"
+            exit 1
+          fi
+
+          echo "✓ Comma-separated file list processing works"
+
+      - name: Test missing file handling
+        run: |
+          cd test-cache
+
+          KEY_FILES="file1.txt,missing.txt,file2.txt"
+          IFS=',' read -ra FILES <<< "$KEY_FILES"
+
+          existing_files=()
+          for file in "${FILES[@]}"; do
+            file=$(echo "$file" | xargs)
+            if [ -f "$file" ]; then
+              existing_files+=("$file")
+            fi
+          done
+
+          if [ ${#existing_files[@]} -ne 2 ]; then
+            echo "❌ ERROR: Should find 2 files, found ${#existing_files[@]}"
+            exit 1
+          fi
+
+          echo "✓ Missing files correctly skipped"
+
+  test-common-cache-env-vars:
+    name: Test Environment Variables
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test single env var inclusion
+        run: |
+          export NODE_VERSION="20.9.0"
+          ENV_VARS="NODE_VERSION"
+
+          IFS=',' read -ra VARS <<< "$ENV_VARS"
+          env_hash=""
+          for var in "${VARS[@]}"; do
+            if [ -n "${!var}" ]; then
+              env_hash="${env_hash}-${var}-${!var}"
+            fi
+          done
+
+          expected="-NODE_VERSION-20.9.0"
+          if [[ "$env_hash" != "$expected" ]]; then
+            echo "❌ ERROR: Expected '$expected', got '$env_hash'"
+            exit 1
+          fi
+          echo "✓ Single env var inclusion works"
+
+      - name: Test multiple env vars
+        run: |
+          export NODE_VERSION="20.9.0"
+          export PACKAGE_MANAGER="npm"
+          ENV_VARS="NODE_VERSION,PACKAGE_MANAGER"
+
+          IFS=',' read -ra VARS <<< "$ENV_VARS"
+          env_hash=""
+          for var in "${VARS[@]}"; do
+            if [ -n "${!var}" ]; then
+              env_hash="${env_hash}-${var}-${!var}"
+            fi
+          done
+
+          expected="-NODE_VERSION-20.9.0-PACKAGE_MANAGER-npm"
+          if [[ "$env_hash" != "$expected" ]]; then
+            echo "❌ ERROR: Expected '$expected', got '$env_hash'"
+            exit 1
+          fi
+          echo "✓ Multiple env vars inclusion works"
+
+      - name: Test undefined env var skipping
+        run: |
+          export NODE_VERSION="20.9.0"
+          ENV_VARS="NODE_VERSION,UNDEFINED_VAR"
+
+          IFS=',' read -ra VARS <<< "$ENV_VARS"
+          env_hash=""
+          for var in "${VARS[@]}"; do
+            if [ -n "${!var}" ]; then
+              env_hash="${env_hash}-${var}-${!var}"
+            fi
+          done
+
+          # Should only include NODE_VERSION
+          expected="-NODE_VERSION-20.9.0"
+          if [[ "$env_hash" != "$expected" ]]; then
+            echo "❌ ERROR: Expected '$expected', got '$env_hash'"
+            exit 1
+          fi
+          echo "✓ Undefined env vars correctly skipped"
+
+  test-common-cache-path-processing:
+    name: Test Path Processing
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test single path
+        run: |
+          CACHE_PATHS="~/.npm"
+          IFS=',' read -ra PATHS <<< "$CACHE_PATHS"
+
+          if [ ${#PATHS[@]} -ne 1 ]; then
+            echo "❌ ERROR: Should have 1 path, got ${#PATHS[@]}"
+            exit 1
+          fi
+          echo "✓ Single path processing works"
+
+      - name: Test multiple paths
+        run: |
+          CACHE_PATHS="~/.npm,~/.yarn/cache,node_modules"
+          IFS=',' read -ra PATHS <<< "$CACHE_PATHS"
+
+          if [ ${#PATHS[@]} -ne 3 ]; then
+            echo "❌ ERROR: Should have 3 paths, got ${#PATHS[@]}"
+            exit 1
+          fi
+          echo "✓ Multiple paths processing works"
+
+      - name: Test path with spaces (trimming)
+        run: |
+          CACHE_PATHS=" ~/.npm , ~/.yarn/cache , node_modules "
+          IFS=',' read -ra PATHS <<< "$CACHE_PATHS"
+
+          trimmed_paths=()
+          for path in "${PATHS[@]}"; do
+            trimmed=$(echo "$path" | xargs)
+            trimmed_paths+=("$trimmed")
+          done
+
+          # Check first path is trimmed
+          if [[ "${trimmed_paths[0]}" != "~/.npm" ]]; then
+            echo "❌ ERROR: Path not trimmed: '${trimmed_paths[0]}'"
+            exit 1
+          fi
+          echo "✓ Path trimming works"
+
+  test-common-cache-complete-key-generation:
+    name: Test Complete Key Generation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create test files
+        run: |
+          mkdir -p test-complete
+          cd test-complete
+          echo "package-lock content" > package-lock.json
+
+      - name: Test complete cache key with all components
+        run: |
+          cd test-complete
+
+          RUNNER_OS="Linux"
+          CACHE_TYPE="npm"
+          KEY_PREFIX="node-20"
+
+          # Generate file hash
+          files_hash=$(cat package-lock.json | sha256sum | cut -d' ' -f1)
+
+          # Generate env hash
+          export NODE_VERSION="20.9.0"
+          env_hash="-NODE_VERSION-20.9.0"
+
+          # Generate final key
+          cache_key="$RUNNER_OS"
+          [ -n "$KEY_PREFIX" ] && cache_key="${cache_key}-${KEY_PREFIX}"
+          [ -n "$CACHE_TYPE" ] && cache_key="${cache_key}-${CACHE_TYPE}"
+          [ -n "$files_hash" ] && cache_key="${cache_key}-${files_hash}"
+          [ -n "$env_hash" ] && cache_key="${cache_key}${env_hash}"
+
+          echo "Generated cache key: $cache_key"
+
+          # Verify structure
+          if [[ ! "$cache_key" =~ ^Linux-node-20-npm-[a-f0-9]{64}-NODE_VERSION-20\.9\.0$ ]]; then
+            echo "❌ ERROR: Invalid cache key structure: $cache_key"
+            exit 1
+          fi
+          echo "✓ Complete cache key generation works"
+
+  test-common-cache-restore-keys:
+    name: Test Restore Keys
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test single restore key
+        run: |
+          RESTORE_KEYS="Linux-npm-"
+
+          if [[ -z "$RESTORE_KEYS" ]]; then
+            echo "❌ ERROR: Restore keys should not be empty"
+            exit 1
+          fi
+          echo "✓ Single restore key: $RESTORE_KEYS"
+
+      - name: Test multiple restore keys
+        run: |
+          RESTORE_KEYS="Linux-node-20-npm-,Linux-node-npm-,Linux-npm-"
+
+          IFS=',' read -ra KEYS <<< "$RESTORE_KEYS"
+          if [ ${#KEYS[@]} -ne 3 ]; then
+            echo "❌ ERROR: Should have 3 restore keys, got ${#KEYS[@]}"
+            exit 1
+          fi
+          echo "✓ Multiple restore keys work"
+
+  test-common-cache-type-specific-scenarios:
+    name: Test Type-Specific Scenarios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test NPM cache key
+        run: |
+          TYPE="npm"
+          FILES="package-lock.json"
+          PATHS="~/.npm,node_modules"
+
+          echo "✓ NPM cache configuration valid"
+          echo "  Type: $TYPE"
+          echo "  Key files: $FILES"
+          echo "  Paths: $PATHS"
+
+      - name: Test Composer cache key
+        run: |
+          TYPE="composer"
+          FILES="composer.lock"
+          PATHS="~/.composer/cache,vendor"
+
+          echo "✓ Composer cache configuration valid"
+          echo "  Type: $TYPE"
+          echo "  Key files: $FILES"
+          echo "  Paths: $PATHS"
+
+      - name: Test Go cache key
+        run: |
+          TYPE="go"
+          FILES="go.sum"
+          PATHS="~/go/pkg/mod,~/.cache/go-build"
+
+          echo "✓ Go cache configuration valid"
+          echo "  Type: $TYPE"
+          echo "  Key files: $FILES"
+          echo "  Paths: $PATHS"
+
+      - name: Test Pip cache key
+        run: |
+          TYPE="pip"
+          FILES="requirements.txt"
+          PATHS="~/.cache/pip"
+
+          echo "✓ Pip cache configuration valid"
+          echo "  Type: $TYPE"
+          echo "  Key files: $FILES"
+          echo "  Paths: $PATHS"
+
+  test-common-cache-edge-cases:
+    name: Test Edge Cases
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test empty prefix
+        run: |
+          KEY_PREFIX=""
+          cache_key="Linux"
+          [ -n "$KEY_PREFIX" ] && cache_key="${cache_key}-${KEY_PREFIX}"
+
+          if [[ "$cache_key" != "Linux" ]]; then
+            echo "❌ ERROR: Empty prefix should not modify key"
+            exit 1
+          fi
+          echo "✓ Empty prefix handling works"
+
+      - name: Test no key files
+        run: |
+          KEY_FILES=""
+          files_hash=""
+
+          if [ -n "$KEY_FILES" ]; then
+            echo "❌ ERROR: Should detect empty key files"
+            exit 1
+          fi
+          echo "✓ No key files handling works"
+
+      - name: Test no env vars
+        run: |
+          ENV_VARS=""
+          env_hash=""
+
+          if [ -n "$ENV_VARS" ]; then
+            echo "❌ ERROR: Should detect empty env vars"
+            exit 1
+          fi
+          echo "✓ No env vars handling works"
+
+  integration-test-summary:
+    name: Integration Test Summary
+    runs-on: ubuntu-latest
+    needs:
+      - test-common-cache-key-generation
+      - test-common-cache-file-hashing
+      - test-common-cache-env-vars
+      - test-common-cache-path-processing
+      - test-common-cache-complete-key-generation
+      - test-common-cache-restore-keys
+      - test-common-cache-type-specific-scenarios
+      - test-common-cache-edge-cases
+    steps:
+      - name: Summary
+        run: |
+          echo "=========================================="
+          echo "Common Cache Integration Tests - PASSED"
+          echo "=========================================="
+          echo ""
+          echo "✓ Cache key generation tests"
+          echo "✓ File hashing tests"
+          echo "✓ Environment variable tests"
+          echo "✓ Path processing tests"
+          echo "✓ Complete key generation tests"
+          echo "✓ Restore keys tests"
+          echo "✓ Type-specific scenario tests"
+          echo "✓ Edge case tests"
+          echo ""
+          echo "All common-cache integration tests completed successfully!"

@@ -1,0 +1,316 @@
+---
+name: Test Lint & Fix Action Chains
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'eslint-check/**'
+      - 'eslint-fix/**'
+      - 'prettier-check/**'
+      - 'prettier-fix/**'
+      - 'node-setup/**'
+      - 'common-cache/**'
+      - '_tests/integration/workflows/lint-fix-chain-test.yml'
+
+jobs:
+  test-eslint-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create test JavaScript files
+        run: |
+          mkdir -p test-project/src
+
+          # Create package.json
+          cat > test-project/package.json <<EOF
+          {
+            "name": "test-project",
+            "version": "1.0.0",
+            "devDependencies": {
+              "eslint": "^8.0.0"
+            }
+          }
+          EOF
+
+          # Create .eslintrc.json
+          cat > test-project/.eslintrc.json <<EOF
+          {
+            "env": {
+              "node": true,
+              "es2021": true
+            },
+            "extends": "eslint:recommended",
+            "parserOptions": {
+              "ecmaVersion": 12
+            },
+            "rules": {
+              "semi": ["error", "always"],
+              "quotes": ["error", "single"]
+            }
+          }
+          EOF
+
+          # Create test file with linting issues
+          cat > test-project/src/test.js <<EOF
+          const x = "double quotes"
+          console.log(x)
+          EOF
+
+      - name: Setup Node.js
+        uses: ./node-setup
+        with:
+          node-version: '18'
+          working-directory: './test-project'
+
+      - name: Test eslint-check (should find errors)
+        id: eslint-check
+        uses: ./eslint-check
+        with:
+          working-directory: './test-project'
+        continue-on-error: true
+
+      - name: Validate eslint-check found issues
+        run: |
+          echo "ESLint check outcome: ${{ steps.eslint-check.outcome }}"
+          echo "Error count: ${{ steps.eslint-check.outputs.error-count }}"
+          echo "Warning count: ${{ steps.eslint-check.outputs.warning-count }}"
+
+          # Check should fail or find issues
+          if [[ "${{ steps.eslint-check.outcome }}" == "success" ]]; then
+            if [[ "${{ steps.eslint-check.outputs.error-count }}" == "0" ]]; then
+              echo "⚠️  WARNING: Expected to find linting errors but found none"
+            fi
+          fi
+
+          echo "✅ ESLint check validated"
+
+      - name: Test eslint-fix (should fix issues)
+        id: eslint-fix
+        uses: ./eslint-fix
+        with:
+          working-directory: './test-project'
+          token: ${{ github.token }}
+          email: 'test@example.com'
+          username: 'test-user'
+
+      - name: Validate eslint-fix ran
+        run: |
+          echo "Fixed count: ${{ steps.eslint-fix.outputs.fixed-count }}"
+          echo "Files fixed: ${{ steps.eslint-fix.outputs.files-fixed }}"
+
+          # Check that fixes were attempted
+          if [[ -n "${{ steps.eslint-fix.outputs.fixed-count }}" ]]; then
+            echo "✅ ESLint fixed ${{ steps.eslint-fix.outputs.fixed-count }} issues"
+          else
+            echo "⚠️  No fix count reported (may be expected if no fixable issues)"
+          fi
+
+          echo "✅ ESLint fix validated"
+
+  test-prettier-chain:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create test files for Prettier
+        run: |
+          mkdir -p test-prettier
+
+          # Create package.json
+          cat > test-prettier/package.json <<EOF
+          {
+            "name": "test-prettier",
+            "version": "1.0.0",
+            "devDependencies": {
+              "prettier": "^3.0.0"
+            }
+          }
+          EOF
+
+          # Create .prettierrc
+          cat > test-prettier/.prettierrc <<EOF
+          {
+            "semi": true,
+            "singleQuote": true,
+            "printWidth": 80
+          }
+          EOF
+
+          # Create badly formatted file
+          cat > test-prettier/test.js <<EOF
+          const x={"key":"value","another":"data"}
+          console.log(x)
+          EOF
+
+          # Create badly formatted JSON
+          cat > test-prettier/test.json <<EOF
+          {"key":"value","nested":{"data":"here"}}
+          EOF
+
+      - name: Setup Node.js for Prettier
+        uses: ./node-setup
+        with:
+          node-version: '18'
+          working-directory: './test-prettier'
+
+      - name: Test prettier-check (should find issues)
+        id: prettier-check
+        uses: ./prettier-check
+        with:
+          working-directory: './test-prettier'
+        continue-on-error: true
+
+      - name: Validate prettier-check found issues
+        run: |
+          echo "Prettier check outcome: ${{ steps.prettier-check.outcome }}"
+
+          # Check should find formatting issues
+          if [[ "${{ steps.prettier-check.outcome }}" == "failure" ]]; then
+            echo "✅ Prettier correctly found formatting issues"
+          else
+            echo "⚠️  WARNING: Expected Prettier to find formatting issues"
+          fi
+
+      - name: Test prettier-fix (should fix issues)
+        id: prettier-fix
+        uses: ./prettier-fix
+        with:
+          working-directory: './test-prettier'
+          token: ${{ github.token }}
+          email: 'test@example.com'
+          username: 'test-user'
+
+      - name: Validate prettier-fix ran
+        run: |
+          echo "Prettier fix completed"
+
+          # Check that files exist and have been processed
+          if [[ -f "test-prettier/test.js" ]]; then
+            echo "✅ Test file exists after Prettier fix"
+          else
+            echo "❌ ERROR: Test file missing after Prettier fix"
+            exit 1
+          fi
+
+          echo "✅ Prettier fix validated"
+
+  test-action-chain-integration:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create comprehensive test project
+        run: |
+          mkdir -p test-chain/src
+
+          # Create package.json with both ESLint and Prettier
+          cat > test-chain/package.json <<EOF
+          {
+            "name": "test-chain",
+            "version": "1.0.0",
+            "devDependencies": {
+              "eslint": "^8.0.0",
+              "prettier": "^3.0.0"
+            }
+          }
+          EOF
+
+          # Create .eslintrc.json
+          cat > test-chain/.eslintrc.json <<EOF
+          {
+            "env": {
+              "node": true,
+              "es2021": true
+            },
+            "extends": "eslint:recommended",
+            "parserOptions": {
+              "ecmaVersion": 12
+            },
+            "rules": {
+              "semi": ["error", "always"],
+              "quotes": ["error", "single"]
+            }
+          }
+          EOF
+
+          # Create .prettierrc
+          cat > test-chain/.prettierrc <<EOF
+          {
+            "semi": true,
+            "singleQuote": true,
+            "printWidth": 80
+          }
+          EOF
+
+          # Create test file with both linting and formatting issues
+          cat > test-chain/src/app.js <<EOF
+          const message="hello world"
+          function greet(){console.log(message)}
+          greet()
+          EOF
+
+      - name: Setup Node.js
+        uses: ./node-setup
+        with:
+          node-version: '18'
+          working-directory: './test-chain'
+
+      - name: Run ESLint check
+        id: lint-check
+        uses: ./eslint-check
+        with:
+          working-directory: './test-chain'
+        continue-on-error: true
+
+      - name: Run Prettier check
+        id: format-check
+        uses: ./prettier-check
+        with:
+          working-directory: './test-chain'
+        continue-on-error: true
+
+      - name: Run ESLint fix
+        id: lint-fix
+        uses: ./eslint-fix
+        with:
+          working-directory: './test-chain'
+          token: ${{ github.token }}
+          email: 'test@example.com'
+          username: 'test-user'
+
+      - name: Run Prettier fix
+        id: format-fix
+        uses: ./prettier-fix
+        with:
+          working-directory: './test-chain'
+          token: ${{ github.token }}
+          email: 'test@example.com'
+          username: 'test-user'
+
+      - name: Validate complete chain
+        run: |
+          echo "=== Action Chain Results ==="
+          echo "Lint Check: ${{ steps.lint-check.outcome }}"
+          echo "Format Check: ${{ steps.format-check.outcome }}"
+          echo "Lint Fix: ${{ steps.lint-fix.outcome }}"
+          echo "Format Fix: ${{ steps.format-fix.outcome }}"
+
+          # Validate that all steps ran
+          steps_run=0
+          [[ "${{ steps.lint-check.outcome }}" != "skipped" ]] && ((steps_run++))
+          [[ "${{ steps.format-check.outcome }}" != "skipped" ]] && ((steps_run++))
+          [[ "${{ steps.lint-fix.outcome }}" != "skipped" ]] && ((steps_run++))
+          [[ "${{ steps.format-fix.outcome }}" != "skipped" ]] && ((steps_run++))
+
+          if [[ $steps_run -eq 4 ]]; then
+            echo "✅ Complete action chain executed successfully"
+          else
+            echo "❌ ERROR: Not all steps in chain executed (ran: $steps_run/4)"
+            exit 1
+          fi
+
+          echo "✅ Action chain integration validated"

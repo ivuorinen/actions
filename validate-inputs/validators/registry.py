@@ -8,8 +8,8 @@ from __future__ import annotations
 import importlib
 import importlib.util
 import logging
-from pathlib import Path
 import sys
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .convention_mapper import ConventionMapper

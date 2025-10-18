@@ -22,6 +22,10 @@ inputs:
     description: 'Maximum number of retry attempts for go mod download operations'
     required: false
     default: '3'
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
 
 outputs:
   build_status:
@@ -43,6 +47,11 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Checkout Repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token || github.token }}
+
     - name: Detect Go Version
       id: detect-go-version
       uses: ./go-version-detect

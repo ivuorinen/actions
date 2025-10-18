@@ -20,6 +20,7 @@ Run ESLint check on the repository with advanced configuration and reporting
 | `fail-on-error`     | <p>Fail workflow if issues are found</p>         | `false`  | `true`              |
 | `report-format`     | <p>Output format (stylish, json, sarif)</p>      | `false`  | `sarif`             |
 | `max-retries`       | <p>Maximum number of retry attempts</p>          | `false`  | `3`                 |
+| `token`             | <p>GitHub token for authentication</p>           | `false`  | `""`                |
 
 ### Outputs
 
@@ -98,4 +99,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 3
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

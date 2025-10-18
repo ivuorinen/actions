@@ -13,6 +13,7 @@ Builds the Go project.
 | `go-version`  | <p>Go version to use.</p>                                              | `false`  | `""`    |
 | `destination` | <p>Build destination directory.</p>                                    | `false`  | `./bin` |
 | `max-retries` | <p>Maximum number of retry attempts for go mod download operations</p> | `false`  | `3`     |
+| `token`       | <p>GitHub token for authentication</p>                                 | `false`  | `""`    |
 
 ### Outputs
 
@@ -50,4 +51,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 3
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

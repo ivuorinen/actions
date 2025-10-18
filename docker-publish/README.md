@@ -21,6 +21,7 @@ Publish a Docker image to GitHub Packages and Docker Hub.
 | `verbose`               | <p>Enable verbose logging</p>                                     | `false`  | `false`                                |
 | `dockerhub-username`    | <p>Docker Hub username for authentication</p>                     | `false`  | `""`                                   |
 | `dockerhub-password`    | <p>Docker Hub password or access token for authentication</p>     | `false`  | `""`                                   |
+| `token`                 | <p>GitHub token for authentication</p>                            | `false`  | `""`                                   |
 
 ### Outputs
 
@@ -106,6 +107,12 @@ This action is a `composite` action.
 
     dockerhub-password:
     # Docker Hub password or access token for authentication
+    #
+    # Required: false
+    # Default: ""
+
+    token:
+    # GitHub token for authentication
     #
     # Required: false
     # Default: ""

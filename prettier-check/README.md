@@ -21,6 +21,7 @@ Run Prettier check on the repository with advanced configuration and reporting
 | `max-retries`       | <p>Maximum number of retry attempts</p>                    | `false`  | `3`                                              |
 | `plugins`           | <p>Comma-separated list of Prettier plugins to install</p> | `false`  | `""`                                             |
 | `check-only`        | <p>Only check for formatting issues without fixing</p>     | `false`  | `true`                                           |
+| `token`             | <p>GitHub token for authentication</p>                     | `false`  | `""`                                             |
 
 ### Outputs
 
@@ -105,4 +106,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: true
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

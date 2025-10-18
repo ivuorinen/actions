@@ -1,6 +1,6 @@
 # GitHub Actions Testing Framework
 
-A comprehensive testing framework for validating GitHub Actions in this monorepo. This guide covers everything from basic usage to advanced testing patterns.
+A comprehensive testing framework for validating GitHub Actions in this monorepo using ShellSpec and Python-based input validation.
 
 ## 🚀 Quick Start
 
@@ -36,16 +36,15 @@ brew install act  # macOS
 
 The testing framework uses a **multi-level testing strategy**:
 
-1. **Unit Tests** - Fast validation of action logic, inputs, and outputs
+1. **Unit Tests** - Fast validation of action logic, inputs, and outputs using Python validation
 2. **Integration Tests** - Test actions in realistic workflow environments
 3. **External Usage Tests** - Validate actions work as `ivuorinen/actions/action-name@main`
 
 ### Technology Stack
 
 - **Primary Framework**: [ShellSpec](https://shellspec.info/) - BDD testing for shell scripts
+- **Validation**: Python-based input validation via `validate-inputs/validator.py`
 - **Local Execution**: [nektos/act](https://github.com/nektos/act) - Run GitHub Actions locally
-- **Coverage**: kcov integration for shell script coverage
-- **Mocking**: Custom GitHub API and service mocks
 - **CI Integration**: GitHub Actions workflows
 
 ### Directory Structure
@@ -54,19 +53,20 @@ The testing framework uses a **multi-level testing strategy**:
 _tests/
 ├── README.md                    # This documentation
 ├── run-tests.sh                 # Main test runner script
-├── framework/                   # Core testing utilities
-│   ├── setup.sh                # Test environment setup
-│   ├── utils.sh                # Common testing functions
-│   ├── validation_helpers.sh   # Validation helper functions
-│   ├── validation.py           # Python validation utilities
-│   └── mocks/                  # Mock services (GitHub API, etc.)
 ├── unit/                       # Unit tests by action
+│   ├── spec_helper.sh          # ShellSpec helper with validation functions
 │   ├── version-file-parser/    # Example unit tests
 │   ├── node-setup/            # Example unit tests
 │   └── ...                    # One directory per action
+├── framework/                   # Core testing utilities
+│   ├── setup.sh                # Test environment setup
+│   ├── utils.sh                # Common testing functions
+│   ├── validation.py           # Python validation utilities
+│   └── fixtures/               # Test fixtures
 ├── integration/               # Integration tests
 │   ├── workflows/             # Test workflows for nektos/act
-│   └── external-usage/        # External reference tests
+│   ├── external-usage/        # External reference tests
+│   └── action-chains/         # Multi-action workflow tests
 ├── coverage/                  # Coverage reports
 └── reports/                   # Test execution reports
 ```
@@ -79,43 +79,38 @@ _tests/
 #!/usr/bin/env shellspec
 # _tests/unit/my-action/validation.spec.sh
 
-Include _tests/framework/utils.sh
-
 Describe "my-action validation"
-  ACTION_DIR="my-action"
-  ACTION_FILE="$ACTION_DIR/action.yml"
+ACTION_DIR="my-action"
+ACTION_FILE="$ACTION_DIR/action.yml"
 
-  BeforeAll "init_testing_framework"
-
-  Context "input validation"
-    It "validates all inputs comprehensively"
-      # Use validation helpers for comprehensive testing
-      test_boolean_input "verbose"
-      test_boolean_input "dry-run"
-
-      # Numeric range validations (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "max-retries" "1" "success"
-      test_input_validation "$ACTION_DIR" "max-retries" "10" "success"
-      test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
-
-      # Enum validations (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "strategy" "fast" "success"
-      test_input_validation "$ACTION_DIR" "format" "json" "success"
-
-      # Version validations (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "tool-version" "1.0.0" "success"
-
-      # Security and path validations (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "command" "echo test" "success"
-      test_input_validation "$ACTION_DIR" "working-directory" "." "success"
-    End
+Context "when validating required inputs"
+  It "accepts valid input"
+    When call validate_input_python "my-action" "input-name" "valid-value"
+    The status should be success
   End
 
-  Context "action structure"
-    It "has valid structure and metadata"
-      test_standard_action_structure "$ACTION_FILE" "Expected Action Name"
-    End
+  It "rejects invalid input"
+    When call validate_input_python "my-action" "input-name" "invalid@value"
+    The status should be failure
   End
+End
+
+Context "when validating boolean inputs"
+  It "accepts true"
+    When call validate_input_python "my-action" "dry-run" "true"
+    The status should be success
+  End
+
+  It "accepts false"
+    When call validate_input_python "my-action" "dry-run" "false"
+    The status should be success
+  End
+
+  It "rejects invalid boolean"
+    When call validate_input_python "my-action" "dry-run" "maybe"
+    The status should be failure
+  End
+End
 End
 ```
 
@@ -149,66 +144,68 @@ jobs:
           required-input: 'test-value'
 ```
 
-## 🛠️ Testing Helpers
+## 🛠️ Testing Functions
 
-### Available Validation Helpers
+### Primary Validation Function
 
-The framework provides comprehensive validation helpers that handle common testing patterns:
+The framework provides one main validation function that uses the Python validation system:
 
-#### Boolean Input Testing
+#### validate_input_python
+
+Tests input validation using the centralized Python validator:
 
 ```bash
-test_boolean_input "verbose"          # Tests: true, false, rejects invalid
-test_boolean_input "enable-cache"
-test_boolean_input "dry-run"
+validate_input_python "action-name" "input-name" "test-value"
 ```
 
-#### Numeric Range Testing
+**Examples:**
 
 ```bash
-# Note: test_numeric_range_input helper is not yet implemented.
-# Use test_input_validation with appropriate test values instead:
-test_input_validation "$ACTION_DIR" "max-retries" "1" "success"    # min value
-test_input_validation "$ACTION_DIR" "max-retries" "10" "success"   # max value
-test_input_validation "$ACTION_DIR" "max-retries" "0" "failure"    # below min
-test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
-test_input_validation "$ACTION_DIR" "parallel-jobs" "8" "success"
+# Boolean validation
+validate_input_python "pre-commit" "dry-run" "true"       # success
+validate_input_python "pre-commit" "dry-run" "false"      # success
+validate_input_python "pre-commit" "dry-run" "maybe"      # failure
+
+# Version validation
+validate_input_python "node-setup" "node-version" "18.0.0"       # success
+validate_input_python "node-setup" "node-version" "v1.2.3"       # success
+validate_input_python "node-setup" "node-version" "invalid"      # failure
+
+# Token validation
+validate_input_python "npm-publish" "npm-token" "ghp_123..."    # success
+validate_input_python "npm-publish" "npm-token" "invalid"       # failure
+
+# Docker validation
+validate_input_python "docker-build" "image-name" "myapp"       # success
+validate_input_python "docker-build" "tag" "v1.0.0"            # success
+
+# Path validation (security)
+validate_input_python "pre-commit" "config-file" "config.yml"   # success
+validate_input_python "pre-commit" "config-file" "../etc/pass"  # failure
+
+# Injection detection
+validate_input_python "common-retry" "command" "echo test"      # success
+validate_input_python "common-retry" "command" "rm -rf /; "     # failure
 ```
 
-#### Version Testing
+### Helper Functions from spec_helper.sh
 
 ```bash
-# Note: test_version_input helper is not yet implemented.
-# Use test_input_validation with appropriate test values instead:
-test_input_validation "$ACTION_DIR" "version" "1.0.0" "success"           # semver
-test_input_validation "$ACTION_DIR" "version" "v1.0.0" "success"          # v-prefix
-test_input_validation "$ACTION_DIR" "version" "1.0.0-rc.1" "success"      # pre-release
-test_input_validation "$ACTION_DIR" "tool-version" "2.3.4" "success"
-```
+# Setup/cleanup
+setup_default_inputs "action-name" "input-name"     # Set required defaults
+cleanup_default_inputs "action-name" "input-name"   # Clean up defaults
+shellspec_setup_test_env "test-name"               # Setup test environment
+shellspec_cleanup_test_env "test-name"             # Cleanup test environment
 
-#### Enum Testing
+# Mock execution
+shellspec_mock_action_run "action-dir" key1 value1 key2 value2
+shellspec_validate_action_output "expected-key" "expected-value"
 
-```bash
-# Note: test_enum_input helper is not yet implemented.
-# Use test_input_validation with appropriate test values instead:
-test_input_validation "$ACTION_DIR" "strategy" "linear" "success"
-test_input_validation "$ACTION_DIR" "strategy" "exponential" "success"
-test_input_validation "$ACTION_DIR" "strategy" "invalid" "failure"
-test_input_validation "$ACTION_DIR" "format" "json" "success"
-test_input_validation "$ACTION_DIR" "format" "yaml" "success"
-```
-
-#### Docker-Specific Testing
-
-```bash
-# Available framework helpers:
-test_input_validation "$action_dir" "$input_name" "$test_value" "$expected_result"
-test_action_outputs "$action_dir"
-test_external_usage "$action_dir"
-
-# Note: Docker-specific helpers (test_docker_image_input, test_docker_tag_input,
-# test_docker_platforms_input) are referenced in examples but not yet implemented.
-# Use test_input_validation with appropriate test values instead.
+# Action metadata
+validate_action_yml "action.yml"          # Validate YAML structure
+get_action_inputs "action.yml"           # Get action inputs
+get_action_outputs "action.yml"          # Get action outputs
+get_action_name "action.yml"             # Get action name
 ```
 
 ### Complete Action Validation Example
@@ -218,41 +215,47 @@ Describe "comprehensive-action validation"
   ACTION_DIR="comprehensive-action"
   ACTION_FILE="$ACTION_DIR/action.yml"
 
-  Context "complete input validation"
-    It "validates all input types systematically"
-      # Boolean inputs
-      test_boolean_input "verbose"
-      test_boolean_input "enable-cache"
-      test_boolean_input "dry-run"
+  Context "when validating all input types"
+    It "validates boolean inputs"
+      When call validate_input_python "$ACTION_DIR" "verbose" "true"
+      The status should be success
 
-      # Numeric ranges (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "max-retries" "1" "success"
-      test_input_validation "$ACTION_DIR" "max-retries" "10" "success"
-      test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
-      test_input_validation "$ACTION_DIR" "parallel-jobs" "8" "success"
+      When call validate_input_python "$ACTION_DIR" "verbose" "false"
+      The status should be success
 
-      # Enums (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "strategy" "fast" "success"
-      test_input_validation "$ACTION_DIR" "format" "json" "success"
+      When call validate_input_python "$ACTION_DIR" "verbose" "invalid"
+      The status should be failure
+    End
 
-      # Docker-specific (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "image-name" "myapp:latest" "success"
-      test_input_validation "$ACTION_DIR" "tag" "1.0.0" "success"
-      test_input_validation "$ACTION_DIR" "platforms" "linux/amd64,linux/arm64" "success"
+    It "validates numeric inputs"
+      When call validate_input_python "$ACTION_DIR" "max-retries" "3"
+      The status should be success
 
-      # Security validation (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "command" "echo test" "success"
-      test_input_validation "$ACTION_DIR" "build-args" "ARG1=value" "success"
+      When call validate_input_python "$ACTION_DIR" "max-retries" "999"
+      The status should be failure
+    End
 
-      # Paths (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "working-directory" "." "success"
-      test_input_validation "$ACTION_DIR" "output-directory" "./output" "success"
+    It "validates version inputs"
+      When call validate_input_python "$ACTION_DIR" "tool-version" "1.0.0"
+      The status should be success
 
-      # Versions (use test_input_validation helper)
-      test_input_validation "$ACTION_DIR" "tool-version" "1.0.0" "success"
+      When call validate_input_python "$ACTION_DIR" "tool-version" "v1.2.3-rc.1"
+      The status should be success
+    End
 
-      # Action structure
-      test_standard_action_structure "$ACTION_FILE" "Comprehensive Action"
+    It "validates security patterns"
+      When call validate_input_python "$ACTION_DIR" "command" "echo test"
+      The status should be success
+
+      When call validate_input_python "$ACTION_DIR" "command" "rm -rf /; "
+      The status should be failure
+    End
+  End
+
+  Context "when validating action structure"
+    It "has valid YAML structure"
+      When call validate_action_yml "$ACTION_FILE"
+      The status should be success
     End
   End
 End
@@ -265,45 +268,37 @@ End
 Focus on version detection and environment setup:
 
 ```bash
-Context "version detection"
+Context "when detecting versions"
   It "detects version from config files"
-    create_mock_node_repo  # or appropriate repo type
-
-    # Test version detection logic
-    export INPUT_LANGUAGE="node"
-    echo "detected-version=18.0.0" >> "$GITHUB_OUTPUT"
-
-    When call validate_action_output "detected-version" "18.0.0"
+    When call validate_input_python "node-setup" "node-version" "18.0.0"
     The status should be success
   End
 
-  It "falls back to default when no version found"
-    # Use test_input_validation helper for version validation
-    test_input_validation "$ACTION_DIR" "default-version" "1.0.0" "success"
+  It "accepts default version"
+    When call validate_input_python "python-version-detect" "default-version" "3.11"
+    The status should be success
   End
 End
 ```
 
 ### Linting Actions (eslint-fix, prettier-fix, etc.)
 
-Focus on file processing and fix capabilities:
+Focus on file processing and security:
 
 ```bash
-Context "file processing"
-  BeforeEach "setup_test_env 'lint-test'"
-  AfterEach "cleanup_test_env 'lint-test'"
+Context "when processing files"
+  It "validates working directory"
+    When call validate_input_python "eslint-fix" "working-directory" "."
+    The status should be success
+  End
 
-  It "validates inputs and processes files"
-    test_boolean_input "fix-only"
-    # Use test_input_validation helper for path and security validations
-    test_input_validation "$ACTION_DIR" "working-directory" "." "success"
-    test_input_validation "$ACTION_DIR" "custom-command" "echo test" "success"
+  It "rejects path traversal"
+    When call validate_input_python "eslint-fix" "working-directory" "../etc"
+    The status should be failure
+  End
 
-    # Mock file processing
-    echo "files_changed=3" >> "$GITHUB_OUTPUT"
-    echo "status=changes_made" >> "$GITHUB_OUTPUT"
-
-    When call validate_action_output "status" "changes_made"
+  It "validates boolean flags"
+    When call validate_input_python "eslint-fix" "fix-only" "true"
     The status should be success
   End
 End
@@ -311,25 +306,22 @@ End
 
 ### Build Actions (docker-build, go-build, etc.)
 
-Focus on build processes and artifact generation:
+Focus on build configuration:
 
 ```bash
-Context "build process"
-  BeforeEach "setup_test_env 'build-test'"
-  AfterEach "cleanup_test_env 'build-test'"
+Context "when building"
+  It "validates image name"
+    When call validate_input_python "docker-build" "image-name" "myapp"
+    The status should be success
+  End
 
-  It "validates build inputs"
-    # Use test_input_validation helper for Docker inputs
-    test_input_validation "$ACTION_DIR" "image-name" "myapp:latest" "success"
-    test_input_validation "$ACTION_DIR" "tag" "1.0.0" "success"
-    test_input_validation "$ACTION_DIR" "platforms" "linux/amd64,linux/arm64" "success"
-    test_input_validation "$ACTION_DIR" "parallel-builds" "8" "success"
+  It "validates tag format"
+    When call validate_input_python "docker-build" "tag" "v1.0.0"
+    The status should be success
+  End
 
-    # Mock successful build
-    echo "build-status=success" >> "$GITHUB_OUTPUT"
-    echo "build-time=45" >> "$GITHUB_OUTPUT"
-
-    When call validate_action_output "build-status" "success"
+  It "validates platforms"
+    When call validate_input_python "docker-build" "platforms" "linux/amd64,linux/arm64"
     The status should be success
   End
 End
@@ -337,25 +329,22 @@ End
 
 ### Publishing Actions (npm-publish, docker-publish, etc.)
 
-Focus on registry interactions using mocks:
+Focus on credentials and registry validation:
 
 ```bash
-Context "publishing"
-  BeforeEach "setup_mock_environment"
-  AfterEach "cleanup_mock_environment"
+Context "when publishing"
+  It "validates token format"
+    When call validate_input_python "npm-publish" "npm-token" "ghp_123456789012345678901234567890123456"
+    The status should be success
+  End
 
-  It "validates publishing inputs"
-    # Use test_input_validation helper for version, security, and enum validations
-    test_input_validation "$ACTION_DIR" "package-version" "1.0.0" "success"
-    test_input_validation "$ACTION_DIR" "registry-token" "ghp_test123" "success"
-    test_input_validation "$ACTION_DIR" "registry" "npm" "success"
-    test_input_validation "$ACTION_DIR" "registry" "github" "success"
+  It "rejects invalid token"
+    When call validate_input_python "npm-publish" "npm-token" "invalid-token"
+    The status should be failure
+  End
 
-    # Mock successful publish
-    echo "publish-status=success" >> "$GITHUB_OUTPUT"
-    echo "registry-url=https://registry.npmjs.org/" >> "$GITHUB_OUTPUT"
-
-    When call validate_action_output "publish-status" "success"
+  It "validates version"
+    When call validate_input_python "npm-publish" "package-version" "1.0.0"
     The status should be success
   End
 End
@@ -409,33 +398,33 @@ make test-action ACTION=name # Test specific action
    mkdir -p _tests/unit/new-action
    ```
 
-2. **Write Comprehensive Unit Tests**
+2. **Write Unit Tests**
 
    ```bash
-   # Copy template and customize
-   cp _tests/unit/version-file-parser/validation.spec.sh \
-      _tests/unit/new-action/validation.spec.sh
+   # _tests/unit/new-action/validation.spec.sh
+   #!/usr/bin/env shellspec
+
+   Describe "new-action validation"
+   ACTION_DIR="new-action"
+   ACTION_FILE="$ACTION_DIR/action.yml"
+
+   Context "when validating inputs"
+     It "validates required input"
+       When call validate_input_python "new-action" "required-input" "value"
+       The status should be success
+     End
+   End
+   End
    ```
 
-3. **Use Validation Helpers**
+3. **Create Integration Test**
 
    ```bash
-   # Focus on using helpers for comprehensive coverage
-   test_boolean_input "verbose"
-   # Use test_input_validation helper for numeric, security, and other validations
-   test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
-   test_input_validation "$ACTION_DIR" "command" "echo test" "success"
-   test_standard_action_structure "$ACTION_FILE" "New Action"
+   # _tests/integration/workflows/new-action-test.yml
+   # (See integration test example above)
    ```
 
-4. **Create Integration Test**
-
-   ```bash
-   cp _tests/integration/workflows/version-file-parser-test.yml \
-      _tests/integration/workflows/new-action-test.yml
-   ```
-
-5. **Test Your Tests**
+4. **Test Your Tests**
 
    ```bash
    make test-action ACTION=new-action
@@ -443,7 +432,7 @@ make test-action ACTION=name # Test specific action
 
 ### Pull Request Checklist
 
-- [ ] Tests use validation helpers for common patterns
+- [ ] Tests use `validate_input_python` for input validation
 - [ ] All test types pass locally (`make test`)
 - [ ] Integration test workflow created
 - [ ] Security testing included for user inputs
@@ -453,24 +442,21 @@ make test-action ACTION=name # Test specific action
 
 ## 💡 Best Practices
 
-### 1. Use Validation Helpers
+### 1. Use validate_input_python for All Input Testing
 
 ✅ **Good**:
 
 ```bash
-test_boolean_input "verbose"
-# Use test_input_validation helper for other validations
-test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
-test_input_validation "$ACTION_DIR" "format" "json" "success"
+When call validate_input_python "my-action" "verbose" "true"
+The status should be success
 ```
 
 ❌ **Avoid**:
 
 ```bash
-# Don't write manual tests for boolean inputs when test_boolean_input exists
-When call test_input_validation "$ACTION_DIR" "verbose" "true" "success"
-When call test_input_validation "$ACTION_DIR" "verbose" "false" "success"
-# Use test_boolean_input "verbose" instead
+# Don't manually test validation - use the Python validator
+export INPUT_VERBOSE="true"
+python3 validate-inputs/validator.py
 ```
 
 ### 2. Group Related Validations
@@ -478,26 +464,33 @@ When call test_input_validation "$ACTION_DIR" "verbose" "false" "success"
 ✅ **Good**:
 
 ```bash
-Context "complete input validation"
-  It "validates all input types"
-    test_boolean_input "verbose"
-    # Use test_input_validation helper for other validations
-    test_input_validation "$ACTION_DIR" "timeout" "3600" "success"
-    test_input_validation "$ACTION_DIR" "format" "json" "success"
-    test_input_validation "$ACTION_DIR" "command" "echo test" "success"
+Context "when validating configuration"
+  It "accepts valid boolean"
+    When call validate_input_python "my-action" "dry-run" "true"
+    The status should be success
+  End
+
+  It "accepts valid version"
+    When call validate_input_python "my-action" "tool-version" "1.0.0"
+    The status should be success
   End
 End
 ```
 
-### 3. Include Security Testing
+### 3. Always Include Security Testing
 
 ✅ **Always include**:
 
 ```bash
-# Use test_input_validation helper for security and path validations
-test_input_validation "$ACTION_DIR" "command" "echo test" "success"
-test_input_validation "$ACTION_DIR" "user-script" "#!/bin/bash" "success"
-test_input_validation "$ACTION_DIR" "working-directory" "." "success"
+It "rejects command injection"
+  When call validate_input_python "common-retry" "command" "rm -rf /; "
+  The status should be failure
+End
+
+It "rejects path traversal"
+  When call validate_input_python "pre-commit" "config-file" "../etc/passwd"
+  The status should be failure
+End
 ```
 
 ### 4. Write Descriptive Test Names
@@ -528,45 +521,33 @@ It "works correctly"
 
 ### Test Environment Setup
 
-```bash
-# Setup test environment
-setup_test_env "test-name"
-
-# Create mock repositories
-create_mock_repo "node"     # Node.js project
-create_mock_repo "php"      # PHP project
-create_mock_repo "python"   # Python project
-create_mock_repo "go"       # Go project
-create_mock_repo "dotnet"   # .NET project
-
-# Cleanup
-cleanup_test_env "test-name"
-```
-
-### Mock Services
-
-Built-in mocks for external services:
-
-- **GitHub API** - Repository, releases, packages, workflows
-- **NPM Registry** - Package publishing and retrieval
-- **Docker Registry** - Image push/pull operations
-- **Container Registries** - GitHub Container Registry, Docker Hub
-
-### Available Environment Variables
+The framework automatically sets up test environments via `spec_helper.sh`:
 
 ```bash
-# Test environment paths
-$TEST_WORKSPACE       # Current test workspace
-$GITHUB_OUTPUT         # Mock GitHub outputs file
-$GITHUB_ENV           # Mock GitHub environment file
-$GITHUB_STEP_SUMMARY  # Mock step summary file
+# Automatic setup on load
+- GitHub Actions environment variables
+- Temporary directories
+- Mock GITHUB_OUTPUT files
+- Default required inputs for actions
 
-# Test framework paths
-$TEST_ROOT            # _tests/ directory
-$FRAMEWORK_DIR        # _tests/framework/ directory
-$FIXTURES_DIR         # _tests/framework/fixtures/
-$MOCKS_DIR           # _tests/framework/mocks/
+# Available variables
+$PROJECT_ROOT        # Repository root
+$TEST_ROOT          # _tests/ directory
+$FRAMEWORK_DIR      # _tests/framework/
+$FIXTURES_DIR       # _tests/framework/fixtures/
+$TEMP_DIR           # Temporary test directory
+$GITHUB_OUTPUT      # Mock outputs file
+$GITHUB_ENV         # Mock environment file
 ```
+
+### Python Validation Integration
+
+All input validation uses the centralized Python validation system from `validate-inputs/`:
+
+- Convention-based automatic validation
+- 9 specialized validators (Boolean, Version, Token, Numeric, File, Network, Docker, Security, CodeQL)
+- Custom validator support per action
+- Injection and security pattern detection
 
 ## 🚨 Troubleshooting
 
@@ -618,18 +599,18 @@ find _tests/ -name "*.sh" -exec chmod +x {} \;
    shellspec _tests/unit/my-action/validation.spec.sh
    ```
 
-3. **Check Test Output**
+3. **Enable Debug Mode**
+
+   ```bash
+   export SHELLSPEC_DEBUG=1
+   shellspec _tests/unit/my-action/validation.spec.sh
+   ```
+
+4. **Check Test Output**
 
    ```bash
    # Test results stored in _tests/reports/
    cat _tests/reports/unit/my-action.txt
-   ```
-
-4. **Debug Mock Environment**
-
-   ```bash
-   # Enable mock debugging
-   export MOCK_DEBUG=true
    ```
 
 ## 📚 Resources
@@ -638,38 +619,47 @@ find _tests/ -name "*.sh" -exec chmod +x {} \;
 - [nektos/act Documentation](https://nektosact.com/)
 - [GitHub Actions Documentation](https://docs.github.com/en/actions)
 - [Testing GitHub Actions Best Practices](https://docs.github.com/en/actions/creating-actions/creating-a-composite-action#testing-your-action)
-
----
+- [validate-inputs Documentation](../validate-inputs/docs/README_ARCHITECTURE.md)
 
 ## Framework Development
 
-### Adding New Framework Features
+### Framework File Structure
 
-1. **New Test Utilities**
+```text
+_tests/
+├── unit/
+│   └── spec_helper.sh          # ShellSpec configuration and helpers
+├── framework/
+│   ├── setup.sh                # Test environment initialization
+│   ├── utils.sh                # Common utility functions
+│   ├── validation.py           # Python validation helpers
+│   └── fixtures/               # Test fixtures
+└── integration/
+    ├── workflows/              # Integration test workflows
+    ├── external-usage/         # External reference tests
+    └── action-chains/          # Multi-action tests
+```
 
-   ```bash
-   # Add to _tests/framework/utils.sh
-   your_new_function() {
-     local param="$1"
-     # Implementation
-   }
+### Available Functions
 
-   # Export for availability
-   export -f your_new_function
-   ```
+**From spec_helper.sh (\_tests/unit/spec_helper.sh):**
 
-2. **New Mock Services**
+- `validate_input_python(action, input_name, value)` - Main validation function
+- `setup_default_inputs(action, input_name)` - Set default required inputs
+- `cleanup_default_inputs(action, input_name)` - Clean up default inputs
+- `shellspec_setup_test_env(name)` - Setup test environment
+- `shellspec_cleanup_test_env(name)` - Cleanup test environment
+- `shellspec_mock_action_run(action_dir, ...)` - Mock action execution
+- `shellspec_validate_action_output(key, value)` - Validate outputs
 
-   ```bash
-   # Create _tests/framework/mocks/new-service.sh
-   # Follow existing patterns in github-api.sh
-   ```
+**From utils.sh (\_tests/framework/utils.sh):**
 
-3. **New Validation Helpers**
+- `validate_action_yml(file)` - Validate action YAML
+- `get_action_inputs(file)` - Extract action inputs
+- `get_action_outputs(file)` - Extract action outputs
+- `get_action_name(file)` - Get action name
+- `test_input_validation(dir, name, value, expected)` - Test input
+- `test_action_outputs(dir)` - Test action outputs
+- `test_external_usage(dir)` - Test external usage
 
-   ```bash
-   # Add to _tests/framework/validation_helpers.sh
-   # Update this documentation
-   ```
-
-**Last Updated:** August 17, 2025
+**Last Updated:** October 15, 2025
