@@ -8,9 +8,10 @@ Runs linters like StyleCop or dotnet-format for C# code style checks.
 
 ### Inputs
 
-| name             | description                        | required | default |
-|------------------|------------------------------------|----------|---------|
-| `dotnet-version` | <p>Version of .NET SDK to use.</p> | `false`  | `""`    |
+| name             | description                            | required | default |
+|------------------|----------------------------------------|----------|---------|
+| `dotnet-version` | <p>Version of .NET SDK to use.</p>     | `false`  | `""`    |
+| `token`          | <p>GitHub token for authentication</p> | `false`  | `""`    |
 
 ### Outputs
 
@@ -31,6 +32,12 @@ This action is a `composite` action.
   with:
     dotnet-version:
     # Version of .NET SDK to use.
+    #
+    # Required: false
+    # Default: ""
+
+    token:
+    # GitHub token for authentication
     #
     # Required: false
     # Default: ""

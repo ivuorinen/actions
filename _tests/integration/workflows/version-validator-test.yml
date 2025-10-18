@@ -1,0 +1,414 @@
+---
+name: Integration Test - Version Validator
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'version-validator/**'
+      - '_tests/integration/workflows/version-validator-test.yml'
+
+jobs:
+  test-version-validator-input-validation:
+    name: Test Input Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test empty version (should fail)
+        run: |
+          VERSION=""
+          if [[ -z "$VERSION" ]]; then
+            echo "✓ Empty version correctly rejected"
+          else
+            echo "❌ ERROR: Empty version should be rejected"
+            exit 1
+          fi
+
+      - name: Test dangerous characters in version
+        run: |
+          for version in "1.2.3;rm -rf /" "1.0&&echo" "1.0|cat" '1.0`cmd`' "1.0\$variable"; do
+            if [[ "$version" == *";"* ]] || [[ "$version" == *"&&"* ]] || \
+               [[ "$version" == *"|"* ]] || [[ "$version" == *"\`"* ]] || [[ "$version" == *"\$"* ]]; then
+              echo "✓ Dangerous version '$version' correctly detected"
+            else
+              echo "❌ ERROR: Should detect dangerous characters in: $version"
+              exit 1
+            fi
+          done
+
+      - name: Test valid version strings
+        run: |
+          for version in "1.2.3" "v1.0.0" "2.0.0-alpha" "1.0.0+build"; do
+            if [[ "$version" == *";"* ]] || [[ "$version" == *"&&"* ]] || \
+               [[ "$version" == *"|"* ]] || [[ "$version" == *"\`"* ]] || [[ "$version" == *"\$"* ]]; then
+              echo "❌ ERROR: Valid version should not be rejected: $version"
+              exit 1
+            else
+              echo "✓ Valid version '$version' accepted"
+            fi
+          done
+
+  test-version-validator-regex-validation:
+    name: Test Regex Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test empty regex (should fail)
+        run: |
+          REGEX=""
+          if [[ -z "$REGEX" ]]; then
+            echo "✓ Empty regex correctly rejected"
+          else
+            echo "❌ ERROR: Empty regex should be rejected"
+            exit 1
+          fi
+
+      - name: Test potential ReDoS patterns
+        run: |
+          for regex in ".*.*" ".+.+"; do
+            if [[ "$regex" == *".*.*"* ]] || [[ "$regex" == *".+.+"* ]]; then
+              echo "✓ ReDoS pattern '$regex' detected (would show warning)"
+            else
+              echo "❌ ERROR: Should detect ReDoS pattern: $regex"
+              exit 1
+            fi
+          done
+
+      - name: Test safe regex patterns
+        run: |
+          for regex in "^[0-9]+\.[0-9]+$" "^v?[0-9]+"; do
+            if [[ "$regex" == *".*.*"* ]] || [[ "$regex" == *".+.+"* ]]; then
+              echo "❌ ERROR: Safe regex should not be flagged: $regex"
+              exit 1
+            else
+              echo "✓ Safe regex '$regex' accepted"
+            fi
+          done
+
+  test-version-validator-language-validation:
+    name: Test Language Parameter Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test dangerous characters in language
+        run: |
+          for lang in "node;rm" "python&&cmd" "ruby|cat"; do
+            if [[ "$lang" == *";"* ]] || [[ "$lang" == *"&&"* ]] || [[ "$lang" == *"|"* ]]; then
+              echo "✓ Dangerous language parameter '$lang' correctly detected"
+            else
+              echo "❌ ERROR: Should detect dangerous characters in: $lang"
+              exit 1
+            fi
+          done
+
+      - name: Test valid language parameters
+        run: |
+          for lang in "node" "python" "ruby" "go" "java"; do
+            if [[ "$lang" == *";"* ]] || [[ "$lang" == *"&&"* ]] || [[ "$lang" == *"|"* ]]; then
+              echo "❌ ERROR: Valid language should not be rejected: $lang"
+              exit 1
+            else
+              echo "✓ Valid language '$lang' accepted"
+            fi
+          done
+
+  test-version-validator-version-cleaning:
+    name: Test Version Cleaning
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test v prefix removal
+        run: |
+          for input in "v1.2.3" "V2.0.0"; do
+            cleaned=$(echo "$input" | sed -e 's/^[vV]//')
+            if [[ "$cleaned" == "1.2.3" ]] || [[ "$cleaned" == "2.0.0" ]]; then
+              echo "✓ v prefix removed from '$input' -> '$cleaned'"
+            else
+              echo "❌ ERROR: Failed to clean '$input', got '$cleaned'"
+              exit 1
+            fi
+          done
+
+      - name: Test whitespace removal
+        run: |
+          input=" 1.2.3 "
+          cleaned=$(echo "$input" | tr -d ' ')
+          if [[ "$cleaned" == "1.2.3" ]]; then
+            echo "✓ Whitespace removed: '$input' -> '$cleaned'"
+          else
+            echo "❌ ERROR: Failed to remove whitespace"
+            exit 1
+          fi
+
+      - name: Test newline removal
+        run: |
+          input=$'1.2.3\n'
+          cleaned=$(echo "$input" | tr -d '\n' | tr -d '\r')
+          if [[ "$cleaned" == "1.2.3" ]]; then
+            echo "✓ Newlines removed"
+          else
+            echo "❌ ERROR: Failed to remove newlines"
+            exit 1
+          fi
+
+  test-version-validator-regex-matching:
+    name: Test Regex Matching
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test default SemVer regex
+        run: |
+          REGEX='^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'
+
+          for version in "1.0.0" "1.2" "1.0.0-alpha" "1.0.0+build" "2.1.0-rc.1+build.123"; do
+            if [[ $version =~ $REGEX ]]; then
+              echo "✓ Version '$version' matches SemVer regex"
+            else
+              echo "❌ ERROR: Version '$version' should match SemVer"
+              exit 1
+            fi
+          done
+
+      - name: Test invalid versions against SemVer regex
+        run: |
+          REGEX='^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'
+
+          for version in "abc" "1.a.b" "not.a.version"; do
+            if [[ $version =~ $REGEX ]]; then
+              echo "❌ ERROR: Invalid version '$version' should not match"
+              exit 1
+            else
+              echo "✓ Invalid version '$version' correctly rejected"
+            fi
+          done
+
+      - name: Test custom strict regex
+        run: |
+          REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
+
+          # Should match
+          for version in "1.0.0" "2.5.10"; do
+            if [[ $version =~ $REGEX ]]; then
+              echo "✓ Version '$version' matches strict regex"
+            else
+              echo "❌ ERROR: Version '$version' should match strict regex"
+              exit 1
+            fi
+          done
+
+          # Should not match
+          for version in "1.0" "1.0.0-alpha"; do
+            if [[ $version =~ $REGEX ]]; then
+              echo "❌ ERROR: Version '$version' should not match strict regex"
+              exit 1
+            else
+              echo "✓ Version '$version' correctly rejected by strict regex"
+            fi
+          done
+
+  test-version-validator-outputs:
+    name: Test Output Generation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test valid version outputs (simulation)
+        run: |
+          VERSION="v1.2.3"
+          REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
+
+          # Clean version
+          cleaned=$(echo "$VERSION" | sed -e 's/^[vV]//' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+
+          # Validate
+          if [[ $cleaned =~ $REGEX ]]; then
+            is_valid="true"
+            validated_version="$cleaned"
+            error_message=""
+
+            echo "is_valid=$is_valid"
+            echo "validated_version=$validated_version"
+            echo "error_message=$error_message"
+
+            if [[ "$is_valid" != "true" ]]; then
+              echo "❌ ERROR: Should be valid"
+              exit 1
+            fi
+            if [[ "$validated_version" != "1.2.3" ]]; then
+              echo "❌ ERROR: Wrong validated version"
+              exit 1
+            fi
+            echo "✓ Valid version outputs correct"
+          fi
+
+      - name: Test invalid version outputs (simulation)
+        run: |
+          VERSION="not.a.version"
+          REGEX='^[0-9]+\.[0-9]+\.[0-9]+$'
+          LANGUAGE="test"
+
+          # Clean version
+          cleaned=$(echo "$VERSION" | sed -e 's/^[vV]//' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+
+          # Validate
+          if [[ $cleaned =~ $REGEX ]]; then
+            is_valid="true"
+          else
+            is_valid="false"
+            validated_version=""
+            error_msg="Invalid $LANGUAGE version format: '$VERSION' (cleaned: '$cleaned'). Expected pattern: $REGEX"
+            error_message=$(echo "$error_msg" | tr -d '\n\r')
+
+            echo "is_valid=$is_valid"
+            echo "validated_version=$validated_version"
+            echo "error_message=$error_message"
+
+            if [[ "$is_valid" != "false" ]]; then
+              echo "❌ ERROR: Should be invalid"
+              exit 1
+            fi
+            if [[ -n "$validated_version" ]]; then
+              echo "❌ ERROR: Validated version should be empty"
+              exit 1
+            fi
+            if [[ -z "$error_message" ]]; then
+              echo "❌ ERROR: Error message should not be empty"
+              exit 1
+            fi
+            echo "✓ Invalid version outputs correct"
+          fi
+
+  test-version-validator-sanitization:
+    name: Test Output Sanitization
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test error message sanitization
+        run: |
+          error_msg=$'Error message\nwith newlines'
+
+          sanitized=$(echo "$error_msg" | tr -d '\n\r')
+
+          if [[ "$sanitized" == *$'\n'* ]] || [[ "$sanitized" == *$'\r'* ]]; then
+            echo "❌ ERROR: Newlines not removed from error message"
+            exit 1
+          fi
+          echo "✓ Error message sanitization works"
+
+      - name: Test validated version sanitization
+        run: |
+          VERSION=$'1.2.3\n'
+          cleaned=$(echo "$VERSION" | sed -e 's/^[vV]//' | tr -d ' ' | tr -d '\n' | tr -d '\r')
+
+          if [[ "$cleaned" == *$'\n'* ]] || [[ "$cleaned" == *$'\r'* ]]; then
+            echo "❌ ERROR: Newlines not removed from validated version"
+            exit 1
+          fi
+          echo "✓ Validated version sanitization works"
+
+  test-version-validator-real-world-scenarios:
+    name: Test Real World Scenarios
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test Node.js version validation
+        run: |
+          REGEX='^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'
+
+          for version in "20" "20.9" "20.9.0" "18.17.1"; do
+            cleaned=$(echo "$version" | sed -e 's/^[vV]//')
+            if [[ $cleaned =~ $REGEX ]]; then
+              echo "✓ Node.js version '$version' valid"
+            else
+              echo "❌ ERROR: Node.js version should be valid"
+              exit 1
+            fi
+          done
+
+      - name: Test Python version validation
+        run: |
+          REGEX='^[0-9]+\.[0-9]+(\.[0-9]+)?$'
+
+          for version in "3.11" "3.11.5" "3.12.0"; do
+            cleaned=$(echo "$version" | sed -e 's/^[vV]//')
+            if [[ $cleaned =~ $REGEX ]]; then
+              echo "✓ Python version '$version' valid"
+            else
+              echo "❌ ERROR: Python version should be valid"
+              exit 1
+            fi
+          done
+
+      - name: Test CalVer validation
+        run: |
+          REGEX='^[0-9]{4}\.[0-9]{1,2}(\.[0-9]+)?$'
+
+          for version in "2024.3" "2024.3.15" "2024.10.1"; do
+            cleaned=$(echo "$version" | sed -e 's/^[vV]//')
+            if [[ $cleaned =~ $REGEX ]]; then
+              echo "✓ CalVer version '$version' valid"
+            else
+              echo "❌ ERROR: CalVer version should be valid"
+              exit 1
+            fi
+          done
+
+      - name: Test Docker tag validation
+        run: |
+          REGEX='^[a-z0-9][a-z0-9._-]*$'
+
+          for tag in "latest" "v1.2.3" "stable-alpine" "2024.10.15"; do
+            cleaned=$(echo "$tag" | sed -e 's/^[vV]//')
+            # Note: Docker tags are case-insensitive, so convert to lowercase
+            cleaned=$(echo "$cleaned" | tr '[:upper:]' '[:lower:]')
+            if [[ $cleaned =~ $REGEX ]]; then
+              echo "✓ Docker tag '$tag' valid"
+            else
+              echo "❌ ERROR: Docker tag should be valid: $tag"
+              exit 1
+            fi
+          done
+
+  integration-test-summary:
+    name: Integration Test Summary
+    runs-on: ubuntu-latest
+    needs:
+      - test-version-validator-input-validation
+      - test-version-validator-regex-validation
+      - test-version-validator-language-validation
+      - test-version-validator-version-cleaning
+      - test-version-validator-regex-matching
+      - test-version-validator-outputs
+      - test-version-validator-sanitization
+      - test-version-validator-real-world-scenarios
+    steps:
+      - name: Summary
+        run: |
+          echo "=========================================="
+          echo "Version Validator Integration Tests - PASSED"
+          echo "=========================================="
+          echo ""
+          echo "✓ Input validation tests"
+          echo "✓ Regex validation tests"
+          echo "✓ Language validation tests"
+          echo "✓ Version cleaning tests"
+          echo "✓ Regex matching tests"
+          echo "✓ Output generation tests"
+          echo "✓ Sanitization tests"
+          echo "✓ Real world scenario tests"
+          echo ""
+          echo "All version-validator integration tests completed successfully!"

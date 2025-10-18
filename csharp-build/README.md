@@ -12,6 +12,7 @@ Builds and tests C# projects.
 |------------------|-----------------------------------------------------------------------|----------|---------|
 | `dotnet-version` | <p>Version of .NET SDK to use.</p>                                    | `false`  | `""`    |
 | `max-retries`    | <p>Maximum number of retry attempts for dotnet restore operations</p> | `false`  | `3`     |
+| `token`          | <p>GitHub token for authentication</p>                                | `false`  | `""`    |
 
 ### Outputs
 
@@ -43,4 +44,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 3
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

@@ -11,6 +11,7 @@ Detects the PHP version from the project's composer.json, phpunit.xml, or other 
 | name              | description                                                  | required | default |
 |-------------------|--------------------------------------------------------------|----------|---------|
 | `default-version` | <p>Default PHP version to use if no version is detected.</p> | `false`  | `8.2`   |
+| `token`           | <p>GitHub token for authentication</p>                       | `false`  | `""`    |
 
 ### Outputs
 
@@ -32,4 +33,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 8.2
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

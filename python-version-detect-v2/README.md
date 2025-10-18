@@ -11,6 +11,7 @@ Detects Python version from project configuration files using enhanced detection
 | name              | description                                                     | required | default |
 |-------------------|-----------------------------------------------------------------|----------|---------|
 | `default-version` | <p>Default Python version to use if no version is detected.</p> | `false`  | `3.12`  |
+| `token`           | <p>GitHub token for authentication</p>                          | `false`  | `""`    |
 
 ### Outputs
 
@@ -33,4 +34,10 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: 3.12
+
+    token:
+    # GitHub token for authentication
+    #
+    # Required: false
+    # Default: ""
 ```

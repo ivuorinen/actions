@@ -1,0 +1,186 @@
+---
+name: Test Docker Build & Publish Integration
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'docker-build/**'
+      - 'docker-publish/**'
+      - 'docker-publish-gh/**'
+      - 'docker-publish-hub/**'
+      - '_tests/integration/workflows/docker-build-publish-test.yml'
+
+jobs:
+  test-docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create test Dockerfile
+        run: |
+          cat > Dockerfile <<EOF
+          FROM alpine:3.19
+          RUN apk add --no-cache bash
+          COPY test.sh /test.sh
+          RUN chmod +x /test.sh
+          CMD ["/test.sh"]
+          EOF
+
+          cat > test.sh <<EOF
+          #!/bin/bash
+          echo "Test container is running"
+          EOF
+
+      - name: Test docker-build action
+        id: build
+        uses: ./docker-build
+        with:
+          image-name: 'test-image'
+          tag: 'test-tag'
+          dockerfile: './Dockerfile'
+          context: '.'
+          platforms: 'linux/amd64'
+          push: 'false'
+          scan-image: 'false'
+
+      - name: Validate build outputs
+        run: |
+          echo "Build outputs:"
+          echo "  Image Digest: ${{ steps.build.outputs.image-digest }}"
+          echo "  Build Time: ${{ steps.build.outputs.build-time }}"
+          echo "  Platforms: ${{ steps.build.outputs.platforms }}"
+
+          # Validate that we got a digest
+          if [[ -z "${{ steps.build.outputs.image-digest }}" ]]; then
+            echo "❌ ERROR: No image digest output"
+            exit 1
+          fi
+
+          # Validate digest format (sha256:...)
+          if ! echo "${{ steps.build.outputs.image-digest }}" | grep -E '^sha256:[a-f0-9]{64}'; then
+            echo "❌ ERROR: Invalid digest format: ${{ steps.build.outputs.image-digest }}"
+            exit 1
+          fi
+
+          echo "✅ Docker build validation passed"
+
+  test-docker-inputs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create test Dockerfile
+        run: |
+          cat > Dockerfile <<EOF
+          FROM alpine:3.19
+          CMD ["echo", "test"]
+          EOF
+
+      - name: Test with build-args
+        id: build-with-args
+        uses: ./docker-build
+        with:
+          image-name: 'test-build-args'
+          tag: 'latest'
+          dockerfile: './Dockerfile'
+          context: '.'
+          build-args: |
+            ARG1=value1
+            ARG2=value2
+          platforms: 'linux/amd64'
+          push: 'false'
+          scan-image: 'false'
+
+      - name: Validate build-args handling
+        run: |
+          if [[ -z "${{ steps.build-with-args.outputs.image-digest }}" ]]; then
+            echo "❌ ERROR: Build with build-args failed"
+            exit 1
+          fi
+          echo "✅ Build-args handling validated"
+
+  test-platform-detection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Create test Dockerfile
+        run: |
+          cat > Dockerfile <<EOF
+          FROM alpine:3.19
+          CMD ["echo", "multi-platform test"]
+          EOF
+
+      - name: Test multi-platform build
+        id: multi-platform
+        uses: ./docker-build
+        with:
+          image-name: 'test-multiplatform'
+          tag: 'latest'
+          dockerfile: './Dockerfile'
+          context: '.'
+          platforms: 'linux/amd64,linux/arm64'
+          push: 'false'
+          scan-image: 'false'
+
+      - name: Validate platform matrix output
+        run: |
+          echo "Platform Matrix: ${{ steps.multi-platform.outputs.platform-matrix }}"
+
+          # Check that we got platform results
+          if [[ -z "${{ steps.multi-platform.outputs.platform-matrix }}" ]]; then
+            echo "⚠️  WARNING: No platform matrix output (may be expected for local builds)"
+          else
+            echo "✅ Platform matrix generated"
+          fi
+
+          echo "✅ Multi-platform build validated"
+
+  test-input-validation:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Test invalid tag format
+        id: invalid-tag
+        uses: ./docker-build
+        with:
+          image-name: 'test-image'
+          tag: 'INVALID TAG WITH SPACES'
+          dockerfile: './Dockerfile'
+          context: '.'
+          platforms: 'linux/amd64'
+          push: 'false'
+        continue-on-error: true
+
+      - name: Validate tag validation
+        run: |
+          if [ "${{ steps.invalid-tag.outcome }}" != "failure" ]; then
+            echo "❌ ERROR: Invalid tag should have failed validation"
+            exit 1
+          fi
+          echo "✅ Tag validation works correctly"
+
+      - name: Test invalid image name
+        id: invalid-image
+        uses: ./docker-build
+        with:
+          image-name: 'UPPERCASE_NOT_ALLOWED'
+          tag: 'latest'
+          dockerfile: './Dockerfile'
+          context: '.'
+          platforms: 'linux/amd64'
+          push: 'false'
+        continue-on-error: true
+
+      - name: Validate image name validation
+        run: |
+          if [ "${{ steps.invalid-image.outcome }}" != "failure" ]; then
+            echo "❌ ERROR: Invalid image name should have failed validation"
+            exit 1
+          fi
+          echo "✅ Image name validation works correctly"

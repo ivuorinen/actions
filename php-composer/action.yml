@@ -42,7 +42,7 @@ inputs:
   token:
     description: 'GitHub token for private repository access'
     required: false
-    default: ${{ github.token }}
+    default: ''
   max-retries:
     description: 'Maximum number of retry attempts for Composer commands'
     required: false
@@ -68,9 +68,14 @@ runs:
     - name: Mask Secrets
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
+        GITHUB_TOKEN: ${{ inputs.token || github.token }}
       run: |
         echo "::add-mask::$GITHUB_TOKEN"
+
+    - name: Checkout Repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token || github.token }}
 
     - name: Validate Inputs
       id: validate
@@ -129,7 +134,7 @@ runs:
       id: composer
       shell: bash
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
+        GITHUB_TOKEN: ${{ inputs.token || github.token }}
         STABILITY: ${{ inputs.stability }}
         COMPOSER_VERSION: ${{ inputs.composer-version }}
       run: |
