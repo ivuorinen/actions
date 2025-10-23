@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all
+.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release update-version-refs bump-major-version check-version-refs
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -145,6 +145,41 @@ fix-local-refs-dry: ## Preview local action reference fixes (dry run)
 		exit 1; \
 	fi
 
+# Version management targets
+release: ## Create a new release with version tags (usage: make release [VERSION=v2025.10.18])
+	@VERSION_TO_USE=$$(if [ -n "$(VERSION)" ]; then echo "$(VERSION)"; else date +v%Y.%m.%d; fi); \
+	echo "$(BLUE)🚀 Creating release $$VERSION_TO_USE...$(RESET)"; \
+	sh _tools/release.sh "$$VERSION_TO_USE"; \
+	echo "$(GREEN)✅ Release created$(RESET)"; \
+	echo ""; \
+	echo "$(YELLOW)Next steps:$(RESET)"; \
+	echo "  1. Review changes: git show HEAD"; \
+	echo "  2. Push tags: git push origin main --tags --force-with-lease"
+
+update-version-refs: ## Update all action references to a specific version tag (usage: make update-version-refs MAJOR=v2025)
+	@if [ -z "$(MAJOR)" ]; then \
+		echo "$(RED)❌ Error: MAJOR parameter required$(RESET)"; \
+		echo "Usage: make update-version-refs MAJOR=v2025"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)🔧 Updating action references to $(MAJOR)...$(RESET)"
+	@sh _tools/update-action-refs.sh "$(MAJOR)"
+	@echo "$(GREEN)✅ Action references updated$(RESET)"
+
+bump-major-version: ## Replace one major version with another (usage: make bump-major-version OLD=v2025 NEW=v2026)
+	@if [ -z "$(OLD)" ] || [ -z "$(NEW)" ]; then \
+		echo "$(RED)❌ Error: OLD and NEW parameters required$(RESET)"; \
+		echo "Usage: make bump-major-version OLD=v2025 NEW=v2026"; \
+		exit 1; \
+	fi
+	@echo "$(BLUE)🔄 Bumping version from $(OLD) to $(NEW)...$(RESET)"
+	@sh _tools/bump-major-version.sh "$(OLD)" "$(NEW)"
+	@echo "$(GREEN)✅ Major version bumped$(RESET)"
+
+check-version-refs: ## List all current SHA-pinned action references
+	@echo "$(BLUE)🔍 Checking action references...$(RESET)"
+	@sh _tools/check-version-refs.sh
+
 # Formatting targets
 format-markdown: ## Format markdown files
 	@echo "$(BLUE)📝 Formatting markdown...$(RESET)"
@@ -216,14 +251,17 @@ lint-yaml: ## Lint YAML files
 
 lint-shell: ## Lint shell scripts
 	@echo "$(BLUE)🔍 Linting shell scripts...$(RESET)"
-	@if command -v shellcheck >/dev/null 2>&1; then \
-		if find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} + 2>/dev/null; then \
-			echo "$(GREEN)✅ Shell linting passed$(RESET)"; \
-		else \
-			echo "$(YELLOW)⚠️ Shell linting issues found$(RESET)" | tee -a $(LOG_FILE); \
-		fi; \
+	@if ! command -v shellcheck >/dev/null 2>&1; then \
+		echo "$(RED)❌ shellcheck not found. Please install shellcheck:$(RESET)"; \
+		echo "  brew install shellcheck"; \
+		echo "  or: apt-get install shellcheck"; \
+		exit 1; \
+	fi
+	@if find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} +; then \
+		echo "$(GREEN)✅ Shell linting passed$(RESET)"; \
 	else \
-		echo "$(BLUE)ℹ️ shellcheck not available, skipping shell script linting$(RESET)"; \
+		echo "$(RED)❌ Shell linting issues found$(RESET)"; \
+		exit 1; \
 	fi
 
 lint-python: ## Lint Python files with ruff and pyright

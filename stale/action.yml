@@ -43,7 +43,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ./validate-inputs
+      uses: ivuorinen/actions/validate-inputs@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         action: 'stale'
         token: ${{ inputs.token || github.token }}

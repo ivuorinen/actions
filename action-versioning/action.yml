@@ -1,0 +1,159 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write  # Required for creating commits
+---
+name: Action Versioning
+description: 'Automatically update SHA-pinned action references to match latest version tags'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: git-commit
+  color: blue
+
+inputs:
+  major-version:
+    description: 'Major version tag to sync (e.g., v2025)'
+    required: true
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
+
+outputs:
+  updated:
+    description: 'Whether action references were updated (true/false)'
+    value: ${{ steps.check-update.outputs.updated }}
+  commit-sha:
+    description: 'SHA of the commit that was created (if any)'
+    value: ${{ steps.commit.outputs.sha }}
+  needs-annual-bump:
+    description: 'Whether annual version bump is needed (true/false)'
+    value: ${{ steps.check-year.outputs.needs-bump }}
+
+runs:
+  using: composite
+  steps:
+    - name: Checkout Repository
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      with:
+        token: ${{ inputs.token || github.token }}
+        fetch-depth: 0
+
+    - name: Check Current Year
+      id: check-year
+      shell: bash
+      env:
+        MAJOR_VERSION: ${{ inputs.major-version }}
+      run: |
+        set -euo pipefail
+
+        current_year=$(date +%Y)
+        version_year="${MAJOR_VERSION#v}"
+
+        if [[ "$version_year" != "$current_year" ]]; then
+          echo "::warning::Annual version bump needed: $MAJOR_VERSION -> v$current_year"
+          echo "needs-bump=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "needs-bump=false" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Fetch Version Tag SHA
+      id: fetch-sha
+      shell: bash
+      env:
+        MAJOR_VERSION: ${{ inputs.major-version }}
+      run: |
+        set -euo pipefail
+
+        # Fetch all tags
+        git fetch --tags --force
+
+        # Get SHA for the major version tag
+        if ! tag_sha=$(git rev-list -n 1 "$MAJOR_VERSION" 2>/dev/null); then
+          echo "::error::Tag $MAJOR_VERSION not found"
+          exit 1
+        fi
+
+        echo "tag-sha=$tag_sha" >> "$GITHUB_OUTPUT"
+        echo "Tag $MAJOR_VERSION points to: $tag_sha"
+
+    - name: Check if Update Needed
+      id: check-update
+      shell: bash
+      env:
+        TAG_SHA: ${{ steps.fetch-sha.outputs.tag-sha }}
+      run: |
+        set -euo pipefail
+
+        # Find all action references and check if any don't match the tag SHA
+        needs_update=false
+
+        while IFS= read -r line; do
+          current_sha=$(echo "$line" | grep -oE '@[a-f0-9]{40}' | sed 's/@//')
+
+          if [[ "$current_sha" != "$TAG_SHA" ]]; then
+            echo "Found outdated reference: $current_sha (should be $TAG_SHA)"
+            needs_update=true
+          fi
+        done < <(find . -maxdepth 2 -name "action.yml" -path "*/action.yml" ! -path "./_*" ! -path "./.github/*" -exec grep -h "uses: ivuorinen/actions/" {} \;)
+
+        if [[ "$needs_update" == "true" ]]; then
+          echo "updated=true" >> "$GITHUB_OUTPUT"
+          echo "Update needed - references are outdated"
+        else
+          echo "updated=false" >> "$GITHUB_OUTPUT"
+          echo "No update needed - all references are current"
+        fi
+
+    - name: Update Action References
+      if: steps.check-update.outputs.updated == 'true'
+      shell: bash
+      env:
+        TAG_SHA: ${{ steps.fetch-sha.outputs.tag-sha }}
+      run: |
+        set -euo pipefail
+
+        echo "Updating all action references to SHA: $TAG_SHA"
+
+        # Update all action.yml files (excluding tests and .github)
+        # Use .bak extension for cross-platform sed compatibility
+        find . -maxdepth 2 -name "action.yml" -path "*/action.yml" ! -path "./_*" ! -path "./.github/*" -exec sed -i.bak \
+          "s|ivuorinen/actions/\([a-z-]*\)@[a-f0-9]\{40\}|ivuorinen/actions/\1@$TAG_SHA|g" {} \;
+
+        # Remove backup files
+        find . -maxdepth 2 -name "action.yml.bak" -path "*/action.yml.bak" ! -path "./_*" ! -path "./.github/*" -delete
+
+        echo "Action references updated successfully"
+
+    - name: Commit Changes
+      if: steps.check-update.outputs.updated == 'true'
+      id: commit
+      shell: bash
+      env:
+        MAJOR_VERSION: ${{ inputs.major-version }}
+        TAG_SHA: ${{ steps.fetch-sha.outputs.tag-sha }}
+      run: |
+        set -euo pipefail
+
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+
+        git add -- */action.yml
+
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+          echo "sha=" >> "$GITHUB_OUTPUT"
+        else
+          git commit -m "chore: update action references to $MAJOR_VERSION ($TAG_SHA)" \
+                     -m "" \
+                     -m "This commit updates all internal action references to point to the latest" \
+                     -m "$MAJOR_VERSION tag SHA." \
+                     -m "" \
+                     -m "🤖 Generated with [Claude Code](https://claude.com/claude-code)" \
+                     -m "" \
+                     -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+
+          commit_sha=$(git rev-parse HEAD)
+          echo "sha=$commit_sha" >> "$GITHUB_OUTPUT"
+          echo "Created commit: $commit_sha"
+        fi

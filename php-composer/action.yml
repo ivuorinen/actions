@@ -79,7 +79,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ./validate-inputs
+      uses: ivuorinen/actions/validate-inputs@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         action: php-composer
 
@@ -176,10 +176,10 @@ runs:
 
     - name: Cache Composer packages
       id: composer-cache
-      uses: ./common-cache
+      uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         type: 'composer'
-        paths: 'vendor,~/.composer/cache${{ inputs.cache-directories != "" && format(",{0}", inputs.cache-directories) || "" }}'
+        paths: vendor,~/.composer/cache${{ inputs.cache-directories != "" && format(",{0}", inputs.cache-directories) || "" }}
         key-prefix: 'php-${{ inputs.php }}-composer-${{ inputs.composer-version }}'
         key-files: 'composer.lock,composer.json'
         restore-keys: |
@@ -196,9 +196,9 @@ runs:
         composer clear-cache
 
     - name: Install Dependencies
-      uses: ./common-retry
+      uses: ivuorinen/actions/common-retry@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
-        command: 'composer install ${{ inputs.args }}'
+        command: composer install ${{ inputs.args }}
         max-retries: ${{ inputs.max-retries }}
         retry-delay: '30'
         description: 'Installing PHP dependencies via Composer'

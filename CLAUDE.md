@@ -86,7 +86,12 @@ Validation (validate-inputs)
 
 **Validation**: `make update-validators`, `make update-validators-dry`
 
-**References**: `make check-local-refs`, `make fix-local-refs`, `make fix-local-refs-dry`
+**Versioning**:
+
+- `make release [VERSION=vYYYY.MM.DD]` - Create release (auto-generates version from date if omitted)
+- `make update-version-refs MAJOR=vYYYY` - Update action refs to version
+- `make bump-major-version OLD=vYYYY NEW=vYYYY` - Annual version bump
+- `make check-version-refs` - Verify current action references
 
 ### Linters
 
@@ -105,24 +110,38 @@ Violations cause runtime failures:
 3. Sanitize `$GITHUB_OUTPUT`: use `printf '%s\n' "$val"` not `echo "$val"`
 4. Pin external actions to SHA commits (not `@main`/`@v1`)
 5. Quote shell vars: `"$var"`, `basename -- "$path"` (handles spaces)
-6. Use local paths: `./action-name` (not `owner/repo/action@main`)
+6. Use SHA-pinned refs for internal actions: `ivuorinen/actions/action-name@<SHA>`
+   (security, not `./` or `@main`)
 7. Test regex edge cases (support `1.0.0-rc.1`, `1.0.0+build`)
-8. Use `set -euo pipefail` at script start
+8. Use `set -eu` (POSIX) in shell scripts (all scripts are POSIX sh, not bash)
 9. Never nest `${{ }}` in quoted YAML strings (breaks hashFiles)
 10. Provide tool fallbacks (macOS/Windows lack Linux tools)
 
 ### Core Requirements
 
-- External actions SHA-pinned, use `${{ github.token }}`, `set -euo pipefail`
+- All actions SHA-pinned (external + internal), use `${{ github.token }}`, POSIX shell (`set -eu`)
 - EditorConfig: 2-space indent, UTF-8, LF, max 200 chars (120 for MD)
 - Auto-gen README via `action-docs` (note: `npx action-docs --update-readme` doesn't work)
-- Required error handling
+- Required error handling, POSIX-compliant scripts
 
 ### Action References
 
-✅ `./action-name` | ❌ `../action-name` | ❌ `owner/repo/action@main`
+**Internal actions (in action.yml)**: SHA-pinned full references
 
-Check: `make check-local-refs`, `make fix-local-refs`
+- ✅ `ivuorinen/actions/action-name@7061aafd35a2f21b57653e34f2b634b2a19334a9`
+- ❌ `./action-name` (security risk, not portable when used externally)
+- ❌ `owner/repo/action@main` (floating reference)
+
+**Test workflows**: Local references
+
+- ✅ `./action-name` (tests run within repo)
+- ❌ `../action-name` (ambiguous paths)
+
+**External users**: Version tags
+
+- ✅ `ivuorinen/actions/action-name@v2025` (CalVer major version)
+
+Check: `make check-version-refs`
 
 ## Validation System
 
