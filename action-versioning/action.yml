@@ -41,29 +41,29 @@ runs:
 
     - name: Check Current Year
       id: check-year
-      shell: bash
+      shell: sh
       env:
         MAJOR_VERSION: ${{ inputs.major-version }}
       run: |
-        set -euo pipefail
+        set -eu
 
         current_year=$(date +%Y)
         version_year="${MAJOR_VERSION#v}"
 
-        if [[ "$version_year" != "$current_year" ]]; then
+        if [ "$version_year" != "$current_year" ]; then
           echo "::warning::Annual version bump needed: $MAJOR_VERSION -> v$current_year"
-          echo "needs-bump=true" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "needs-bump=true" >> "$GITHUB_OUTPUT"
         else
-          echo "needs-bump=false" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "needs-bump=false" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Fetch Version Tag SHA
       id: fetch-sha
-      shell: bash
+      shell: sh
       env:
         MAJOR_VERSION: ${{ inputs.major-version }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Fetch all tags
         git fetch --tags --force
@@ -74,44 +74,50 @@ runs:
           exit 1
         fi
 
-        echo "tag-sha=$tag_sha" >> "$GITHUB_OUTPUT"
+        printf '%s\n' "tag-sha=$tag_sha" >> "$GITHUB_OUTPUT"
         echo "Tag $MAJOR_VERSION points to: $tag_sha"
 
     - name: Check if Update Needed
       id: check-update
-      shell: bash
+      shell: sh
       env:
         TAG_SHA: ${{ steps.fetch-sha.outputs.tag-sha }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Find all action references and check if any don't match the tag SHA
         needs_update=false
 
+        # Create temp file for action references
+        temp_file=$(mktemp)
+        trap 'rm -f "$temp_file"' EXIT
+
+        find . -maxdepth 2 -name "action.yml" -path "*/action.yml" ! -path "./_*" ! -path "./.github/*" -exec grep -h "uses: ivuorinen/actions/" {} \; > "$temp_file"
+
         while IFS= read -r line; do
           current_sha=$(echo "$line" | grep -oE '@[a-f0-9]{40}' | sed 's/@//')
 
-          if [[ "$current_sha" != "$TAG_SHA" ]]; then
+          if [ "$current_sha" != "$TAG_SHA" ]; then
             echo "Found outdated reference: $current_sha (should be $TAG_SHA)"
             needs_update=true
           fi
-        done < <(find . -maxdepth 2 -name "action.yml" -path "*/action.yml" ! -path "./_*" ! -path "./.github/*" -exec grep -h "uses: ivuorinen/actions/" {} \;)
+        done < "$temp_file"
 
-        if [[ "$needs_update" == "true" ]]; then
-          echo "updated=true" >> "$GITHUB_OUTPUT"
+        if [ "$needs_update" = "true" ]; then
+          printf '%s\n' "updated=true" >> "$GITHUB_OUTPUT"
           echo "Update needed - references are outdated"
         else
-          echo "updated=false" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "updated=false" >> "$GITHUB_OUTPUT"
           echo "No update needed - all references are current"
         fi
 
     - name: Update Action References
       if: steps.check-update.outputs.updated == 'true'
-      shell: bash
+      shell: sh
       env:
         TAG_SHA: ${{ steps.fetch-sha.outputs.tag-sha }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Updating all action references to SHA: $TAG_SHA"
 
@@ -128,12 +134,12 @@ runs:
     - name: Commit Changes
       if: steps.check-update.outputs.updated == 'true'
       id: commit
-      shell: bash
+      shell: sh
       env:
         MAJOR_VERSION: ${{ inputs.major-version }}
         TAG_SHA: ${{ steps.fetch-sha.outputs.tag-sha }}
       run: |
-        set -euo pipefail
+        set -eu
 
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
@@ -142,7 +148,7 @@ runs:
 
         if git diff --staged --quiet; then
           echo "No changes to commit"
-          echo "sha=" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "sha=" >> "$GITHUB_OUTPUT"
         else
           git commit -m "chore: update action references to $MAJOR_VERSION ($TAG_SHA)" \
                      -m "" \
@@ -154,6 +160,6 @@ runs:
                      -m "Co-Authored-By: Claude <noreply@anthropic.com>"
 
           commit_sha=$(git rev-parse HEAD)
-          echo "sha=$commit_sha" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "sha=$commit_sha" >> "$GITHUB_OUTPUT"
           echo "Created commit: $commit_sha"
         fi

@@ -31,13 +31,13 @@ jobs:
 
       - name: Determine Major Version
         id: version
-        shell: bash
+        shell: sh
         run: |
-          if [[ -n "${{ inputs.major-version }}" ]]; then
-            echo "major=${{ inputs.major-version }}" >> "$GITHUB_OUTPUT"
+          if [ -n "${{ inputs.major-version }}" ]; then
+            printf '%s\n' "major=${{ inputs.major-version }}" >> "$GITHUB_OUTPUT"
           else
             current_year=$(date +%Y)
-            echo "major=v$current_year" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "major=v$current_year" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Run Action Versioning

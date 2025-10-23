@@ -12,6 +12,9 @@ branding:
   color: green
 
 inputs:
+  npm_token:
+    description: 'NPM token.'
+    required: true
   registry-url:
     description: 'Registry URL for publishing.'
     required: false
@@ -24,10 +27,6 @@ inputs:
     description: 'The version to publish.'
     required: false
     default: ${{ github.event.release.tag_name }}
-  npm_token:
-    description: 'NPM token.'
-    required: true
-    default: ''
   token:
     description: 'GitHub token for authentication'
     required: false
@@ -48,43 +47,44 @@ runs:
   using: composite
   steps:
     - name: Mask Secrets
-      shell: bash
+      shell: sh
       env:
         NPM_TOKEN: ${{ inputs.npm_token }}
       run: |
+        set -eu
         echo "::add-mask::$NPM_TOKEN"
 
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         REGISTRY_URL: ${{ inputs.registry-url }}
         PACKAGE_SCOPE: ${{ inputs.scope }}
         PACKAGE_VERSION: ${{ inputs.package-version }}
         NPM_TOKEN: ${{ inputs.npm_token }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate registry URL format
-        if ! [[ "$REGISTRY_URL" =~ ^https?://[a-zA-Z0-9.-]+(/.*)?/?$ ]]; then
+        if ! echo "$REGISTRY_URL" | grep -Eq '^https?://[a-zA-Z0-9.-]+(/.*)?/?$'; then
           echo "::error::Invalid registry URL format: '$REGISTRY_URL'. Expected http:// or https:// URL (e.g., 'https://registry.npmjs.org/')"
           exit 1
         fi
 
         # Validate package version format (semver)
-        if ! [[ "$PACKAGE_VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$ ]]; then
+        if ! echo "$PACKAGE_VERSION" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$'; then
           echo "::error::Invalid package version format: '$PACKAGE_VERSION'. Expected semantic version (e.g., '1.2.3', 'v1.2.3-alpha', '1.2.3+build')"
           exit 1
         fi
 
         # Validate scope format (if provided)
-        if [[ -n "$PACKAGE_SCOPE" ]] && ! [[ "$PACKAGE_SCOPE" =~ ^@[a-z0-9-~][a-z0-9-._~]*$ ]]; then
+        if [ -n "$PACKAGE_SCOPE" ] && ! echo "$PACKAGE_SCOPE" | grep -Eq '^@[a-z0-9-~][a-z0-9-._~]*$'; then
           echo "::error::Invalid NPM scope format: '$PACKAGE_SCOPE'. Expected format: @scope-name (e.g., '@myorg', '@my-org')"
           exit 1
         fi
 
         # Validate NPM token is provided
-        if [[ -z "$NPM_TOKEN" ]]; then
+        if [ -z "$NPM_TOKEN" ]; then
           echo "::error::NPM token is required for publishing"
           exit 1
         fi
@@ -104,26 +104,26 @@ runs:
       uses: ivuorinen/actions/node-setup@7061aafd35a2f21b57653e34f2b634b2a19334a9
 
     - name: Authenticate NPM
-      shell: bash
+      shell: sh
       env:
         REGISTRY_URL: ${{ inputs.registry-url }}
         NPM_TOKEN: ${{ inputs.npm_token }}
       run: |
-        set -euo pipefail
+        set -eu
 
         registry_host="$(echo "$REGISTRY_URL" | sed -E 's#^https?://##; s#/$##')"
         echo "//${registry_host}/:_authToken=$NPM_TOKEN" > ~/.npmrc
         echo "always-auth=true" >> ~/.npmrc
 
     - name: Publish Package
-      shell: bash
+      shell: sh
       env:
         REGISTRY_URL: ${{ inputs.registry-url }}
         PACKAGE_SCOPE: ${{ inputs.scope }}
         PACKAGE_VERSION: ${{ inputs.package-version }}
         NPM_TOKEN: ${{ inputs.npm_token }}
       run: |-
-        set -euo pipefail
+        set -eu
 
         pkg_version=$(node -p "require('./package.json').version")
         input_version="$PACKAGE_VERSION"

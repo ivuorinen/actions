@@ -120,6 +120,7 @@ runs:
         key-prefix: 'ansible-lint-fix'
 
     - name: Install ansible-lint
+      id: install-ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
       uses: ivuorinen/actions/common-retry@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
@@ -159,6 +160,7 @@ runs:
         exit "$lint_exit_code"
 
     - name: Set Git Config for Fixes
+      id: set-git-config
       if: steps.check-files.outputs.files_found == 'true'
       uses: ivuorinen/actions/set-git-config@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:

@@ -86,7 +86,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         GOLANGCI_LINT_VERSION: ${{ inputs.golangci-lint-version }}
@@ -102,7 +102,7 @@ runs:
         ENABLE_LINTERS: ${{ inputs.enable-linters }}
         DISABLE_LINTERS: ${{ inputs.disable-linters }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate working directory exists
         if [ ! -d "$WORKING_DIRECTORY" ]; then
@@ -111,49 +111,56 @@ runs:
         fi
 
         # Validate working directory path security (prevent traversal)
-        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
-          echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
-          exit 1
-        fi
+        case "$WORKING_DIRECTORY" in
+          *..*)
+            echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
+            exit 1
+            ;;
+        esac
 
         # Validate golangci-lint version format
-        if [[ -n "$GOLANGCI_LINT_VERSION" ]] && [[ "$GOLANGCI_LINT_VERSION" != "latest" ]]; then
-          if ! [[ "$GOLANGCI_LINT_VERSION" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$ ]]; then
+        if [ -n "$GOLANGCI_LINT_VERSION" ] && [ "$GOLANGCI_LINT_VERSION" != "latest" ]; then
+          if ! echo "$GOLANGCI_LINT_VERSION" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$'; then
             echo "::error::Invalid golangci-lint-version format: '$GOLANGCI_LINT_VERSION'. Expected format: vX.Y.Z or 'latest' (e.g., v1.55.2, latest)"
             exit 1
           fi
         fi
 
         # Validate Go version format
-        if [[ -n "$GO_VERSION" ]] && [[ "$GO_VERSION" != "stable" ]]; then
-          if ! [[ "$GO_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+        if [ -n "$GO_VERSION" ] && [ "$GO_VERSION" != "stable" ]; then
+          if ! echo "$GO_VERSION" | grep -Eq '^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'; then
             echo "::error::Invalid go-version format: '$GO_VERSION'. Expected format: X.Y or X.Y.Z or 'stable' (e.g., 1.21, 1.21.5, stable)"
             exit 1
           fi
         fi
 
         # Validate config file path if not default
-        if [[ "$CONFIG_FILE" != ".golangci.yml" ]] && [[ "$CONFIG_FILE" == *".."* ]]; then
-          echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
-          exit 1
+        if [ "$CONFIG_FILE" != ".golangci.yml" ]; then
+          case "$CONFIG_FILE" in
+            *..*)
+              echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate timeout format (duration with unit)
-        if ! [[ "$TIMEOUT" =~ ^[0-9]+(ns|us|µs|ms|s|m|h)$ ]]; then
+        if ! echo "$TIMEOUT" | grep -Eq '^[0-9]+(ns|us|µs|ms|s|m|h)$'; then
           echo "::error::Invalid timeout format: '$TIMEOUT'. Expected format with unit: 5m, 1h, 300s (e.g., 5m, 30s, 2h)"
           exit 1
         fi
 
         # Validate boolean inputs
         validate_boolean() {
-          local value="$1"
-          local name="$2"
+          _value="$1"
+          _name="$2"
+          _value_lower=$(echo "$_value" | tr '[:upper:]' '[:lower:]')
 
-          case "${value,,}" in
+          case "$_value_lower" in
             true|false)
               ;;
             *)
-              echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
+              echo "::error::Invalid boolean value for $_name: '$_value'. Expected: true or false"
               exit 1
               ;;
           esac
@@ -176,19 +183,19 @@ runs:
         esac
 
         # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+        if ! echo "$MAX_RETRIES" | grep -Eq '^[0-9]+$' || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
           echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
         # Validate linter lists if provided
         validate_linter_list() {
-          local linter_list="$1"
-          local name="$2"
+          _linter_list="$1"
+          _name="$2"
 
-          if [[ -n "$linter_list" ]]; then
-            if ! [[ "$linter_list" =~ ^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$ ]]; then
-              echo "::error::Invalid $name format: '$linter_list'. Expected comma-separated linter names (e.g., gosec,govet,staticcheck)"
+          if [ -n "$_linter_list" ]; then
+            if ! echo "$_linter_list" | grep -Eq '^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$'; then
+              echo "::error::Invalid $_name format: '$_linter_list'. Expected comma-separated linter names (e.g., gosec,govet,staticcheck)"
               exit 1
             fi
           fi
@@ -220,26 +227,29 @@ runs:
         restore-keys: '${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-'
 
     - name: Install golangci-lint
-      shell: bash
+      shell: sh
       env:
         MAX_RETRIES: ${{ inputs.max-retries }}
         GOLANGCI_LINT_VERSION: ${{ inputs.golangci-lint-version }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Function to install golangci-lint with retries
         install_golangci_lint() {
-          local attempt=1
-          local max_attempts="$MAX_RETRIES"
-          local version="$GOLANGCI_LINT_VERSION"
+          _attempt=1
+          _max_attempts="$MAX_RETRIES"
+          _version="$GOLANGCI_LINT_VERSION"
 
-          while [ $attempt -le $max_attempts ]; do
-            echo "Installation attempt $attempt of $max_attempts"
+          while [ $_attempt -le $_max_attempts ]; do
+            echo "Installation attempt $_attempt of $_max_attempts"
 
             # Add 'v' prefix if version is not 'latest' and doesn't already have it
-            install_version="$version"
-            if [[ "$version" != "latest" ]] && [[ "$version" != v* ]]; then
-              install_version="v$version"
+            install_version="$_version"
+            if [ "$_version" != "latest" ]; then
+              case "$_version" in
+                v*) ;;
+                *) install_version="v$_version" ;;
+              esac
             fi
 
             if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
@@ -247,14 +257,14 @@ runs:
               return 0
             fi
 
-            attempt=$((attempt + 1))
-            if [ $attempt -le $max_attempts ]; then
+            _attempt=$((_attempt + 1))
+            if [ $_attempt -le $_max_attempts ]; then
               echo "Installation failed, waiting 10 seconds before retry..."
               sleep 10
             fi
           done
 
-          echo "::error::Failed to install golangci-lint after $max_attempts attempts"
+          echo "::error::Failed to install golangci-lint after $_max_attempts attempts"
           return 1
         }
 
@@ -262,13 +272,13 @@ runs:
 
     - name: Prepare Configuration
       id: config
-      shell: bash
+      shell: sh
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         CONFIG_FILE: ${{ inputs.config-file }}
         TIMEOUT: ${{ inputs.timeout }}
       run: |
-        set -euo pipefail
+        set -eu
 
         cd "$WORKING_DIRECTORY"
 
@@ -314,7 +324,7 @@ runs:
 
     - name: Run golangci-lint
       id: lint
-      shell: bash
+      shell: sh
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         DISABLE_ALL: ${{ inputs.disable-all }}
@@ -327,7 +337,7 @@ runs:
         REPORT_FORMAT: ${{ inputs.report-format }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
-        set -euo pipefail
+        set -eu
 
         cd "$WORKING_DIRECTORY"
 
@@ -410,12 +420,12 @@ runs:
 
     - name: Cleanup
       if: always()
-      shell: bash
+      shell: sh
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         CACHE: ${{ inputs.cache }}
       run: |-
-        set -euo pipefail
+        set -eu
 
         cd "$WORKING_DIRECTORY"
 
