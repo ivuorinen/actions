@@ -22,17 +22,19 @@
    - Unquoted variables cause word splitting and globbing
    - Example: `"$variable"` not `$variable`, `basename -- "$path"` not `basename $path`
 
-6. **ALWAYS** use local paths (`./action-name`) for intra-repo actions
-   - Avoids external dependencies and version drift
-   - Pattern: `uses: ./common-cache` not `uses: ivuorinen/actions/common-cache@main`
+6. **ALWAYS** use SHA-pinned references for internal actions in action.yml
+   - Security: immutable, auditable, portable when used externally
+   - Pattern: `uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9`
+   - Test workflows use local: `uses: ./common-cache` (within repo only)
 
 7. **ALWAYS** test regex patterns against edge cases
    - Include prerelease tags (`1.0.0-rc.1`), build metadata (`1.0.0+build.123`)
    - Version validation should support full semver/calver formats
 
-8. **ALWAYS** use `set -euo pipefail` at script start
-   - `-e`: Exit on error, `-u`: Exit on undefined variable, `-o pipefail`: Exit on pipe failures
-   - Critical for fail-fast behavior in composite actions
+8. **ALWAYS** use POSIX shell (`set -eu`) for all scripts
+   - Maximum portability: works on Alpine, busybox, all shells
+   - Use `#!/bin/sh` not `#!/usr/bin/env bash`
+   - Use `set -eu` not `set -euo pipefail` (pipefail not POSIX)
 
 9. **Avoid** nesting `${{ }}` expressions inside quoted strings in specific contexts
    - In `hashFiles()`: `"${{ inputs.value }}"` breaks cache key generation - use unquoted or extract to variable
@@ -92,41 +94,70 @@ Comprehensive linting with 30+ rule categories including:
 
 **Example**: `# ruff: noqa: T201, S603` for action step scripts only
 
-## Shell Script Standards
+## Shell Script Standards (POSIX)
 
-### Required Hardening Checklist
+**ALL scripts use POSIX shell** (`#!/bin/sh`) for maximum portability.
 
-- ✅ **Shebang**: `#!/usr/bin/env bash` (POSIX-compliant)
-- ✅ **Error Handling**: `set -euo pipefail` at script start
-- ✅ **Safe IFS**: `IFS=$' \t\n'` (space, tab, newline only)
-- ✅ **Exit Trap**: `trap cleanup EXIT` for cleanup operations
-- ✅ **Error Trap**: `trap 'echo "Error at line $LINENO" >&2' ERR` for debugging
+### Required POSIX Compliance Checklist
+
+- ✅ **Shebang**: `#!/bin/sh` (POSIX-compliant, not bash)
+- ✅ **Error Handling**: `set -eu` at script start (no pipefail - not POSIX)
 - ✅ **Defensive Expansion**: Use `${var:-default}` or `${var:?message}` patterns
 - ✅ **Quote Everything**: Always quote expansions: `"$var"`, `basename -- "$path"`
 - ✅ **Tool Availability**: `command -v tool >/dev/null 2>&1 || { echo "Missing tool"; exit 1; }`
+- ✅ **Portable Output**: Use `printf` instead of `echo -e`
+- ✅ **Portable Sourcing**: Use `. file` instead of `source file`
+- ✅ **POSIX Tests**: Use `[ ]` instead of `[[ ]]`
+- ✅ **Parsing**: Use `cut`, `grep`, pipes instead of here-strings `<<<`
+- ✅ **No Associative Arrays**: Use temp files or line-based processing
+
+### Key POSIX Differences from Bash
+
+| Bash Feature          | POSIX Replacement                 |
+| --------------------- | --------------------------------- |
+| `#!/usr/bin/env bash` | `#!/bin/sh`                       |
+| `set -euo pipefail`   | `set -eu`                         |
+| `[[ condition ]]`     | `[ condition ]`                   |
+| `[[ $var =~ regex ]]` | `echo "$var" \| grep -qE 'regex'` |
+| `<<<` here-strings    | `echo \| cut` or pipes            |
+| `source file`         | `. file`                          |
+| `$BASH_SOURCE`        | `$0`                              |
+| `((var++))`           | `var=$((var + 1))`                |
+| `((var < 10))`        | `[ "$var" -lt 10 ]`               |
+| `echo -e`             | `printf '%b'`                     |
+| `declare -A map`      | temp files + sort/uniq            |
+| Process substitution  | pipes or temp files               |
 
 ### Examples
 
-```bash
-#!/usr/bin/env bash
-set -euo pipefail
-IFS=$' \t\n'
-
-# Cleanup trap
-cleanup() { rm -f /tmp/tempfile; }
-trap cleanup EXIT
-
-# Error trap with line number
-trap 'echo "Error at line $LINENO" >&2' ERR
+```sh
+#!/bin/sh
+set -eu
 
 # Defensive parameter expansion
 config_file="${CONFIG_FILE:-config.yml}"           # Use default if unset
-required_param="${REQUIRED_PARAM:?Missing value}"  # Error if unset
+required_param="${REQUIRED_PARAM:?Missing value}" # Error if unset
 
 # Always quote expansions
-echo "Processing: $config_file"
+printf 'Processing: %s\n' "$config_file"
 result=$(basename -- "$file_path")
+
+# POSIX test conditions
+if [ -f "$config_file" ]; then
+  printf 'Found config\n'
+fi
+
+# Portable output
+printf '%b' "Color: ${GREEN}text${NC}\n"
 ```
+
+### Why POSIX Shell
+
+- **Portability**: Works on Alpine Linux, busybox, minimal containers, all POSIX shells
+- **Performance**: POSIX shells are lighter and faster than bash
+- **CI-Friendly**: Minimal dependencies, works everywhere
+- **Standards**: Follows POSIX best practices
+- **Compatibility**: Works with sh, dash, ash, bash, zsh
 
 ### Additional Requirements
 
@@ -189,48 +220,49 @@ if: github.event_name == 'push'
 - Don't quote in `with:`, `env:`, `if:` - GitHub evaluates these
 - Never nest expressions: `"${{ inputs.value }}"` inside hashFiles breaks caching
 
-### **Local Action References**
+### Internal Action References (SHA-Pinned)
 
-**CRITICAL**: When referencing actions within the same repository:
+**CRITICAL**: Action files (`*/action.yml`) use SHA-pinned references for security:
 
-- ✅ **CORRECT**: `uses: ./action-name` (relative to workspace root)
-- ❌ **INCORRECT**: `uses: ../action-name` (relative paths that assume directory structure)
-- ❌ **INCORRECT**: `uses: owner/repo/action-name@main` (floating branch reference)
+- ✅ **CORRECT**: `uses: ivuorinen/actions/action-name@7061aafd35a2f21b57653e34f2b634b2a19334a9`
+- ❌ **INCORRECT**: `uses: ./action-name` (security risk, not portable when used externally)
+- ❌ **INCORRECT**: `uses: ivuorinen/actions/action-name@main` (floating reference)
 
 **Rationale**:
 
-- Uses GitHub workspace root (`$GITHUB_WORKSPACE`) as reference point
-- Clear and unambiguous regardless of where action is called from
-- Follows GitHub's recommended pattern for same-repository references
-- Avoids issues if action checks out repository to different location
-- Eliminates external dependencies and supply chain risks
+- **Security**: Immutable, auditable references
+- **Reproducibility**: Exact version control
+- **Portability**: Works when actions used externally (e.g., `ivuorinen/f2b` using `ivuorinen/actions/pr-lint`)
+- **Prevention**: No accidental version drift
 
-**Examples**:
+**Test Workflows Exception**:
+
+Test workflows in `_tests/` use local references since they run within the repo:
 
 ```yaml
-# ✅ Correct - relative to workspace root
-- uses: ./validate-inputs
-- uses: ./common-cache
-- uses: ./node-setup
-
-# ❌ Incorrect - relative directory navigation
-- uses: ../validate-inputs
-- uses: ../common-cache
-- uses: ../node-setup
-
-# ❌ Incorrect - external reference to same repo
-- uses: ivuorinen/actions/validate-inputs@main
-- uses: ivuorinen/actions/common-cache@v1
+# ✅ Test workflows only
+uses: ./validate-inputs
 ```
 
-### **Step Output References**
+### External Action References (SHA-Pinned)
+
+```yaml
+# ✅ Correct - SHA-pinned
+uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+# ❌ Incorrect - floating reference
+uses: actions/checkout@main
+uses: actions/checkout@v4
+```
+
+### Step Output References
 
 **CRITICAL**: Steps must have `id:` to reference their outputs:
 
 ```yaml
 # ❌ INCORRECT - missing id
 - name: Detect Version
-  uses: ./version-detect
+  uses: ivuorinen/actions/version-detect@<SHA>
 
 - name: Setup
   with:
@@ -239,7 +271,7 @@ if: github.event_name == 'push'
 # ✅ CORRECT - id present
 - name: Detect Version
   id: detect-version # Required for output reference
-  uses: ./version-detect
+  uses: ivuorinen/actions/version-detect@<SHA>
 
 - name: Setup
   with:
@@ -250,7 +282,7 @@ if: github.event_name == 'push'
 
 - **No Secrets**: Never commit secrets or keys to repository
 - **No Logging**: Never expose or log secrets/keys in code
-- **SHA Pinning**: All external actions use SHA commits, not tags
+- **SHA Pinning**: All action references (internal + external) use SHA commits, not tags
 - **Input Validation**: All actions import from shared validation library (`validate-inputs/`) - stateless validation functions, no inter-action dependencies
 - **Output Sanitization**: Use `printf` or heredoc for `$GITHUB_OUTPUT` writes
 - **Injection Prevention**: Validate inputs for command injection patterns (`;`, `&&`, `|`, backticks)
@@ -276,6 +308,7 @@ if: github.event_name == 'push'
 - **Convention-Based**: Automatic rule generation based on input naming patterns
 - **Error Handling**: Comprehensive error messages and proper exit codes
 - **Defensive Programming**: Check tool availability, validate inputs, handle edge cases
+- **POSIX Compliance**: All scripts portable across POSIX shells
 
 ## Pre-commit and Security Configuration
 

@@ -41,44 +41,48 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
         EMAIL: ${{ inputs.email }}
         USERNAME: ${{ inputs.username }}
         MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate GitHub token format (basic validation)
-        if [[ -n "$GITHUB_TOKEN" ]]; then
+        if [ -n "$GITHUB_TOKEN" ]; then
           # Skip validation for GitHub expressions (they'll be resolved at runtime)
-          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
+          if ! echo "$GITHUB_TOKEN" | grep -Eq '^gh[efpousr]_[a-zA-Z0-9]{36}$' && ! echo "$GITHUB_TOKEN" | grep -q '^\${{'; then
             echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
           fi
         fi
 
         # Validate email format (basic check)
-        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
-          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-          exit 1
-        fi
+        case "$EMAIL" in
+          *@*.*) ;;
+          *)
+            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+            exit 1
+            ;;
+        esac
 
         # Validate username format (prevent command injection)
-        if [[ "$USERNAME" =~ [;&|] ]]; then
+        if echo "$USERNAME" | grep -Eq '[;&|]'; then
           echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
           exit 1
         fi
 
         # Validate username length
         username="$USERNAME"
-        if [ ${#username} -gt 39 ]; then
-          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+        username_len=$(echo -n "$username" | wc -c | tr -d ' ')
+        if [ "$username_len" -gt 39 ]; then
+          echo "::error::Username too long: ${username_len} characters. GitHub usernames are max 39 characters"
           exit 1
         fi
 
         # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+        if ! echo "$MAX_RETRIES" | grep -Eq '^[0-9]+$' || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
           echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
@@ -91,7 +95,7 @@ runs:
         token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ./set-git-config
+      uses: ivuorinen/actions/set-git-config@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
@@ -99,11 +103,11 @@ runs:
 
     - name: Node Setup
       id: node-setup
-      uses: ./node-setup
+      uses: ivuorinen/actions/node-setup@7061aafd35a2f21b57653e34f2b634b2a19334a9
 
     - name: Cache Node Dependencies
       id: cache
-      uses: ./common-cache
+      uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         type: 'npm'
         paths: 'node_modules'
@@ -111,12 +115,12 @@ runs:
         key-prefix: 'biome-fix-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Biome
-      shell: bash
+      shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
         MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Check if biome is already installed
         if command -v biome >/dev/null 2>&1; then
@@ -167,9 +171,9 @@ runs:
 
     - name: Run Biome Fix
       id: fix
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running Biome fix..."
 

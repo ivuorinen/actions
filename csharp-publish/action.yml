@@ -51,7 +51,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ./validate-inputs
+      uses: ivuorinen/actions/validate-inputs@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         action-type: 'csharp-publish'
         token: ${{ inputs.token }}
@@ -60,7 +60,7 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ./dotnet-version-detect
+      uses: ivuorinen/actions/dotnet-version-detect@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         default-version: '7.0'
 
@@ -71,7 +71,7 @@ runs:
 
     - name: Cache NuGet packages
       id: cache-nuget
-      uses: ./common-cache
+      uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         type: 'nuget'
         paths: '~/.nuget/packages'
@@ -116,11 +116,11 @@ runs:
         if [ -n "$PACKAGE_FILE" ]; then
           # Extract version from filename (assumes standard naming: PackageName.Version.nupkg)
           VERSION=$(basename "$PACKAGE_FILE" .nupkg | sed 's/.*\.\([0-9]\+\.[0-9]\+\.[0-9]\+.*\)$/\1/')
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-          echo "package_file=$PACKAGE_FILE" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "version=$VERSION" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "package_file=$PACKAGE_FILE" >> "$GITHUB_OUTPUT"
         else
-          echo "version=unknown" >> "$GITHUB_OUTPUT"
-          echo "package_file=" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "version=unknown" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "package_file=" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Publish Package
@@ -133,7 +133,7 @@ runs:
         set -euo pipefail
 
         PACKAGE_URL="https://github.com/$NAMESPACE/packages/nuget"
-        echo "package_url=$PACKAGE_URL" >> $GITHUB_OUTPUT
+        printf '%s\n' "package_url=$PACKAGE_URL" >> "$GITHUB_OUTPUT"
 
         # First attempt
         if ! dotnet nuget push ./artifacts/*.nupkg \
@@ -159,4 +159,4 @@ runs:
       env:
         PUBLISH_STATUS: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
       run: |-
-        echo "status=$PUBLISH_STATUS" >> $GITHUB_OUTPUT
+        printf '%s\n' "status=$PUBLISH_STATUS" >> "$GITHUB_OUTPUT"

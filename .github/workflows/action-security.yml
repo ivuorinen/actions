@@ -52,7 +52,7 @@ jobs:
           # Check Gitleaks configuration and license
           if [ -f ".gitleaks.toml" ] && [ -n "${{ secrets.GITLEAKS_LICENSE }}" ]; then
             echo "Gitleaks config and license found"
-            echo "run_gitleaks=true" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "run_gitleaks=true" >> "$GITHUB_OUTPUT"
           else
             echo "::warning::Gitleaks config or license missing - skipping Gitleaks scan"
           fi
@@ -98,7 +98,7 @@ jobs:
           # Check Trivy results
           if [ -f "trivy-results.sarif" ]; then
             if jq -e . </dev/null 2>&1 <"trivy-results.sarif"; then
-              echo "has_trivy=true" >> "$GITHUB_OUTPUT"
+              printf '%s\n' "has_trivy=true" >> "$GITHUB_OUTPUT"
             else
               echo "::warning::Trivy SARIF file exists but is not valid JSON"
             fi
@@ -108,7 +108,7 @@ jobs:
           if [ "${{ steps.check-configs.outputs.run_gitleaks }}" = "true" ]; then
             if [ -f "gitleaks-report.sarif" ]; then
               if jq -e . </dev/null 2>&1 <"gitleaks-report.sarif"; then
-                echo "has_gitleaks=true" >> "$GITHUB_OUTPUT"
+                printf '%s\n' "has_gitleaks=true" >> "$GITHUB_OUTPUT"
               else
                 echo "::warning::Gitleaks SARIF file exists but is not valid JSON"
               fi

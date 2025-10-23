@@ -33,17 +33,21 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         DEFAULT_VERSION: ${{ inputs.default-version }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate default-version format
-        if ! [[ "$DEFAULT_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
-          echo "::error::Invalid default-version format: '$DEFAULT_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 3.12, 3.11.5)"
-          exit 1
-        fi
+        case "$DEFAULT_VERSION" in
+          [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+            ;;
+          *)
+            echo "::error::Invalid default-version format: '$DEFAULT_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 3.12, 3.11.5)"
+            exit 1
+            ;;
+        esac
 
         # Check for reasonable version range (prevent malicious inputs)
         major_version=$(echo "$DEFAULT_VERSION" | cut -d'.' -f1)
@@ -68,7 +72,7 @@ runs:
 
     - name: Parse Python Version
       id: parse-version
-      uses: ./version-file-parser
+      uses: ivuorinen/actions/version-file-parser@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
         language: 'python'
         tool-versions-key: 'python'

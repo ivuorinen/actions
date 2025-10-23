@@ -125,10 +125,10 @@ jobs:
         shell: bash
         run: |
           if [ -d "_tests/reports/integration" ] && [ -n "$(find _tests/reports/integration -type f 2>/dev/null)" ]; then
-            echo "reports-found=true" >> $GITHUB_OUTPUT
+            printf '%s\n' "reports-found=true" >> $GITHUB_OUTPUT
             echo "Integration test reports found"
           else
-            echo "reports-found=false" >> $GITHUB_OUTPUT
+            printf '%s\n' "reports-found=false" >> $GITHUB_OUTPUT
             echo "No integration test reports found"
           fi
 
