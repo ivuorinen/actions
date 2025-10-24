@@ -60,7 +60,7 @@ runs:
 
     - name: Detect PHP Version
       id: php-version
-      uses: ivuorinen/actions/php-version-detect@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/php-version-detect@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         default-version: ${{ inputs.php-version }}
 

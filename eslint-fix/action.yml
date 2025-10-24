@@ -44,7 +44,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/validate-inputs@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         action-type: 'eslint-fix'
         token: ${{ inputs.token }}
@@ -58,7 +58,7 @@ runs:
         token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/set-git-config@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
@@ -66,11 +66,11 @@ runs:
 
     - name: Node Setup
       id: node-setup
-      uses: ivuorinen/actions/node-setup@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/node-setup@a09e59aa7cb8246f584764d33505ff861b4c240c
 
     - name: Cache Node Dependencies
       id: cache
-      uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/common-cache@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         type: 'npm'
         paths: 'node_modules'
