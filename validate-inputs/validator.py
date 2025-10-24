@@ -32,7 +32,7 @@ def collect_inputs() -> dict[str, str]:
     """
     inputs = {}
     for key, value in os.environ.items():
-        if key.startswith("INPUT_") and key != "INPUT_ACTION_TYPE":
+        if key.startswith("INPUT_") and key not in ("INPUT_ACTION_TYPE", "INPUT_ACTION"):
             input_name = key[6:].lower()
             inputs[input_name] = value
 
@@ -73,8 +73,11 @@ def write_output(status: str, action_type: str, **kwargs) -> None:
 
 def main() -> None:
     """Main validation entry point."""
-    # Get the action type from environment
-    action_type = os.environ.get("INPUT_ACTION_TYPE", "").strip()
+    # Get the action type from environment (check both INPUT_ACTION_TYPE and INPUT_ACTION)
+    action_type = (
+        os.environ.get("INPUT_ACTION_TYPE", "").strip()
+        or os.environ.get("INPUT_ACTION", "").strip()
+    )
     if not action_type:
         logger.error("::error::No action type provided")
         sys.exit(1)
