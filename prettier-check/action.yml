@@ -202,11 +202,11 @@ runs:
 
     - name: Setup Node.js
       id: node-setup
-      uses: ivuorinen/actions/node-setup@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/node-setup@a09e59aa7cb8246f584764d33505ff861b4c240c
 
     - name: Set up Cache
       id: cache
-      uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/common-cache@a09e59aa7cb8246f584764d33505ff861b4c240c
       if: inputs.cache == 'true'
       with:
         type: 'npm'

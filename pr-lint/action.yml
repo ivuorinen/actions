@@ -40,7 +40,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/validate-inputs@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         action: pr-lint
         token: ${{ inputs.token }}
@@ -64,7 +64,7 @@ runs:
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Setup Git Config
       id: git-config
-      uses: ivuorinen/actions/set-git-config@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/set-git-config@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
@@ -87,7 +87,7 @@ runs:
 
     - name: Setup Node.js environment
       if: steps.detect-node.outputs.found == 'true'
-      uses: ivuorinen/actions/node-setup@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/node-setup@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         install: true
         cache: true
@@ -106,7 +106,7 @@ runs:
     - name: Detect PHP Version
       if: steps.detect-php.outputs.found == 'true'
       id: php-version
-      uses: ivuorinen/actions/php-version-detect@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/php-version-detect@a09e59aa7cb8246f584764d33505ff861b4c240c
 
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
@@ -150,7 +150,7 @@ runs:
     - name: Detect Python Version
       if: steps.detect-python.outputs.found == 'true'
       id: python-version
-      uses: ivuorinen/actions/python-version-detect@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/python-version-detect@a09e59aa7cb8246f584764d33505ff861b4c240c
 
     - name: Setup Python
       if: steps.detect-python.outputs.found == 'true'
@@ -181,7 +181,7 @@ runs:
     - name: Detect Go Version
       if: steps.detect-go.outputs.found == 'true'
       id: go-version
-      uses: ivuorinen/actions/go-version-detect@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/go-version-detect@a09e59aa7cb8246f584764d33505ff861b4c240c
 
     - name: Setup Go
       if: steps.detect-go.outputs.found == 'true'

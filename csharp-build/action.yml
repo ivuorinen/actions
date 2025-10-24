@@ -50,7 +50,7 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/dotnet-version-detect@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/dotnet-version-detect@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         default-version: "${{ inputs.dotnet-version || '7.0' }}"
 
@@ -61,7 +61,7 @@ runs:
 
     - name: Cache NuGet packages
       id: cache-nuget
-      uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/common-cache@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         type: 'nuget'
         paths: '~/.nuget/packages'
@@ -70,7 +70,7 @@ runs:
 
     - name: Restore Dependencies
       if: steps.cache-nuget.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/common-retry@a09e59aa7cb8246f584764d33505ff861b4c240c
       with:
         command: |
           echo "Restoring .NET dependencies..."
