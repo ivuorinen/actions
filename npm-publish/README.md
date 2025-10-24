@@ -10,10 +10,10 @@ Publishes the package to the NPM registry with configurable scope and registry U
 
 | name              | description                            | required | default                                |
 |-------------------|----------------------------------------|----------|----------------------------------------|
+| `npm_token`       | <p>NPM token.</p>                      | `true`   | `""`                                   |
 | `registry-url`    | <p>Registry URL for publishing.</p>    | `false`  | `https://registry.npmjs.org/`          |
 | `scope`           | <p>Package scope to use.</p>           | `false`  | `@ivuorinen`                           |
 | `package-version` | <p>The version to publish.</p>         | `false`  | `${{ github.event.release.tag_name }}` |
-| `npm_token`       | <p>NPM token.</p>                      | `true`   | `""`                                   |
 | `token`           | <p>GitHub token for authentication</p> | `false`  | `""`                                   |
 
 ### Outputs
@@ -33,6 +33,12 @@ This action is a `composite` action.
 ```yaml
 - uses: ivuorinen/actions/npm-publish@main
   with:
+    npm_token:
+    # NPM token.
+    #
+    # Required: true
+    # Default: ""
+
     registry-url:
     # Registry URL for publishing.
     #
@@ -50,12 +56,6 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: ${{ github.event.release.tag_name }}
-
-    npm_token:
-    # NPM token.
-    #
-    # Required: true
-    # Default: ""
 
     token:
     # GitHub token for authentication

@@ -13,7 +13,7 @@ branding:
 inputs:
   action:
     description: 'Action name to validate (alias for action-type)'
-    required: true
+    required: false
   action-type:
     description: 'Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)'
     required: false
