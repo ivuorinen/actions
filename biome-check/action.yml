@@ -46,7 +46,7 @@ runs:
     - name: Validate Inputs (Centralized)
       uses: ivuorinen/actions/validate-inputs@7061aafd35a2f21b57653e34f2b634b2a19334a9
       with:
-        action: biome-check
+        action-type: biome-check
 
     - name: Validate Inputs (Additional)
       id: validate
