@@ -285,7 +285,7 @@ class ConventionBasedValidator(BaseValidator):
         # Get conventions and overrides from rules
         conventions = self._rules.get("conventions", {})
         overrides = self._rules.get("overrides", {})
-        optional_inputs = self._rules.get("optional_inputs", [])
+        optional_inputs = self._rules.get("optional_inputs", {})
         required_inputs = self.get_required_inputs()
 
         # Validate each input
@@ -305,7 +305,9 @@ class ConventionBasedValidator(BaseValidator):
             # Skip validation for undefined inputs with empty values
             # This prevents auto-validation of irrelevant inputs from the
             # validate-inputs action's own input list
-            if not is_defined_input and (not value or value.strip() == ""):
+            if not is_defined_input and (
+                not value or (isinstance(value, str) and not value.strip())
+            ):
                 continue
 
             # Get validator type from overrides or conventions
