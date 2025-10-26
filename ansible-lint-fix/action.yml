@@ -112,7 +112,7 @@ runs:
     - name: Cache Python Dependencies
       if: steps.check-files.outputs.files_found == 'true'
       id: cache-pip
-      uses: ivuorinen/actions/common-cache@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/common-cache@e2222afff180ee77f330ef4325f60d6e85477c01
       with:
         type: 'pip'
         paths: '~/.cache/pip'
@@ -122,7 +122,7 @@ runs:
     - name: Install ansible-lint
       id: install-ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
-      uses: ivuorinen/actions/common-retry@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/common-retry@e2222afff180ee77f330ef4325f60d6e85477c01
       with:
         command: 'pip install ansible-lint==6.22.1'
         max-retries: ${{ inputs.max-retries }}
@@ -162,7 +162,7 @@ runs:
     - name: Set Git Config for Fixes
       id: set-git-config
       if: steps.check-files.outputs.files_found == 'true'
-      uses: ivuorinen/actions/set-git-config@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/set-git-config@e2222afff180ee77f330ef4325f60d6e85477c01
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
