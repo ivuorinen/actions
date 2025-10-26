@@ -86,14 +86,14 @@ runs:
         token: ${{ inputs.token || github.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/set-git-config@e2222afff180ee77f330ef4325f60d6e85477c01
       with:
         token: ${{ inputs.token != '' && inputs.token || github.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
 
     - name: Composer Install
-      uses: ivuorinen/actions/php-composer@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/php-composer@e2222afff180ee77f330ef4325f60d6e85477c01
 
     - name: Run PHPUnit Tests
       id: test

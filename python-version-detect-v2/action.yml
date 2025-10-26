@@ -72,7 +72,7 @@ runs:
 
     - name: Parse Python Version
       id: parse-version
-      uses: ivuorinen/actions/version-file-parser@7061aafd35a2f21b57653e34f2b634b2a19334a9
+      uses: ivuorinen/actions/version-file-parser@e2222afff180ee77f330ef4325f60d6e85477c01
       with:
         language: 'python'
         tool-versions-key: 'python'
