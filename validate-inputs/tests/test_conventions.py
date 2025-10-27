@@ -48,7 +48,7 @@ class TestConventionsValidator:
         rules = validator._rules
         assert rules["action_type"] == "nonexistent-action"
         assert rules["required_inputs"] == []
-        assert isinstance(rules["optional_inputs"], dict)
+        assert isinstance(rules["optional_inputs"], list)
         assert isinstance(rules["conventions"], dict)
 
     def test_load_rules_with_custom_path(self, tmp_path):

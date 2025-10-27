@@ -275,7 +275,8 @@ runs:
       with:
         node-version: ${{ steps.version.outputs.detected-version }}
         registry-url: ${{ inputs.registry-url }}
-        cache: false
+        # Note: cache parameter removed for actions/setup-node@v6 compatibility
+        # Caching is handled separately via common-cache action (step: Cache Dependencies)
 
     - name: Enable Corepack
       id: corepack
