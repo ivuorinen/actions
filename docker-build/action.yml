@@ -147,7 +147,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/validate-inputs@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         action-type: 'docker-build'
         image-name: ${{ inputs.image-name }}

@@ -51,7 +51,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/validate-inputs@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         action-type: 'csharp-publish'
         token: ${{ inputs.token }}
@@ -60,7 +60,7 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/dotnet-version-detect@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/dotnet-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         default-version: '7.0'
 
@@ -71,7 +71,7 @@ runs:
 
     - name: Cache NuGet packages
       id: cache-nuget
-      uses: ivuorinen/actions/common-cache@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         type: 'nuget'
         paths: '~/.nuget/packages'

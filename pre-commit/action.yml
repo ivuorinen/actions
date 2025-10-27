@@ -49,7 +49,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/validate-inputs@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         action-type: 'pre-commit'
         token: ${{ inputs.token }}
@@ -58,7 +58,7 @@ runs:
         email: ${{ inputs.commit_email }}
         username: ${{ inputs.commit_user }}
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.commit_user }}
