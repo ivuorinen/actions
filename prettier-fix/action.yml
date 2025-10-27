@@ -91,7 +91,7 @@ runs:
         token: ${{ inputs.token }}
 
     - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         token: ${{ inputs.token }}
         username: ${{ inputs.username }}
@@ -99,11 +99,11 @@ runs:
 
     - name: Node Setup
       id: node-setup
-      uses: ivuorinen/actions/node-setup@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
 
     - name: Cache npm Dependencies
       id: cache-npm
-      uses: ivuorinen/actions/common-cache@e2222afff180ee77f330ef4325f60d6e85477c01
+      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         type: 'npm'
         paths: 'node_modules'
