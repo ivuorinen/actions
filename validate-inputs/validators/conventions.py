@@ -82,7 +82,7 @@ class ConventionBasedValidator(BaseValidator):
             return {
                 "action_type": self.action_type,
                 "required_inputs": [],
-                "optional_inputs": {},
+                "optional_inputs": [],
                 "conventions": {},
                 "overrides": {},
             }
@@ -93,16 +93,27 @@ class ConventionBasedValidator(BaseValidator):
 
             # Ensure all expected keys exist
             rules.setdefault("required_inputs", [])
-            rules.setdefault("optional_inputs", {})
+            rules.setdefault("optional_inputs", [])
             rules.setdefault("conventions", {})
             rules.setdefault("overrides", {})
 
             # Build conventions from optional_inputs if not explicitly set
             if not rules["conventions"] and rules["optional_inputs"]:
                 conventions = {}
-                for input_name, input_config in rules["optional_inputs"].items():
-                    # Try to infer validator type from the input name or pattern
-                    conventions[input_name] = self._infer_validator_type(input_name, input_config)
+                optional_inputs = rules["optional_inputs"]
+
+                # Handle both list and dict formats for optional_inputs
+                if isinstance(optional_inputs, list):
+                    # List format: just input names
+                    for input_name in optional_inputs:
+                        conventions[input_name] = self._infer_validator_type(input_name, {})
+                elif isinstance(optional_inputs, dict):
+                    # Dict format: input names with config
+                    for input_name, input_config in optional_inputs.items():
+                        conventions[input_name] = self._infer_validator_type(
+                            input_name, input_config
+                        )
+
                 rules["conventions"] = conventions
 
             return rules
@@ -110,7 +121,7 @@ class ConventionBasedValidator(BaseValidator):
             return {
                 "action_type": self.action_type,
                 "required_inputs": [],
-                "optional_inputs": {},
+                "optional_inputs": [],
                 "conventions": {},
                 "overrides": {},
             }
@@ -285,7 +296,7 @@ class ConventionBasedValidator(BaseValidator):
         # Get conventions and overrides from rules
         conventions = self._rules.get("conventions", {})
         overrides = self._rules.get("overrides", {})
-        optional_inputs = self._rules.get("optional_inputs", {})
+        optional_inputs = self._rules.get("optional_inputs", [])
         required_inputs = self.get_required_inputs()
 
         # Validate each input

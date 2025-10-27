@@ -48,8 +48,46 @@ class TestConventionsValidator:
         rules = validator._rules
         assert rules["action_type"] == "nonexistent-action"
         assert rules["required_inputs"] == []
-        assert isinstance(rules["optional_inputs"], dict)
+        assert isinstance(rules["optional_inputs"], list)
         assert isinstance(rules["conventions"], dict)
+
+    def test_load_rules_with_dict_optional_inputs(self, tmp_path):
+        """Test backward compatibility with dict format for optional_inputs."""
+        # Create a rules file with legacy dict format for optional_inputs
+        rules_file = tmp_path / "legacy_rules.yml"
+        rules_file.write_text("""
+action_type: legacy-action
+required_inputs: []
+optional_inputs:
+  foo: int
+  bar: str
+  baz:
+    type: boolean
+    validator: boolean
+conventions: {}
+overrides: {}
+""")
+        # Load rules and verify conventions are built from dict keys
+        validator = ConventionBasedValidator("legacy-action")
+        rules = validator.load_rules(rules_file)
+
+        # Verify optional_inputs is preserved as-is from YAML
+        assert "optional_inputs" in rules
+        assert isinstance(rules["optional_inputs"], dict)
+
+        # Verify conventions were auto-generated from optional_inputs dict keys
+        assert "conventions" in rules
+        assert isinstance(rules["conventions"], dict)
+        conventions_keys = set(rules["conventions"].keys())
+        optional_keys = set(rules["optional_inputs"].keys())
+        assert conventions_keys == optional_keys, (
+            f"Conventions keys {conventions_keys} should match optional_inputs keys {optional_keys}"
+        )
+
+        # Verify each key from the dict is in conventions
+        assert "foo" in rules["conventions"]
+        assert "bar" in rules["conventions"]
+        assert "baz" in rules["conventions"]
 
     def test_load_rules_with_custom_path(self, tmp_path):
         """Test loading rules from custom path."""
