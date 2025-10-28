@@ -88,16 +88,6 @@ runs:
         GIT_USERNAME="$VALIDATED_GIT_USERNAME"
         GIT_EMAIL="$VALIDATED_GIT_EMAIL"
 
-        # Function to clean up Git config
-        cleanup_git_config() {
-          git config --local --unset-all "url.https://x-access-token:${TOKEN}@github.com/.insteadof" || true
-          git config --local --unset-all "user.name" || true
-          git config --local --unset-all "user.email" || true
-        }
-
-        # Set up trap to ensure cleanup on exit
-        trap cleanup_git_config EXIT
-
         # Store token in variable to avoid repeated exposure
         TOKEN="$GITHUB_TOKEN"
 
