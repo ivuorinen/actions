@@ -237,6 +237,14 @@ function generateQuickReference(actions) {
   return markdownTable(rows, { align: ['c', 'l', 'l', 'l', 'l'] });
 }
 
+/**
+ * Generate per-category Markdown sections containing tables of actions and their brief details.
+ *
+ * Sections appear in a fixed priority order: Setup, Utilities, Linting, Testing, Build, Publishing, Repository, Validation.
+ *
+ * @param {Array<Object>} actions - Array of action metadata objects. Each object should include at least: `name`, `description`, `category`, `icon`, `languages` (array), and `features` (array).
+ * @returns {string} A Markdown string with one section per category (when present), each containing a table of actions with columns: Action, Description, Languages, and Features.
+ */
 function generateCategoryTables(actions) {
   const categories = {};
 
@@ -321,6 +329,15 @@ function generateReferenceLinks(actions) {
   return `\n<!-- Reference Links -->\n${links}\n`;
 }
 
+/**
+ * Builds the complete Markdown catalog for all discovered actions in the repository.
+ *
+ * The generated content includes a quick reference, per-category tables, a feature matrix,
+ * language support matrix, usage examples with recommended pinned refs, action reference links,
+ * and a closing separator.
+ *
+ * @returns {string} The assembled catalog as a Markdown-formatted string.
+ */
 function generateCatalogContent() {
   const actions = getAllActions();
   const totalCount = actions.length;
