@@ -17,6 +17,7 @@ const CATEGORIES = {
   'dotnet-version-detect': 'Setup',
 
   // Utilities
+  'action-versioning': 'Utilities',
   'version-file-parser': 'Utilities',
   'version-validator': 'Utilities',
 
@@ -341,10 +342,17 @@ function generateCatalogContent() {
   content += `\n\n### Action Usage\n\n`;
   content += 'All actions can be used independently in your workflows:\n\n';
   content += '```yaml\n';
-  content += '- uses: ivuorinen/actions/action-name@main\n';
+  content += '# Recommended: Use pinned refs for supply-chain security\n';
+  content += '- uses: ivuorinen/actions/action-name@2025-01-15 # Date-based tag\n';
   content += '  with:\n';
   content += '    # action-specific inputs\n';
-  content += '```\n';
+  content += '\n';
+  content += '# Alternative: Use commit SHA for immutability\n';
+  content += '- uses: ivuorinen/actions/action-name@abc123def456 # Full commit SHA\n';
+  content += '  with:\n';
+  content += '    # action-specific inputs\n';
+  content += '```\n\n';
+  content += '> **Security Note**: Always pin to specific tags or commit SHAs instead of `@main` to ensure reproducible workflows and supply-chain integrity.\n';
 
   // Add reference links before the timestamp
   content += generateReferenceLinks(actions);

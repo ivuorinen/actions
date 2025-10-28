@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release update-version-refs bump-major-version check-version-refs
+.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release update-version-refs bump-major-version check-version-refs
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -43,7 +43,7 @@ help: ## Show this help message
 	@echo "  make check        # Quick syntax checks"
 
 # Main targets
-all: install-tools update-validators docs format lint precommit ## Generate docs, format, lint, and run pre-commit
+all: install-tools update-validators docs update-catalog format lint precommit ## Generate docs, format, lint, and run pre-commit
 	@echo "$(GREEN)✅ All tasks completed successfully$(RESET)"
 
 docs: ## Generate documentation for all actions
@@ -65,6 +65,16 @@ docs: ## Generate documentation for all actions
 		fi; \
 	done; \
 	[ $$failed -eq 0 ] && echo "$(GREEN)✅ All documentation updated successfully$(RESET)" || { echo "$(RED)❌ $$failed documentation updates failed$(RESET)"; exit 1; }
+
+update-catalog: ## Update action catalog in README.md
+	@echo "$(BLUE)📚 Updating action catalog...$(RESET)"
+	@if command -v npm >/dev/null 2>&1; then \
+		npm run update-catalog; \
+	else \
+		echo "$(RED)❌ npm not found. Please install Node.js$(RESET)"; \
+		exit 1; \
+	fi
+	@echo "$(GREEN)✅ Action catalog updated$(RESET)"
 
 update-validators: ## Update validation rules for all actions
 	@echo "$(BLUE)🔧 Updating validation rules...$(RESET)"
