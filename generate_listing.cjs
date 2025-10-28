@@ -17,6 +17,7 @@ const CATEGORIES = {
   'dotnet-version-detect': 'Setup',
 
   // Utilities
+  'action-versioning': 'Utilities',
   'version-file-parser': 'Utilities',
   'version-validator': 'Utilities',
 
@@ -236,6 +237,14 @@ function generateQuickReference(actions) {
   return markdownTable(rows, { align: ['c', 'l', 'l', 'l', 'l'] });
 }
 
+/**
+ * Generate per-category Markdown sections containing tables of actions and their brief details.
+ *
+ * Sections appear in a fixed priority order: Setup, Utilities, Linting, Testing, Build, Publishing, Repository, Validation.
+ *
+ * @param {Array<Object>} actions - Array of action metadata objects. Each object should include at least: `name`, `description`, `category`, `icon`, `languages` (array), and `features` (array).
+ * @returns {string} A Markdown string with one section per category (when present), each containing a table of actions with columns: Action, Description, Languages, and Features.
+ */
 function generateCategoryTables(actions) {
   const categories = {};
 
@@ -257,8 +266,9 @@ function generateCategoryTables(actions) {
 
     const categoryActions = categories[category];
     const icon = CATEGORY_ICONS[category] || '📦';
+    const actionWord = categoryActions.length === 1 ? 'action' : 'actions';
 
-    output += `\n#### ${icon} ${category} (${categoryActions.length} actions)\n\n`;
+    output += `\n#### ${icon} ${category} (${categoryActions.length} ${actionWord})\n\n`;
 
     const rows = [['Action', 'Description', 'Languages', 'Features']];
 
@@ -319,6 +329,15 @@ function generateReferenceLinks(actions) {
   return `\n<!-- Reference Links -->\n${links}\n`;
 }
 
+/**
+ * Builds the complete Markdown catalog for all discovered actions in the repository.
+ *
+ * The generated content includes a quick reference, per-category tables, a feature matrix,
+ * language support matrix, usage examples with recommended pinned refs, action reference links,
+ * and a closing separator.
+ *
+ * @returns {string} The assembled catalog as a Markdown-formatted string.
+ */
 function generateCatalogContent() {
   const actions = getAllActions();
   const totalCount = actions.length;
@@ -341,10 +360,17 @@ function generateCatalogContent() {
   content += `\n\n### Action Usage\n\n`;
   content += 'All actions can be used independently in your workflows:\n\n';
   content += '```yaml\n';
-  content += '- uses: ivuorinen/actions/action-name@main\n';
+  content += '# Recommended: Use pinned refs for supply-chain security\n';
+  content += '- uses: ivuorinen/actions/action-name@vYYYY-MM-DD # Date-based tag (example)\n';
   content += '  with:\n';
   content += '    # action-specific inputs\n';
-  content += '```\n';
+  content += '\n';
+  content += '# Alternative: Use commit SHA for immutability\n';
+  content += '- uses: ivuorinen/actions/action-name@abc123def456 # Full commit SHA\n';
+  content += '  with:\n';
+  content += '    # action-specific inputs\n';
+  content += '```\n\n';
+  content += '> **Security Note**: Always pin to specific tags or commit SHAs instead of `@main` to ensure reproducible workflows and supply-chain integrity.\n';
 
   // Add reference links before the timestamp
   content += generateReferenceLinks(actions);
