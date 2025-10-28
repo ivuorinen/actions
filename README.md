@@ -153,7 +153,7 @@ This repository contains **44 reusable GitHub Actions** for CI/CD automation.
 | 📦 [`stale`][stale]                         | A GitHub Action to close stale issues and pull req... | -                                                       | Token auth, Outputs                 |
 | 🏷️ [`sync-labels`][sync-labels]            | Sync labels from a YAML file to a GitHub repositor... | YAML, GitHub                                            | Token auth, Outputs                 |
 
-#### ✅ Validation (1 actions)
+#### ✅ Validation (1 action)
 
 | Action                                   | Description                                           | Languages            | Features            |
 |:-----------------------------------------|:------------------------------------------------------|:---------------------|:--------------------|
@@ -245,7 +245,7 @@ All actions can be used independently in your workflows:
 
 ```yaml
 # Recommended: Use pinned refs for supply-chain security
-- uses: ivuorinen/actions/action-name@2025-01-15 # Date-based tag
+- uses: ivuorinen/actions/action-name@vYYYY-MM-DD # Date-based tag (example)
   with:
     # action-specific inputs
 

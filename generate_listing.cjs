@@ -258,8 +258,9 @@ function generateCategoryTables(actions) {
 
     const categoryActions = categories[category];
     const icon = CATEGORY_ICONS[category] || '📦';
+    const actionWord = categoryActions.length === 1 ? 'action' : 'actions';
 
-    output += `\n#### ${icon} ${category} (${categoryActions.length} actions)\n\n`;
+    output += `\n#### ${icon} ${category} (${categoryActions.length} ${actionWord})\n\n`;
 
     const rows = [['Action', 'Description', 'Languages', 'Features']];
 
@@ -343,7 +344,7 @@ function generateCatalogContent() {
   content += 'All actions can be used independently in your workflows:\n\n';
   content += '```yaml\n';
   content += '# Recommended: Use pinned refs for supply-chain security\n';
-  content += '- uses: ivuorinen/actions/action-name@2025-01-15 # Date-based tag\n';
+  content += '- uses: ivuorinen/actions/action-name@vYYYY-MM-DD # Date-based tag (example)\n';
   content += '  with:\n';
   content += '    # action-specific inputs\n';
   content += '\n';
