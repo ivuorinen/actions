@@ -203,7 +203,7 @@ install_shellspec() {
 
   # Pinned SHA256 checksum for ShellSpec 0.28.1
   # Source: https://github.com/shellspec/shellspec/archive/refs/tags/0.28.1.tar.gz
-  local checksum="351e7a63b8df47c07b022c19d21a167b85693f5eb549fa96e64f64844b680024"
+  local checksum="400d835466429a5fe6c77a62775a9173729d61dd43e05dfa893e8cf6cb511783"
 
   # Ensure cleanup of the downloaded file
   # Use ${tarball:-} to handle unbound variable when trap fires after function returns

@@ -66,7 +66,7 @@ runs:
       id: git-config
       uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
-        token: ${{ inputs.token }}
+        token: ${{ inputs.token || github.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
 
@@ -264,7 +264,12 @@ runs:
     - name: Set APPLY_FIXES_IF var
       shell: bash
       env:
-        APPLY_FIXES_CONDITION: ${{ steps.ml.outputs.has_updated_sources == 1 && (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) && (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) }}
+        APPLY_FIXES_CONDITION: >-
+          ${{
+            steps.ml.outputs.has_updated_sources == 1 &&
+            (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) &&
+            (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
+          }}
       run: |
         set -euo pipefail
 
