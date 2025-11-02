@@ -14,7 +14,6 @@ YELLOW='\033[1;33m'
 # shellcheck disable=SC2034
 NC='\033[0m' # No Color
 
-# Validate CalVer version format: vYYYY.MM.DD
 # Validate CalVer version format: vYYYY.MM.DD (zero-padded)
 validate_version() {
   version="$1"
@@ -68,7 +67,6 @@ validate_major_version() {
   return 0
 }
 
-# Validate minor version format: vYYYY.MM
 # Validate minor version format: vYYYY.MM (zero-padded)
 validate_minor_version() {
   version="$1"

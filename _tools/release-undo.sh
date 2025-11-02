@@ -28,12 +28,31 @@ version_sort_tags() {
     return
   fi
 
-  # Fallback: awk-based numeric version sort
+  # Fallback: awk-based numeric version sort with validation
   awk -F. '{
+    # Validate CalVer format: vYYYY.MM.DD or YYYY.MM.DD
+    if ($0 !~ /^v?[0-9]+\.[0-9]+\.[0-9]+$/) {
+      printf "Warning: Skipping malformed tag: %s\n", $0 > "/dev/stderr"
+      next
+    }
+
+    # Check we have exactly 3 fields after splitting on dots
+    if (NF != 3) {
+      printf "Warning: Skipping invalid tag (wrong field count): %s\n", $0 > "/dev/stderr"
+      next
+    }
+
     # Save original input before modification
     original = $0
     # Remove leading v and split into year, month, day
     gsub(/^v/, "", $0)
+
+    # Verify each field is numeric after field recalculation
+    if ($1 !~ /^[0-9]+$/ || $2 !~ /^[0-9]+$/ || $3 !~ /^[0-9]+$/) {
+      printf "Warning: Skipping tag with non-numeric components: %s\n", original > "/dev/stderr"
+      next
+    }
+
     printf "%04d.%02d.%02d %s\n", $1, $2, $3, original
   }' | sort -n | cut -d' ' -f2
 }
