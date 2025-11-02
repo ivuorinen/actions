@@ -151,11 +151,16 @@ prompt_confirmation() {
   if command -v timeout >/dev/null 2>&1; then
     printf '%s [y/N] (timeout in %ss) ' "$prompt_text" "$timeout_seconds"
 
-    # Use timeout command to limit read duration
-    # shellcheck disable=SC2016
-    if response=$(timeout "$timeout_seconds" sh -c 'read -r r </dev/tty && echo "$r"' 2>/dev/null); then
-      : # read succeeded within timeout
+    # Create a temporary file to store the response
+    _temp_response=$(mktemp) || return 1
+
+    # Use timeout with --foreground to allow reading from TTY
+    # Write response to temp file instead of trying to capture in command substitution
+    if timeout --foreground "$timeout_seconds" sh -c "read -r r && printf '%s' \"\$r\" > '$_temp_response'" 2>/dev/null; then
+      response=$(cat "$_temp_response")
+      rm -f "$_temp_response"
     else
+      rm -f "$_temp_response"
       printf '\n'
       msg_warn "Confirmation timeout - defaulting to No"
       return 1
