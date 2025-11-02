@@ -101,7 +101,7 @@ runs:
         token: ${{ inputs.token || github.token }}
 
     - name: Setup Node.js
-      uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/node-setup@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
 
     - name: Authenticate NPM
       shell: sh

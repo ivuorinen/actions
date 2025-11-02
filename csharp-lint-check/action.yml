@@ -66,7 +66,7 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/dotnet-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/dotnet-version-detect@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
       with:
         default-version: ${{ inputs.dotnet-version || '7.0' }}
 
