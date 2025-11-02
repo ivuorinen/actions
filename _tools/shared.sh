@@ -153,7 +153,7 @@ prompt_confirmation() {
 
     # Use timeout command to limit read duration
     # shellcheck disable=SC2016
-    if response=$(timeout "$timeout_seconds" sh -c 'read -r r && echo "$r"' 2>/dev/null); then
+    if response=$(timeout "$timeout_seconds" sh -c 'read -r r </dev/tty && echo "$r"' 2>/dev/null); then
       : # read succeeded within timeout
     else
       printf '\n'
