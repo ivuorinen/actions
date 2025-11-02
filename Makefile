@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release update-version-refs bump-major-version check-version-refs
+.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release release-dry release-prep release-tag release-undo update-version-refs bump-major-version check-version-refs
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -159,12 +159,36 @@ fix-local-refs-dry: ## Preview local action reference fixes (dry run)
 release: ## Create a new release with version tags (usage: make release [VERSION=v2025.10.18])
 	@VERSION_TO_USE=$$(if [ -n "$(VERSION)" ]; then echo "$(VERSION)"; else date +v%Y.%m.%d; fi); \
 	echo "$(BLUE)🚀 Creating release $$VERSION_TO_USE...$(RESET)"; \
-	sh _tools/release.sh "$$VERSION_TO_USE"; \
-	echo "$(GREEN)✅ Release created$(RESET)"; \
-	echo ""; \
-	echo "$(YELLOW)Next steps:$(RESET)"; \
-	echo "  1. Review changes: git show HEAD"; \
-	echo "  2. Push tags: git push origin main --tags --force-with-lease"
+	sh _tools/release.sh "$$VERSION_TO_USE"
+
+release-dry: ## Preview release without making changes (usage: make release-dry VERSION=v2025.11.01)
+	@if [ -z "$(VERSION)" ]; then \
+		VERSION_TO_USE=$$(date +v%Y.%m.%d); \
+	else \
+		VERSION_TO_USE="$(VERSION)"; \
+	fi; \
+	echo "$(BLUE)🔍 Previewing release $$VERSION_TO_USE (dry run)...$(RESET)"; \
+	sh _tools/release.sh --dry-run "$$VERSION_TO_USE"
+
+release-prep: ## Update action refs and commit (no tags) (usage: make release-prep [VERSION=v2025.11.01])
+	@VERSION_TO_USE=$$(if [ -n "$(VERSION)" ]; then echo "$(VERSION)"; else date +v%Y.%m.%d; fi); \
+	echo "$(BLUE)🔧 Preparing release $$VERSION_TO_USE...$(RESET)"; \
+	sh _tools/release.sh --prep-only "$$VERSION_TO_USE"; \
+	echo "$(GREEN)✅ Preparation complete$(RESET)"; \
+	echo "$(YELLOW)Next: make release-tag VERSION=$$VERSION_TO_USE$(RESET)"
+
+release-tag: ## Create tags only (assumes prep done) (usage: make release-tag VERSION=v2025.11.01)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "$(RED)❌ Error: VERSION parameter required for release-tag$(RESET)"; \
+		echo "Usage: make release-tag VERSION=v2025.11.01"; \
+		exit 1; \
+	fi; \
+	echo "$(BLUE)🏷️  Creating tags for release $(VERSION)...$(RESET)"; \
+	sh _tools/release.sh --tag-only "$(VERSION)"
+
+release-undo: ## Rollback the most recent release (delete tags and reset HEAD)
+	@echo "$(BLUE)🔙 Rolling back release...$(RESET)"; \
+	sh _tools/release-undo.sh
 
 update-version-refs: ## Update all action references to a specific version tag (usage: make update-version-refs MAJOR=v2025)
 	@if [ -z "$(MAJOR)" ]; then \
