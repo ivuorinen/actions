@@ -170,7 +170,7 @@ runs:
 
     - name: Build Multi-Arch Docker Image
       id: build
-      uses: ivuorinen/actions/docker-build@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/docker-build@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
       with:
         tag: ${{ steps.tags.outputs.all-tags }}
         architectures: ${{ inputs.platforms }}
@@ -185,7 +185,7 @@ runs:
     - name: Publish to Docker Hub
       id: publish-dockerhub
       if: contains(steps.dest.outputs.reg, 'dockerhub')
-      uses: ivuorinen/actions/docker-publish-hub@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/docker-publish-hub@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
         platforms: ${{ inputs.platforms }}
@@ -201,7 +201,7 @@ runs:
     - name: Publish to GitHub Packages
       id: publish-github
       if: contains(steps.dest.outputs.reg, 'github')
-      uses: ivuorinen/actions/docker-publish-gh@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/docker-publish-gh@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
       with:
         tags: ${{ steps.tags.outputs.all-tags }}
         platforms: ${{ inputs.platforms }}

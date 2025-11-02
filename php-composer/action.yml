@@ -79,7 +79,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/validate-inputs@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
       with:
         action-type: php-composer
 
@@ -176,7 +176,7 @@ runs:
 
     - name: Cache Composer packages
       id: composer-cache
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/common-cache@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
       with:
         type: 'composer'
         paths: vendor,~/.composer/cache${{ inputs.cache-directories != "" && format(",{0}", inputs.cache-directories) || "" }}
@@ -196,7 +196,7 @@ runs:
         composer clear-cache
 
     - name: Install Dependencies
-      uses: ivuorinen/actions/common-retry@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/common-retry@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
       with:
         command: composer install ${{ inputs.args }}
         max-retries: ${{ inputs.max-retries }}
