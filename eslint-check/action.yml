@@ -176,11 +176,11 @@ runs:
 
     - name: Setup Node.js
       id: node-setup
-      uses: ivuorinen/actions/node-setup@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
+      uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
 
     - name: Cache Node Dependencies
       id: cache
-      uses: ivuorinen/actions/common-cache@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
+      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         type: 'npm'
         paths: 'node_modules'
