@@ -176,7 +176,7 @@ runs:
 
     - name: Parse Node.js Version
       id: version
-      uses: ivuorinen/actions/version-file-parser@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
+      uses: ivuorinen/actions/version-file-parser@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         language: 'node'
         tool-versions-key: 'nodejs'
@@ -300,7 +300,7 @@ runs:
     - name: Cache Dependencies
       if: inputs.cache == 'true'
       id: deps-cache
-      uses: ivuorinen/actions/common-cache@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
+      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         type: 'npm'
         paths: '~/.npm,~/.yarn/cache,~/.pnpm-store,~/.bun/install/cache,node_modules'
@@ -360,7 +360,7 @@ runs:
 
     - name: Install Dependencies
       if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@2f1c73dd8b23ffec17bb93ebd0f32e7a7c7546fc
+      uses: ivuorinen/actions/common-retry@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         command: |
           package_manager="$PACKAGE_MANAGER"
