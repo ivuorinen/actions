@@ -37,6 +37,9 @@ outputs:
 
 runs:
   using: composite
+  permissions:
+    contents: write
+    pull-requests: write
   steps:
     - name: Validate Inputs
       id: validate
@@ -220,7 +223,7 @@ runs:
             contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
           }}
 
-        GITHUB_TOKEN: ${{ steps.git-config.outputs.token || inputs.token }}
+        GITHUB_TOKEN: ${{ steps.git-config.outputs.token || inputs.token || secrets.GITHUB_TOKEN }}
 
         # Apply linter fixes configuration
         #
@@ -300,7 +303,7 @@ runs:
       id: cpr
       if: env.APPLY_FIXES_IF_PR == 'true'
       with:
-        token: ${{ steps.git-config.outputs.token || inputs.token }}
+        token: ${{ steps.git-config.outputs.token || inputs.token || secrets.GITHUB_TOKEN }}
         commit-message: '[MegaLinter] Apply linters automatic fixes'
         title: '[MegaLinter] Apply linters automatic fixes'
         labels: bot
