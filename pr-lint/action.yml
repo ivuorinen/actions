@@ -54,6 +54,7 @@ runs:
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
         token: ${{ inputs.token || github.token }}
+        ref: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
 
         # If you use VALIDATE_ALL_CODEBASE = true, you can remove this line to
         # improve performance
@@ -220,7 +221,7 @@ runs:
             contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
           }}
 
-        GITHUB_TOKEN: ${{ steps.git-config.outputs.token || inputs.token }}
+        GITHUB_TOKEN: ${{ steps.git-config.outputs.token || inputs.token || github.token }}
 
         # Apply linter fixes configuration
         #
@@ -300,7 +301,7 @@ runs:
       id: cpr
       if: env.APPLY_FIXES_IF_PR == 'true'
       with:
-        token: ${{ steps.git-config.outputs.token || inputs.token }}
+        token: ${{ steps.git-config.outputs.token || inputs.token || github.token }}
         commit-message: '[MegaLinter] Apply linters automatic fixes'
         title: '[MegaLinter] Apply linters automatic fixes'
         labels: bot
