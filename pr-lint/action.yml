@@ -334,7 +334,7 @@ runs:
         set -euo pipefail
 
         # Fix .git directory ownership after MegaLinter container execution
-        sudo chown -Rc $UID .git/
+        sudo chown -Rc "$UID" .git/
 
         # Ensure we're on the correct branch (not in detached HEAD state)
         # This is necessary because MegaLinter may leave the repo in a detached HEAD state
