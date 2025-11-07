@@ -9,7 +9,7 @@ Publish a Docker image to GitHub Packages and Docker Hub.
 ### Inputs
 
 | name                    | description                                                       | required | default                                |
-| ----------------------- | ----------------------------------------------------------------- | -------- | -------------------------------------- |
+|-------------------------|-------------------------------------------------------------------|----------|----------------------------------------|
 | `registry`              | <p>Registry to publish to (dockerhub, github, or both).</p>       | `true`   | `both`                                 |
 | `nightly`               | <p>Is this a nightly build? (true or false)</p>                   | `false`  | `false`                                |
 | `platforms`             | <p>Platforms to build for (comma-separated)</p>                   | `false`  | `linux/amd64,linux/arm64,linux/arm/v7` |
@@ -26,7 +26,7 @@ Publish a Docker image to GitHub Packages and Docker Hub.
 ### Outputs
 
 | name              | description                                           |
-| ----------------- | ----------------------------------------------------- |
+|-------------------|-------------------------------------------------------|
 | `registry`        | <p>Registry where image was published</p>             |
 | `tags`            | <p>Tags that were published</p>                       |
 | `build-time`      | <p>Total build time in seconds</p>                    |

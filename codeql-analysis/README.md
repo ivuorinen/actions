@@ -9,7 +9,7 @@ Run CodeQL security analysis for a single language with configurable query suite
 ### Inputs
 
 | name                | description                                                                                 | required | default               |
-| ------------------- | ------------------------------------------------------------------------------------------- | -------- | --------------------- |
+|---------------------|---------------------------------------------------------------------------------------------|----------|-----------------------|
 | `language`          | <p>Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.)</p> | `true`   | `""`                  |
 | `queries`           | <p>Comma-separated list of additional queries to run</p>                                    | `false`  | `""`                  |
 | `packs`             | <p>Comma-separated list of CodeQL query packs to run</p>                                    | `false`  | `""`                  |
@@ -31,7 +31,7 @@ Run CodeQL security analysis for a single language with configurable query suite
 ### Outputs
 
 | name                | description                           |
-| ------------------- | ------------------------------------- |
+|---------------------|---------------------------------------|
 | `language-analyzed` | <p>Language that was analyzed</p>     |
 | `analysis-category` | <p>Category used for the analysis</p> |
 | `sarif-file`        | <p>Path to generated SARIF file</p>   |

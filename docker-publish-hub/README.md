@@ -9,7 +9,7 @@ Publishes a Docker image to Docker Hub with enhanced security and reliability fe
 ### Inputs
 
 | name                     | description                                                                      | required | default                   |
-| ------------------------ | -------------------------------------------------------------------------------- | -------- | ------------------------- |
+|--------------------------|----------------------------------------------------------------------------------|----------|---------------------------|
 | `image-name`             | <p>The name of the Docker image to publish. Defaults to the repository name.</p> | `false`  | `""`                      |
 | `tags`                   | <p>Comma-separated list of tags for the Docker image.</p>                        | `true`   | `""`                      |
 | `platforms`              | <p>Platforms to publish (comma-separated). Defaults to amd64 and arm64.</p>      | `false`  | `linux/amd64,linux/arm64` |
@@ -31,7 +31,7 @@ Publishes a Docker image to Docker Hub with enhanced security and reliability fe
 ### Outputs
 
 | name              | description                               |
-| ----------------- | ----------------------------------------- |
+|-------------------|-------------------------------------------|
 | `image-name`      | <p>Full image name including registry</p> |
 | `digest`          | <p>The digest of the published image</p>  |
 | `tags`            | <p>List of published tags</p>             |
