@@ -323,10 +323,33 @@ runs:
     - name: Prepare commit
       if: env.APPLY_FIXES_IF_COMMIT == 'true'
       shell: bash
+      env:
+        BRANCH_REF: >-
+          ${{
+            github.event.pull_request.head.ref ||
+            github.head_ref ||
+            github.ref_name
+          }}
       run: |
         set -euo pipefail
 
-        sudo chown -Rc $UID .git/
+        # Fix .git directory ownership after MegaLinter container execution
+        sudo chown -Rc "$UID" .git/
+
+        # Ensure we're on the correct branch (not in detached HEAD state)
+        # This is necessary because MegaLinter may leave the repo in a detached HEAD state
+        current_branch=$(git rev-parse --abbrev-ref HEAD)
+        if [ "$current_branch" = "HEAD" ]; then
+          echo "Repository is in detached HEAD state, checking out $BRANCH_REF"
+          # Validate branch reference to prevent command injection
+          if ! git check-ref-format --branch "$BRANCH_REF"; then
+            echo "::error::Invalid branch reference format: $BRANCH_REF"
+            exit 1
+          fi
+          git checkout "$BRANCH_REF"
+        else
+          echo "Repository is on branch: $current_branch"
+        fi
 
     - name: Commit and push applied linter fixes
       uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
