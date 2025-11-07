@@ -369,7 +369,7 @@ End
 ### Options
 
 | Option                | Description                                    |
-|-----------------------|------------------------------------------------|
+| --------------------- | ---------------------------------------------- |
 | `-t, --type TYPE`     | Test type: `unit`, `integration`, `e2e`, `all` |
 | `-a, --action ACTION` | Filter by action name pattern                  |
 | `-j, --jobs JOBS`     | Number of parallel jobs (default: 4)           |

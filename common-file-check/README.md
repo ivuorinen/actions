@@ -10,13 +10,13 @@ Emits an output "found" which is true or false.
 ### Inputs
 
 | name           | description                             | required | default |
-|----------------|-----------------------------------------|----------|---------|
+| -------------- | --------------------------------------- | -------- | ------- |
 | `file-pattern` | <p>Glob pattern for files to check.</p> | `true`   | `""`    |
 
 ### Outputs
 
 | name    | description                                                    |
-|---------|----------------------------------------------------------------|
+| ------- | -------------------------------------------------------------- |
 | `found` | <p>Indicates if the files matching the pattern were found.</p> |
 
 ### Runs
