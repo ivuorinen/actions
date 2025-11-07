@@ -341,6 +341,11 @@ runs:
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         if [ "$current_branch" = "HEAD" ]; then
           echo "Repository is in detached HEAD state, checking out $BRANCH_REF"
+          # Validate branch reference to prevent command injection
+          if ! git check-ref-format --branch "$BRANCH_REF"; then
+            echo "::error::Invalid branch reference format: $BRANCH_REF"
+            exit 1
+          fi
           git checkout "$BRANCH_REF"
         else
           echo "Repository is on branch: $current_branch"
