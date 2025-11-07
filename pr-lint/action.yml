@@ -328,7 +328,7 @@ runs:
           ${{
             github.event.pull_request.head.ref ||
             github.head_ref ||
-            github.ref_name
+            github.ref
           }}
       run: |
         set -euo pipefail
