@@ -8,15 +8,15 @@ Detects .NET SDK version from global.json or defaults to a specified version.
 
 ### Inputs
 
-| name              | description                                                         | required | default |
-|-------------------|---------------------------------------------------------------------|----------|---------|
-| `default-version` | <p>Default .NET SDK version to use if global.json is not found.</p> | `true`   | `7.0`   |
-| `token`           | <p>GitHub token for authentication</p>                              | `false`  | `""`    |
+| name | description | required | default |
+| --- | --- | --- | --- |
+| `default-version` | <p>Default .NET SDK version to use if global.json is not found.</p> | `true` | `7.0` |
+| `token` | <p>GitHub token for authentication</p> | `false` | `""` |
 
 ### Outputs
 
-| name             | description                                  |
-|------------------|----------------------------------------------|
+| name | description |
+| --- | --- |
 | `dotnet-version` | <p>Detected or default .NET SDK version.</p> |
 
 ### Runs

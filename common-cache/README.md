@@ -8,21 +8,21 @@ Standardized caching strategy for all actions
 
 ### Inputs
 
-| name           | description                                          | required | default |
-|----------------|------------------------------------------------------|----------|---------|
-| `type`         | <p>Type of cache (npm, composer, go, pip, etc.)</p>  | `true`   | `""`    |
-| `paths`        | <p>Paths to cache (comma-separated)</p>              | `true`   | `""`    |
-| `key-prefix`   | <p>Custom prefix for cache key</p>                   | `false`  | `""`    |
-| `key-files`    | <p>Files to hash for cache key (comma-separated)</p> | `false`  | `""`    |
-| `restore-keys` | <p>Fallback keys for cache restoration</p>           | `false`  | `""`    |
-| `env-vars`     | <p>Environment variables to include in cache key</p> | `false`  | `""`    |
+| name | description | required | default |
+| --- | --- | --- | --- |
+| `type` | <p>Type of cache (npm, composer, go, pip, etc.)</p> | `true` | `""` |
+| `paths` | <p>Paths to cache (comma-separated)</p> | `true` | `""` |
+| `key-prefix` | <p>Custom prefix for cache key</p> | `false` | `""` |
+| `key-files` | <p>Files to hash for cache key (comma-separated)</p> | `false` | `""` |
+| `restore-keys` | <p>Fallback keys for cache restoration</p> | `false` | `""` |
+| `env-vars` | <p>Environment variables to include in cache key</p> | `false` | `""` |
 
 ### Outputs
 
-| name          | description                 |
-|---------------|-----------------------------|
-| `cache-hit`   | <p>Cache hit indicator</p>  |
-| `cache-key`   | <p>Generated cache key</p>  |
+| name | description |
+| --- | --- |
+| `cache-hit` | <p>Cache hit indicator</p> |
+| `cache-key` | <p>Generated cache key</p> |
 | `cache-paths` | <p>Resolved cache paths</p> |
 
 ### Runs

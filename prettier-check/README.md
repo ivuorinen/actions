@@ -8,29 +8,29 @@ Run Prettier check on the repository with advanced configuration and reporting
 
 ### Inputs
 
-| name                | description                                                | required | default                                          |
-|---------------------|------------------------------------------------------------|----------|--------------------------------------------------|
-| `working-directory` | <p>Directory containing files to check</p>                 | `false`  | `.`                                              |
-| `prettier-version`  | <p>Prettier version to use</p>                             | `false`  | `latest`                                         |
-| `config-file`       | <p>Path to Prettier config file</p>                        | `false`  | `.prettierrc`                                    |
-| `ignore-file`       | <p>Path to Prettier ignore file</p>                        | `false`  | `.prettierignore`                                |
-| `file-pattern`      | <p>Files to include (glob pattern)</p>                     | `false`  | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
-| `cache`             | <p>Enable Prettier caching</p>                             | `false`  | `true`                                           |
-| `fail-on-error`     | <p>Fail workflow if issues are found</p>                   | `false`  | `true`                                           |
-| `report-format`     | <p>Output format (json, sarif)</p>                         | `false`  | `sarif`                                          |
-| `max-retries`       | <p>Maximum number of retry attempts</p>                    | `false`  | `3`                                              |
-| `plugins`           | <p>Comma-separated list of Prettier plugins to install</p> | `false`  | `""`                                             |
-| `check-only`        | <p>Only check for formatting issues without fixing</p>     | `false`  | `true`                                           |
-| `token`             | <p>GitHub token for authentication</p>                     | `false`  | `""`                                             |
+| name | description | required | default |
+| --- | --- | --- | --- |
+| `working-directory` | <p>Directory containing files to check</p> | `false` | `.` |
+| `prettier-version` | <p>Prettier version to use</p> | `false` | `latest` |
+| `config-file` | <p>Path to Prettier config file</p> | `false` | `.prettierrc` |
+| `ignore-file` | <p>Path to Prettier ignore file</p> | `false` | `.prettierignore` |
+| `file-pattern` | <p>Files to include (glob pattern)</p> | `false` | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
+| `cache` | <p>Enable Prettier caching</p> | `false` | `true` |
+| `fail-on-error` | <p>Fail workflow if issues are found</p> | `false` | `true` |
+| `report-format` | <p>Output format (json, sarif)</p> | `false` | `sarif` |
+| `max-retries` | <p>Maximum number of retry attempts</p> | `false` | `3` |
+| `plugins` | <p>Comma-separated list of Prettier plugins to install</p> | `false` | `""` |
+| `check-only` | <p>Only check for formatting issues without fixing</p> | `false` | `true` |
+| `token` | <p>GitHub token for authentication</p> | `false` | `""` |
 
 ### Outputs
 
-| name                | description                                   |
-|---------------------|-----------------------------------------------|
-| `files-checked`     | <p>Number of files checked</p>                |
+| name | description |
+| --- | --- |
+| `files-checked` | <p>Number of files checked</p> |
 | `unformatted-files` | <p>Number of files with formatting issues</p> |
-| `sarif-file`        | <p>Path to SARIF report file</p>              |
-| `cache-hit`         | <p>Indicates if there was a cache hit</p>     |
+| `sarif-file` | <p>Path to SARIF report file</p> |
+| `cache-hit` | <p>Indicates if there was a cache hit</p> |
 
 ### Runs
 
