@@ -8,20 +8,20 @@ Run PHPUnit tests on the repository
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `token` | <p>GitHub token for authentication</p> | `false` | `""` |
-| `username` | <p>GitHub username for commits</p> | `false` | `github-actions` |
-| `email` | <p>GitHub email for commits</p> | `false` | `github-actions@github.com` |
+| name       | description                            | required | default                     |
+|------------|----------------------------------------|----------|-----------------------------|
+| `token`    | <p>GitHub token for authentication</p> | `false`  | `""`                        |
+| `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
+| `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `test_status` | <p>Test execution status (success/failure/skipped)</p> |
-| `tests_run` | <p>Number of tests executed</p> |
-| `tests_passed` | <p>Number of tests passed</p> |
-| `coverage_path` | <p>Path to coverage report</p> |
+| name            | description                                            |
+|-----------------|--------------------------------------------------------|
+| `test_status`   | <p>Test execution status (success/failure/skipped)</p> |
+| `tests_run`     | <p>Number of tests executed</p>                        |
+| `tests_passed`  | <p>Number of tests passed</p>                          |
+| `coverage_path` | <p>Path to coverage report</p>                         |
 
 ### Runs
 

@@ -8,27 +8,27 @@ Standardized retry utility for network operations and flaky commands
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `command` | <p>Command to execute with retry logic</p> | `true` | `""` |
-| `max-retries` | <p>Maximum number of retry attempts</p> | `false` | `3` |
-| `retry-delay` | <p>Initial delay between retries in seconds</p> | `false` | `5` |
-| `backoff-strategy` | <p>Backoff strategy (linear, exponential, fixed)</p> | `false` | `exponential` |
-| `timeout` | <p>Timeout for each attempt in seconds</p> | `false` | `300` |
-| `working-directory` | <p>Working directory to execute command in</p> | `false` | `.` |
-| `shell` | <p>Shell to use for command execution</p> | `false` | `bash` |
-| `success-codes` | <p>Comma-separated list of success exit codes</p> | `false` | `0` |
-| `retry-codes` | <p>Comma-separated list of exit codes that should trigger retry</p> | `false` | `1,2,124,126,127` |
-| `description` | <p>Human-readable description of the operation for logging</p> | `false` | `Command execution` |
+| name                | description                                                         | required | default             |
+|---------------------|---------------------------------------------------------------------|----------|---------------------|
+| `command`           | <p>Command to execute with retry logic</p>                          | `true`   | `""`                |
+| `max-retries`       | <p>Maximum number of retry attempts</p>                             | `false`  | `3`                 |
+| `retry-delay`       | <p>Initial delay between retries in seconds</p>                     | `false`  | `5`                 |
+| `backoff-strategy`  | <p>Backoff strategy (linear, exponential, fixed)</p>                | `false`  | `exponential`       |
+| `timeout`           | <p>Timeout for each attempt in seconds</p>                          | `false`  | `300`               |
+| `working-directory` | <p>Working directory to execute command in</p>                      | `false`  | `.`                 |
+| `shell`             | <p>Shell to use for command execution</p>                           | `false`  | `bash`              |
+| `success-codes`     | <p>Comma-separated list of success exit codes</p>                   | `false`  | `0`                 |
+| `retry-codes`       | <p>Comma-separated list of exit codes that should trigger retry</p> | `false`  | `1,2,124,126,127`   |
+| `description`       | <p>Human-readable description of the operation for logging</p>      | `false`  | `Command execution` |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `success` | <p>Whether the command succeeded (true/false)</p> |
-| `attempts` | <p>Number of attempts made</p> |
-| `exit-code` | <p>Final exit code of the command</p> |
-| `duration` | <p>Total execution duration in seconds</p> |
+| name        | description                                       |
+|-------------|---------------------------------------------------|
+| `success`   | <p>Whether the command succeeded (true/false)</p> |
+| `attempts`  | <p>Number of attempts made</p>                    |
+| `exit-code` | <p>Final exit code of the command</p>             |
+| `duration`  | <p>Total execution duration in seconds</p>        |
 
 ### Runs
 

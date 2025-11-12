@@ -8,38 +8,38 @@ Publishes a Docker image to Docker Hub with enhanced security and reliability fe
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `image-name` | <p>The name of the Docker image to publish. Defaults to the repository name.</p> | `false` | `""` |
-| `tags` | <p>Comma-separated list of tags for the Docker image.</p> | `true` | `""` |
-| `platforms` | <p>Platforms to publish (comma-separated). Defaults to amd64 and arm64.</p> | `false` | `linux/amd64,linux/arm64` |
-| `username` | <p>Docker Hub username</p> | `true` | `""` |
-| `password` | <p>Docker Hub password or access token</p> | `true` | `""` |
-| `repository-description` | <p>Update Docker Hub repository description</p> | `false` | `""` |
-| `readme-file` | <p>Path to README file to update on Docker Hub</p> | `false` | `README.md` |
-| `provenance` | <p>Enable SLSA provenance generation</p> | `false` | `true` |
-| `sbom` | <p>Generate Software Bill of Materials</p> | `false` | `true` |
-| `max-retries` | <p>Maximum number of retry attempts for publishing</p> | `false` | `3` |
-| `retry-delay` | <p>Delay in seconds between retries</p> | `false` | `10` |
-| `buildx-version` | <p>Specific Docker Buildx version to use</p> | `false` | `latest` |
-| `cache-mode` | <p>Cache mode for build layers (min, max, or inline)</p> | `false` | `max` |
-| `auto-detect-platforms` | <p>Automatically detect and build for all available platforms</p> | `false` | `false` |
-| `scan-image` | <p>Scan published image for vulnerabilities</p> | `false` | `true` |
-| `sign-image` | <p>Sign the published image with cosign</p> | `false` | `false` |
-| `verbose` | <p>Enable verbose logging</p> | `false` | `false` |
+| name                     | description                                                                      | required | default                   |
+|--------------------------|----------------------------------------------------------------------------------|----------|---------------------------|
+| `image-name`             | <p>The name of the Docker image to publish. Defaults to the repository name.</p> | `false`  | `""`                      |
+| `tags`                   | <p>Comma-separated list of tags for the Docker image.</p>                        | `true`   | `""`                      |
+| `platforms`              | <p>Platforms to publish (comma-separated). Defaults to amd64 and arm64.</p>      | `false`  | `linux/amd64,linux/arm64` |
+| `username`               | <p>Docker Hub username</p>                                                       | `true`   | `""`                      |
+| `password`               | <p>Docker Hub password or access token</p>                                       | `true`   | `""`                      |
+| `repository-description` | <p>Update Docker Hub repository description</p>                                  | `false`  | `""`                      |
+| `readme-file`            | <p>Path to README file to update on Docker Hub</p>                               | `false`  | `README.md`               |
+| `provenance`             | <p>Enable SLSA provenance generation</p>                                         | `false`  | `true`                    |
+| `sbom`                   | <p>Generate Software Bill of Materials</p>                                       | `false`  | `true`                    |
+| `max-retries`            | <p>Maximum number of retry attempts for publishing</p>                           | `false`  | `3`                       |
+| `retry-delay`            | <p>Delay in seconds between retries</p>                                          | `false`  | `10`                      |
+| `buildx-version`         | <p>Specific Docker Buildx version to use</p>                                     | `false`  | `latest`                  |
+| `cache-mode`             | <p>Cache mode for build layers (min, max, or inline)</p>                         | `false`  | `max`                     |
+| `auto-detect-platforms`  | <p>Automatically detect and build for all available platforms</p>                | `false`  | `false`                   |
+| `scan-image`             | <p>Scan published image for vulnerabilities</p>                                  | `false`  | `true`                    |
+| `sign-image`             | <p>Sign the published image with cosign</p>                                      | `false`  | `false`                   |
+| `verbose`                | <p>Enable verbose logging</p>                                                    | `false`  | `false`                   |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `image-name` | <p>Full image name including registry</p> |
-| `digest` | <p>The digest of the published image</p> |
-| `tags` | <p>List of published tags</p> |
-| `repo-url` | <p>Docker Hub repository URL</p> |
-| `scan-results` | <p>Vulnerability scan results</p> |
-| `platform-matrix` | <p>Build status per platform</p> |
-| `build-time` | <p>Total build time in seconds</p> |
-| `signature` | <p>Image signature if signing enabled</p> |
+| name              | description                               |
+|-------------------|-------------------------------------------|
+| `image-name`      | <p>Full image name including registry</p> |
+| `digest`          | <p>The digest of the published image</p>  |
+| `tags`            | <p>List of published tags</p>             |
+| `repo-url`        | <p>Docker Hub repository URL</p>          |
+| `scan-results`    | <p>Vulnerability scan results</p>         |
+| `platform-matrix` | <p>Build status per platform</p>          |
+| `build-time`      | <p>Total build time in seconds</p>        |
+| `signature`       | <p>Image signature if signing enabled</p> |
 
 ### Runs
 

@@ -8,37 +8,37 @@ Publishes a Docker image to GitHub Packages with advanced security and reliabili
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `image-name` | <p>The name of the Docker image to publish. Defaults to the repository name.</p> | `false` | `""` |
-| `tags` | <p>Comma-separated list of tags for the Docker image.</p> | `true` | `""` |
-| `platforms` | <p>Platforms to publish (comma-separated). Defaults to amd64 and arm64.</p> | `false` | `linux/amd64,linux/arm64` |
-| `registry` | <p>GitHub Container Registry URL</p> | `false` | `ghcr.io` |
-| `token` | <p>GitHub token with package write permissions</p> | `false` | `""` |
-| `provenance` | <p>Enable SLSA provenance generation</p> | `false` | `true` |
-| `sbom` | <p>Generate Software Bill of Materials</p> | `false` | `true` |
-| `max-retries` | <p>Maximum number of retry attempts for publishing</p> | `false` | `3` |
-| `retry-delay` | <p>Delay in seconds between retries</p> | `false` | `10` |
-| `buildx-version` | <p>Specific Docker Buildx version to use</p> | `false` | `latest` |
-| `cache-mode` | <p>Cache mode for build layers (min, max, or inline)</p> | `false` | `max` |
-| `auto-detect-platforms` | <p>Automatically detect and build for all available platforms</p> | `false` | `false` |
-| `scan-image` | <p>Scan published image for vulnerabilities</p> | `false` | `true` |
-| `sign-image` | <p>Sign the published image with cosign</p> | `false` | `true` |
-| `parallel-builds` | <p>Number of parallel platform builds (0 for auto)</p> | `false` | `0` |
-| `verbose` | <p>Enable verbose logging</p> | `false` | `false` |
+| name                    | description                                                                      | required | default                   |
+|-------------------------|----------------------------------------------------------------------------------|----------|---------------------------|
+| `image-name`            | <p>The name of the Docker image to publish. Defaults to the repository name.</p> | `false`  | `""`                      |
+| `tags`                  | <p>Comma-separated list of tags for the Docker image.</p>                        | `true`   | `""`                      |
+| `platforms`             | <p>Platforms to publish (comma-separated). Defaults to amd64 and arm64.</p>      | `false`  | `linux/amd64,linux/arm64` |
+| `registry`              | <p>GitHub Container Registry URL</p>                                             | `false`  | `ghcr.io`                 |
+| `token`                 | <p>GitHub token with package write permissions</p>                               | `false`  | `""`                      |
+| `provenance`            | <p>Enable SLSA provenance generation</p>                                         | `false`  | `true`                    |
+| `sbom`                  | <p>Generate Software Bill of Materials</p>                                       | `false`  | `true`                    |
+| `max-retries`           | <p>Maximum number of retry attempts for publishing</p>                           | `false`  | `3`                       |
+| `retry-delay`           | <p>Delay in seconds between retries</p>                                          | `false`  | `10`                      |
+| `buildx-version`        | <p>Specific Docker Buildx version to use</p>                                     | `false`  | `latest`                  |
+| `cache-mode`            | <p>Cache mode for build layers (min, max, or inline)</p>                         | `false`  | `max`                     |
+| `auto-detect-platforms` | <p>Automatically detect and build for all available platforms</p>                | `false`  | `false`                   |
+| `scan-image`            | <p>Scan published image for vulnerabilities</p>                                  | `false`  | `true`                    |
+| `sign-image`            | <p>Sign the published image with cosign</p>                                      | `false`  | `true`                    |
+| `parallel-builds`       | <p>Number of parallel platform builds (0 for auto)</p>                           | `false`  | `0`                       |
+| `verbose`               | <p>Enable verbose logging</p>                                                    | `false`  | `false`                   |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `image-name` | <p>Full image name including registry</p> |
-| `digest` | <p>The digest of the published image</p> |
-| `tags` | <p>List of published tags</p> |
-| `provenance` | <p>SLSA provenance attestation</p> |
-| `sbom` | <p>SBOM document location</p> |
-| `scan-results` | <p>Vulnerability scan results</p> |
-| `platform-matrix` | <p>Build status per platform</p> |
-| `build-time` | <p>Total build time in seconds</p> |
+| name              | description                               |
+|-------------------|-------------------------------------------|
+| `image-name`      | <p>Full image name including registry</p> |
+| `digest`          | <p>The digest of the published image</p>  |
+| `tags`            | <p>List of published tags</p>             |
+| `provenance`      | <p>SLSA provenance attestation</p>        |
+| `sbom`            | <p>SBOM document location</p>             |
+| `scan-results`    | <p>Vulnerability scan results</p>         |
+| `platform-matrix` | <p>Build status per platform</p>          |
+| `build-time`      | <p>Total build time in seconds</p>        |
 
 ### Runs
 

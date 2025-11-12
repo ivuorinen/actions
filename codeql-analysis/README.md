@@ -8,33 +8,33 @@ Run CodeQL security analysis for a single language with configurable query suite
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `language` | <p>Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.)</p> | `true` | `""` |
-| `queries` | <p>Comma-separated list of additional queries to run</p> | `false` | `""` |
-| `packs` | <p>Comma-separated list of CodeQL query packs to run</p> | `false` | `""` |
-| `config-file` | <p>Path to CodeQL configuration file</p> | `false` | `""` |
-| `config` | <p>Configuration passed as a YAML string</p> | `false` | `""` |
-| `build-mode` | <p>The build mode for compiled languages (none, manual, autobuild)</p> | `false` | `""` |
-| `source-root` | <p>Path of the root source code directory</p> | `false` | `""` |
-| `category` | <p>Analysis category (default: /language:<language>)</p> | `false` | `""` |
-| `checkout-ref` | <p>Git reference to checkout (default: current ref)</p> | `false` | `""` |
-| `token` | <p>GitHub token for API access</p> | `false` | `${{ github.token }}` |
-| `working-directory` | <p>Working directory for the analysis</p> | `false` | `.` |
-| `upload-results` | <p>Upload results to GitHub Security tab</p> | `false` | `true` |
-| `ram` | <p>Amount of memory in MB that can be used by CodeQL</p> | `false` | `""` |
-| `threads` | <p>Number of threads that can be used by CodeQL</p> | `false` | `""` |
-| `output` | <p>Path to save SARIF results</p> | `false` | `../results` |
-| `skip-queries` | <p>Build database but skip running queries</p> | `false` | `false` |
-| `add-snippets` | <p>Add code snippets to SARIF output</p> | `false` | `false` |
+| name                | description                                                                                 | required | default               |
+|---------------------|---------------------------------------------------------------------------------------------|----------|-----------------------|
+| `language`          | <p>Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.)</p> | `true`   | `""`                  |
+| `queries`           | <p>Comma-separated list of additional queries to run</p>                                    | `false`  | `""`                  |
+| `packs`             | <p>Comma-separated list of CodeQL query packs to run</p>                                    | `false`  | `""`                  |
+| `config-file`       | <p>Path to CodeQL configuration file</p>                                                    | `false`  | `""`                  |
+| `config`            | <p>Configuration passed as a YAML string</p>                                                | `false`  | `""`                  |
+| `build-mode`        | <p>The build mode for compiled languages (none, manual, autobuild)</p>                      | `false`  | `""`                  |
+| `source-root`       | <p>Path of the root source code directory</p>                                               | `false`  | `""`                  |
+| `category`          | <p>Analysis category (default: /language:<language>)</p>                                    | `false`  | `""`                  |
+| `checkout-ref`      | <p>Git reference to checkout (default: current ref)</p>                                     | `false`  | `""`                  |
+| `token`             | <p>GitHub token for API access</p>                                                          | `false`  | `${{ github.token }}` |
+| `working-directory` | <p>Working directory for the analysis</p>                                                   | `false`  | `.`                   |
+| `upload-results`    | <p>Upload results to GitHub Security tab</p>                                                | `false`  | `true`                |
+| `ram`               | <p>Amount of memory in MB that can be used by CodeQL</p>                                    | `false`  | `""`                  |
+| `threads`           | <p>Number of threads that can be used by CodeQL</p>                                         | `false`  | `""`                  |
+| `output`            | <p>Path to save SARIF results</p>                                                           | `false`  | `../results`          |
+| `skip-queries`      | <p>Build database but skip running queries</p>                                              | `false`  | `false`               |
+| `add-snippets`      | <p>Add code snippets to SARIF output</p>                                                    | `false`  | `false`               |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `language-analyzed` | <p>Language that was analyzed</p> |
+| name                | description                           |
+|---------------------|---------------------------------------|
+| `language-analyzed` | <p>Language that was analyzed</p>     |
 | `analysis-category` | <p>Category used for the analysis</p> |
-| `sarif-file` | <p>Path to generated SARIF file</p> |
+| `sarif-file`        | <p>Path to generated SARIF file</p>   |
 
 ### Runs
 

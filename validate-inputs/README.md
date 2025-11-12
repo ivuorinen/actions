@@ -8,66 +8,66 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `action` | <p>Action name to validate (alias for action-type)</p> | `false` | `""` |
-| `action-type` | <p>Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)</p> | `false` | `""` |
-| `rules-file` | <p>Path to validation rules file</p> | `false` | `""` |
-| `fail-on-error` | <p>Whether to fail on validation errors</p> | `false` | `true` |
-| `token` | <p>GitHub token for authentication</p> | `false` | `""` |
-| `namespace` | <p>Namespace/username for validation</p> | `false` | `""` |
-| `email` | <p>Email address for validation</p> | `false` | `""` |
-| `username` | <p>Username for validation</p> | `false` | `""` |
-| `dotnet-version` | <p>.NET version string</p> | `false` | `""` |
-| `terraform-version` | <p>Terraform version string</p> | `false` | `""` |
-| `tflint-version` | <p>TFLint version string</p> | `false` | `""` |
-| `node-version` | <p>Node.js version string</p> | `false` | `""` |
-| `force-version` | <p>Force version override</p> | `false` | `""` |
-| `default-version` | <p>Default version fallback</p> | `false` | `""` |
-| `image-name` | <p>Docker image name</p> | `false` | `""` |
-| `tag` | <p>Docker image tag</p> | `false` | `""` |
-| `architectures` | <p>Target architectures</p> | `false` | `""` |
-| `dockerfile` | <p>Dockerfile path</p> | `false` | `""` |
-| `context` | <p>Docker build context</p> | `false` | `""` |
-| `build-args` | <p>Docker build arguments</p> | `false` | `""` |
-| `buildx-version` | <p>Docker Buildx version</p> | `false` | `""` |
-| `max-retries` | <p>Maximum retry attempts</p> | `false` | `""` |
-| `image-quality` | <p>Image quality percentage</p> | `false` | `""` |
-| `png-quality` | <p>PNG quality percentage</p> | `false` | `""` |
-| `parallel-builds` | <p>Number of parallel builds</p> | `false` | `""` |
-| `days-before-stale` | <p>Number of days before marking as stale</p> | `false` | `""` |
-| `days-before-close` | <p>Number of days before closing stale items</p> | `false` | `""` |
-| `pre-commit-config` | <p>Pre-commit configuration file path</p> | `false` | `""` |
-| `base-branch` | <p>Base branch name</p> | `false` | `""` |
-| `dry-run` | <p>Dry run mode</p> | `false` | `""` |
-| `is_fiximus` | <p>Use Fiximus bot</p> | `false` | `""` |
-| `prefix` | <p>Release tag prefix</p> | `false` | `""` |
-| `language` | <p>Language to analyze (for CodeQL)</p> | `false` | `""` |
-| `queries` | <p>CodeQL queries to run</p> | `false` | `""` |
-| `packs` | <p>CodeQL query packs</p> | `false` | `""` |
-| `config-file` | <p>CodeQL configuration file path</p> | `false` | `""` |
-| `config` | <p>CodeQL configuration YAML string</p> | `false` | `""` |
-| `build-mode` | <p>Build mode for compiled languages</p> | `false` | `""` |
-| `source-root` | <p>Source code root directory</p> | `false` | `""` |
-| `category` | <p>Analysis category</p> | `false` | `""` |
-| `checkout-ref` | <p>Git reference to checkout</p> | `false` | `""` |
-| `working-directory` | <p>Working directory for analysis</p> | `false` | `""` |
-| `upload-results` | <p>Upload results to GitHub Security</p> | `false` | `""` |
-| `ram` | <p>Memory in MB for CodeQL</p> | `false` | `""` |
-| `threads` | <p>Number of threads for CodeQL</p> | `false` | `""` |
-| `output` | <p>Output path for SARIF results</p> | `false` | `""` |
-| `skip-queries` | <p>Skip running queries</p> | `false` | `""` |
-| `add-snippets` | <p>Add code snippets to SARIF</p> | `false` | `""` |
+| name                | description                                                                        | required | default |
+|---------------------|------------------------------------------------------------------------------------|----------|---------|
+| `action`            | <p>Action name to validate (alias for action-type)</p>                             | `false`  | `""`    |
+| `action-type`       | <p>Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)</p> | `false`  | `""`    |
+| `rules-file`        | <p>Path to validation rules file</p>                                               | `false`  | `""`    |
+| `fail-on-error`     | <p>Whether to fail on validation errors</p>                                        | `false`  | `true`  |
+| `token`             | <p>GitHub token for authentication</p>                                             | `false`  | `""`    |
+| `namespace`         | <p>Namespace/username for validation</p>                                           | `false`  | `""`    |
+| `email`             | <p>Email address for validation</p>                                                | `false`  | `""`    |
+| `username`          | <p>Username for validation</p>                                                     | `false`  | `""`    |
+| `dotnet-version`    | <p>.NET version string</p>                                                         | `false`  | `""`    |
+| `terraform-version` | <p>Terraform version string</p>                                                    | `false`  | `""`    |
+| `tflint-version`    | <p>TFLint version string</p>                                                       | `false`  | `""`    |
+| `node-version`      | <p>Node.js version string</p>                                                      | `false`  | `""`    |
+| `force-version`     | <p>Force version override</p>                                                      | `false`  | `""`    |
+| `default-version`   | <p>Default version fallback</p>                                                    | `false`  | `""`    |
+| `image-name`        | <p>Docker image name</p>                                                           | `false`  | `""`    |
+| `tag`               | <p>Docker image tag</p>                                                            | `false`  | `""`    |
+| `architectures`     | <p>Target architectures</p>                                                        | `false`  | `""`    |
+| `dockerfile`        | <p>Dockerfile path</p>                                                             | `false`  | `""`    |
+| `context`           | <p>Docker build context</p>                                                        | `false`  | `""`    |
+| `build-args`        | <p>Docker build arguments</p>                                                      | `false`  | `""`    |
+| `buildx-version`    | <p>Docker Buildx version</p>                                                       | `false`  | `""`    |
+| `max-retries`       | <p>Maximum retry attempts</p>                                                      | `false`  | `""`    |
+| `image-quality`     | <p>Image quality percentage</p>                                                    | `false`  | `""`    |
+| `png-quality`       | <p>PNG quality percentage</p>                                                      | `false`  | `""`    |
+| `parallel-builds`   | <p>Number of parallel builds</p>                                                   | `false`  | `""`    |
+| `days-before-stale` | <p>Number of days before marking as stale</p>                                      | `false`  | `""`    |
+| `days-before-close` | <p>Number of days before closing stale items</p>                                   | `false`  | `""`    |
+| `pre-commit-config` | <p>Pre-commit configuration file path</p>                                          | `false`  | `""`    |
+| `base-branch`       | <p>Base branch name</p>                                                            | `false`  | `""`    |
+| `dry-run`           | <p>Dry run mode</p>                                                                | `false`  | `""`    |
+| `is_fiximus`        | <p>Use Fiximus bot</p>                                                             | `false`  | `""`    |
+| `prefix`            | <p>Release tag prefix</p>                                                          | `false`  | `""`    |
+| `language`          | <p>Language to analyze (for CodeQL)</p>                                            | `false`  | `""`    |
+| `queries`           | <p>CodeQL queries to run</p>                                                       | `false`  | `""`    |
+| `packs`             | <p>CodeQL query packs</p>                                                          | `false`  | `""`    |
+| `config-file`       | <p>CodeQL configuration file path</p>                                              | `false`  | `""`    |
+| `config`            | <p>CodeQL configuration YAML string</p>                                            | `false`  | `""`    |
+| `build-mode`        | <p>Build mode for compiled languages</p>                                           | `false`  | `""`    |
+| `source-root`       | <p>Source code root directory</p>                                                  | `false`  | `""`    |
+| `category`          | <p>Analysis category</p>                                                           | `false`  | `""`    |
+| `checkout-ref`      | <p>Git reference to checkout</p>                                                   | `false`  | `""`    |
+| `working-directory` | <p>Working directory for analysis</p>                                              | `false`  | `""`    |
+| `upload-results`    | <p>Upload results to GitHub Security</p>                                           | `false`  | `""`    |
+| `ram`               | <p>Memory in MB for CodeQL</p>                                                     | `false`  | `""`    |
+| `threads`           | <p>Number of threads for CodeQL</p>                                                | `false`  | `""`    |
+| `output`            | <p>Output path for SARIF results</p>                                               | `false`  | `""`    |
+| `skip-queries`      | <p>Skip running queries</p>                                                        | `false`  | `""`    |
+| `add-snippets`      | <p>Add code snippets to SARIF</p>                                                  | `false`  | `""`    |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
+| name                | description                                        |
+|---------------------|----------------------------------------------------|
 | `validation-status` | <p>Overall validation status (success/failure)</p> |
-| `error-message` | <p>Validation error message if failed</p> |
-| `validation-result` | <p>Detailed validation result</p> |
-| `errors-found` | <p>Number of validation errors found</p> |
-| `rules-applied` | <p>Number of validation rules applied</p> |
+| `error-message`     | <p>Validation error message if failed</p>          |
+| `validation-result` | <p>Detailed validation result</p>                  |
+| `errors-found`      | <p>Number of validation errors found</p>           |
+| `rules-applied`     | <p>Number of validation rules applied</p>          |
 
 ### Runs
 

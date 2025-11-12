@@ -8,19 +8,19 @@ Run Biome fix on the repository
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `token` | <p>GitHub token for authentication</p> | `false` | `${{ github.token }}` |
-| `username` | <p>GitHub username for commits</p> | `false` | `github-actions` |
-| `email` | <p>GitHub email for commits</p> | `false` | `github-actions@github.com` |
-| `max-retries` | <p>Maximum number of retry attempts for npm install operations</p> | `false` | `3` |
+| name          | description                                                        | required | default                     |
+|---------------|--------------------------------------------------------------------|----------|-----------------------------|
+| `token`       | <p>GitHub token for authentication</p>                             | `false`  | `${{ github.token }}`       |
+| `username`    | <p>GitHub username for commits</p>                                 | `false`  | `github-actions`            |
+| `email`       | <p>GitHub email for commits</p>                                    | `false`  | `github-actions@github.com` |
+| `max-retries` | <p>Maximum number of retry attempts for npm install operations</p> | `false`  | `3`                         |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
+| name            | description                                  |
+|-----------------|----------------------------------------------|
 | `files_changed` | <p>Number of files changed by formatting</p> |
-| `fix_status` | <p>Fix status (success/failure)</p> |
+| `fix_status`    | <p>Fix status (success/failure)</p>          |
 
 ### Runs
 

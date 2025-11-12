@@ -58,9 +58,6 @@ docs: ## Generate documentation for all actions
 			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
 			[ "$(UNAME_S)" = "Darwin" ] && rm -f "$$dir/README.md.bak"; \
-			if [ -f "$$dir/README.append.md" ]; then \
-				cat "$$dir/README.append.md" >> "$$dir/README.md"; \
-			fi; \
 			echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
 		else \
 			echo "$(RED)⚠️ Failed to update $$dir/README.md$(RESET)" | tee -a $(LOG_FILE); \

@@ -8,28 +8,28 @@ Run ESLint check on the repository with advanced configuration and reporting
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `working-directory` | <p>Directory containing files to lint</p> | `false` | `.` |
-| `eslint-version` | <p>ESLint version to use</p> | `false` | `latest` |
-| `config-file` | <p>Path to ESLint config file</p> | `false` | `.eslintrc` |
-| `ignore-file` | <p>Path to ESLint ignore file</p> | `false` | `.eslintignore` |
-| `file-extensions` | <p>File extensions to lint (comma-separated)</p> | `false` | `.js,.jsx,.ts,.tsx` |
-| `cache` | <p>Enable ESLint caching</p> | `false` | `true` |
-| `max-warnings` | <p>Maximum number of warnings allowed</p> | `false` | `0` |
-| `fail-on-error` | <p>Fail workflow if issues are found</p> | `false` | `true` |
-| `report-format` | <p>Output format (stylish, json, sarif)</p> | `false` | `sarif` |
-| `max-retries` | <p>Maximum number of retry attempts</p> | `false` | `3` |
-| `token` | <p>GitHub token for authentication</p> | `false` | `""` |
+| name                | description                                      | required | default             |
+|---------------------|--------------------------------------------------|----------|---------------------|
+| `working-directory` | <p>Directory containing files to lint</p>        | `false`  | `.`                 |
+| `eslint-version`    | <p>ESLint version to use</p>                     | `false`  | `latest`            |
+| `config-file`       | <p>Path to ESLint config file</p>                | `false`  | `.eslintrc`         |
+| `ignore-file`       | <p>Path to ESLint ignore file</p>                | `false`  | `.eslintignore`     |
+| `file-extensions`   | <p>File extensions to lint (comma-separated)</p> | `false`  | `.js,.jsx,.ts,.tsx` |
+| `cache`             | <p>Enable ESLint caching</p>                     | `false`  | `true`              |
+| `max-warnings`      | <p>Maximum number of warnings allowed</p>        | `false`  | `0`                 |
+| `fail-on-error`     | <p>Fail workflow if issues are found</p>         | `false`  | `true`              |
+| `report-format`     | <p>Output format (stylish, json, sarif)</p>      | `false`  | `sarif`             |
+| `max-retries`       | <p>Maximum number of retry attempts</p>          | `false`  | `3`                 |
+| `token`             | <p>GitHub token for authentication</p>           | `false`  | `""`                |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `error-count` | <p>Number of errors found</p> |
-| `warning-count` | <p>Number of warnings found</p> |
-| `sarif-file` | <p>Path to SARIF report file</p> |
-| `files-checked` | <p>Number of files checked</p> |
+| name            | description                      |
+|-----------------|----------------------------------|
+| `error-count`   | <p>Number of errors found</p>    |
+| `warning-count` | <p>Number of warnings found</p>  |
+| `sarif-file`    | <p>Path to SARIF report file</p> |
+| `files-checked` | <p>Number of files checked</p>   |
 
 ### Runs
 
