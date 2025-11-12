@@ -9,7 +9,7 @@ Run Prettier check on the repository with advanced configuration and reporting
 ### Inputs
 
 | name                | description                                                | required | default                                          |
-| ------------------- | ---------------------------------------------------------- | -------- | ------------------------------------------------ |
+|---------------------|------------------------------------------------------------|----------|--------------------------------------------------|
 | `working-directory` | <p>Directory containing files to check</p>                 | `false`  | `.`                                              |
 | `prettier-version`  | <p>Prettier version to use</p>                             | `false`  | `latest`                                         |
 | `config-file`       | <p>Path to Prettier config file</p>                        | `false`  | `.prettierrc`                                    |
@@ -26,7 +26,7 @@ Run Prettier check on the repository with advanced configuration and reporting
 ### Outputs
 
 | name                | description                                   |
-| ------------------- | --------------------------------------------- |
+|---------------------|-----------------------------------------------|
 | `files-checked`     | <p>Number of files checked</p>                |
 | `unformatted-files` | <p>Number of files with formatting issues</p> |
 | `sarif-file`        | <p>Path to SARIF report file</p>              |

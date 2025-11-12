@@ -5,7 +5,7 @@
 All actions in this repository are actively maintained. Security updates are applied to all actions as needed.
 
 | Version | Supported          |
-| ------- | ------------------ |
+|---------|--------------------|
 | Latest  | :white_check_mark: |
 
 ## Security Features

@@ -9,14 +9,14 @@ Detects Python version from project configuration files or defaults to a specifi
 ### Inputs
 
 | name              | description                                                     | required | default |
-| ----------------- | --------------------------------------------------------------- | -------- | ------- |
+|-------------------|-----------------------------------------------------------------|----------|---------|
 | `default-version` | <p>Default Python version to use if no version is detected.</p> | `false`  | `3.12`  |
 | `token`           | <p>GitHub token for authentication</p>                          | `false`  | `""`    |
 
 ### Outputs
 
 | name             | description                                |
-| ---------------- | ------------------------------------------ |
+|------------------|--------------------------------------------|
 | `python-version` | <p>Detected or default Python version.</p> |
 
 ### Runs

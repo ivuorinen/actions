@@ -45,7 +45,7 @@ runs:
 Name your inputs to get automatic validation:
 
 | Input Pattern        | Validation Type    | Example                          |
-| -------------------- | ------------------ | -------------------------------- |
+|----------------------|--------------------|----------------------------------|
 | `*-token`            | Token validation   | `github-token`, `npm-token`      |
 | `*-version`          | Version validation | `node-version`, `python-version` |
 | `dry-run`, `verbose` | Boolean            | `dry-run: true`                  |

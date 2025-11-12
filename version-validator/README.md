@@ -9,7 +9,7 @@ Validates and normalizes version strings using customizable regex patterns
 ### Inputs
 
 | name               | description                             | required | default                                                            |
-| ------------------ | --------------------------------------- | -------- | ------------------------------------------------------------------ |
+|--------------------|-----------------------------------------|----------|--------------------------------------------------------------------|
 | `version`          | <p>Version string to validate</p>       | `true`   | `""`                                                               |
 | `validation-regex` | <p>Regex pattern for validation</p>     | `false`  | `^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9.-]+)?(\+[a-zA-Z0-9.-]+)?$` |
 | `language`         | <p>Language name for error messages</p> | `false`  | `version`                                                          |
@@ -17,7 +17,7 @@ Validates and normalizes version strings using customizable regex patterns
 ### Outputs
 
 | name                | description                                                |
-| ------------------- | ---------------------------------------------------------- |
+|---------------------|------------------------------------------------------------|
 | `is-valid`          | <p>Boolean indicating if version is valid (true/false)</p> |
 | `validated-version` | <p>Cleaned/normalized version string</p>                   |
 | `error-message`     | <p>Error message if validation fails</p>                   |

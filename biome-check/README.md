@@ -9,7 +9,7 @@ Run Biome check on the repository
 ### Inputs
 
 | name          | description                                                        | required | default                     |
-| ------------- | ------------------------------------------------------------------ | -------- | --------------------------- |
+|---------------|--------------------------------------------------------------------|----------|-----------------------------|
 | `token`       | <p>GitHub token for authentication</p>                             | `false`  | `${{ github.token }}`       |
 | `username`    | <p>GitHub username for commits</p>                                 | `false`  | `github-actions`            |
 | `email`       | <p>GitHub email for commits</p>                                    | `false`  | `github-actions@github.com` |
@@ -18,7 +18,7 @@ Run Biome check on the repository
 ### Outputs
 
 | name             | description                           |
-| ---------------- | ------------------------------------- |
+|------------------|---------------------------------------|
 | `check_status`   | <p>Check status (success/failure)</p> |
 | `errors_count`   | <p>Number of errors found</p>         |
 | `warnings_count` | <p>Number of warnings found</p>       |

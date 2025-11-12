@@ -9,7 +9,7 @@ Lints and fixes Python files, commits changes, and uploads SARIF report.
 ### Inputs
 
 | name                | description                                                           | required | default                     |
-| ------------------- | --------------------------------------------------------------------- | -------- | --------------------------- |
+|---------------------|-----------------------------------------------------------------------|----------|-----------------------------|
 | `python-version`    | <p>Python version to use</p>                                          | `false`  | `3.11`                      |
 | `flake8-version`    | <p>Flake8 version to use</p>                                          | `false`  | `7.0.0`                     |
 | `autopep8-version`  | <p>Autopep8 version to use</p>                                        | `false`  | `2.0.4`                     |
@@ -23,7 +23,7 @@ Lints and fixes Python files, commits changes, and uploads SARIF report.
 ### Outputs
 
 | name          | description                                            |
-| ------------- | ------------------------------------------------------ |
+|---------------|--------------------------------------------------------|
 | `lint-result` | <p>Result of the linting process (success/failure)</p> |
 | `fixed-files` | <p>Number of files that were fixed</p>                 |
 | `error-count` | <p>Number of errors found</p>                          |

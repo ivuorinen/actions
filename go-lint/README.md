@@ -9,7 +9,7 @@ Run golangci-lint with advanced configuration, caching, and reporting
 ### Inputs
 
 | name                    | description                                          | required | default         |
-| ----------------------- | ---------------------------------------------------- | -------- | --------------- |
+|-------------------------|------------------------------------------------------|----------|-----------------|
 | `working-directory`     | <p>Directory containing Go files</p>                 | `false`  | `.`             |
 | `golangci-lint-version` | <p>Version of golangci-lint to use</p>               | `false`  | `latest`        |
 | `go-version`            | <p>Go version to use</p>                             | `false`  | `stable`        |
@@ -28,7 +28,7 @@ Run golangci-lint with advanced configuration, caching, and reporting
 ### Outputs
 
 | name             | description                               |
-| ---------------- | ----------------------------------------- |
+|------------------|-------------------------------------------|
 | `error-count`    | <p>Number of errors found</p>             |
 | `sarif-file`     | <p>Path to SARIF report file</p>          |
 | `cache-hit`      | <p>Indicates if there was a cache hit</p> |

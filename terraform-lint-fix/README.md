@@ -9,7 +9,7 @@ Lints and fixes Terraform files with advanced validation and security checks.
 ### Inputs
 
 | name                | description                                                    | required | default                     |
-| ------------------- | -------------------------------------------------------------- | -------- | --------------------------- |
+|---------------------|----------------------------------------------------------------|----------|-----------------------------|
 | `terraform-version` | <p>Terraform version to use</p>                                | `false`  | `latest`                    |
 | `tflint-version`    | <p>TFLint version to use</p>                                   | `false`  | `latest`                    |
 | `working-directory` | <p>Directory containing Terraform files</p>                    | `false`  | `.`                         |
@@ -25,7 +25,7 @@ Lints and fixes Terraform files with advanced validation and security checks.
 ### Outputs
 
 | name          | description                      |
-| ------------- | -------------------------------- |
+|---------------|----------------------------------|
 | `error-count` | <p>Number of errors found</p>    |
 | `fixed-count` | <p>Number of issues fixed</p>    |
 | `sarif-file`  | <p>Path to SARIF report file</p> |

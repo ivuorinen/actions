@@ -9,7 +9,7 @@ Run Prettier to fix code style violations
 ### Inputs
 
 | name          | description                                                        | required | default                     |
-| ------------- | ------------------------------------------------------------------ | -------- | --------------------------- |
+|---------------|--------------------------------------------------------------------|----------|-----------------------------|
 | `token`       | <p>GitHub token for authentication</p>                             | `false`  | `${{ github.token }}`       |
 | `username`    | <p>GitHub username for commits</p>                                 | `false`  | `github-actions`            |
 | `email`       | <p>GitHub email for commits</p>                                    | `false`  | `github-actions@github.com` |
@@ -18,7 +18,7 @@ Run Prettier to fix code style violations
 ### Outputs
 
 | name            | description                                |
-| --------------- | ------------------------------------------ |
+|-----------------|--------------------------------------------|
 | `files_changed` | <p>Number of files changed by Prettier</p> |
 | `format_status` | <p>Formatting status (success/failure)</p> |
 
