@@ -26,7 +26,7 @@ class MyValidator(BaseValidator):
 #### Methods
 
 | Method                                          | Description                           | Returns     |
-|-------------------------------------------------|---------------------------------------|-------------|
+| ----------------------------------------------- | ------------------------------------- | ----------- |
 | `validate_inputs(inputs)`                       | Main validation entry point           | `bool`      |
 | `validate_required_inputs(inputs)`              | Validates required inputs are present | `bool`      |
 | `validate_path_security(path)`                  | Checks for path traversal attacks     | `bool`      |
@@ -40,7 +40,7 @@ class MyValidator(BaseValidator):
 #### Properties
 
 | Property      | Type        | Description                     |
-|---------------|-------------|---------------------------------|
+| ------------- | ----------- | ------------------------------- |
 | `errors`      | `list[str]` | Accumulated error messages      |
 | `action_type` | `str`       | The action type being validated |
 
@@ -231,7 +231,7 @@ validator = registry.get_validator("docker-build")  # Gets appropriate validator
 #### Methods
 
 | Method                                      | Description               | Returns         |
-|---------------------------------------------|---------------------------|-----------------|
+| ------------------------------------------- | ------------------------- | --------------- |
 | `get_validator(action_type)`                | Gets validator for action | `BaseValidator` |
 | `register_validator(name, validator_class)` | Registers a validator     | `None`          |
 | `clear_cache()`                             | Clears validator cache    | `None`          |
@@ -319,7 +319,7 @@ if not result:
 The system automatically detects validation types based on input names:
 
 | Pattern                       | Validator        | Example                          |
-|-------------------------------|------------------|----------------------------------|
+| ----------------------------- | ---------------- | -------------------------------- |
 | `*-token`                     | TokenValidator   | `github-token`, `npm-token`      |
 | `*-version`                   | VersionValidator | `node-version`, `dotnet-version` |
 | `dry-run`, `debug`, `verbose` | BooleanValidator | `dry-run`, `skip-tests`          |

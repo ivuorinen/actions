@@ -9,7 +9,7 @@ Standardized retry utility for network operations and flaky commands
 ### Inputs
 
 | name                | description                                                         | required | default             |
-|---------------------|---------------------------------------------------------------------|----------|---------------------|
+| ------------------- | ------------------------------------------------------------------- | -------- | ------------------- |
 | `command`           | <p>Command to execute with retry logic</p>                          | `true`   | `""`                |
 | `max-retries`       | <p>Maximum number of retry attempts</p>                             | `false`  | `3`                 |
 | `retry-delay`       | <p>Initial delay between retries in seconds</p>                     | `false`  | `5`                 |
@@ -24,7 +24,7 @@ Standardized retry utility for network operations and flaky commands
 ### Outputs
 
 | name        | description                                       |
-|-------------|---------------------------------------------------|
+| ----------- | ------------------------------------------------- |
 | `success`   | <p>Whether the command succeeded (true/false)</p> |
 | `attempts`  | <p>Number of attempts made</p>                    |
 | `exit-code` | <p>Final exit code of the command</p>             |

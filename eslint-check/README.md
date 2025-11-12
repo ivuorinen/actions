@@ -9,7 +9,7 @@ Run ESLint check on the repository with advanced configuration and reporting
 ### Inputs
 
 | name                | description                                      | required | default             |
-|---------------------|--------------------------------------------------|----------|---------------------|
+| ------------------- | ------------------------------------------------ | -------- | ------------------- |
 | `working-directory` | <p>Directory containing files to lint</p>        | `false`  | `.`                 |
 | `eslint-version`    | <p>ESLint version to use</p>                     | `false`  | `latest`            |
 | `config-file`       | <p>Path to ESLint config file</p>                | `false`  | `.eslintrc`         |
@@ -25,7 +25,7 @@ Run ESLint check on the repository with advanced configuration and reporting
 ### Outputs
 
 | name            | description                      |
-|-----------------|----------------------------------|
+| --------------- | -------------------------------- |
 | `error-count`   | <p>Number of errors found</p>    |
 | `warning-count` | <p>Number of warnings found</p>  |
 | `sarif-file`    | <p>Path to SARIF report file</p> |

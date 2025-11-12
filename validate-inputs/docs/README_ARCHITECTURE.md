@@ -132,7 +132,7 @@ validate-inputs/
 The system automatically detects validation types based on input names:
 
 | Pattern              | Validator        | Examples                      |
-|----------------------|------------------|-------------------------------|
+| -------------------- | ---------------- | ----------------------------- |
 | `*-token`            | TokenValidator   | `github-token`, `api-token`   |
 | `*-version`          | VersionValidator | `node-version`, `go-version`  |
 | `dry-run`, `debug`   | BooleanValidator | `dry-run`, `verbose`          |

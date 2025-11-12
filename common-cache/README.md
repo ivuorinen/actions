@@ -9,7 +9,7 @@ Standardized caching strategy for all actions
 ### Inputs
 
 | name           | description                                          | required | default |
-|----------------|------------------------------------------------------|----------|---------|
+| -------------- | ---------------------------------------------------- | -------- | ------- |
 | `type`         | <p>Type of cache (npm, composer, go, pip, etc.)</p>  | `true`   | `""`    |
 | `paths`        | <p>Paths to cache (comma-separated)</p>              | `true`   | `""`    |
 | `key-prefix`   | <p>Custom prefix for cache key</p>                   | `false`  | `""`    |
@@ -20,7 +20,7 @@ Standardized caching strategy for all actions
 ### Outputs
 
 | name          | description                 |
-|---------------|-----------------------------|
+| ------------- | --------------------------- |
 | `cache-hit`   | <p>Cache hit indicator</p>  |
 | `cache-key`   | <p>Generated cache key</p>  |
 | `cache-paths` | <p>Resolved cache paths</p> |

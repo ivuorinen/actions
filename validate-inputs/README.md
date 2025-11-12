@@ -9,7 +9,7 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 ### Inputs
 
 | name                | description                                                                        | required | default |
-|---------------------|------------------------------------------------------------------------------------|----------|---------|
+| ------------------- | ---------------------------------------------------------------------------------- | -------- | ------- |
 | `action`            | <p>Action name to validate (alias for action-type)</p>                             | `false`  | `""`    |
 | `action-type`       | <p>Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)</p> | `false`  | `""`    |
 | `rules-file`        | <p>Path to validation rules file</p>                                               | `false`  | `""`    |
@@ -62,7 +62,7 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 ### Outputs
 
 | name                | description                                        |
-|---------------------|----------------------------------------------------|
+| ------------------- | -------------------------------------------------- |
 | `validation-status` | <p>Overall validation status (success/failure)</p> |
 | `error-message`     | <p>Validation error message if failed</p>          |
 | `validation-result` | <p>Detailed validation result</p>                  |

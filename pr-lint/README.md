@@ -9,7 +9,7 @@ Runs MegaLinter against pull requests
 ### Inputs
 
 | name       | description                            | required | default                     |
-|------------|----------------------------------------|----------|-----------------------------|
+| ---------- | -------------------------------------- | -------- | --------------------------- |
 | `token`    | <p>GitHub token for authentication</p> | `false`  | `""`                        |
 | `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
 | `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
@@ -17,7 +17,7 @@ Runs MegaLinter against pull requests
 ### Outputs
 
 | name                | description                                        |
-|---------------------|----------------------------------------------------|
+| ------------------- | -------------------------------------------------- |
 | `validation_status` | <p>Overall validation status (success/failure)</p> |
 | `errors_found`      | <p>Number of linting errors found</p>              |
 

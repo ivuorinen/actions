@@ -9,7 +9,7 @@ Universal parser for common version detection files (.tool-versions, Dockerfile,
 ### Inputs
 
 | name                | description                                                                  | required | default                       |
-|---------------------|------------------------------------------------------------------------------|----------|-------------------------------|
+| ------------------- | ---------------------------------------------------------------------------- | -------- | ----------------------------- |
 | `language`          | <p>Programming language name (node, python, php, go, dotnet)</p>             | `true`   | `""`                          |
 | `tool-versions-key` | <p>Key name in .tool-versions file (nodejs, python, php, golang, dotnet)</p> | `true`   | `""`                          |
 | `dockerfile-image`  | <p>Docker image name pattern (node, python, php, golang, dotnet)</p>         | `true`   | `""`                          |
@@ -20,7 +20,7 @@ Universal parser for common version detection files (.tool-versions, Dockerfile,
 ### Outputs
 
 | name                    | description                                                                       |
-|-------------------------|-----------------------------------------------------------------------------------|
+| ----------------------- | --------------------------------------------------------------------------------- |
 | `tool-versions-version` | <p>Version found in .tool-versions</p>                                            |
 | `dockerfile-version`    | <p>Version found in Dockerfile</p>                                                |
 | `devcontainer-version`  | <p>Version found in devcontainer.json</p>                                         |

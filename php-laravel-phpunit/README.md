@@ -9,7 +9,7 @@ Setup PHP, install dependencies, generate key, create database and run composer 
 ### Inputs
 
 | name               | description                                                                                                           | required | default                                     |
-|--------------------|-----------------------------------------------------------------------------------------------------------------------|----------|---------------------------------------------|
+| ------------------ | --------------------------------------------------------------------------------------------------------------------- | -------- | ------------------------------------------- |
 | `php-version`      | <p>PHP Version to use, see https://github.com/marketplace/actions/setup-php-action#php-version-optional</p>           | `false`  | `latest`                                    |
 | `php-version-file` | <p>PHP Version file to use, see https://github.com/marketplace/actions/setup-php-action#php-version-file-optional</p> | `false`  | `.php-version`                              |
 | `extensions`       | <p>PHP extensions to install, see https://github.com/marketplace/actions/setup-php-action#extensions-optional</p>     | `false`  | `mbstring, intl, json, pdo_sqlite, sqlite3` |
@@ -19,7 +19,7 @@ Setup PHP, install dependencies, generate key, create database and run composer 
 ### Outputs
 
 | name               | description                                    |
-|--------------------|------------------------------------------------|
+| ------------------ | ---------------------------------------------- |
 | `php-version`      | <p>The PHP version that was setup</p>          |
 | `php-version-file` | <p>The PHP version file that was used</p>      |
 | `extensions`       | <p>The PHP extensions that were installed</p>  |

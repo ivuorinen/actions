@@ -9,7 +9,7 @@ Publishes the package to the NPM registry with configurable scope and registry U
 ### Inputs
 
 | name              | description                            | required | default                                |
-|-------------------|----------------------------------------|----------|----------------------------------------|
+| ----------------- | -------------------------------------- | -------- | -------------------------------------- |
 | `npm_token`       | <p>NPM token.</p>                      | `true`   | `""`                                   |
 | `registry-url`    | <p>Registry URL for publishing.</p>    | `false`  | `https://registry.npmjs.org/`          |
 | `scope`           | <p>Package scope to use.</p>           | `false`  | `@ivuorinen`                           |
@@ -19,7 +19,7 @@ Publishes the package to the NPM registry with configurable scope and registry U
 ### Outputs
 
 | name              | description                         |
-|-------------------|-------------------------------------|
+| ----------------- | ----------------------------------- |
 | `registry-url`    | <p>Registry URL for publishing.</p> |
 | `scope`           | <p>Package scope to use.</p>        |
 | `package-version` | <p>The version to publish.</p>      |

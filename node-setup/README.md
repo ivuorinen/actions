@@ -9,7 +9,7 @@ Sets up Node.js env with advanced version management, caching, and tooling.
 ### Inputs
 
 | name              | description                                                              | required | default                      |
-|-------------------|--------------------------------------------------------------------------|----------|------------------------------|
+| ----------------- | ------------------------------------------------------------------------ | -------- | ---------------------------- |
 | `default-version` | <p>Default Node.js version to use if no configuration file is found.</p> | `false`  | `22`                         |
 | `package-manager` | <p>Node.js package manager to use (npm, yarn, pnpm, bun, auto)</p>       | `false`  | `auto`                       |
 | `registry-url`    | <p>Custom NPM registry URL</p>                                           | `false`  | `https://registry.npmjs.org` |
@@ -23,7 +23,7 @@ Sets up Node.js env with advanced version management, caching, and tooling.
 ### Outputs
 
 | name                  | description                                        |
-|-----------------------|----------------------------------------------------|
+| --------------------- | -------------------------------------------------- |
 | `node-version`        | <p>Installed Node.js version</p>                   |
 | `package-manager`     | <p>Selected package manager</p>                    |
 | `cache-hit`           | <p>Indicates if there was a cache hit</p>          |

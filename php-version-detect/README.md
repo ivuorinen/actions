@@ -9,14 +9,14 @@ Detects the PHP version from the project's composer.json, phpunit.xml, or other 
 ### Inputs
 
 | name              | description                                                  | required | default |
-|-------------------|--------------------------------------------------------------|----------|---------|
+| ----------------- | ------------------------------------------------------------ | -------- | ------- |
 | `default-version` | <p>Default PHP version to use if no version is detected.</p> | `false`  | `8.2`   |
 | `token`           | <p>GitHub token for authentication</p>                       | `false`  | `""`    |
 
 ### Outputs
 
 | name          | description                             |
-|---------------|-----------------------------------------|
+| ------------- | --------------------------------------- |
 | `php-version` | <p>Detected or default PHP version.</p> |
 
 ### Runs
