@@ -107,7 +107,7 @@ runs:
         echo "Input validation completed successfully"
 
     - name: Checkout Repository
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token }}
 
@@ -233,6 +233,6 @@ runs:
 
     - name: Upload Biome Results
       if: always()
-      uses: github/codeql-action/upload-sarif@0499de31b99561a6d14a36a5f662c2a54f91beee # v4.31.2
+      uses: github/codeql-action/upload-sarif@014f16e7ab1402f30e7c3329d33797e7948572db # v4.31.3
       with:
         sarif_file: biome-report.sarif
