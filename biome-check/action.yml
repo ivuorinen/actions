@@ -111,13 +111,6 @@ runs:
       with:
         token: ${{ inputs.token }}
 
-    - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
-
     - name: Node Setup
       id: node-setup
       uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42

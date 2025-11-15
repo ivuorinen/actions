@@ -45,6 +45,32 @@
     - macOS/Windows runners may lack Linux tools (jq, bc, specific GNU utils)
     - Always provide fallbacks or explicit installation steps
 
+11. **NEVER** use `set-git-config` action - use direct git config or action parameters instead
+    - Git-related actions (`peter-evans/create-pull-request`, `stefanzweifel/git-auto-commit-action`) handle their own auth
+    - For direct git commands, configure git manually when needed: `git config user.name/user.email`
+    - Pattern for actions with git-auto-commit:
+
+      ```yaml
+      - uses: stefanzweifel/git-auto-commit-action@SHA
+        with:
+          commit_user_name: ${{ inputs.username }}
+          commit_user_email: ${{ inputs.email }}
+      ```
+
+    - Pattern for actions with direct git commands:
+
+      ```yaml
+      - shell: bash
+        run: |
+          git config user.name "${{ inputs.username }}"
+          git config user.email "${{ inputs.email }}"
+          git add .
+          git commit -m "message"
+          git push
+      ```
+
+    - Rationale: Avoids complexity, matches proven workflow pattern, no credential conflicts
+
 ## EditorConfig Rules (.editorconfig)
 
 **CRITICAL**: EditorConfig violations are blocking errors and must be fixed always.

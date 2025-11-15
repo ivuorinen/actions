@@ -45,55 +45,19 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-        EMAIL: ${{ inputs.email }}
-        USERNAME: ${{ inputs.username }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-      run: |
-        set -euo pipefail
-
-        # Validate GitHub token format (basic validation)
-        if [[ -n "$GITHUB_TOKEN" ]]; then
-          # Skip validation for GitHub expressions (they'll be resolved at runtime)
-          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
-          fi
-        fi
-
-        # Validate email format (basic check)
-        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
-          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-          exit 1
-        fi
-
-        # Validate username format (prevent command injection)
-        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
-          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
-          exit 1
-        fi
-
-        # Validate username length
-        username="$USERNAME"
-        if [ ${#username} -gt 39 ]; then
-          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
-          exit 1
-        fi
-
-        # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ivuorinen/actions/validate-inputs@0fa9a68f07a1260b321f814202658a6089a43d42
+      with:
+        action-type: 'ansible-lint-fix'
+        token: ${{ inputs.token }}
+        email: ${{ inputs.email }}
+        username: ${{ inputs.username }}
+        max-retries: ${{ inputs.max-retries }}
 
     - name: Check for Ansible Files
       id: check-files
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Check for both .yml and .yaml files
         if find . \( -name "*.yml" -o -name "*.yaml" \) -type f | grep -q .; then
@@ -131,9 +95,9 @@ runs:
     - name: Run ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
       id: lint
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Run ansible-lint and capture exit code
         if ansible-lint --write --parseable-severity --format sarif > ansible-lint.sarif; then
@@ -159,28 +123,13 @@ runs:
         # Exit with the original ansible-lint exit code
         exit "$lint_exit_code"
 
-    - name: Set Git Config for Fixes
-      id: set-git-config
-      if: steps.check-files.outputs.files_found == 'true'
-      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
-
     - name: Commit Fixes
       if: steps.check-files.outputs.files_found == 'true'
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        if git diff --quiet; then
-          echo "No changes to commit."
-        else
-          git add .
-          git commit -m "fix: applied ansible lint fixes"
-          git push
-        fi
+      uses: stefanzweifel/git-auto-commit-action@be7095c202abcf573b09f20541e0ee2f6a3a9d9b # v5.0.1
+      with:
+        commit_message: 'style: apply ansible lint fixes'
+        commit_user_name: ${{ inputs.username }}
+        commit_user_email: ${{ inputs.email }}
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.files_found == 'true'

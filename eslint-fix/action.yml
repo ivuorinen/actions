@@ -57,13 +57,6 @@ runs:
       with:
         token: ${{ inputs.token }}
 
-    - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
-
     - name: Node Setup
       id: node-setup
       uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
@@ -78,69 +71,45 @@ runs:
         key-prefix: 'eslint-fix-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Dependencies
+      id: install-deps
       if: steps.cache.outputs.cache-hit != 'true'
-      shell: bash
+      shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Installing dependencies using $PACKAGE_MANAGER..."
 
-        for attempt in $(seq 1 "$MAX_RETRIES"); do
-          echo "Attempt $attempt of $MAX_RETRIES"
+        # Package managers have built-in retry logic
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            pnpm install --frozen-lockfile
+            ;;
+          "yarn")
+            if [ -f ".yarnrc.yml" ]; then
+              yarn install --immutable
+            else
+              yarn install --frozen-lockfile
+            fi
+            ;;
+          "bun")
+            bun install --frozen-lockfile
+            ;;
+          "npm"|*)
+            npm ci
+            ;;
+        esac
 
-          case "$PACKAGE_MANAGER" in
-            "pnpm")
-              if pnpm install --frozen-lockfile; then
-                echo "✅ Dependencies installed successfully with pnpm"
-                exit 0
-              fi
-              ;;
-            "yarn")
-              if [ -f ".yarnrc.yml" ]; then
-                if yarn install --immutable; then
-                  echo "✅ Dependencies installed successfully with Yarn Berry"
-                  exit 0
-                fi
-              else
-                if yarn install --frozen-lockfile; then
-                  echo "✅ Dependencies installed successfully with Yarn Classic"
-                  exit 0
-                fi
-              fi
-              ;;
-            "bun")
-              if bun install --frozen-lockfile; then
-                echo "✅ Dependencies installed successfully with Bun"
-                exit 0
-              fi
-              ;;
-            "npm"|*)
-              if npm ci; then
-                echo "✅ Dependencies installed successfully with npm"
-                exit 0
-              fi
-              ;;
-          esac
-
-          if [ $attempt -lt "$MAX_RETRIES" ]; then
-            echo "❌ Installation failed, retrying in 5 seconds..."
-            sleep 5
-          fi
-        done
-
-        echo "::error::Failed to install dependencies after $MAX_RETRIES attempts"
-        exit 1
+        echo "✅ Dependencies installed successfully"
 
     - name: Run ESLint Fix
       id: lint
-      shell: bash
+      shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running ESLint fix with $PACKAGE_MANAGER..."
 
@@ -170,9 +139,9 @@ runs:
         # Get number of staged changes
         errors_fixed=$(git diff --cached --numstat | wc -l || echo "0")
 
-        echo "files_changed=$files_changed" >> $GITHUB_OUTPUT
-        echo "errors_fixed=$errors_fixed" >> $GITHUB_OUTPUT
-        echo "status=success" >> $GITHUB_OUTPUT
+        printf '%s\n' "files_changed=$files_changed" >> "$GITHUB_OUTPUT"
+        printf '%s\n' "errors_fixed=$errors_fixed" >> "$GITHUB_OUTPUT"
+        printf '%s\n' "status=success" >> "$GITHUB_OUTPUT"
 
         echo "✅ ESLint fix completed. Files changed: $files_changed, Errors fixed: $errors_fixed"
 
@@ -181,4 +150,6 @@ runs:
       uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
       with:
         commit_message: 'style: autofix ESLint violations'
+        commit_user_name: ${{ inputs.username }}
+        commit_user_email: ${{ inputs.email }}
         add_options: '-u'

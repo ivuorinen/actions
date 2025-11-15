@@ -41,65 +41,18 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-        EMAIL: ${{ inputs.email }}
-        USERNAME: ${{ inputs.username }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-      run: |
-        set -eu
-
-        # Validate GitHub token format (basic validation)
-        if [ -n "$GITHUB_TOKEN" ]; then
-          # Skip validation for GitHub expressions (they'll be resolved at runtime)
-          if ! echo "$GITHUB_TOKEN" | grep -Eq '^gh[efpousr]_[a-zA-Z0-9]{36}$' && ! echo "$GITHUB_TOKEN" | grep -q '^\${{'; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
-          fi
-        fi
-
-        # Validate email format (basic check)
-        case "$EMAIL" in
-          *@*.*) ;;
-          *)
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-            exit 1
-            ;;
-        esac
-
-        # Validate username format (prevent command injection)
-        if echo "$USERNAME" | grep -Eq '[;&|]'; then
-          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
-          exit 1
-        fi
-
-        # Validate username length
-        username="$USERNAME"
-        username_len=$(echo -n "$username" | wc -c | tr -d ' ')
-        if [ "$username_len" -gt 39 ]; then
-          echo "::error::Username too long: ${username_len} characters. GitHub usernames are max 39 characters"
-          exit 1
-        fi
-
-        # Validate max retries (positive integer with reasonable upper limit)
-        if ! echo "$MAX_RETRIES" | grep -Eq '^[0-9]+$' || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ivuorinen/actions/validate-inputs@0fa9a68f07a1260b321f814202658a6089a43d42
+      with:
+        action-type: 'biome-fix'
+        token: ${{ inputs.token }}
+        email: ${{ inputs.email }}
+        username: ${{ inputs.username }}
+        max-retries: ${{ inputs.max-retries }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token }}
-
-    - name: Set Git Config
-      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
 
     - name: Node Setup
       id: node-setup
@@ -115,10 +68,10 @@ runs:
         key-prefix: 'biome-fix-${{ steps.node-setup.outputs.package-manager }}'
 
     - name: Install Biome
+      id: install-biome
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -eu
 
@@ -130,44 +83,23 @@ runs:
 
         echo "Installing Biome using $PACKAGE_MANAGER..."
 
-        for attempt in $(seq 1 "$MAX_RETRIES"); do
-          echo "Attempt $attempt of $MAX_RETRIES"
+        # Package managers have built-in retry logic
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            pnpm add -g @biomejs/biome
+            ;;
+          "yarn")
+            yarn global add @biomejs/biome
+            ;;
+          "bun")
+            bun add -g @biomejs/biome
+            ;;
+          "npm"|*)
+            npm install -g @biomejs/biome
+            ;;
+        esac
 
-          case "$PACKAGE_MANAGER" in
-            "pnpm")
-              if pnpm add -g @biomejs/biome; then
-                echo "✅ Biome installed successfully with pnpm"
-                exit 0
-              fi
-              ;;
-            "yarn")
-              if yarn global add @biomejs/biome; then
-                echo "✅ Biome installed successfully with yarn"
-                exit 0
-              fi
-              ;;
-            "bun")
-              if bun add -g @biomejs/biome; then
-                echo "✅ Biome installed successfully with bun"
-                exit 0
-              fi
-              ;;
-            "npm"|*)
-              if npm install -g @biomejs/biome; then
-                echo "✅ Biome installed successfully with npm"
-                exit 0
-              fi
-              ;;
-          esac
-
-          if [ $attempt -lt "$MAX_RETRIES" ]; then
-            echo "❌ Installation failed, retrying in 5 seconds..."
-            sleep 5
-          fi
-        done
-
-        echo "::error::Failed to install Biome after $MAX_RETRIES attempts"
-        exit 1
+        echo "✅ Biome installed successfully"
 
     - name: Run Biome Fix
       id: fix
@@ -191,8 +123,8 @@ runs:
           status="failure"
         fi
 
-        echo "files_changed=$files_changed" >> "$GITHUB_OUTPUT"
-        echo "status=$status" >> "$GITHUB_OUTPUT"
+        printf '%s\n' "files_changed=$files_changed" >> "$GITHUB_OUTPUT"
+        printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
         echo "✅ Biome fix completed. Files changed: $files_changed, Status: $status"
 
@@ -201,4 +133,6 @@ runs:
       uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
       with:
         commit_message: 'style: autofix Biome violations'
+        commit_user_name: ${{ inputs.username }}
+        commit_user_email: ${{ inputs.email }}
         add_options: '-u'

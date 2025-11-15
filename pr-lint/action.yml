@@ -61,29 +61,18 @@ runs:
         fetch-depth: 0
 
     #   ╭──────────────────────────────────────────────────────────╮
-    #   │                 Setup Git configuration                  │
-    #   ╰──────────────────────────────────────────────────────────╯
-    - name: Setup Git Config
-      id: git-config
-      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        token: ${{ inputs.token || github.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
-
-    #   ╭──────────────────────────────────────────────────────────╮
     #   │               Install packages for linting               │
     #   ╰──────────────────────────────────────────────────────────╯
 
     # Node.js tests if package.json exists
     - name: Detect package.json
       id: detect-node
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         if [ -f package.json ]; then
-          echo "found=true" >> $GITHUB_OUTPUT
+          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Setup Node.js environment
@@ -96,12 +85,12 @@ runs:
     # PHP tests if composer.json exists
     - name: Detect composer.json
       id: detect-php
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         if [ -f composer.json ]; then
-          echo "found=true" >> $GITHUB_OUTPUT
+          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect PHP Version
@@ -121,31 +110,31 @@ runs:
 
     - name: Setup problem matchers for PHP
       if: steps.detect-php.outputs.found == 'true'
-      shell: bash
+      shell: sh
       env:
         RUNNER_TOOL_CACHE: ${{ runner.tool_cache }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "::add-matcher::$RUNNER_TOOL_CACHE/php.json"
 
     - name: Install PHP dependencies
       if: steps.detect-php.outputs.found == 'true'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         composer install --no-progress --prefer-dist --no-interaction
 
     # Python tests if requirements.txt exists
     - name: Detect requirements.txt
       id: detect-python
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         if [ -f requirements.txt ]; then
-          echo "found=true" >> $GITHUB_OUTPUT
+          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect Python Version
@@ -162,21 +151,21 @@ runs:
 
     - name: Install Python dependencies
       if: steps.detect-python.outputs.found == 'true'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         pip install -r requirements.txt
 
     # Go tests if go.mod exists
     - name: Detect go.mod
       id: detect-go
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         if [ -f go.mod ]; then
-          echo "found=true" >> $GITHUB_OUTPUT
+          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect Go Version
@@ -221,7 +210,7 @@ runs:
             contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
           }}
 
-        GITHUB_TOKEN: ${{ steps.git-config.outputs.token || inputs.token || github.token }}
+        GITHUB_TOKEN: ${{ inputs.token || github.token }}
 
         # Apply linter fixes configuration
         #
@@ -245,7 +234,7 @@ runs:
 
     # Export env vars to make them available for subsequent expressions
     - name: Export Apply Fixes Variables
-      shell: bash
+      shell: sh
       run: |
         echo "APPLY_FIXES_EVENT=pull_request" >> "$GITHUB_ENV"
         echo "APPLY_FIXES_MODE=commit" >> "$GITHUB_ENV"
@@ -263,7 +252,7 @@ runs:
 
     # Set APPLY_FIXES_IF var for use in future steps
     - name: Set APPLY_FIXES_IF var
-      shell: bash
+      shell: sh
       env:
         APPLY_FIXES_CONDITION: >-
           ${{
@@ -272,7 +261,7 @@ runs:
             (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
           }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Sanitize by removing newlines to prevent env var injection
         sanitized_condition="$(echo "$APPLY_FIXES_CONDITION" | tr -d '\n\r')"
@@ -280,12 +269,12 @@ runs:
 
     # Set APPLY_FIXES_IF_* vars for use in future steps
     - name: Set APPLY_FIXES_IF_* vars
-      shell: bash
+      shell: sh
       env:
         APPLY_FIXES_IF_PR_CONDITION: ${{ env.APPLY_FIXES_IF == 'true' && env.APPLY_FIXES_MODE == 'pull_request' }}
         APPLY_FIXES_IF_COMMIT_CONDITION: ${{ env.APPLY_FIXES_IF == 'true' && env.APPLY_FIXES_MODE == 'commit' && (!contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)) }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Sanitize by removing newlines to prevent env var injection
         sanitized_pr="$(echo "$APPLY_FIXES_IF_PR_CONDITION" | tr -d '\n\r')"
@@ -301,19 +290,19 @@ runs:
       id: cpr
       if: env.APPLY_FIXES_IF_PR == 'true'
       with:
-        token: ${{ steps.git-config.outputs.token || inputs.token || github.token }}
-        commit-message: '[MegaLinter] Apply linters automatic fixes'
-        title: '[MegaLinter] Apply linters automatic fixes'
+        token: ${{ inputs.token || github.token }}
+        commit-message: 'style: apply linter fixes'
+        title: 'style: apply linter fixes'
         labels: bot
 
     - name: Create PR output
       if: env.APPLY_FIXES_IF_PR == 'true'
-      shell: bash
+      shell: sh
       env:
         PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
         PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "PR Number - $PR_NUMBER"
         echo "PR URL - $PR_URL"
@@ -322,7 +311,7 @@ runs:
     # (for now works only on PR from same repository, not from forks)
     - name: Prepare commit
       if: env.APPLY_FIXES_IF_COMMIT == 'true'
-      shell: bash
+      shell: sh
       env:
         BRANCH_REF: >-
           ${{
@@ -331,7 +320,7 @@ runs:
             github.ref_name
           }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Fix .git directory ownership after MegaLinter container execution
         sudo chown -Rc "$UID" .git/
@@ -361,6 +350,6 @@ runs:
             github.head_ref ||
             github.ref
           }}
-        commit_message: '[MegaLinter] Apply linters fixes'
-        commit_user_name: ${{ steps.git-config.outputs.username }}
-        commit_user_email: ${{ steps.git-config.outputs.email }}
+        commit_message: 'style: apply linter fixes'
+        commit_user_name: ${{ inputs.username }}
+        commit_user_email: ${{ inputs.email }}
