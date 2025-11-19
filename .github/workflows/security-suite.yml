@@ -43,7 +43,7 @@ jobs:
 
       - name: Fetch PR Base
         run: |
-          set -euo pipefail
+          set -eu
           # Fetch the base ref from base repository with authentication (works for private repos and forked PRs)
           # Using ref instead of SHA because git fetch requires ref names, not raw commit IDs
           # Use authenticated URL to avoid 403/404 on private repositories
