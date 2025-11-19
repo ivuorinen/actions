@@ -78,6 +78,8 @@ runs:
         INPUT_DOCKERHUB_USERNAME: ${{ inputs.dockerhub-username }}
         INPUT_DOCKERHUB_TOKEN: ${{ inputs.dockerhub-token }}
         INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
       run: |
         set -eu
 
@@ -107,6 +109,40 @@ runs:
             exit 1
           fi
         fi
+
+        # Validate context input for security
+        INPUT_CONTEXT="${INPUT_CONTEXT:-.}"
+        case "$INPUT_CONTEXT" in
+          .|./*|*/*)
+            # Relative paths are allowed
+            ;;
+          /*)
+            echo "::error::Context cannot be an absolute path: '$INPUT_CONTEXT'"
+            echo "::error::Use relative paths (e.g., '.', './app') to prevent code injection"
+            exit 1
+            ;;
+          *://*)
+            echo "::warning::Context is a remote URL: '$INPUT_CONTEXT'"
+            echo "::warning::Ensure this URL is from a trusted source to prevent code injection"
+            ;;
+        esac
+
+        # Validate dockerfile input for security
+        INPUT_DOCKERFILE="${INPUT_DOCKERFILE:-Dockerfile}"
+        case "$INPUT_DOCKERFILE" in
+          Dockerfile|*/Dockerfile|*.dockerfile|*/*.dockerfile)
+            # Common dockerfile patterns are allowed
+            ;;
+          /*)
+            echo "::error::Dockerfile path cannot be absolute: '$INPUT_DOCKERFILE'"
+            echo "::error::Use relative paths (e.g., 'Dockerfile', './docker/Dockerfile')"
+            exit 1
+            ;;
+          *://*)
+            echo "::error::Dockerfile path cannot be a URL: '$INPUT_DOCKERFILE'"
+            exit 1
+            ;;
+        esac
 
         echo "Input validation completed successfully"
 
