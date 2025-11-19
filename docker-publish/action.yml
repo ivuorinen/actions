@@ -213,7 +213,7 @@ runs:
           for tag in $INPUT_TAGS; do
             tag=$(echo "$tag" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
             if [ -n "$tags" ]; then
-              tags="${tags}"$'\n'"${image}:${tag}"
+              tags="$(printf '%s\n%s' "$tags" "${image}:${tag}")"
             else
               tags="${image}:${tag}"
             fi
