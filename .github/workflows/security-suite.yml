@@ -97,6 +97,9 @@ jobs:
             const fs = require('fs');
             const path = require('path');
 
+            // Unique marker to identify our bot comment
+            const SECURITY_COMMENT_MARKER = '<!-- security-analysis-bot-comment -->';
+
             const findings = {
               permissions: [],
               actions: [],
@@ -314,15 +317,15 @@ jobs:
             // Export critical count as output
             core.setOutput('critical_issues', criticalCount.toString());
 
-            // Generate final comment
-            let comment = '## ✅ Security Analysis\n\n';
+            // Generate final comment with unique marker
+            let comment = `${SECURITY_COMMENT_MARKER}\n## ✅ Security Analysis\n\n`;
             if (sections.length === 0) {
               comment += 'No security issues detected in this PR.';
             } else {
               comment += sections.join('\n\n');
             }
 
-            // Find existing security comment
+            // Find existing security comment using unique marker
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -330,8 +333,7 @@ jobs:
             });
 
             const existingComment = comments.find(comment =>
-              comment.body.includes('Security Analysis') ||
-              comment.body.includes('🔐 GitHub Actions Permissions')
+              comment.body && comment.body.includes(SECURITY_COMMENT_MARKER)
             );
 
             if (existingComment) {
