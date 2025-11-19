@@ -6,30 +6,6 @@
 
 Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
 
-### Security Considerations
-
-**Trust Model**: This action should only be used in trusted workflows controlled by repository owners.
-Do not pass untrusted user input (e.g., PR labels, comments, external webhooks) to the `context`
-or `dockerfile` parameters.
-
-**Input Validation**: The action validates `context` and `dockerfile` inputs to prevent code injection attacks:
-
-- **`context`**: Must be a relative path (e.g., `.`, `./app`, `subdir/`). Absolute paths are rejected. Remote URLs trigger a warning and should only be used from trusted sources.
-- **`dockerfile`**: Must be a relative path (e.g., `Dockerfile`, `./docker/Dockerfile`). Absolute paths and URLs are rejected.
-
-These validations help prevent malicious actors from:
-
-- Building Docker images from arbitrary file system locations
-- Fetching malicious Dockerfiles from untrusted remote sources
-- Executing code injection attacks through build context manipulation
-
-**Best Practices**:
-
-1. Only use hard-coded values or trusted workflow variables for `context` and `dockerfile`
-2. Never accept these values from PR comments, labels, or external webhooks
-3. Review workflow permissions before granting write access to this action
-4. Use SHA-pinned action references: `ivuorinen/actions/docker-publish@<commit-sha>`
-
 ### Inputs
 
 | name                 | description                                                       | required | default                   |

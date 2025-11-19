@@ -354,7 +354,15 @@ class ValidationRuleGenerator:
                 "threads": "numeric_range_1_128",
                 "output": "file_path",
                 "skip-queries": "boolean",
-                "add-snippets": "boolean",
+            },
+            "biome-lint": {
+                "mode": "mode_enum",
+            },
+            "eslint-lint": {
+                "mode": "mode_enum",
+            },
+            "prettier-lint": {
+                "mode": "mode_enum",
             },
         }
 
