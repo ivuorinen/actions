@@ -120,7 +120,7 @@ outputs:
     value: ${{ steps.build.outputs.metadata }}
   platforms:
     description: 'Successfully built platforms'
-    value: ${{ steps.platforms.outputs.built }}
+    value: ${{ steps.detect-platforms.outputs.platforms }}
   platform-matrix:
     description: 'Build status per platform in JSON format'
     value: ${{ steps.build.outputs.platform-matrix }}
