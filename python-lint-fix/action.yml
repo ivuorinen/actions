@@ -162,7 +162,7 @@ runs:
         # Create virtual environment if it doesn't exist from cache
         if [ ! -d ".venv" ]; then
           python -m venv .venv
-          source .venv/bin/activate
+          . .venv/bin/activate
           pip install "flake8==$FLAKE8_VERSION" "flake8-sarif==0.6.0" "autopep8==$AUTOPEP8_VERSION"
         fi
 
@@ -176,7 +176,7 @@ runs:
       run: |
         set -eu
 
-        source .venv/bin/activate
+        . .venv/bin/activate
         cd "$WORKING_DIRECTORY"
 
         # Create temporary directory for reports
@@ -189,7 +189,7 @@ runs:
           echo "Found $error_count linting errors"
           printf '%s\n' "error_count=$error_count" >> "$GITHUB_OUTPUT"
 
-          if [[ "$FAIL_ON_ERROR" == "true" ]]; then
+          if [ "$FAIL_ON_ERROR" = "true" ]; then
             echo "::error::Linting failed with $error_count errors"
             printf '%s\n' "result=failure" >> "$GITHUB_OUTPUT"
             exit 1
@@ -208,7 +208,7 @@ runs:
       run: |
         set -eu
 
-        source .venv/bin/activate
+        . .venv/bin/activate
         cd "$WORKING_DIRECTORY"
 
         # Create temporary file for tracking changes
