@@ -30,7 +30,7 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 |:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
 |  🔀  | [`action-versioning`][action-versioning]             | Utilities  | Automatically update SHA-pinned action references to match l... | Token auth, Outputs                          |
 |  📦  | [`ansible-lint-fix`][ansible-lint-fix]               | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Token auth, Outputs                          |
-|  ✅   | [`biome-lint`][biome-lint]                           | Other      | Run Biome linter in check or fix mode                           | Token auth, Outputs                          |
+|  ✅   | [`biome-lint`][biome-lint]                           | Linting    | Run Biome linter in check or fix mode                           | Token auth, Outputs                          |
 | 🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
 |  💾  | [`common-cache`][common-cache]                       | Repository | Standardized caching strategy for all actions                   | Caching, Outputs                             |
 | 🖼️  | [`compress-images`][compress-images]                 | Repository | Compress images on demand (workflow_dispatch), and at 11pm e... | Token auth, Outputs                          |
@@ -38,11 +38,11 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 |  📝  | [`csharp-lint-check`][csharp-lint-check]             | Linting    | Runs linters like StyleCop or dotnet-format for C# code styl... | Auto-detection, Token auth, Outputs          |
 |  📦  | [`csharp-publish`][csharp-publish]                   | Publishing | Publishes a C# project to GitHub Packages.                      | Auto-detection, Token auth, Outputs          |
 |  📦  | [`docker-build`][docker-build]                       | Build      | Builds a Docker image for multiple architectures with enhanc... | Caching, Auto-detection, Token auth, Outputs |
-|  ☁️  | [`docker-publish`][docker-publish]                   | Publishing | Publish a Docker image to GitHub Packages and Docker Hub.       | Auto-detection, Token auth, Outputs          |
-|  ✅   | [`eslint-lint`][eslint-lint]                         | Other      | Run ESLint in check or fix mode with advanced configuration ... | Caching, Token auth, Outputs                 |
+|  ☁️  | [`docker-publish`][docker-publish]                   | Publishing | Simple wrapper to publish Docker images to GitHub Packages a... | Token auth, Outputs                          |
+|  ✅   | [`eslint-lint`][eslint-lint]                         | Linting    | Run ESLint in check or fix mode with advanced configuration ... | Caching, Token auth, Outputs                 |
 |  📦  | [`go-build`][go-build]                               | Build      | Builds the Go project.                                          | Caching, Auto-detection, Token auth, Outputs |
 |  📝  | [`go-lint`][go-lint]                                 | Linting    | Run golangci-lint with advanced configuration, caching, and ... | Caching, Token auth, Outputs                 |
-|  📝  | [`language-version-detect`][language-version-detect] | Other      | Detects language version from project configuration files wi... | Auto-detection, Token auth, Outputs          |
+|  📝  | [`language-version-detect`][language-version-detect] | Setup      | Detects language version from project configuration files wi... | Auto-detection, Token auth, Outputs          |
 | 🖥️  | [`node-setup`][node-setup]                           | Setup      | Sets up Node.js environment with version detection and packa... | Auto-detection, Token auth, Outputs          |
 |  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Token auth, Outputs                          |
 | 🖥️  | [`php-composer`][php-composer]                       | Testing    | Runs Composer install on a repository with advanced caching ... | Auto-detection, Token auth, Outputs          |
@@ -50,7 +50,7 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 |  ✅   | [`php-tests`][php-tests]                             | Testing    | Run PHPUnit tests on the repository                             | Token auth, Outputs                          |
 |  ✅   | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests                           | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`pre-commit`][pre-commit]                           | Linting    | Runs pre-commit on the repository and pushes the fixes back ... | Auto-detection, Token auth, Outputs          |
-|  ✅   | [`prettier-lint`][prettier-lint]                     | Other      | Run Prettier in check or fix mode with advanced configuratio... | Caching, Token auth, Outputs                 |
+|  ✅   | [`prettier-lint`][prettier-lint]                     | Linting    | Run Prettier in check or fix mode with advanced configuratio... | Caching, Token auth, Outputs                 |
 |  📝  | [`python-lint-fix`][python-lint-fix]                 | Linting    | Lints and fixes Python files, commits changes, and uploads S... | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`release-monthly`][release-monthly]                 | Repository | Creates a release for the current month, incrementing patch ... | Token auth, Outputs                          |
 |  📦  | [`stale`][stale]                                     | Repository | A GitHub Action to close stale issues and pull requests.        | Token auth, Outputs                          |
@@ -61,30 +61,34 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 
 ### Actions by Category
 
-#### 🔧 Setup (1 action)
+#### 🔧 Setup (2 actions)
 
-| Action                         | Description                                           | Languages                       | Features                            |
-|:-------------------------------|:------------------------------------------------------|:--------------------------------|:------------------------------------|
-| 🖥️ [`node-setup`][node-setup] | Sets up Node.js environment with version detection... | Node.js, JavaScript, TypeScript | Auto-detection, Token auth, Outputs |
+| Action                                                  | Description                                           | Languages                       | Features                            |
+|:--------------------------------------------------------|:------------------------------------------------------|:--------------------------------|:------------------------------------|
+| 📝 [`language-version-detect`][language-version-detect] | Detects language version from project configuratio... | PHP, Python, Go, .NET, Node.js  | Auto-detection, Token auth, Outputs |
+| 🖥️ [`node-setup`][node-setup]                          | Sets up Node.js environment with version detection... | Node.js, JavaScript, TypeScript | Auto-detection, Token auth, Outputs |
 
 #### 🛠️ Utilities (2 actions)
 
 | Action                                          | Description                                           | Languages          | Features                |
 |:------------------------------------------------|:------------------------------------------------------|:-------------------|:------------------------|
-| 🔀 [`action-versioning`][action-versioning]     | Automatically update SHA-pinned action references ... | -                  | Token auth, Outputs     |
+| 🔀 [`action-versioning`][action-versioning]     | Automatically update SHA-pinned action references ... | GitHub Actions     | Token auth, Outputs     |
 | 📦 [`version-file-parser`][version-file-parser] | Universal parser for common version detection file... | Multiple Languages | Auto-detection, Outputs |
 
-#### 📝 Linting (7 actions)
+#### 📝 Linting (10 actions)
 
-| Action                                         | Description                                           | Languages                  | Features                                     |
-|:-----------------------------------------------|:------------------------------------------------------|:---------------------------|:---------------------------------------------|
-| 📦 [`ansible-lint-fix`][ansible-lint-fix]      | Lints and fixes Ansible playbooks, commits changes... | Ansible, YAML              | Token auth, Outputs                          |
-| 📝 [`csharp-lint-check`][csharp-lint-check]    | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                   | Auto-detection, Token auth, Outputs          |
-| 📝 [`go-lint`][go-lint]                        | Run golangci-lint with advanced configuration, cac... | Go                         | Caching, Token auth, Outputs                 |
-| ✅ [`pr-lint`][pr-lint]                         | Runs MegaLinter against pull requests                 | Conventional Commits       | Caching, Auto-detection, Token auth, Outputs |
-| 📦 [`pre-commit`][pre-commit]                  | Runs pre-commit on the repository and pushes the f... | Python, Multiple Languages | Auto-detection, Token auth, Outputs          |
-| 📝 [`python-lint-fix`][python-lint-fix]        | Lints and fixes Python files, commits changes, and... | Python                     | Caching, Auto-detection, Token auth, Outputs |
-| 🖥️ [`terraform-lint-fix`][terraform-lint-fix] | Lints and fixes Terraform files with advanced vali... | Terraform, HCL             | Token auth, Outputs                          |
+| Action                                         | Description                                           | Languages                                    | Features                                     |
+|:-----------------------------------------------|:------------------------------------------------------|:---------------------------------------------|:---------------------------------------------|
+| 📦 [`ansible-lint-fix`][ansible-lint-fix]      | Lints and fixes Ansible playbooks, commits changes... | Ansible, YAML                                | Token auth, Outputs                          |
+| ✅ [`biome-lint`][biome-lint]                   | Run Biome linter in check or fix mode                 | JavaScript, TypeScript, JSON                 | Token auth, Outputs                          |
+| 📝 [`csharp-lint-check`][csharp-lint-check]    | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Auto-detection, Token auth, Outputs          |
+| ✅ [`eslint-lint`][eslint-lint]                 | Run ESLint in check or fix mode with advanced conf... | JavaScript, TypeScript                       | Caching, Token auth, Outputs                 |
+| 📝 [`go-lint`][go-lint]                        | Run golangci-lint with advanced configuration, cac... | Go                                           | Caching, Token auth, Outputs                 |
+| ✅ [`pr-lint`][pr-lint]                         | Runs MegaLinter against pull requests                 | Conventional Commits                         | Caching, Auto-detection, Token auth, Outputs |
+| 📦 [`pre-commit`][pre-commit]                  | Runs pre-commit on the repository and pushes the f... | Python, Multiple Languages                   | Auto-detection, Token auth, Outputs          |
+| ✅ [`prettier-lint`][prettier-lint]             | Run Prettier in check or fix mode with advanced co... | JavaScript, TypeScript, Markdown, YAML, JSON | Caching, Token auth, Outputs                 |
+| 📝 [`python-lint-fix`][python-lint-fix]        | Lints and fixes Python files, commits changes, and... | Python                                       | Caching, Auto-detection, Token auth, Outputs |
+| 🖥️ [`terraform-lint-fix`][terraform-lint-fix] | Lints and fixes Terraform files with advanced vali... | Terraform, HCL                               | Token auth, Outputs                          |
 
 #### 🧪 Testing (3 actions)
 
@@ -107,7 +111,7 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 | Action                                | Description                                           | Languages    | Features                            |
 |:--------------------------------------|:------------------------------------------------------|:-------------|:------------------------------------|
 | 📦 [`csharp-publish`][csharp-publish] | Publishes a C# project to GitHub Packages.            | C#, .NET     | Auto-detection, Token auth, Outputs |
-| ☁️ [`docker-publish`][docker-publish] | Publish a Docker image to GitHub Packages and Dock... | Docker       | Auto-detection, Token auth, Outputs |
+| ☁️ [`docker-publish`][docker-publish] | Simple wrapper to publish Docker images to GitHub ... | Docker       | Token auth, Outputs                 |
 | 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Token auth, Outputs                 |
 
 #### 📦 Repository (6 actions)
@@ -115,10 +119,10 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 | Action                                   | Description                                           | Languages                                               | Features                            |
 |:-----------------------------------------|:------------------------------------------------------|:--------------------------------------------------------|:------------------------------------|
 | 🛡️ [`codeql-analysis`][codeql-analysis] | Run CodeQL security analysis for a single language... | JavaScript, TypeScript, Python, Java, C#, C++, Go, Ruby | Auto-detection, Token auth, Outputs |
-| 💾 [`common-cache`][common-cache]        | Standardized caching strategy for all actions         | -                                                       | Caching, Outputs                    |
-| 🖼️ [`compress-images`][compress-images] | Compress images on demand (workflow_dispatch), and... | -                                                       | Token auth, Outputs                 |
-| 📦 [`release-monthly`][release-monthly]  | Creates a release for the current month, increment... | -                                                       | Token auth, Outputs                 |
-| 📦 [`stale`][stale]                      | A GitHub Action to close stale issues and pull req... | -                                                       | Token auth, Outputs                 |
+| 💾 [`common-cache`][common-cache]        | Standardized caching strategy for all actions         | Caching                                                 | Caching, Outputs                    |
+| 🖼️ [`compress-images`][compress-images] | Compress images on demand (workflow_dispatch), and... | Images, PNG, JPEG                                       | Token auth, Outputs                 |
+| 📦 [`release-monthly`][release-monthly]  | Creates a release for the current month, increment... | GitHub Actions                                          | Token auth, Outputs                 |
+| 📦 [`stale`][stale]                      | A GitHub Action to close stale issues and pull req... | GitHub Actions                                          | Token auth, Outputs                 |
 | 🏷️ [`sync-labels`][sync-labels]         | Sync labels from a YAML file to a GitHub repositor... | YAML, GitHub                                            | Token auth, Outputs                 |
 
 #### ✅ Validation (1 action)
@@ -141,7 +145,7 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 | [`csharp-lint-check`][csharp-lint-check]             |    -    |       ✅        |     ✅      |    ✅    |
 | [`csharp-publish`][csharp-publish]                   |    -    |       ✅        |     ✅      |    ✅    |
 | [`docker-build`][docker-build]                       |    ✅    |       ✅        |     ✅      |    ✅    |
-| [`docker-publish`][docker-publish]                   |    -    |       ✅        |     ✅      |    ✅    |
+| [`docker-publish`][docker-publish]                   |    -    |       -        |     ✅      |    ✅    |
 | [`eslint-lint`][eslint-lint]                         |    ✅    |       -        |     ✅      |    ✅    |
 | [`go-build`][go-build]                               |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`go-lint`][go-lint]                                 |    ✅    |       -        |     ✅      |    ✅    |
@@ -164,30 +168,36 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 
 ### Language Support
 
-| Language             | Actions                                                                                                                                            |
-|:---------------------|:---------------------------------------------------------------------------------------------------------------------------------------------------|
-| .NET                 | [`csharp-build`][csharp-build], [`csharp-lint-check`][csharp-lint-check], [`csharp-publish`][csharp-publish]                                       |
-| Ansible              | [`ansible-lint-fix`][ansible-lint-fix]                                                                                                             |
-| C#                   | [`codeql-analysis`][codeql-analysis], [`csharp-build`][csharp-build], [`csharp-lint-check`][csharp-lint-check], [`csharp-publish`][csharp-publish] |
-| C++                  | [`codeql-analysis`][codeql-analysis]                                                                                                               |
-| Conventional Commits | [`pr-lint`][pr-lint]                                                                                                                               |
-| Docker               | [`docker-build`][docker-build], [`docker-publish`][docker-publish]                                                                                 |
-| GitHub               | [`sync-labels`][sync-labels]                                                                                                                       |
-| GitHub Actions       | [`validate-inputs`][validate-inputs]                                                                                                               |
-| Go                   | [`codeql-analysis`][codeql-analysis], [`go-build`][go-build], [`go-lint`][go-lint]                                                                 |
-| HCL                  | [`terraform-lint-fix`][terraform-lint-fix]                                                                                                         |
-| Java                 | [`codeql-analysis`][codeql-analysis]                                                                                                               |
-| JavaScript           | [`codeql-analysis`][codeql-analysis], [`node-setup`][node-setup]                                                                                   |
-| Laravel              | [`php-laravel-phpunit`][php-laravel-phpunit]                                                                                                       |
-| Multiple Languages   | [`pre-commit`][pre-commit], [`version-file-parser`][version-file-parser]                                                                           |
-| Node.js              | [`node-setup`][node-setup], [`npm-publish`][npm-publish]                                                                                           |
-| PHP                  | [`php-composer`][php-composer], [`php-laravel-phpunit`][php-laravel-phpunit], [`php-tests`][php-tests]                                             |
-| Python               | [`codeql-analysis`][codeql-analysis], [`pre-commit`][pre-commit], [`python-lint-fix`][python-lint-fix]                                             |
-| Ruby                 | [`codeql-analysis`][codeql-analysis]                                                                                                               |
-| Terraform            | [`terraform-lint-fix`][terraform-lint-fix]                                                                                                         |
-| TypeScript           | [`codeql-analysis`][codeql-analysis], [`node-setup`][node-setup]                                                                                   |
-| YAML                 | [`ansible-lint-fix`][ansible-lint-fix], [`sync-labels`][sync-labels], [`validate-inputs`][validate-inputs]                                         |
-| npm                  | [`npm-publish`][npm-publish]                                                                                                                       |
+| Language             | Actions                                                                                                                                                            |
+|:---------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| .NET                 | [`csharp-build`][csharp-build], [`csharp-lint-check`][csharp-lint-check], [`csharp-publish`][csharp-publish], [`language-version-detect`][language-version-detect] |
+| Ansible              | [`ansible-lint-fix`][ansible-lint-fix]                                                                                                                             |
+| C#                   | [`codeql-analysis`][codeql-analysis], [`csharp-build`][csharp-build], [`csharp-lint-check`][csharp-lint-check], [`csharp-publish`][csharp-publish]                 |
+| C++                  | [`codeql-analysis`][codeql-analysis]                                                                                                                               |
+| Caching              | [`common-cache`][common-cache]                                                                                                                                     |
+| Conventional Commits | [`pr-lint`][pr-lint]                                                                                                                                               |
+| Docker               | [`docker-build`][docker-build], [`docker-publish`][docker-publish]                                                                                                 |
+| GitHub               | [`sync-labels`][sync-labels]                                                                                                                                       |
+| GitHub Actions       | [`action-versioning`][action-versioning], [`release-monthly`][release-monthly], [`stale`][stale], [`validate-inputs`][validate-inputs]                             |
+| Go                   | [`codeql-analysis`][codeql-analysis], [`go-build`][go-build], [`go-lint`][go-lint], [`language-version-detect`][language-version-detect]                           |
+| HCL                  | [`terraform-lint-fix`][terraform-lint-fix]                                                                                                                         |
+| Images               | [`compress-images`][compress-images]                                                                                                                               |
+| JPEG                 | [`compress-images`][compress-images]                                                                                                                               |
+| JSON                 | [`biome-lint`][biome-lint], [`prettier-lint`][prettier-lint]                                                                                                       |
+| Java                 | [`codeql-analysis`][codeql-analysis]                                                                                                                               |
+| JavaScript           | [`biome-lint`][biome-lint], [`codeql-analysis`][codeql-analysis], [`eslint-lint`][eslint-lint], [`node-setup`][node-setup], [`prettier-lint`][prettier-lint]       |
+| Laravel              | [`php-laravel-phpunit`][php-laravel-phpunit]                                                                                                                       |
+| Markdown             | [`prettier-lint`][prettier-lint]                                                                                                                                   |
+| Multiple Languages   | [`pre-commit`][pre-commit], [`version-file-parser`][version-file-parser]                                                                                           |
+| Node.js              | [`language-version-detect`][language-version-detect], [`node-setup`][node-setup], [`npm-publish`][npm-publish]                                                     |
+| PHP                  | [`language-version-detect`][language-version-detect], [`php-composer`][php-composer], [`php-laravel-phpunit`][php-laravel-phpunit], [`php-tests`][php-tests]       |
+| PNG                  | [`compress-images`][compress-images]                                                                                                                               |
+| Python               | [`codeql-analysis`][codeql-analysis], [`language-version-detect`][language-version-detect], [`pre-commit`][pre-commit], [`python-lint-fix`][python-lint-fix]       |
+| Ruby                 | [`codeql-analysis`][codeql-analysis]                                                                                                                               |
+| Terraform            | [`terraform-lint-fix`][terraform-lint-fix]                                                                                                                         |
+| TypeScript           | [`biome-lint`][biome-lint], [`codeql-analysis`][codeql-analysis], [`eslint-lint`][eslint-lint], [`node-setup`][node-setup], [`prettier-lint`][prettier-lint]       |
+| YAML                 | [`ansible-lint-fix`][ansible-lint-fix], [`prettier-lint`][prettier-lint], [`sync-labels`][sync-labels], [`validate-inputs`][validate-inputs]                       |
+| npm                  | [`npm-publish`][npm-publish]                                                                                                                                       |
 
 ### Action Usage
 

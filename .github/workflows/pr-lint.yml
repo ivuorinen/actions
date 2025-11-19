@@ -47,7 +47,7 @@ concurrency:
 
 permissions:
   contents: read
-  packages: read  # Required for private dependencies
+  packages: read # Required for private dependencies
 
 jobs:
   megalinter:
@@ -57,10 +57,10 @@ jobs:
 
     permissions:
       actions: write
-      checks: write           # Create and update check runs
+      checks: write # Create and update check runs
       contents: write
       issues: write
-      packages: read          # Access private packages
+      packages: read # Access private packages
       pull-requests: write
       security-events: write
       statuses: write
