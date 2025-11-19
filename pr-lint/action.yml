@@ -55,6 +55,7 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
         ref: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
+        persist-credentials: false
 
         # If you use VALIDATE_ALL_CODEBASE = true, you can remove this line to
         # improve performance
