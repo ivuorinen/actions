@@ -36,7 +36,7 @@ outputs:
     value: ${{ steps.test.outputs.status }}
   go_version:
     description: 'Version of Go used'
-    value: ${{ steps.detect-go-version.outputs.go-version }}
+    value: ${{ steps.detect-go-version.outputs.detected-version }}
   binary_path:
     description: 'Path to built binaries'
     value: ${{ inputs.destination }}
@@ -54,14 +54,15 @@ runs:
 
     - name: Detect Go Version
       id: detect-go-version
-      uses: ivuorinen/actions/go-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
+        language: 'go'
         default-version: "${{ inputs.go-version || '1.21' }}"
 
     - name: Setup Go
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
-        go-version: ${{ steps.detect-go-version.outputs.go-version }}
+        go-version: ${{ steps.detect-go-version.outputs.detected-version }}
         cache: true
 
     - name: Cache Go Dependencies
@@ -75,14 +76,14 @@ runs:
 
     - name: Download Dependencies
       if: steps.cache-go.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3.0.0
       with:
+        timeout_minutes: 10
+        max_attempts: ${{ inputs.max-retries }}
         command: |
           echo "Downloading Go dependencies..."
           go mod download
           go mod verify
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Downloading Go modules'
 
     - name: Build Go Project
       id: build

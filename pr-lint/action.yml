@@ -77,10 +77,49 @@ runs:
 
     - name: Setup Node.js environment
       if: steps.detect-node.outputs.found == 'true'
+      id: node-setup
       uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
+
+    - name: Cache Node Dependencies
+      if: steps.detect-node.outputs.found == 'true'
+      id: node-cache
+      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
-        install: true
-        cache: true
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'pr-lint-${{ steps.node-setup.outputs.package-manager }}'
+
+    - name: Install Node Dependencies
+      if: steps.detect-node.outputs.found == 'true' && steps.node-cache.outputs.cache-hit != 'true'
+      shell: sh
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+      run: |
+        set -eu
+
+        echo "Installing dependencies using $PACKAGE_MANAGER..."
+
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            pnpm install --frozen-lockfile
+            ;;
+          "yarn")
+            if [ -f ".yarnrc.yml" ]; then
+              yarn install --immutable
+            else
+              yarn install --frozen-lockfile
+            fi
+            ;;
+          "bun")
+            bun install --frozen-lockfile
+            ;;
+          "npm"|*)
+            npm ci
+            ;;
+        esac
+
+        echo "✅ Dependencies installed successfully"
 
     # PHP tests if composer.json exists
     - name: Detect composer.json
@@ -96,13 +135,15 @@ runs:
     - name: Detect PHP Version
       if: steps.detect-php.outputs.found == 'true'
       id: php-version
-      uses: ivuorinen/actions/php-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      with:
+        language: 'php'
 
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
       uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
       with:
-        php-version: ${{ steps.php-version.outputs.php-version }}
+        php-version: ${{ steps.php-version.outputs.detected-version }}
         tools: composer
         coverage: none
       env:
@@ -140,13 +181,15 @@ runs:
     - name: Detect Python Version
       if: steps.detect-python.outputs.found == 'true'
       id: python-version
-      uses: ivuorinen/actions/python-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      with:
+        language: 'python'
 
     - name: Setup Python
       if: steps.detect-python.outputs.found == 'true'
       uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
       with:
-        python-version: ${{ steps.python-version.outputs.python-version }}
+        python-version: ${{ steps.python-version.outputs.detected-version }}
         cache: 'pip'
 
     - name: Install Python dependencies
@@ -171,13 +214,15 @@ runs:
     - name: Detect Go Version
       if: steps.detect-go.outputs.found == 'true'
       id: go-version
-      uses: ivuorinen/actions/go-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      with:
+        language: 'go'
 
     - name: Setup Go
       if: steps.detect-go.outputs.found == 'true'
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
       with:
-        go-version: ${{ steps.go-version.outputs.go-version }}
+        go-version: ${{ steps.go-version.outputs.detected-version }}
         cache: true
 
     #   ╭──────────────────────────────────────────────────────────╮

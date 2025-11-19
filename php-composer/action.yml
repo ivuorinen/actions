@@ -196,12 +196,12 @@ runs:
         composer clear-cache
 
     - name: Install Dependencies
-      uses: ivuorinen/actions/common-retry@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3.0.0
       with:
+        timeout_minutes: 10
+        max_attempts: ${{ inputs.max-retries }}
+        retry_wait_seconds: 30
         command: composer install ${{ inputs.args }}
-        max-retries: ${{ inputs.max-retries }}
-        retry-delay: '30'
-        description: 'Installing PHP dependencies via Composer'
 
     - name: Verify Installation
       shell: bash

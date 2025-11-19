@@ -1,6 +1,10 @@
 ---
 extends: default
 
+ignore: |
+  node_modules/
+  .worktrees/
+
 rules:
   line-length:
     max: 200

@@ -39,7 +39,7 @@
 
 **Core Memories** (read first for project understanding):
 
-- `repository_overview` – 43 actions, categories, structure, status
+- `repository_overview` – 31 actions, categories, structure, status
 - `validator_system` – Validation architecture, components, usage patterns
 - `development_standards` – Quality rules, workflows, security, completion checklist
 
@@ -71,11 +71,11 @@
 
 Flat structure. Each action self-contained with `action.yml`.
 
-**43 Actions**: Setup (node-setup, set-git-config, php-version-detect, python-version-detect, python-version-detect-v2, go-version-detect, dotnet-version-detect), Utilities (version-file-parser, version-validator),
-Linting (ansible-lint-fix, biome-check, biome-fix, csharp-lint-check, eslint-check, eslint-fix, go-lint, pr-lint, pre-commit, prettier-check, prettier-fix, python-lint-fix, terraform-lint-fix),
+**29 Actions**: Setup (node-setup, language-version-detect), Utilities (version-file-parser),
+Linting (ansible-lint-fix, biome-lint, csharp-lint-check, eslint-lint, go-lint, pr-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix),
 Testing (php-tests, php-laravel-phpunit, php-composer), Build (csharp-build, go-build, docker-build),
-Publishing (npm-publish, docker-publish, docker-publish-gh, docker-publish-hub, csharp-publish),
-Repository (github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry, codeql-analysis),
+Publishing (npm-publish, docker-publish, csharp-publish),
+Repository (release-monthly, sync-labels, stale, compress-images, common-cache, codeql-analysis),
 Validation (validate-inputs)
 
 ## Commands

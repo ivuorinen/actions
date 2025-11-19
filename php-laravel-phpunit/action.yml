@@ -60,14 +60,15 @@ runs:
 
     - name: Detect PHP Version
       id: php-version
-      uses: ivuorinen/actions/php-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
+        language: 'php'
         default-version: ${{ inputs.php-version }}
 
     - uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
       id: setup-php
       with:
-        php-version: ${{ steps.php-version.outputs.php-version }}
+        php-version: ${{ steps.php-version.outputs.detected-version }}
         extensions: ${{ inputs.extensions }}
         coverage: ${{ inputs.coverage }}
 

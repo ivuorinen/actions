@@ -217,7 +217,7 @@ check-version-refs: ## List all current SHA-pinned action references
 # Formatting targets
 format-markdown: ## Format markdown files
 	@echo "$(BLUE)📝 Formatting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" 2>/dev/null; then \
+	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees" 2>/dev/null; then \
 		echo "$(GREEN)✅ Markdown formatted$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -269,7 +269,7 @@ format-python: ## Format Python files with ruff
 # Linting targets
 lint-markdown: ## Lint markdown files
 	@echo "$(BLUE)🔍 Linting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules"; then \
+	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees"; then \
 		echo "$(GREEN)✅ Markdown linting passed$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown linting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -291,7 +291,7 @@ lint-shell: ## Lint shell scripts
 		echo "  or: apt-get install shellcheck"; \
 		exit 1; \
 	fi
-	@if find . -name "*.sh" -not -path "./_tests/*" -exec shellcheck -x {} +; then \
+	@if find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" -exec shellcheck -x {} +; then \
 		echo "$(GREEN)✅ Shell linting passed$(RESET)"; \
 	else \
 		echo "$(RED)❌ Shell linting issues found$(RESET)"; \
@@ -340,7 +340,7 @@ check-tools: ## Check if required tools are available
 check-syntax: ## Check syntax of shell scripts and YAML files
 	@echo "$(BLUE)🔍 Checking syntax...$(RESET)"
 	@failed=0; \
-	find . -name "*.sh" -print0 | while IFS= read -r -d '' file; do \
+	find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" -print0 | while IFS= read -r -d '' file; do \
 		if ! bash -n "$$file" 2>&1; then \
 			echo "$(RED)❌ Syntax error in $$file$(RESET)" >&2; \
 			failed=1; \
@@ -721,7 +721,8 @@ docker-all: docker-build docker-test docker-push ## Build, test, and push Docker
 watch: ## Watch files and auto-format on changes (requires entr)
 	@if command -v entr >/dev/null 2>&1; then \
 		echo "$(BLUE)👀 Watching for changes... (press Ctrl+C to stop)$(RESET)"; \
-		find . -name "*.yml" -o -name "*.yaml" -o -name "*.md" -o -name "*.sh" | \
+		find . \( -name "*.yml" -o -name "*.yaml" -o -name "*.md" -o -name "*.sh" \) \
+			-not -path "./_tests/*" -not -path "./.worktrees/*" -not -path "./node_modules/*" | \
 		entr -c $(MAKE) format; \
 	else \
 		echo "$(RED)❌ Error: entr not found. Install with: brew install entr$(RESET)"; \

@@ -86,11 +86,11 @@ runs:
     - name: Install ansible-lint
       id: install-ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
-      uses: ivuorinen/actions/common-retry@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3.0.0
       with:
+        timeout_minutes: 5
+        max_attempts: ${{ inputs.max-retries }}
         command: 'pip install ansible-lint==6.22.1'
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Installing Python dependencies (ansible-lint)'
 
     - name: Run ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
