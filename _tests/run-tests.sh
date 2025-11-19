@@ -151,14 +151,14 @@ discover_actions() {
       if [[ $action_name == *"$ACTION_FILTER"* ]]; then
         actions+=("$action_name")
       fi
-    done < <(find "${TEST_ROOT}/.." -mindepth 1 -maxdepth 1 -type d -name "*-*" | sort)
+    done < <(find "${TEST_ROOT}/.." -mindepth 2 -maxdepth 2 -type f -name "action.yml" -exec dirname {} \; | sort)
   else
     # All actions
     while IFS= read -r action_dir; do
       local action_name
       action_name=$(basename "$action_dir")
       actions+=("$action_name")
-    done < <(find "${TEST_ROOT}/.." -mindepth 1 -maxdepth 1 -type d -name "*-*" | sort)
+    done < <(find "${TEST_ROOT}/.." -mindepth 2 -maxdepth 2 -type f -name "action.yml" -exec dirname {} \; | sort)
   fi
 
   log_info "Discovered ${#actions[@]} actions to test: ${actions[*]}"

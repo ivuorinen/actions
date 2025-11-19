@@ -17,7 +17,7 @@ jobs:
       pull-requests: read
     steps:
       - name: Get dates for last month
-        shell: bash
+        shell: sh
         run: |
           # Calculate the first day of the previous month
           first_day=$(date -d "last month" +%Y-%m-01)

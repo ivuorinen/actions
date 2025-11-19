@@ -4,10 +4,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'eslint-check/**'
-      - 'eslint-fix/**'
-      - 'prettier-check/**'
-      - 'prettier-fix/**'
+      - 'eslint-lint/**'
+      - 'prettier-lint/**'
       - 'node-setup/**'
       - 'common-cache/**'
       - '_tests/integration/workflows/lint-fix-chain-test.yml'
@@ -64,14 +62,15 @@ jobs:
           node-version: '18'
           working-directory: './test-project'
 
-      - name: Test eslint-check (should find errors)
+      - name: Test eslint-lint check mode (should find errors)
         id: eslint-check
-        uses: ./eslint-check
+        uses: ./eslint-lint
         with:
+          mode: 'check'
           working-directory: './test-project'
         continue-on-error: true
 
-      - name: Validate eslint-check found issues
+      - name: Validate eslint-lint check found issues
         run: |
           echo "ESLint check outcome: ${{ steps.eslint-check.outcome }}"
           echo "Error count: ${{ steps.eslint-check.outputs.error-count }}"
@@ -86,23 +85,24 @@ jobs:
 
           echo "✅ ESLint check validated"
 
-      - name: Test eslint-fix (should fix issues)
+      - name: Test eslint-lint fix mode (should fix issues)
         id: eslint-fix
-        uses: ./eslint-fix
+        uses: ./eslint-lint
         with:
+          mode: 'fix'
           working-directory: './test-project'
           token: ${{ github.token }}
           email: 'test@example.com'
           username: 'test-user'
 
-      - name: Validate eslint-fix ran
+      - name: Validate eslint-lint fix ran
         run: |
-          echo "Fixed count: ${{ steps.eslint-fix.outputs.fixed-count }}"
-          echo "Files fixed: ${{ steps.eslint-fix.outputs.files-fixed }}"
+          echo "Errors fixed: ${{ steps.eslint-fix.outputs.errors-fixed }}"
+          echo "Files changed: ${{ steps.eslint-fix.outputs.files-changed }}"
 
           # Check that fixes were attempted
-          if [[ -n "${{ steps.eslint-fix.outputs.fixed-count }}" ]]; then
-            echo "✅ ESLint fixed ${{ steps.eslint-fix.outputs.fixed-count }} issues"
+          if [[ -n "${{ steps.eslint-fix.outputs.errors-fixed }}" ]]; then
+            echo "✅ ESLint fixed ${{ steps.eslint-fix.outputs.errors-fixed }} issues"
           else
             echo "⚠️  No fix count reported (may be expected if no fixable issues)"
           fi
@@ -156,10 +156,11 @@ jobs:
           node-version: '18'
           working-directory: './test-prettier'
 
-      - name: Test prettier-check (should find issues)
+      - name: Test prettier-lint check mode (should find issues)
         id: prettier-check
-        uses: ./prettier-check
+        uses: ./prettier-lint
         with:
+          mode: 'check'
           working-directory: './test-prettier'
         continue-on-error: true
 
@@ -174,16 +175,17 @@ jobs:
             echo "⚠️  WARNING: Expected Prettier to find formatting issues"
           fi
 
-      - name: Test prettier-fix (should fix issues)
+      - name: Test prettier-lint fix mode (should fix issues)
         id: prettier-fix
-        uses: ./prettier-fix
+        uses: ./prettier-lint
         with:
+          mode: 'fix'
           working-directory: './test-prettier'
           token: ${{ github.token }}
           email: 'test@example.com'
           username: 'test-user'
 
-      - name: Validate prettier-fix ran
+      - name: Validate prettier-lint fix ran
         run: |
           echo "Prettier fix completed"
 
@@ -261,22 +263,25 @@ jobs:
 
       - name: Run ESLint check
         id: lint-check
-        uses: ./eslint-check
+        uses: ./eslint-lint
         with:
+          mode: 'check'
           working-directory: './test-chain'
         continue-on-error: true
 
       - name: Run Prettier check
         id: format-check
-        uses: ./prettier-check
+        uses: ./prettier-lint
         with:
+          mode: 'check'
           working-directory: './test-chain'
         continue-on-error: true
 
       - name: Run ESLint fix
         id: lint-fix
-        uses: ./eslint-fix
+        uses: ./eslint-lint
         with:
+          mode: 'fix'
           working-directory: './test-chain'
           token: ${{ github.token }}
           email: 'test@example.com'
@@ -284,8 +289,9 @@ jobs:
 
       - name: Run Prettier fix
         id: format-fix
-        uses: ./prettier-fix
+        uses: ./prettier-lint
         with:
+          mode: 'fix'
           working-directory: './test-chain'
           token: ${{ github.token }}
           email: 'test@example.com'

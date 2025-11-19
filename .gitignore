@@ -84,3 +84,4 @@ tests/reports/**/*.json
 !uv.lock
 code-scanning-report-*
 *.sarif
+TODO.md

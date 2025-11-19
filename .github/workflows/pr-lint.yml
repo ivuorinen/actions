@@ -47,6 +47,7 @@ concurrency:
 
 permissions:
   contents: read
+  packages: read # Required for private dependencies
 
 jobs:
   megalinter:
@@ -56,8 +57,10 @@ jobs:
 
     permissions:
       actions: write
+      checks: write # Create and update check runs
       contents: write
       issues: write
+      packages: read # Access private packages
       pull-requests: write
       security-events: write
       statuses: write
@@ -76,7 +79,7 @@ jobs:
       - name: Check MegaLinter Results
         id: check-results
         if: always()
-        shell: bash
+        shell: sh
         run: |
           printf '%s\n' "status=success" >> "$GITHUB_OUTPUT"
 
@@ -108,7 +111,7 @@ jobs:
 
       - name: Prepare Git for Fixes
         if: steps.ml.outputs.has_updated_sources == 1
-        shell: bash
+        shell: sh
         run: |
           sudo chown -Rc $UID .git/
           git config --global user.name "fiximus"
@@ -193,7 +196,7 @@ jobs:
 
       - name: Cleanup
         if: always()
-        shell: bash
+        shell: sh
         run: |-
           # Remove temporary files but keep reports
           find . -type f -name "megalinter.*" ! -name "megalinter-reports" -delete || true

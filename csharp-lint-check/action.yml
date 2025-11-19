@@ -66,14 +66,15 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/dotnet-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
+        language: 'dotnet'
         default-version: ${{ inputs.dotnet-version || '7.0' }}
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
-        dotnet-version: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+        dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
 
     - name: Install dotnet-format
       shell: bash

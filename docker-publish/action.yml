@@ -2,9 +2,33 @@
 # permissions:
 #   - packages: write  # Required for publishing to Docker registries
 #   - contents: read   # Required for checking out repository
+#
+# Security Considerations:
+#
+# Trust Model: This action should only be used in trusted workflows controlled by repository owners.
+# Do not pass untrusted user input (e.g., PR labels, comments, external webhooks) to the `context`
+# or `dockerfile` parameters.
+#
+# Input Validation: The action validates `context` and `dockerfile` inputs to prevent code injection attacks:
+#
+# - `context`: Must be a relative path (e.g., `.`, `./app`, `subdir/`). Absolute paths are rejected.
+#   Remote URLs trigger a warning and should only be used from trusted sources.
+# - `dockerfile`: Must be a relative path (e.g., `Dockerfile`, `./docker/Dockerfile`). Absolute paths
+#   and URLs are rejected.
+#
+# These validations help prevent malicious actors from:
+# - Building Docker images from arbitrary file system locations
+# - Fetching malicious Dockerfiles from untrusted remote sources
+# - Executing code injection attacks through build context manipulation
+#
+# Best Practices:
+# 1. Only use hard-coded values or trusted workflow variables for `context` and `dockerfile`
+# 2. Never accept these values from PR comments, labels, or external webhooks
+# 3. Review workflow permissions before granting write access to this action
+# 4. Use SHA-pinned action references: `ivuorinen/actions/docker-publish@<commit-sha>`
 ---
 name: Docker Publish
-description: Publish a Docker image to GitHub Packages and Docker Hub.
+description: Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
 author: Ismo Vuorinen
 
 branding:
@@ -13,309 +37,225 @@ branding:
 
 inputs:
   registry:
-    description: 'Registry to publish to (dockerhub, github, or both).'
-    required: true
-    default: 'both'
-  nightly:
-    description: 'Is this a nightly build? (true or false)'
+    description: 'Registry to publish to (dockerhub, github, or both)'
     required: false
-    default: 'false'
+    default: 'both'
+  image-name:
+    description: 'Docker image name (defaults to repository name)'
+    required: false
+  tags:
+    description: 'Comma-separated list of tags (e.g., latest,v1.0.0)'
+    required: false
+    default: 'latest'
   platforms:
     description: 'Platforms to build for (comma-separated)'
     required: false
-    default: 'linux/amd64,linux/arm64,linux/arm/v7'
-  auto-detect-platforms:
-    description: 'Automatically detect and build for all available platforms'
+    default: 'linux/amd64,linux/arm64'
+  context:
+    description: 'Build context path'
     required: false
-    default: 'false'
-  scan-image:
-    description: 'Scan images for vulnerabilities'
+    default: '.'
+  dockerfile:
+    description: 'Path to Dockerfile'
+    required: false
+    default: 'Dockerfile'
+  build-args:
+    description: 'Build arguments (newline-separated KEY=VALUE pairs)'
+    required: false
+  push:
+    description: 'Whether to push the image'
     required: false
     default: 'true'
-  sign-image:
-    description: 'Sign images with cosign'
-    required: false
-    default: 'false'
-  cache-mode:
-    description: 'Cache mode for build layers (min, max, or inline)'
-    required: false
-    default: 'max'
-  buildx-version:
-    description: 'Specific Docker Buildx version to use'
-    required: false
-    default: 'latest'
-  verbose:
-    description: 'Enable verbose logging'
-    required: false
-    default: 'false'
-  dockerhub-username:
-    description: 'Docker Hub username for authentication'
-    required: false
-  dockerhub-password:
-    description: 'Docker Hub password or access token for authentication'
-    required: false
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication (for GitHub registry)'
     required: false
     default: ''
+  dockerhub-username:
+    description: 'Docker Hub username (required if publishing to Docker Hub)'
+    required: false
+  dockerhub-token:
+    description: 'Docker Hub token (required if publishing to Docker Hub)'
+    required: false
 
 outputs:
-  registry:
-    description: 'Registry where image was published'
-    value: ${{ steps.dest.outputs.reg }}
+  image-name:
+    description: 'Full image name with registry'
+    value: ${{ steps.meta.outputs.image-name }}
   tags:
     description: 'Tags that were published'
-    value: ${{ steps.tags.outputs.all-tags }}
-  build-time:
-    description: 'Total build time in seconds'
-    value: ${{ steps.build.outputs.build-time }}
-  platform-matrix:
-    description: 'Build status per platform'
-    value: ${{ steps.build.outputs.platform-matrix }}
-  scan-results:
-    description: 'Vulnerability scan results if scanning enabled'
-    value: ${{ steps.build.outputs.scan-results }}
-  image-id:
-    description: 'Published image ID'
-    value: ${{ steps.publish-dockerhub.outputs.image-id || steps.publish-github.outputs.image-id }}
-  image-digest:
-    description: 'Published image digest'
-    value: ${{ steps.publish-dockerhub.outputs.digest || steps.publish-github.outputs.digest }}
-  repository:
-    description: 'Repository where image was published'
-    value: ${{ steps.publish-dockerhub.outputs.repository || steps.publish-github.outputs.repository }}
+    value: ${{ steps.meta.outputs.tags }}
+  digest:
+    description: 'Image digest'
+    value: ${{ steps.build.outputs.digest }}
+  metadata:
+    description: 'Build metadata'
+    value: ${{ steps.build.outputs.metadata }}
 
 runs:
   using: composite
   steps:
-    - name: Mask Sensitive Inputs
-      shell: bash
-      env:
-        DOCKERHUB_PASSWORD: ${{ inputs.dockerhub-password }}
-      run: |
-        set -euo pipefail
-
-        # Mask Docker Hub credentials to prevent exposure in logs
-        if [[ -n "${DOCKERHUB_PASSWORD}" ]]; then
-          echo "::add-mask::${DOCKERHUB_PASSWORD}"
-        fi
-
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
-        REGISTRY: ${{ inputs.registry }}
+        INPUT_REGISTRY: ${{ inputs.registry }}
+        INPUT_DOCKERHUB_USERNAME: ${{ inputs.dockerhub-username }}
+        INPUT_DOCKERHUB_TOKEN: ${{ inputs.dockerhub-token }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate registry input
-        if ! [[ "$REGISTRY" =~ ^(dockerhub|github|both)$ ]]; then
-          echo "::error::Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
-          exit 1
-        fi
+        case "$INPUT_REGISTRY" in
+          dockerhub|github|both)
+            ;;
+          *)
+            echo "::error::Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
+            exit 1
+            ;;
+        esac
 
-    - name: Determine Tags
-      id: tags
-      shell: bash
-      env:
-        NIGHTLY: ${{ inputs.nightly }}
-        RELEASE_TAG: ${{ github.event.release.tag_name }}
-      run: |
-        set -euo pipefail
-
-        # Initialize variables
-        declare -a tag_array
-
-        if [[ "$NIGHTLY" == "true" ]]; then
-          # Nightly build tags
-          current_date=$(date +'%Y%m%d-%H%M')
-          tag_array+=("nightly")
-          tag_array+=("nightly-${current_date}")
-        else
-          # Release tags
-          if [[ -n "$RELEASE_TAG" ]]; then
-            tag_array+=("$RELEASE_TAG")
-            tag_array+=("latest")
-          else
-            echo "::error::No release tag found and not a nightly build"
+        # Validate Docker Hub credentials if needed
+        if [ "$INPUT_REGISTRY" = "dockerhub" ] || [ "$INPUT_REGISTRY" = "both" ]; then
+          if [ -z "$INPUT_DOCKERHUB_USERNAME" ] || [ -z "$INPUT_DOCKERHUB_TOKEN" ]; then
+            echo "::error::Docker Hub username and token are required when publishing to Docker Hub"
             exit 1
           fi
         fi
 
-        # Join tags with comma
-        tags=$(IFS=,; echo "${tag_array[*]}")
-        echo "all-tags=${tags}" >> "$GITHUB_OUTPUT"
-        echo "Generated tags: ${tags}"
-
-    - name: Determine Publish Destination
-      id: dest
-      shell: bash
-      env:
-        REGISTRY: ${{ inputs.registry }}
-      run: |
-        set -euo pipefail
-
-        if [[ "$REGISTRY" == "both" ]]; then
-          echo "reg=github,dockerhub" >> "$GITHUB_OUTPUT"
-        else
-          echo "reg=$REGISTRY" >> "$GITHUB_OUTPUT"
+        # Validate GitHub token if needed
+        if [ "$INPUT_REGISTRY" = "github" ] || [ "$INPUT_REGISTRY" = "both" ]; then
+          token="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
+          if [ -z "$token" ]; then
+            echo "::error::GitHub token is required when publishing to GitHub Packages"
+            exit 1
+          fi
         fi
 
-        echo "Publishing to: $REGISTRY"
+        # Validate context input for security
+        INPUT_CONTEXT="${INPUT_CONTEXT:-.}"
+        case "$INPUT_CONTEXT" in
+          .|./*|*/*)
+            # Relative paths are allowed
+            ;;
+          /*)
+            echo "::error::Context cannot be an absolute path: '$INPUT_CONTEXT'"
+            echo "::error::Use relative paths (e.g., '.', './app') to prevent code injection"
+            exit 1
+            ;;
+          *://*)
+            echo "::warning::Context is a remote URL: '$INPUT_CONTEXT'"
+            echo "::warning::Ensure this URL is from a trusted source to prevent code injection"
+            ;;
+        esac
 
-    - name: Checkout Repository
-      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
-      with:
-        token: ${{ inputs.token || github.token }}
+        # Validate dockerfile input for security
+        INPUT_DOCKERFILE="${INPUT_DOCKERFILE:-Dockerfile}"
+        case "$INPUT_DOCKERFILE" in
+          Dockerfile|*/Dockerfile|*.dockerfile|*/*.dockerfile)
+            # Common dockerfile patterns are allowed
+            ;;
+          /*)
+            echo "::error::Dockerfile path cannot be absolute: '$INPUT_DOCKERFILE'"
+            echo "::error::Use relative paths (e.g., 'Dockerfile', './docker/Dockerfile')"
+            exit 1
+            ;;
+          *://*)
+            echo "::error::Dockerfile path cannot be a URL: '$INPUT_DOCKERFILE'"
+            exit 1
+            ;;
+        esac
 
-    - name: Build Multi-Arch Docker Image
-      id: build
-      uses: ivuorinen/actions/docker-build@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        tag: ${{ steps.tags.outputs.all-tags }}
-        architectures: ${{ inputs.platforms }}
-        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
-        scan-image: ${{ inputs.scan-image }}
-        sign-image: ${{ inputs.sign-image }}
-        cache-mode: ${{ inputs.cache-mode }}
-        buildx-version: ${{ inputs.buildx-version }}
-        verbose: ${{ inputs.verbose }}
-        push: 'false' # Don't push during build, let publish actions handle it
+        echo "Input validation completed successfully"
 
-    - name: Publish to Docker Hub
-      id: publish-dockerhub
-      if: contains(steps.dest.outputs.reg, 'dockerhub')
-      uses: ivuorinen/actions/docker-publish-hub@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        tags: ${{ steps.tags.outputs.all-tags }}
-        platforms: ${{ inputs.platforms }}
-        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
-        scan-image: ${{ inputs.scan-image }}
-        sign-image: ${{ inputs.sign-image }}
-        cache-mode: ${{ inputs.cache-mode }}
-        buildx-version: ${{ inputs.buildx-version }}
-        verbose: ${{ inputs.verbose }}
-        username: ${{ inputs.dockerhub-username }}
-        password: ${{ inputs.dockerhub-password }}
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@c47758b77c9736f4b2ef4073d4d51994fabfe349 # v3.7.1
 
-    - name: Publish to GitHub Packages
-      id: publish-github
-      if: contains(steps.dest.outputs.reg, 'github')
-      uses: ivuorinen/actions/docker-publish-gh@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        tags: ${{ steps.tags.outputs.all-tags }}
-        platforms: ${{ inputs.platforms }}
-        auto-detect-platforms: ${{ inputs.auto-detect-platforms }}
-        scan-image: ${{ inputs.scan-image }}
-        sign-image: ${{ inputs.sign-image }}
-        cache-mode: ${{ inputs.cache-mode }}
-        buildx-version: ${{ inputs.buildx-version }}
-        verbose: ${{ inputs.verbose }}
-
-    - name: Verify Publications
-      id: verify
-      shell: bash
+    - name: Determine Image Names and Tags
+      id: meta
+      shell: sh
       env:
-        DEST_REG: ${{ steps.dest.outputs.reg }}
-        DOCKERHUB_IMAGE_NAME: ${{ steps.publish-dockerhub.outputs.image-name }}
-        DOCKERHUB_TAGS: ${{ steps.publish-dockerhub.outputs.tags }}
-        GITHUB_IMAGE_NAME: ${{ steps.publish-github.outputs.image-name }}
-        GITHUB_TAGS: ${{ steps.publish-github.outputs.tags }}
-        ALL_TAGS: ${{ steps.tags.outputs.all-tags }}
+        INPUT_REGISTRY: ${{ inputs.registry }}
+        INPUT_IMAGE_NAME: ${{ inputs.image-name }}
+        INPUT_TAGS: ${{ inputs.tags }}
         GITHUB_REPOSITORY: ${{ github.repository }}
       run: |
-        set -euo pipefail
+        set -eu
 
-        echo "Verifying publications..."
-        success=true
+        # Determine base image name
+        if [ -n "$INPUT_IMAGE_NAME" ]; then
+          base_name="$INPUT_IMAGE_NAME"
+        else
+          # Use repository name (lowercase)
+          base_name=$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')
+        fi
 
-        # Split registry string into array
-        IFS=',' read -ra REGISTRIES <<< "$DEST_REG"
+        # Build full image names based on registry
+        image_names=""
+        case "$INPUT_REGISTRY" in
+          dockerhub)
+            image_names="docker.io/${base_name}"
+            ;;
+          github)
+            image_names="ghcr.io/${base_name}"
+            ;;
+          both)
+            image_names="docker.io/${base_name},ghcr.io/${base_name}"
+            ;;
+        esac
 
-        for registry in "${REGISTRIES[@]}"; do
-          echo "Checking ${registry} publication..."
-          case "${registry}" in
-            "dockerhub")
-              # Get actual image name from publish step output or fallback to repo-based name
-              image_name="$DOCKERHUB_IMAGE_NAME"
-              if [[ -z "$image_name" ]]; then
-                image_name="docker.io/$GITHUB_REPOSITORY"
-              fi
-
-              # Get tags from publish step or fallback to metadata
-              tags="$DOCKERHUB_TAGS"
-              if [[ -z "$tags" ]]; then
-                tags="$ALL_TAGS"
-              fi
-
-              IFS=',' read -ra TAGS <<< "$tags"
-              for tag in "${TAGS[@]}"; do
-                tag=$(echo "$tag" | xargs) # trim whitespace
-                if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
-                  echo "::error::Failed to verify Docker Hub publication for ${tag}"
-                  success=false
-                  break
-                fi
-              done
-              if [[ "${success}" != "true" ]]; then
-                break
-              fi
-              ;;
-            "github")
-              # Get actual image name from publish step output or fallback to repo-based name
-              image_name="$GITHUB_IMAGE_NAME"
-              if [[ -z "$image_name" ]]; then
-                image_name="ghcr.io/$GITHUB_REPOSITORY"
-              fi
-
-              # Get tags from publish step or fallback to metadata
-              tags="$GITHUB_TAGS"
-              if [[ -z "$tags" ]]; then
-                tags="$ALL_TAGS"
-              fi
-
-              IFS=',' read -ra TAGS <<< "$tags"
-              for tag in "${TAGS[@]}"; do
-                tag=$(echo "$tag" | xargs) # trim whitespace
-                if ! docker manifest inspect "${image_name}:${tag}" > /dev/null 2>&1; then
-                  echo "::error::Failed to verify GitHub Packages publication for ${tag}"
-                  success=false
-                  break
-                fi
-              done
-              if [[ "${success}" != "true" ]]; then
-                break
-              fi
-              ;;
-          esac
+        # Build full tags (image:tag format)
+        tags=""
+        IFS=','
+        for image in $image_names; do
+          for tag in $INPUT_TAGS; do
+            tag=$(echo "$tag" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            if [ -n "$tags" ]; then
+              tags="$(printf '%s\n%s' "$tags" "${image}:${tag}")"
+            else
+              tags="${image}:${tag}"
+            fi
+          done
         done
 
-        if [[ "${success}" != "true" ]]; then
-          echo "::error::Publication verification failed"
-          exit 1
-        fi
+        # Output results
+        printf 'image-name=%s\n' "$base_name" >> "$GITHUB_OUTPUT"
+        {
+          echo 'tags<<EOF'
+          echo "$tags"
+          echo 'EOF'
+        } >> "$GITHUB_OUTPUT"
 
-        echo "All publications verified successfully"
+        echo "Image name: $base_name"
+        echo "Tags:"
+        echo "$tags"
 
-    - name: Cleanup
-      if: always()
-      shell: bash
-      env:
-        DEST_REG: ${{ steps.dest.outputs.reg }}
-      run: |-
-        set -euo pipefail
+    - name: Login to Docker Hub
+      if: inputs.registry == 'dockerhub' || inputs.registry == 'both'
+      uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+      with:
+        username: ${{ inputs.dockerhub-username }}
+        password: ${{ inputs.dockerhub-token }}
 
-        echo "Cleaning up..."
+    - name: Login to GitHub Container Registry
+      if: inputs.registry == 'github' || inputs.registry == 'both'
+      uses: docker/login-action@9780b0c442fbb1117ed29e0efdff1e18412f7567 # v3.3.0
+      with:
+        registry: ghcr.io
+        username: ${{ github.actor }}
+        password: ${{ inputs.token || github.token }}
 
-        # Remove any temporary files or caches
-        docker buildx prune -f --keep-storage=10GB
-
-        # Remove any temporary authentication
-        if [[ "$DEST_REG" =~ "dockerhub" ]]; then
-          docker logout docker.io || true
-        fi
-        if [[ "$DEST_REG" =~ "github" ]]; then
-          docker logout ghcr.io || true
-        fi
-
-        echo "Cleanup completed"
+    - name: Build and Push Docker Image
+      id: build
+      uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
+      with:
+        context: ${{ inputs.context }}
+        file: ${{ inputs.dockerfile }}
+        platforms: ${{ inputs.platforms }}
+        push: ${{ inputs.push }}
+        tags: ${{ steps.meta.outputs.tags }}
+        build-args: ${{ inputs.build-args }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max

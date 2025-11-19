@@ -52,9 +52,9 @@ class TestValidatorIntegration:
     def test_validator_script_success(self):
         """Test validator script execution with valid inputs."""
         env_vars = {
-            "INPUT_ACTION_TYPE": "github-release",
-            "INPUT_VERSION": "1.2.3",
-            "INPUT_CHANGELOG": "Release notes",
+            "INPUT_ACTION_TYPE": "release-monthly",
+            "INPUT_TOKEN": "github_pat_" + "a" * 71,
+            "INPUT_PREFIX": "v",
         }
 
         result = self.run_validator(env_vars)
@@ -65,9 +65,9 @@ class TestValidatorIntegration:
     def test_validator_script_failure(self):
         """Test validator script execution with invalid inputs."""
         env_vars = {
-            "INPUT_ACTION_TYPE": "github-release",
-            "INPUT_VERSION": "invalid-version",
-            "INPUT_CHANGELOG": "Release notes",
+            "INPUT_ACTION_TYPE": "release-monthly",
+            "INPUT_TOKEN": "invalid-token",
+            "INPUT_PREFIX": "v",
         }
 
         result = self.run_validator(env_vars)
@@ -78,22 +78,21 @@ class TestValidatorIntegration:
     def test_validator_script_missing_required(self):
         """Test validator script with missing required inputs."""
         env_vars = {
-            "INPUT_ACTION_TYPE": "github-release",
-            # Missing required INPUT_VERSION
-            "INPUT_CHANGELOG": "Release notes",
+            "INPUT_ACTION_TYPE": "release-monthly",
+            # Missing required INPUT_TOKEN
+            "INPUT_PREFIX": "v",
         }
 
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Required input 'version' is missing" in result.stderr
+        assert "Required input 'token' is missing" in result.stderr
 
-    def test_validator_script_calver_validation(self):
-        """Test validator script with CalVer version."""
+    def test_validator_script_semver_validation(self):
+        """Test validator script with semantic version."""
         env_vars = {
-            "INPUT_ACTION_TYPE": "github-release",
-            "INPUT_VERSION": "2024.3.1",
-            "INPUT_CHANGELOG": "Release notes",
+            "INPUT_ACTION_TYPE": "action-versioning",
+            "INPUT_MAJOR_VERSION": "v2025",
         }
 
         result = self.run_validator(env_vars)
@@ -101,18 +100,17 @@ class TestValidatorIntegration:
         assert result.returncode == 0
         assert "All input validation checks passed" in result.stderr
 
-    def test_validator_script_invalid_calver(self):
-        """Test validator script with invalid CalVer version."""
+    def test_validator_script_invalid_semver(self):
+        """Test validator script with invalid semantic version."""
         env_vars = {
-            "INPUT_ACTION_TYPE": "github-release",
-            "INPUT_VERSION": "2024.13.1",  # Invalid month
-            "INPUT_CHANGELOG": "Release notes",
+            "INPUT_ACTION_TYPE": "action-versioning",
+            "INPUT_MAJOR_VERSION": "invalid.version",  # Invalid version
         }
 
         result = self.run_validator(env_vars)
 
         assert result.returncode == 1
-        assert "Invalid CalVer format" in result.stderr
+        assert "Input validation failed" in result.stderr
 
     def test_validator_script_docker_build(self):
         """Test validator script with docker-build action."""
@@ -239,8 +237,8 @@ class TestValidatorIntegration:
     def test_validator_script_output_file_creation(self):
         """Test that validator script creates GitHub output file."""
         env_vars = {
-            "INPUT_ACTION_TYPE": "github-release",
-            "INPUT_VERSION": "1.2.3",
+            "INPUT_ACTION_TYPE": "release-monthly",
+            "INPUT_TOKEN": "github_pat_" + "a" * 71,
         }
 
         result = self.run_validator(env_vars)
@@ -259,8 +257,8 @@ class TestValidatorIntegration:
         """Test validator script handles exceptions gracefully."""
         # Test with invalid GITHUB_OUTPUT path to trigger exception
         env_vars = {
-            "INPUT_ACTION_TYPE": "github-release",
-            "INPUT_VERSION": "1.2.3",
+            "INPUT_ACTION_TYPE": "release-monthly",
+            "INPUT_TOKEN": "github_pat_" + "a" * 71,
             "GITHUB_OUTPUT": "/invalid/path/that/does/not/exist",
         }
 
@@ -272,9 +270,9 @@ class TestValidatorIntegration:
     @pytest.mark.parametrize(
         "action_type,inputs,expected_success",
         [
-            ("github-release", {"version": "1.2.3"}, True),
-            ("github-release", {"version": "2024.3.1"}, True),
-            ("github-release", {"version": "invalid"}, False),
+            ("release-monthly", {"token": "github_pat_" + "a" * 71}, True),
+            ("release-monthly", {"token": "github_pat_" + "a" * 71, "prefix": "v"}, True),
+            ("release-monthly", {"token": "invalid"}, False),
             ("docker-build", {"context": ".", "image-name": "app", "tag": "latest"}, True),
             (
                 "docker-build",

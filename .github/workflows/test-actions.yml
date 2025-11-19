@@ -55,10 +55,10 @@ jobs:
         uses: ./.github/actions/setup-test-environment
 
       - name: Run unit tests
-        shell: bash
+        shell: sh
         run: |
-          if [[ "${{ github.event.inputs.test-type }}" == "unit" || "${{ github.event.inputs.test-type }}" == "all" || -z "${{ github.event.inputs.test-type }}" ]]; then
-            if [[ -n "${{ github.event.inputs.action-filter }}" ]]; then
+          if [ "${{ github.event.inputs.test-type }}" = "unit" ] || [ "${{ github.event.inputs.test-type }}" = "all" ] || [ -z "${{ github.event.inputs.test-type }}" ]; then
+            if [ -n "${{ github.event.inputs.action-filter }}" ]; then
               make test-action ACTION="${{ github.event.inputs.action-filter }}"
             else
               make test-unit
@@ -68,7 +68,7 @@ jobs:
           fi
 
       - name: Generate SARIF report
-        shell: bash
+        shell: sh
         run: ./_tests/run-tests.sh --type unit --format sarif
         if: always()
 
@@ -107,10 +107,10 @@ jobs:
           install-act: 'true'
 
       - name: Run integration tests
-        shell: bash
+        shell: sh
         run: |
-          if [[ "${{ github.event.inputs.test-type }}" == "integration" || "${{ github.event.inputs.test-type }}" == "all" || -z "${{ github.event.inputs.test-type }}" ]]; then
-            if [[ -n "${{ github.event.inputs.action-filter }}" ]]; then
+          if [ "${{ github.event.inputs.test-type }}" = "integration" ] || [ "${{ github.event.inputs.test-type }}" = "all" ] || [ -z "${{ github.event.inputs.test-type }}" ]; then
+            if [ -n "${{ github.event.inputs.action-filter }}" ]; then
               ./_tests/run-tests.sh --type integration --action "${{ github.event.inputs.action-filter }}"
             else
               make test-integration
@@ -122,7 +122,7 @@ jobs:
       - name: Check for integration test reports
         id: check-integration-reports
         if: always()
-        shell: bash
+        shell: sh
         run: |
           if [ -d "_tests/reports/integration" ] && [ -n "$(find _tests/reports/integration -type f 2>/dev/null)" ]; then
             printf '%s\n' "reports-found=true" >> $GITHUB_OUTPUT
@@ -176,9 +176,9 @@ jobs:
 
       - name: Comment coverage summary
         if: github.event_name == 'pull_request'
-        shell: bash
+        shell: sh
         run: |
-          if [[ -f _tests/coverage/summary.json ]]; then
+          if [ -f _tests/coverage/summary.json ]; then
             coverage=$(jq -r '.coverage_percent' _tests/coverage/summary.json)
             tested_actions=$(jq -r '.tested_actions' _tests/coverage/summary.json)
             total_actions=$(jq -r '.total_actions' _tests/coverage/summary.json)
@@ -240,7 +240,7 @@ jobs:
           extra_args: --debug --only-verified
 
       - name: Scan shell scripts
-        shell: bash
+        shell: sh
         run: |
           # Scan all shell scripts in _tests/
           find _tests/ -name "*.sh" -exec shellcheck -x {} \; || {
@@ -270,7 +270,7 @@ jobs:
           path: test-results/
 
       - name: Generate test summary
-        shell: bash
+        shell: sh
         run: |
           {
             echo "## 🧪 Test Results Summary"
@@ -278,20 +278,20 @@ jobs:
 
             # Unit tests
             unit_count=$(find test-results -type f -path "*/unit/*.txt" | wc -l || true)
-            if [[ "${unit_count:-0}" -gt 0 ]]; then
+            if [ "${unit_count:-0}" -gt 0 ]; then
               echo "- **Unit Tests**: $unit_count action(s) tested"
             fi
 
             # Integration tests
             integration_count=$(find test-results -type f -path "*/integration/*.txt" | wc -l || true)
-            if [[ "${integration_count:-0}" -gt 0 ]]; then
+            if [ "${integration_count:-0}" -gt 0 ]; then
               echo "- **Integration Tests**: $integration_count action(s) tested"
             fi
 
             echo ""
             unit_success="${{ needs.unit-tests.result == 'success' }}"
             integration_ok="${{ needs.integration-tests.result == 'success' || needs.integration-tests.result == 'skipped' }}"
-            if [[ "$unit_success" == "true" && "$integration_ok" == "true" ]]; then
+            if [ "$unit_success" = "true" ] && [ "$integration_ok" = "true" ]; then
               status="✅ All tests passed"
             else
               status="❌ Some tests failed"
@@ -307,7 +307,7 @@ jobs:
 
       - name: Fail if tests failed
         if: needs.unit-tests.result == 'failure' || needs.integration-tests.result == 'failure'
-        shell: bash
+        shell: sh
         run: |-
           echo "❌ One or more test jobs failed"
           exit 1

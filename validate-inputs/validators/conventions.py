@@ -212,6 +212,7 @@ class ConventionBasedValidator(BaseValidator):
             "format": "report_format",
             "output_format": "report_format",
             "report_format": "report_format",
+            "mode": "mode_enum",
         }
         return exact_matches.get(name_lower)
 
@@ -556,7 +557,7 @@ class ConventionBasedValidator(BaseValidator):
             return self._validator_modules["codeql"], f"validate_{validator_type}"
 
         # PHP-specific validators
-        if validator_type in ["php_extensions", "coverage_driver"]:
+        if validator_type in ["php_extensions", "coverage_driver", "mode_enum"]:
             # Return self for PHP-specific validation methods
             return self, f"_validate_{validator_type}"
 
@@ -633,6 +634,26 @@ class ConventionBasedValidator(BaseValidator):
         if value and value not in valid_drivers:
             self.add_error(
                 f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_drivers)}"
+            )
+            return False
+
+        return True
+
+    def _validate_mode_enum(self, value: str, input_name: str) -> bool:
+        """Validate mode enum for linting actions.
+
+        Args:
+            value: The mode value
+            input_name: The input name for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        valid_modes = ["check", "fix"]
+
+        if value and value not in valid_modes:
+            self.add_error(
+                f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_modes)}"
             )
             return False
 

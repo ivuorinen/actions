@@ -15,7 +15,7 @@ inputs:
     description: 'Action name to validate (alias for action-type)'
     required: false
   action-type:
-    description: 'Type of action to validate (e.g., csharp-publish, docker-build, eslint-fix)'
+    description: 'Type of action to validate (e.g., csharp-publish, docker-build, eslint-lint)'
     required: false
   rules-file:
     description: 'Path to validation rules file'

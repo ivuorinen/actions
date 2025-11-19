@@ -120,7 +120,7 @@ outputs:
     value: ${{ steps.build.outputs.metadata }}
   platforms:
     description: 'Successfully built platforms'
-    value: ${{ steps.platforms.outputs.built }}
+    value: ${{ steps.detect-platforms.outputs.platforms }}
   platform-matrix:
     description: 'Build status per platform in JSON format'
     value: ${{ steps.build.outputs.platform-matrix }}
@@ -186,22 +186,28 @@ runs:
 
     - name: Detect Available Platforms
       id: detect-platforms
-      if: inputs.auto-detect-platforms == 'true'
       shell: bash
       env:
         ARCHITECTURES: ${{ inputs.architectures }}
+        AUTO_DETECT: ${{ inputs.auto-detect-platforms }}
       run: |
         set -euo pipefail
 
-        # Get available platforms from buildx
-        available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed 's/,$//')
+        # When auto-detect is enabled, try to detect available platforms
+        if [ "$AUTO_DETECT" = "true" ]; then
+          available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed 's/,$//' || true)
 
-        if [ -n "$available_platforms" ]; then
-          echo "platforms=${available_platforms}" >> $GITHUB_OUTPUT
-          echo "Detected platforms: ${available_platforms}"
+          if [ -n "$available_platforms" ]; then
+            echo "platforms=${available_platforms}" >> $GITHUB_OUTPUT
+            echo "Detected platforms: ${available_platforms}"
+          else
+            echo "platforms=$ARCHITECTURES" >> $GITHUB_OUTPUT
+            echo "Using default platforms (detection failed): $ARCHITECTURES"
+          fi
         else
+          # Auto-detect disabled, use configured architectures
           echo "platforms=$ARCHITECTURES" >> $GITHUB_OUTPUT
-          echo "Using default platforms: $ARCHITECTURES"
+          echo "Using configured platforms: $ARCHITECTURES"
         fi
 
     - name: Determine Image Name

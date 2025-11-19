@@ -101,7 +101,48 @@ runs:
         token: ${{ inputs.token || github.token }}
 
     - name: Setup Node.js
+      id: node-setup
       uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
+
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'npm-publish-${{ steps.node-setup.outputs.package-manager }}'
+
+    - name: Install Dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: sh
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+      run: |
+        set -eu
+
+        echo "Installing dependencies using $PACKAGE_MANAGER..."
+
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            pnpm install --frozen-lockfile
+            ;;
+          "yarn")
+            if [ -f ".yarnrc.yml" ]; then
+              yarn install --immutable
+            else
+              yarn install --frozen-lockfile
+            fi
+            ;;
+          "bun")
+            bun install --frozen-lockfile
+            ;;
+          "npm"|*)
+            npm ci
+            ;;
+        esac
+
+        echo "✅ Dependencies installed successfully"
 
     - name: Authenticate NPM
       shell: sh

@@ -41,7 +41,7 @@ jobs:
 
       - name: Check Required Configurations
         id: check-configs
-        shell: bash
+        shell: sh
         run: |
           # Initialize all flags as false
           {
@@ -87,7 +87,7 @@ jobs:
 
       - name: Verify SARIF files
         id: verify-sarif
-        shell: bash
+        shell: sh
         run: |
           # Initialize outputs
           {

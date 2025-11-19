@@ -57,6 +57,21 @@ get_action_name() {
   uv run "$script_dir/../shared/validation_core.py" --name "$action_file"
 }
 
+# Check if an input is required in an action.yml file
+is_input_required() {
+  local action_file="$1"
+  local input_name="$2"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+  # Get the 'required' property for the input
+  local required_status
+  required_status=$(uv run "$script_dir/../shared/validation_core.py" --property "$action_file" "$input_name" "required")
+
+  # Return 0 (success) if input is required, 1 (failure) if optional
+  [[ $required_status == "required" ]]
+}
+
 # Test input validation using Python validation module
 test_input_validation() {
   local action_dir="$1"
@@ -348,5 +363,5 @@ run_action_tests() {
 }
 
 # Export all functions
-export -f validate_action_yml get_action_inputs get_action_outputs get_action_name
+export -f validate_action_yml get_action_inputs get_action_outputs get_action_name is_input_required
 export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests

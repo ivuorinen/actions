@@ -9,30 +9,21 @@ const { markdownTable } = require('markdown-table');
 const CATEGORIES = {
   // Setup & Environment
   'node-setup': 'Setup',
-  'set-git-config': 'Setup',
-  'php-version-detect': 'Setup',
-  'python-version-detect': 'Setup',
-  'python-version-detect-v2': 'Setup',
-  'go-version-detect': 'Setup',
-  'dotnet-version-detect': 'Setup',
+  'language-version-detect': 'Setup',
 
   // Utilities
   'action-versioning': 'Utilities',
   'version-file-parser': 'Utilities',
-  'version-validator': 'Utilities',
 
   // Linting & Formatting
   'ansible-lint-fix': 'Linting',
-  'biome-check': 'Linting',
-  'biome-fix': 'Linting',
+  'biome-lint': 'Linting',
   'csharp-lint-check': 'Linting',
-  'eslint-check': 'Linting',
-  'eslint-fix': 'Linting',
+  'eslint-lint': 'Linting',
   'go-lint': 'Linting',
   'pr-lint': 'Linting',
   'pre-commit': 'Linting',
-  'prettier-check': 'Linting',
-  'prettier-fix': 'Linting',
+  'prettier-lint': 'Linting',
   'python-lint-fix': 'Linting',
   'terraform-lint-fix': 'Linting',
 
@@ -49,19 +40,14 @@ const CATEGORIES = {
   // Publishing
   'npm-publish': 'Publishing',
   'docker-publish': 'Publishing',
-  'docker-publish-gh': 'Publishing',
-  'docker-publish-hub': 'Publishing',
   'csharp-publish': 'Publishing',
 
   // Repository Management
-  'github-release': 'Repository',
   'release-monthly': 'Repository',
   'sync-labels': 'Repository',
   stale: 'Repository',
   'compress-images': 'Repository',
   'common-cache': 'Repository',
-  'common-file-check': 'Repository',
-  'common-retry': 'Repository',
   'codeql-analysis': 'Repository',
 
   // Validation
@@ -71,32 +57,23 @@ const CATEGORIES = {
 // Language support mappings
 const LANGUAGE_SUPPORT = {
   'node-setup': ['Node.js', 'JavaScript', 'TypeScript'],
+  'language-version-detect': ['PHP', 'Python', 'Go', '.NET', 'Node.js'],
   'php-tests': ['PHP'],
   'php-laravel-phpunit': ['PHP', 'Laravel'],
   'php-composer': ['PHP'],
-  'php-version-detect': ['PHP'],
   'python-lint-fix': ['Python'],
-  'python-version-detect': ['Python'],
-  'python-version-detect-v2': ['Python'],
   'go-lint': ['Go'],
   'go-build': ['Go'],
-  'go-version-detect': ['Go'],
   'csharp-lint-check': ['C#', '.NET'],
   'csharp-build': ['C#', '.NET'],
   'csharp-publish': ['C#', '.NET'],
-  'dotnet-version-detect': ['C#', '.NET'],
   'docker-build': ['Docker'],
   'docker-publish': ['Docker'],
-  'docker-publish-gh': ['Docker'],
-  'docker-publish-hub': ['Docker'],
   'terraform-lint-fix': ['Terraform', 'HCL'],
   'ansible-lint-fix': ['Ansible', 'YAML'],
-  'eslint-check': ['JavaScript', 'TypeScript'],
-  'eslint-fix': ['JavaScript', 'TypeScript'],
-  'prettier-check': ['JavaScript', 'TypeScript', 'Markdown', 'YAML', 'JSON'],
-  'prettier-fix': ['JavaScript', 'TypeScript', 'Markdown', 'YAML', 'JSON'],
-  'biome-check': ['JavaScript', 'TypeScript', 'JSON'],
-  'biome-fix': ['JavaScript', 'TypeScript', 'JSON'],
+  'eslint-lint': ['JavaScript', 'TypeScript'],
+  'prettier-lint': ['JavaScript', 'TypeScript', 'Markdown', 'YAML', 'JSON'],
+  'biome-lint': ['JavaScript', 'TypeScript', 'JSON'],
   'npm-publish': ['Node.js', 'npm'],
   'codeql-analysis': ['JavaScript', 'TypeScript', 'Python', 'Java', 'C#', 'C++', 'Go', 'Ruby'],
   'validate-inputs': ['YAML', 'GitHub Actions'],
@@ -104,7 +81,11 @@ const LANGUAGE_SUPPORT = {
   'pr-lint': ['Conventional Commits'],
   'sync-labels': ['YAML', 'GitHub'],
   'version-file-parser': ['Multiple Languages'],
-  'version-validator': ['Semantic Versioning', 'CalVer'],
+  'action-versioning': ['GitHub Actions'],
+  'release-monthly': ['GitHub Actions'],
+  stale: ['GitHub Actions'],
+  'compress-images': ['Images', 'PNG', 'JPEG'],
+  'common-cache': ['Caching'],
 };
 
 // Icon mapping for GitHub branding

@@ -43,7 +43,7 @@ jobs:
 
       - name: Fetch PR Base
         run: |
-          set -euo pipefail
+          set -eu
           # Fetch the base ref from base repository with authentication (works for private repos and forked PRs)
           # Using ref instead of SHA because git fetch requires ref names, not raw commit IDs
           # Use authenticated URL to avoid 403/404 on private repositories
@@ -96,6 +96,9 @@ jobs:
           script: |-
             const fs = require('fs');
             const path = require('path');
+
+            // Unique marker to identify our bot comment
+            const SECURITY_COMMENT_MARKER = '<!-- security-analysis-bot-comment -->';
 
             const findings = {
               permissions: [],
@@ -230,11 +233,40 @@ jobs:
             if (findings.permissions.length > 0) {
               const permSection = ['## 🔐 GitHub Actions Permissions Changes'];
               findings.permissions.forEach(change => {
-                permSection.push(`**${change.file}**:`);
-                permSection.push('```diff');
-                permSection.push(`- ${change.old}`);
-                permSection.push(`+ ${change.new}`);
-                permSection.push('```');
+                permSection.push(`\n**${change.file}**:`);
+
+                // Parse permissions into lines
+                const oldLines = (change.old === 'None' ? [] : change.old.split('\n').map(l => l.trim()).filter(Boolean));
+                const newLines = (change.new === 'None' ? [] : change.new.split('\n').map(l => l.trim()).filter(Boolean));
+
+                // Create sets for comparison
+                const oldSet = new Set(oldLines);
+                const newSet = new Set(newLines);
+
+                // Find added, removed, and unchanged
+                const removed = oldLines.filter(l => !newSet.has(l));
+                const added = newLines.filter(l => !oldSet.has(l));
+                const unchanged = oldLines.filter(l => newSet.has(l));
+
+                // Only show diff if there are actual changes
+                if (removed.length > 0 || added.length > 0) {
+                  permSection.push('```diff');
+
+                  // Show removed permissions
+                  removed.forEach(line => permSection.push(`- ${line}`));
+
+                  // Show added permissions
+                  added.forEach(line => permSection.push(`+ ${line}`));
+
+                  permSection.push('```');
+
+                  // Summary for context
+                  if (unchanged.length > 0 && unchanged.length <= 3) {
+                    permSection.push(`<details><summary>Unchanged (${unchanged.length})</summary>\n\n${unchanged.map(l => `- ${l}`).join('\n')}\n</details>`);
+                  } else if (unchanged.length > 3) {
+                    permSection.push(`<sub>*${unchanged.length} permissions unchanged*</sub>`);
+                  }
+                }
               });
               sections.push(permSection.join('\n'));
             }
@@ -314,15 +346,15 @@ jobs:
             // Export critical count as output
             core.setOutput('critical_issues', criticalCount.toString());
 
-            // Generate final comment
-            let comment = '## ✅ Security Analysis\n\n';
+            // Generate final comment with unique marker
+            let comment = `${SECURITY_COMMENT_MARKER}\n## ✅ Security Analysis\n\n`;
             if (sections.length === 0) {
               comment += 'No security issues detected in this PR.';
             } else {
               comment += sections.join('\n\n');
             }
 
-            // Find existing security comment
+            // Find existing security comment using unique marker
             const { data: comments } = await github.rest.issues.listComments({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -330,8 +362,7 @@ jobs:
             });
 
             const existingComment = comments.find(comment =>
-              comment.body.includes('Security Analysis') ||
-              comment.body.includes('🔐 GitHub Actions Permissions')
+              comment.body && comment.body.includes(SECURITY_COMMENT_MARKER)
             );
 
             if (existingComment) {

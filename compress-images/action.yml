@@ -141,13 +141,6 @@ runs:
             echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
           fi
         fi
-    - name: Set Git Config
-      id: set-git-config
-      uses: ivuorinen/actions/set-git-config@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
@@ -169,7 +162,8 @@ runs:
       if: steps.calibre.outputs.markdown != ''
       uses: peter-evans/create-pull-request@271a8d0340265f705b14b6d32b9829c1cb33d45e # v7.0.8
       with:
-        title: Compressed Images Nightly
+        token: ${{ inputs.token }}
+        title: 'chore: compress images'
         branch-suffix: timestamp
-        commit-message: Compressed Images
+        commit-message: 'chore: compress images'
         body: ${{ steps.calibre.outputs.markdown }}

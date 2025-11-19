@@ -1,0 +1,393 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write         # Required for fix mode to push changes
+#   - security-events: write  # Required for check mode to upload SARIF
+---
+name: Prettier Lint
+description: 'Run Prettier in check or fix mode with advanced configuration and reporting'
+author: Ismo Vuorinen
+
+branding:
+  icon: check-circle
+  color: green
+
+inputs:
+  mode:
+    description: 'Mode to run (check or fix)'
+    required: false
+    default: 'check'
+  working-directory:
+    description: 'Directory containing files to format'
+    required: false
+    default: '.'
+  prettier-version:
+    description: 'Prettier version to use'
+    required: false
+    default: 'latest'
+  config-file:
+    description: 'Path to Prettier config file'
+    required: false
+    default: '.prettierrc'
+  ignore-file:
+    description: 'Path to Prettier ignore file'
+    required: false
+    default: '.prettierignore'
+  file-pattern:
+    description: 'Files to include (glob pattern)'
+    required: false
+    default: '**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}'
+  cache:
+    description: 'Enable Prettier caching'
+    required: false
+    default: 'true'
+  fail-on-error:
+    description: 'Fail workflow if issues are found (check mode only)'
+    required: false
+    default: 'true'
+  report-format:
+    description: 'Output format for check mode (json, sarif)'
+    required: false
+    default: 'sarif'
+  max-retries:
+    description: 'Maximum number of retry attempts'
+    required: false
+    default: '3'
+  plugins:
+    description: 'Comma-separated list of Prettier plugins to install'
+    required: false
+    default: ''
+  token:
+    description: 'GitHub token for authentication'
+    required: false
+    default: ''
+  username:
+    description: 'GitHub username for commits (fix mode only)'
+    required: false
+    default: 'github-actions'
+  email:
+    description: 'GitHub email for commits (fix mode only)'
+    required: false
+    default: 'github-actions@github.com'
+
+outputs:
+  status:
+    description: 'Overall status (success/failure)'
+    value: ${{ steps.check.outputs.status || steps.fix.outputs.status }}
+  files-checked:
+    description: 'Number of files checked (check mode only)'
+    value: ${{ steps.check.outputs.files_checked }}
+  unformatted-files:
+    description: 'Number of files with formatting issues (check mode only)'
+    value: ${{ steps.check.outputs.unformatted_files }}
+  sarif-file:
+    description: 'Path to SARIF report file (check mode only)'
+    value: ${{ steps.check.outputs.sarif_file }}
+  files-changed:
+    description: 'Number of files changed (fix mode only)'
+    value: ${{ steps.fix.outputs.files_changed }}
+
+runs:
+  using: composite
+  steps:
+    - name: Validate Inputs
+      id: validate
+      shell: bash
+      env:
+        MODE: ${{ inputs.mode }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        PRETTIER_VERSION: ${{ inputs.prettier-version }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
+        FILE_PATTERN: ${{ inputs.file-pattern }}
+        CACHE: ${{ inputs.cache }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
+        PLUGINS: ${{ inputs.plugins }}
+        EMAIL: ${{ inputs.email }}
+        USERNAME: ${{ inputs.username }}
+      run: |
+        set -euo pipefail
+
+        # Validate mode
+        case "$MODE" in
+          "check"|"fix")
+            echo "Mode: $MODE"
+            ;;
+          *)
+            echo "::error::Invalid mode: '$MODE'. Must be 'check' or 'fix'"
+            exit 1
+            ;;
+        esac
+
+        # Validate working directory
+        if [ ! -d "$WORKING_DIRECTORY" ]; then
+          echo "::error::Working directory not found at '$WORKING_DIRECTORY'"
+          exit 1
+        fi
+
+        # Validate working directory path security
+        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
+          echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate Prettier version format
+        if [[ -n "$PRETTIER_VERSION" ]] && [[ "$PRETTIER_VERSION" != "latest" ]]; then
+          if ! [[ "$PRETTIER_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[a-zA-Z0-9.-]+)?$ ]]; then
+            echo "::error::Invalid prettier-version format: '$PRETTIER_VERSION'. Expected format: X.Y.Z or 'latest'"
+            exit 1
+          fi
+        fi
+
+        # Validate config file path
+        if [[ "$CONFIG_FILE" != ".prettierrc" ]] && [[ "$CONFIG_FILE" == *".."* ]]; then
+          echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate ignore file path
+        if [[ "$IGNORE_FILE" != ".prettierignore" ]] && [[ "$IGNORE_FILE" == *".."* ]]; then
+          echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
+          exit 1
+        fi
+
+        # Validate boolean inputs
+        validate_boolean() {
+          local value="$1"
+          local name="$2"
+
+          case "${value,,}" in
+            true|false)
+              ;;
+            *)
+              echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
+              exit 1
+              ;;
+          esac
+        }
+
+        validate_boolean "$CACHE" "cache"
+        validate_boolean "$FAIL_ON_ERROR" "fail-on-error"
+
+        # Validate report format
+        case "$REPORT_FORMAT" in
+          json|sarif)
+            ;;
+          *)
+            echo "::error::Invalid report-format: '$REPORT_FORMAT'. Must be one of: json, sarif"
+            exit 1
+            ;;
+        esac
+
+        # Validate max retries
+        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+          exit 1
+        fi
+
+        # Validate email and username for fix mode
+        if [ "$MODE" = "fix" ]; then
+          if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
+            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+            exit 1
+          fi
+
+          username="$USERNAME"
+
+          if [ ${#username} -gt 39 ]; then
+            echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+            exit 1
+          fi
+
+          if ! [[ "$username" =~ ^[a-zA-Z0-9-]+$ ]]; then
+            echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
+            exit 1
+          fi
+
+          if [[ "$username" == -* ]] || [[ "$username" == *- ]]; then
+            echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
+            exit 1
+          fi
+
+          if [[ "$username" == *--* ]]; then
+            echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
+            exit 1
+          fi
+        fi
+
+        echo "Input validation completed successfully"
+
+    - name: Checkout Repository
+      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      with:
+        token: ${{ inputs.token || github.token }}
+
+    - name: Node Setup
+      id: node-setup
+      uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
+
+    - name: Cache Node Dependencies
+      id: cache
+      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      with:
+        type: 'npm'
+        paths: 'node_modules'
+        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
+        key-prefix: 'prettier-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}'
+
+    - name: Install Dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+      run: |
+        set -euo pipefail
+
+        echo "Installing dependencies using $PACKAGE_MANAGER..."
+
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            pnpm install --frozen-lockfile
+            ;;
+          "yarn")
+            if [ -f ".yarnrc.yml" ]; then
+              yarn install --immutable
+            else
+              yarn install --frozen-lockfile
+            fi
+            ;;
+          "bun")
+            bun install --frozen-lockfile
+            ;;
+          "npm"|*)
+            npm ci
+            ;;
+        esac
+
+        echo "✅ Dependencies installed successfully"
+
+    - name: Install Prettier Plugins
+      if: inputs.plugins != ''
+      shell: bash
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PLUGINS: ${{ inputs.plugins }}
+      run: |
+        set -euo pipefail
+
+        echo "Installing Prettier plugins: $PLUGINS"
+
+        # Convert comma-separated list to space-separated
+        plugins_list=$(echo "$PLUGINS" | tr ',' ' ')
+
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            pnpm add -D $plugins_list
+            ;;
+          "yarn")
+            yarn add -D $plugins_list
+            ;;
+          "bun")
+            bun add -D $plugins_list
+            ;;
+          "npm"|*)
+            npm install --save-dev $plugins_list
+            ;;
+        esac
+
+        echo "✅ Plugins installed successfully"
+
+    - name: Run Prettier Check
+      if: inputs.mode == 'check'
+      id: check
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        CACHE: ${{ inputs.cache }}
+        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        FILE_PATTERN: ${{ inputs.file-pattern }}
+      run: |
+        set -euo pipefail
+
+        echo "Running Prettier check mode..."
+
+        # Build Prettier command
+        prettier_cmd="npx prettier --check \"$FILE_PATTERN\""
+
+        # Add config file if specified and exists
+        if [ "$CONFIG_FILE" != ".prettierrc" ] && [ -f "$CONFIG_FILE" ]; then
+          prettier_cmd="$prettier_cmd --config $CONFIG_FILE"
+        fi
+
+        # Add cache option
+        if [ "$CACHE" = "true" ]; then
+          prettier_cmd="$prettier_cmd --cache"
+        fi
+
+        # Run Prettier and capture results
+        prettier_exit_code=0
+        files_checked=0
+        unformatted_files=0
+
+        if eval "$prettier_cmd" > prettier-output.txt 2>&1; then
+          prettier_exit_code=0
+          echo "status=success" >> "$GITHUB_OUTPUT"
+        else
+          prettier_exit_code=$?
+          unformatted_files=$(grep -c "^" prettier-output.txt 2>/dev/null || echo "0")
+          echo "status=failure" >> "$GITHUB_OUTPUT"
+        fi
+
+        # Count total files checked
+        files_checked=$(eval "npx prettier --list-different \"$FILE_PATTERN\"" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+
+        echo "files_checked=$files_checked" >> "$GITHUB_OUTPUT"
+        echo "unformatted_files=$unformatted_files" >> "$GITHUB_OUTPUT"
+        echo "sarif_file=prettier-results.sarif" >> "$GITHUB_OUTPUT"
+
+        echo "✅ Prettier check completed: $unformatted_files unformatted files out of $files_checked checked"
+
+        # Exit with prettier's exit code if fail-on-error is true
+        if [ "$FAIL_ON_ERROR" = "true" ]; then
+          exit $prettier_exit_code
+        fi
+
+    - name: Run Prettier Fix
+      if: inputs.mode == 'fix'
+      id: fix
+      shell: bash
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        FILE_PATTERN: ${{ inputs.file-pattern }}
+      run: |
+        set -euo pipefail
+
+        echo "Running Prettier fix mode..."
+
+        # Count files before fix
+        files_before=$(git status --porcelain | wc -l | tr -d ' ')
+
+        # Run Prettier fix
+        npx prettier --write "$FILE_PATTERN" || true
+
+        # Count files after fix
+        files_after=$(git status --porcelain | wc -l | tr -d ' ')
+        files_changed=$((files_after - files_before))
+
+        printf '%s\n' "files_changed=$files_changed" >> "$GITHUB_OUTPUT"
+        printf '%s\n' "status=success" >> "$GITHUB_OUTPUT"
+
+        echo "✅ Prettier fix completed. Files changed: $files_changed"
+
+    - name: Commit and Push Fixes
+      if: inputs.mode == 'fix' && success()
+      uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
+      with:
+        commit_message: 'style: autofix Prettier formatting'
+        commit_user_name: ${{ inputs.username }}
+        commit_user_email: ${{ inputs.email }}
+        add_options: '-u'

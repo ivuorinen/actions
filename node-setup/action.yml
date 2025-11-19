@@ -3,7 +3,7 @@
 #   - (none required)  # Setup action, no repository writes
 ---
 name: Node Setup
-description: 'Sets up Node.js env with advanced version management, caching, and tooling.'
+description: 'Sets up Node.js environment with version detection and package manager configuration.'
 author: 'Ismo Vuorinen'
 
 branding:
@@ -26,24 +26,12 @@ inputs:
   token:
     description: 'Auth token for private registry'
     required: false
-  cache:
-    description: 'Enable dependency caching'
-    required: false
-    default: 'true'
-  install:
-    description: 'Automatically install dependencies'
-    required: false
-    default: 'true'
   node-mirror:
     description: 'Custom Node.js binary mirror'
     required: false
   force-version:
     description: 'Force specific Node.js version regardless of config files'
     required: false
-  max-retries:
-    description: 'Maximum number of retry attempts for package manager operations'
-    required: false
-    default: '3'
 
 outputs:
   node-version:
@@ -52,21 +40,9 @@ outputs:
   package-manager:
     description: 'Selected package manager'
     value: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
-  cache-hit:
-    description: 'Indicates if there was a cache hit'
-    value: ${{ steps.deps-cache.outputs.cache-hit }}
   node-path:
     description: 'Path to Node.js installation'
-    value: ${{ steps.setup.outputs.node-path }}
-  esm-support:
-    description: 'Whether ESM modules are supported'
-    value: ${{ steps.package-manager-resolution.outputs.esm-support }}
-  typescript-support:
-    description: 'Whether TypeScript is configured'
-    value: ${{ steps.package-manager-resolution.outputs.typescript-support }}
-  detected-frameworks:
-    description: 'Comma-separated list of detected frameworks'
-    value: ${{ steps.package-manager-resolution.outputs.detected-frameworks }}
+    value: ${{ steps.final-outputs.outputs.node-path }}
 
 runs:
   using: composite
@@ -80,9 +56,6 @@ runs:
         PACKAGE_MANAGER: ${{ inputs.package-manager }}
         REGISTRY_URL: ${{ inputs.registry-url }}
         NODE_MIRROR: ${{ inputs.node-mirror }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-        CACHE: ${{ inputs.cache }}
-        INSTALL: ${{ inputs.install }}
         AUTH_TOKEN: ${{ inputs.token }}
       run: |
         set -euo pipefail
@@ -142,23 +115,6 @@ runs:
           fi
         fi
 
-        # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        # Validate boolean inputs
-        if [[ "$CACHE" != "true" ]] && [[ "$CACHE" != "false" ]]; then
-          echo "::error::Invalid cache value: '$CACHE'. Must be 'true' or 'false'"
-          exit 1
-        fi
-
-        if [[ "$INSTALL" != "true" ]] && [[ "$INSTALL" != "false" ]]; then
-          echo "::error::Invalid install value: '$INSTALL'. Must be 'true' or 'false'"
-          exit 1
-        fi
-
         # Validate auth token format if provided (basic check for NPM tokens)
         if [[ -n "$AUTH_TOKEN" ]]; then
           if [[ "$AUTH_TOKEN" == *";"* ]] || [[ "$AUTH_TOKEN" == *"&&"* ]] || [[ "$AUTH_TOKEN" == *"|"* ]]; then
@@ -214,69 +170,12 @@ runs:
         echo "final-package-manager=$final_pm" >> $GITHUB_OUTPUT
         echo "Final package manager: $final_pm"
 
-        # Node.js feature detection
-        echo "Detecting Node.js features..."
-
-        # Detect ESM support
-        esm_support="false"
-        if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
-          pkg_type=$(jq -r '.type // "commonjs"' package.json 2>/dev/null)
-          if [ "$pkg_type" = "module" ]; then
-            esm_support="true"
-          fi
-        fi
-        echo "esm-support=$esm_support" >> $GITHUB_OUTPUT
-        echo "ESM support: $esm_support"
-
-        # Detect TypeScript
-        typescript_support="false"
-        if [ -f tsconfig.json ] || [ -f package.json ]; then
-          if [ -f tsconfig.json ]; then
-            typescript_support="true"
-          elif command -v jq >/dev/null 2>&1; then
-            if jq -e '.devDependencies.typescript or .dependencies.typescript' package.json >/dev/null 2>&1; then
-              typescript_support="true"
-            fi
-          fi
-        fi
-        echo "typescript-support=$typescript_support" >> $GITHUB_OUTPUT
-        echo "TypeScript support: $typescript_support"
-
-        # Detect frameworks
-        frameworks=""
-        if [ -f package.json ] && command -v jq >/dev/null 2>&1; then
-          detected_frameworks=()
-          if jq -e '.dependencies.next or .devDependencies.next' package.json >/dev/null 2>&1; then
-            detected_frameworks+=("next")
-          fi
-          if jq -e '.dependencies.react or .devDependencies.react' package.json >/dev/null 2>&1; then
-            detected_frameworks+=("react")
-          fi
-          if jq -e '.dependencies.vue or .devDependencies.vue' package.json >/dev/null 2>&1; then
-            detected_frameworks+=("vue")
-          fi
-          if jq -e '.dependencies.svelte or .devDependencies.svelte' package.json >/dev/null 2>&1; then
-            detected_frameworks+=("svelte")
-          fi
-          if jq -e '.dependencies."@angular/core" or .devDependencies."@angular/core"' package.json >/dev/null 2>&1; then
-            detected_frameworks+=("angular")
-          fi
-
-          if [ ${#detected_frameworks[@]} -gt 0 ]; then
-            frameworks=$(IFS=','; echo "${detected_frameworks[*]}")
-          fi
-        fi
-        echo "detected-frameworks=$frameworks" >> $GITHUB_OUTPUT
-        echo "Detected frameworks: $frameworks"
-
     - name: Setup Node.js
       id: setup
       uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
       with:
         node-version: ${{ steps.version.outputs.detected-version }}
         registry-url: ${{ inputs.registry-url }}
-        # Note: cache parameter removed for actions/setup-node@v6 compatibility
-        # Caching is handled separately via common-cache action (step: Cache Dependencies)
 
     - name: Enable Corepack
       id: corepack
@@ -297,19 +196,7 @@ runs:
         sanitized_token="$(echo "$TOKEN" | tr -d '\n\r')"
         printf 'NODE_AUTH_TOKEN=%s\n' "$sanitized_token" >> "$GITHUB_ENV"
 
-    - name: Cache Dependencies
-      if: inputs.cache == 'true'
-      id: deps-cache
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        type: 'npm'
-        paths: '~/.npm,~/.yarn/cache,~/.pnpm-store,~/.bun/install/cache,node_modules'
-        key-prefix: 'node-${{ steps.version.outputs.detected-version }}-${{ steps.package-manager-resolution.outputs.final-package-manager }}'
-        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb,.yarnrc.yml'
-        restore-keys: '${{ runner.os }}-node-${{ steps.version.outputs.detected-version }}-${{ steps.package-manager-resolution.outputs.final-package-manager }}-'
-
-    - name: Install Package Managers
-      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
+    - name: Setup Package Manager
       shell: bash
       env:
         PACKAGE_MANAGER: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
@@ -343,61 +230,13 @@ runs:
         esac
 
     - name: Setup Bun
-      if: inputs.install == 'true' && steps.package-manager-resolution.outputs.final-package-manager == 'bun'
+      if: steps.package-manager-resolution.outputs.final-package-manager == 'bun'
       uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
       with:
         bun-version: latest
 
-    - name: Export Package Manager to Environment
-      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
-      shell: bash
-      env:
-        PACKAGE_MANAGER: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
-      run: |
-        # Sanitize package manager by removing newlines to prevent env var injection
-        sanitized_pm="$(echo "$PACKAGE_MANAGER" | tr -d '\n\r')"
-        printf 'PACKAGE_MANAGER=%s\n' "$sanitized_pm" >> "$GITHUB_ENV"
-
-    - name: Install Dependencies
-      if: inputs.install == 'true' && steps.deps-cache.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        command: |
-          package_manager="$PACKAGE_MANAGER"
-          echo "Installing dependencies using $package_manager..."
-          case "$package_manager" in
-            "pnpm")
-              pnpm install --frozen-lockfile
-              ;;
-            "yarn")
-              # Check for Yarn Berry/PnP configuration
-              if [ -f ".yarnrc.yml" ]; then
-                echo "Detected Yarn Berry configuration"
-                yarn install --immutable
-              else
-                echo "Using Yarn Classic"
-                yarn install --frozen-lockfile
-              fi
-              ;;
-            "bun")
-              bun install
-              ;;
-            "npm"|*)
-              npm ci
-              ;;
-          esac
-          echo "✅ Dependencies installed successfully"
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Installing Node.js dependencies'
-
     - name: Set Final Outputs
+      id: final-outputs
       shell: bash
-      env:
-        NODE_VERSION: ${{ steps.version.outputs.detected-version }}
-        PACKAGE_MANAGER: ${{ steps.package-manager-resolution.outputs.final-package-manager }}
-      run: |-
-        {
-          echo "node-version=$NODE_VERSION"
-          echo "package-manager=$PACKAGE_MANAGER"
-          echo "node-path=$(which node)"
-        } >> $GITHUB_OUTPUT
+      run: |
+        echo "node-path=$(which node)" >> $GITHUB_OUTPUT

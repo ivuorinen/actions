@@ -32,7 +32,7 @@ outputs:
     value: ${{ steps.test.outputs.status }}
   dotnet_version:
     description: 'Version of .NET SDK used'
-    value: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+    value: ${{ steps.detect-dotnet-version.outputs.detected-version }}
   artifacts_path:
     description: 'Path to build artifacts'
     value: '**/bin/Release/**/*'
@@ -50,14 +50,15 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/dotnet-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
+        language: 'dotnet'
         default-version: "${{ inputs.dotnet-version || '7.0' }}"
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
-        dotnet-version: ${{ steps.detect-dotnet-version.outputs.dotnet-version }}
+        dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
 
     - name: Cache NuGet packages
       id: cache-nuget
@@ -70,13 +71,13 @@ runs:
 
     - name: Restore Dependencies
       if: steps.cache-nuget.outputs.cache-hit != 'true'
-      uses: ivuorinen/actions/common-retry@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
       with:
+        timeout_minutes: 10
+        max_attempts: ${{ inputs.max-retries }}
         command: |
           echo "Restoring .NET dependencies..."
           dotnet restore --verbosity normal
-        max-retries: ${{ inputs.max-retries }}
-        description: 'Restoring .NET dependencies'
 
     - name: Skip Restore (Cache Hit)
       if: steps.cache-nuget.outputs.cache-hit == 'true'
