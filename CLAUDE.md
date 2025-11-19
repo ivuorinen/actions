@@ -39,7 +39,7 @@
 
 **Core Memories** (read first for project understanding):
 
-- `repository_overview` – 29 actions, categories, structure, status
+- `repository_overview` – 30 actions, categories, structure, status
 - `validator_system` – Validation architecture, components, usage patterns
 - `development_standards` – Quality rules, workflows, security, completion checklist
 
@@ -71,7 +71,7 @@
 
 Flat structure. Each action self-contained with `action.yml`.
 
-**29 Actions**: Setup (node-setup, language-version-detect), Utilities (action-versioning, version-file-parser),
+**30 Actions**: Setup (node-setup, language-version-detect), Utilities (action-versioning, version-file-parser),
 Linting (ansible-lint-fix, biome-lint, csharp-lint-check, eslint-lint, go-lint, pr-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix),
 Testing (php-tests, php-laravel-phpunit, php-composer), Build (csharp-build, go-build, docker-build),
 Publishing (npm-publish, docker-publish, csharp-publish),
