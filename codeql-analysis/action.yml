@@ -90,11 +90,6 @@ inputs:
     required: false
     default: 'false'
 
-  add-snippets:
-    description: 'Add code snippets to SARIF output'
-    required: false
-    default: 'false'
-
 outputs:
   language-analyzed:
     description: 'Language that was analyzed'
@@ -131,7 +126,6 @@ runs:
         threads: ${{ inputs.threads }}
         output: ${{ inputs.output }}
         skip-queries: ${{ inputs.skip-queries }}
-        add-snippets: ${{ inputs.add-snippets }}
 
     - name: Validate checkout safety
       shell: bash
@@ -214,7 +208,6 @@ runs:
         output: ${{ inputs.output }}
         ram: ${{ inputs.ram }}
         threads: ${{ inputs.threads }}
-        add-snippets: ${{ inputs.add-snippets }}
         skip-queries: ${{ inputs.skip-queries }}
 
     - name: Summary

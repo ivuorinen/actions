@@ -26,7 +26,6 @@ Run CodeQL security analysis for a single language with configurable query suite
 | `threads`           | <p>Number of threads that can be used by CodeQL</p>                                         | `false`  | `""`                  |
 | `output`            | <p>Path to save SARIF results</p>                                                           | `false`  | `../results`          |
 | `skip-queries`      | <p>Build database but skip running queries</p>                                              | `false`  | `false`               |
-| `add-snippets`      | <p>Add code snippets to SARIF output</p>                                                    | `false`  | `false`               |
 
 ### Outputs
 
@@ -137,12 +136,6 @@ This action is a `composite` action.
 
     skip-queries:
     # Build database but skip running queries
-    #
-    # Required: false
-    # Default: false
-
-    add-snippets:
-    # Add code snippets to SARIF output
     #
     # Required: false
     # Default: false
