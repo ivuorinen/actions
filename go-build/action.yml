@@ -76,7 +76,7 @@ runs:
 
     - name: Download Dependencies
       if: steps.cache-go.outputs.cache-hit != 'true'
-      uses: nick-fields/retry@7152eba30c6575329ac0576536151aca5a72780e # v3.0.0
+      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
