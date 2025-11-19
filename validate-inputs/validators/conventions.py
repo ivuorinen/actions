@@ -212,6 +212,7 @@ class ConventionBasedValidator(BaseValidator):
             "format": "report_format",
             "output_format": "report_format",
             "report_format": "report_format",
+            "mode": "string",
         }
         return exact_matches.get(name_lower)
 
