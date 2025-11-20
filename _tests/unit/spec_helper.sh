@@ -114,11 +114,6 @@ setup_default_inputs() {
   "validate-inputs")
     [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
     ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="node"
-    [[ "$input_name" != "tool-versions-key" ]] && export INPUT_TOOL_VERSIONS_KEY="nodejs"
-    [[ "$input_name" != "dockerfile-image" ]] && export INPUT_DOCKERFILE_IMAGE="node"
-    ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
     [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -185,11 +180,6 @@ cleanup_default_inputs() {
   "validate-inputs")
     [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
     ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
-    [[ "$input_name" != "tool-versions-key" ]] && unset INPUT_TOOL_VERSIONS_KEY
-    [[ "$input_name" != "dockerfile-image" ]] && unset INPUT_DOCKERFILE_IMAGE
-    ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
     [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
@@ -244,10 +234,6 @@ shellspec_mock_action_run() {
   action_name=$(basename "$action_dir")
 
   case "$action_name" in
-  "version-file-parser")
-    echo "detected-version=1.0.0" >>"$GITHUB_OUTPUT"
-    echo "package-manager=npm" >>"$GITHUB_OUTPUT"
-    ;;
   "node-setup")
     echo "node-version=18.0.0" >>"$GITHUB_OUTPUT"
     echo "package-manager=npm" >>"$GITHUB_OUTPUT"

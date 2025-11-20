@@ -5,9 +5,7 @@ on:
   push:
     paths:
       - 'node-setup/**'
-      - 'version-file-parser/**'
       - 'common-cache/**'
-      - 'common-retry/**'
       - '_tests/integration/workflows/node-setup-test.yml'
 
 jobs:

@@ -22,9 +22,9 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 ## 📚 Action Catalog
 
-This repository contains **30 reusable GitHub Actions** for CI/CD automation.
+This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 
-### Quick Reference (30 Actions)
+### Quick Reference (29 Actions)
 
 | Icon | Action                                               | Category   | Description                                                     | Key Features                                 |
 |:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
@@ -57,7 +57,6 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 | 🏷️  | [`sync-labels`][sync-labels]                         | Repository | Sync labels from a YAML file to a GitHub repository             | Token auth, Outputs                          |
 | 🖥️  | [`terraform-lint-fix`][terraform-lint-fix]           | Linting    | Lints and fixes Terraform files with advanced validation and... | Token auth, Outputs                          |
 | 🛡️  | [`validate-inputs`][validate-inputs]                 | Validation | Centralized Python-based input validation for GitHub Actions... | Token auth, Outputs                          |
-|  📦  | [`version-file-parser`][version-file-parser]         | Utilities  | Universal parser for common version detection files (.tool-v... | Auto-detection, Outputs                      |
 
 ### Actions by Category
 
@@ -68,12 +67,11 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 | 📝 [`language-version-detect`][language-version-detect] | Detects language version from project configuratio... | PHP, Python, Go, .NET, Node.js  | Auto-detection, Token auth, Outputs |
 | 🖥️ [`node-setup`][node-setup]                          | Sets up Node.js environment with version detection... | Node.js, JavaScript, TypeScript | Auto-detection, Token auth, Outputs |
 
-#### 🛠️ Utilities (2 actions)
+#### 🛠️ Utilities (1 action)
 
-| Action                                          | Description                                           | Languages          | Features                |
-|:------------------------------------------------|:------------------------------------------------------|:-------------------|:------------------------|
-| 🔀 [`action-versioning`][action-versioning]     | Automatically update SHA-pinned action references ... | GitHub Actions     | Token auth, Outputs     |
-| 📦 [`version-file-parser`][version-file-parser] | Universal parser for common version detection file... | Multiple Languages | Auto-detection, Outputs |
+| Action                                      | Description                                           | Languages      | Features            |
+|:--------------------------------------------|:------------------------------------------------------|:---------------|:--------------------|
+| 🔀 [`action-versioning`][action-versioning] | Automatically update SHA-pinned action references ... | GitHub Actions | Token auth, Outputs |
 
 #### 📝 Linting (10 actions)
 
@@ -164,7 +162,6 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 | [`sync-labels`][sync-labels]                         |    -    |       -        |     ✅      |    ✅    |
 | [`terraform-lint-fix`][terraform-lint-fix]           |    -    |       -        |     ✅      |    ✅    |
 | [`validate-inputs`][validate-inputs]                 |    -    |       -        |     ✅      |    ✅    |
-| [`version-file-parser`][version-file-parser]         |    -    |       ✅        |     -      |    ✅    |
 
 ### Language Support
 
@@ -188,7 +185,7 @@ This repository contains **30 reusable GitHub Actions** for CI/CD automation.
 | JavaScript           | [`biome-lint`][biome-lint], [`codeql-analysis`][codeql-analysis], [`eslint-lint`][eslint-lint], [`node-setup`][node-setup], [`prettier-lint`][prettier-lint]       |
 | Laravel              | [`php-laravel-phpunit`][php-laravel-phpunit]                                                                                                                       |
 | Markdown             | [`prettier-lint`][prettier-lint]                                                                                                                                   |
-| Multiple Languages   | [`pre-commit`][pre-commit], [`version-file-parser`][version-file-parser]                                                                                           |
+| Multiple Languages   | [`pre-commit`][pre-commit]                                                                                                                                         |
 | Node.js              | [`language-version-detect`][language-version-detect], [`node-setup`][node-setup], [`npm-publish`][npm-publish]                                                     |
 | PHP                  | [`language-version-detect`][language-version-detect], [`php-composer`][php-composer], [`php-laravel-phpunit`][php-laravel-phpunit], [`php-tests`][php-tests]       |
 | PNG                  | [`compress-images`][compress-images]                                                                                                                               |
@@ -248,7 +245,6 @@ All actions can be used independently in your workflows:
 [sync-labels]: sync-labels/README.md
 [terraform-lint-fix]: terraform-lint-fix/README.md
 [validate-inputs]: validate-inputs/README.md
-[version-file-parser]: version-file-parser/README.md
 
 ---
 
