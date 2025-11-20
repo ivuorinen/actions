@@ -22,17 +22,16 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 ## 📚 Action Catalog
 
-This repository contains **29 reusable GitHub Actions** for CI/CD automation.
+This repository contains **28 reusable GitHub Actions** for CI/CD automation.
 
-### Quick Reference (29 Actions)
+### Quick Reference (28 Actions)
 
 | Icon | Action                                               | Category   | Description                                                     | Key Features                                 |
 |:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
 |  🔀  | [`action-versioning`][action-versioning]             | Utilities  | Automatically update SHA-pinned action references to match l... | Token auth, Outputs                          |
 |  📦  | [`ansible-lint-fix`][ansible-lint-fix]               | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Caching, Token auth, Outputs                 |
-|  ✅   | [`biome-lint`][biome-lint]                           | Linting    | Run Biome linter in check or fix mode                           | Token auth, Outputs                          |
+|  ✅   | [`biome-lint`][biome-lint]                           | Linting    | Run Biome linter in check or fix mode                           | Caching, Token auth, Outputs                 |
 | 🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
-|  💾  | [`common-cache`][common-cache]                       | Repository | Standardized caching strategy for all actions                   | Caching, Outputs                             |
 | 🖼️  | [`compress-images`][compress-images]                 | Repository | Compress images on demand (workflow_dispatch), and at 11pm e... | Token auth, Outputs                          |
 |  📝  | [`csharp-build`][csharp-build]                       | Build      | Builds and tests C# projects.                                   | Caching, Auto-detection, Token auth, Outputs |
 |  📝  | [`csharp-lint-check`][csharp-lint-check]             | Linting    | Runs linters like StyleCop or dotnet-format for C# code styl... | Auto-detection, Token auth, Outputs          |
@@ -78,7 +77,7 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | Action                                         | Description                                           | Languages                                    | Features                                     |
 |:-----------------------------------------------|:------------------------------------------------------|:---------------------------------------------|:---------------------------------------------|
 | 📦 [`ansible-lint-fix`][ansible-lint-fix]      | Lints and fixes Ansible playbooks, commits changes... | Ansible, YAML                                | Caching, Token auth, Outputs                 |
-| ✅ [`biome-lint`][biome-lint]                   | Run Biome linter in check or fix mode                 | JavaScript, TypeScript, JSON                 | Token auth, Outputs                          |
+| ✅ [`biome-lint`][biome-lint]                   | Run Biome linter in check or fix mode                 | JavaScript, TypeScript, JSON                 | Caching, Token auth, Outputs                 |
 | 📝 [`csharp-lint-check`][csharp-lint-check]    | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Auto-detection, Token auth, Outputs          |
 | ✅ [`eslint-lint`][eslint-lint]                 | Run ESLint in check or fix mode with advanced conf... | JavaScript, TypeScript                       | Caching, Token auth, Outputs                 |
 | 📝 [`go-lint`][go-lint]                        | Run golangci-lint with advanced configuration, cac... | Go                                           | Caching, Token auth, Outputs                 |
@@ -112,12 +111,11 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | ☁️ [`docker-publish`][docker-publish] | Simple wrapper to publish Docker images to GitHub ... | Docker       | Token auth, Outputs                          |
 | 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Caching, Token auth, Outputs                 |
 
-#### 📦 Repository (6 actions)
+#### 📦 Repository (5 actions)
 
 | Action                                   | Description                                           | Languages                                               | Features                            |
 |:-----------------------------------------|:------------------------------------------------------|:--------------------------------------------------------|:------------------------------------|
 | 🛡️ [`codeql-analysis`][codeql-analysis] | Run CodeQL security analysis for a single language... | JavaScript, TypeScript, Python, Java, C#, C++, Go, Ruby | Auto-detection, Token auth, Outputs |
-| 💾 [`common-cache`][common-cache]        | Standardized caching strategy for all actions         | Caching                                                 | Caching, Outputs                    |
 | 🖼️ [`compress-images`][compress-images] | Compress images on demand (workflow_dispatch), and... | Images, PNG, JPEG                                       | Token auth, Outputs                 |
 | 📦 [`release-monthly`][release-monthly]  | Creates a release for the current month, increment... | GitHub Actions                                          | Token auth, Outputs                 |
 | 📦 [`stale`][stale]                      | A GitHub Action to close stale issues and pull req... | GitHub Actions                                          | Token auth, Outputs                 |
@@ -135,9 +133,8 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 |:-----------------------------------------------------|:-------:|:--------------:|:----------:|:-------:|
 | [`action-versioning`][action-versioning]             |    -    |       -        |     ✅      |    ✅    |
 | [`ansible-lint-fix`][ansible-lint-fix]               |    ✅    |       -        |     ✅      |    ✅    |
-| [`biome-lint`][biome-lint]                           |    -    |       -        |     ✅      |    ✅    |
+| [`biome-lint`][biome-lint]                           |    ✅    |       -        |     ✅      |    ✅    |
 | [`codeql-analysis`][codeql-analysis]                 |    -    |       ✅        |     ✅      |    ✅    |
-| [`common-cache`][common-cache]                       |    ✅    |       -        |     -      |    ✅    |
 | [`compress-images`][compress-images]                 |    -    |       -        |     ✅      |    ✅    |
 | [`csharp-build`][csharp-build]                       |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`csharp-lint-check`][csharp-lint-check]             |    -    |       ✅        |     ✅      |    ✅    |
@@ -171,7 +168,6 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | Ansible              | [`ansible-lint-fix`][ansible-lint-fix]                                                                                                                             |
 | C#                   | [`codeql-analysis`][codeql-analysis], [`csharp-build`][csharp-build], [`csharp-lint-check`][csharp-lint-check], [`csharp-publish`][csharp-publish]                 |
 | C++                  | [`codeql-analysis`][codeql-analysis]                                                                                                                               |
-| Caching              | [`common-cache`][common-cache]                                                                                                                                     |
 | Conventional Commits | [`pr-lint`][pr-lint]                                                                                                                                               |
 | Docker               | [`docker-build`][docker-build], [`docker-publish`][docker-publish]                                                                                                 |
 | GitHub               | [`sync-labels`][sync-labels]                                                                                                                                       |
@@ -220,7 +216,6 @@ All actions can be used independently in your workflows:
 [ansible-lint-fix]: ansible-lint-fix/README.md
 [biome-lint]: biome-lint/README.md
 [codeql-analysis]: codeql-analysis/README.md
-[common-cache]: common-cache/README.md
 [compress-images]: compress-images/README.md
 [csharp-build]: csharp-build/README.md
 [csharp-lint-check]: csharp-lint-check/README.md

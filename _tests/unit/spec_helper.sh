@@ -92,10 +92,6 @@ setup_default_inputs() {
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
     ;;
-  "common-cache")
-    [[ "$input_name" != "type" ]] && export INPUT_TYPE="npm"
-    [[ "$input_name" != "paths" ]] && export INPUT_PATHS="node_modules"
-    ;;
   "common-retry")
     [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
     ;;
@@ -157,10 +153,6 @@ cleanup_default_inputs() {
     ;;
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
-    ;;
-  "common-cache")
-    [[ "$input_name" != "type" ]] && unset INPUT_TYPE
-    [[ "$input_name" != "paths" ]] && unset INPUT_PATHS
     ;;
   "common-retry")
     [[ "$input_name" != "command" ]] && unset INPUT_COMMAND
@@ -243,11 +235,6 @@ shellspec_mock_action_run() {
     echo "image-digest=sha256:abc123" >>"$GITHUB_OUTPUT"
     echo "build-time=45" >>"$GITHUB_OUTPUT"
     echo "platforms=linux/amd64" >>"$GITHUB_OUTPUT"
-    ;;
-  "common-cache")
-    echo "cache-hit=true" >>"$GITHUB_OUTPUT"
-    echo "cache-key=Linux-npm-abc123" >>"$GITHUB_OUTPUT"
-    echo "cache-paths=node_modules" >>"$GITHUB_OUTPUT"
     ;;
   "common-file-check")
     echo "found=true" >>"$GITHUB_OUTPUT"

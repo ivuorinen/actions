@@ -304,10 +304,6 @@ class ValidationRuleGenerator:
                 "cache-mode": "cache_mode",
                 "sbom-format": "sbom_format",
             },
-            "common-cache": {
-                "paths": "file_path",
-                "key-files": "file_path",
-            },
             "common-file-check": {
                 "file-pattern": "file_path",
             },

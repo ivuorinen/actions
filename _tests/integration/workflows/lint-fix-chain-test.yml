@@ -7,7 +7,6 @@ on:
       - 'eslint-lint/**'
       - 'prettier-lint/**'
       - 'node-setup/**'
-      - 'common-cache/**'
       - '_tests/integration/workflows/lint-fix-chain-test.yml'
 
 jobs:

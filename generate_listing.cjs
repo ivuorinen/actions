@@ -47,7 +47,6 @@ const CATEGORIES = {
   'sync-labels': 'Repository',
   stale: 'Repository',
   'compress-images': 'Repository',
-  'common-cache': 'Repository',
   'codeql-analysis': 'Repository',
 
   // Validation
@@ -85,7 +84,6 @@ const LANGUAGE_SUPPORT = {
   'release-monthly': ['GitHub Actions'],
   stale: ['GitHub Actions'],
   'compress-images': ['Images', 'PNG', 'JPEG'],
-  'common-cache': ['Caching'],
 };
 
 // Icon mapping for GitHub branding
