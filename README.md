@@ -44,8 +44,8 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 |  📝  | [`go-lint`][go-lint]                                 | Linting    | Run golangci-lint with advanced configuration, caching, and ... | Caching, Token auth, Outputs                 |
 |  📝  | [`language-version-detect`][language-version-detect] | Setup      | DEPRECATED: This action is deprecated. Inline version detect... | Auto-detection, Token auth, Outputs          |
 | 🖥️  | [`node-setup`][node-setup]                           | Setup      | Sets up Node.js environment with version detection and packa... | Auto-detection, Token auth, Outputs          |
-|  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Token auth, Outputs                          |
-| 🖥️  | [`php-composer`][php-composer]                       | Testing    | Runs Composer install on a repository with advanced caching ... | Auto-detection, Token auth, Outputs          |
+|  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Caching, Token auth, Outputs                 |
+| 🖥️  | [`php-composer`][php-composer]                       | Testing    | Runs Composer install on a repository with advanced caching ... | Caching, Auto-detection, Token auth, Outputs |
 |  💻  | [`php-laravel-phpunit`][php-laravel-phpunit]         | Testing    | Setup PHP, install dependencies, generate key, create databa... | Auto-detection, Token auth, Outputs          |
 |  ✅   | [`php-tests`][php-tests]                             | Testing    | Run PHPUnit tests on the repository                             | Token auth, Outputs                          |
 |  ✅   | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests                           | Caching, Auto-detection, Token auth, Outputs |
@@ -90,11 +90,11 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 
 #### 🧪 Testing (3 actions)
 
-| Action                                          | Description                                           | Languages    | Features                            |
-|:------------------------------------------------|:------------------------------------------------------|:-------------|:------------------------------------|
-| 🖥️ [`php-composer`][php-composer]              | Runs Composer install on a repository with advance... | PHP          | Auto-detection, Token auth, Outputs |
-| 💻 [`php-laravel-phpunit`][php-laravel-phpunit] | Setup PHP, install dependencies, generate key, cre... | PHP, Laravel | Auto-detection, Token auth, Outputs |
-| ✅ [`php-tests`][php-tests]                      | Run PHPUnit tests on the repository                   | PHP          | Token auth, Outputs                 |
+| Action                                          | Description                                           | Languages    | Features                                     |
+|:------------------------------------------------|:------------------------------------------------------|:-------------|:---------------------------------------------|
+| 🖥️ [`php-composer`][php-composer]              | Runs Composer install on a repository with advance... | PHP          | Caching, Auto-detection, Token auth, Outputs |
+| 💻 [`php-laravel-phpunit`][php-laravel-phpunit] | Setup PHP, install dependencies, generate key, cre... | PHP, Laravel | Auto-detection, Token auth, Outputs          |
+| ✅ [`php-tests`][php-tests]                      | Run PHPUnit tests on the repository                   | PHP          | Token auth, Outputs                          |
 
 #### 🏗️ Build (3 actions)
 
@@ -110,7 +110,7 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 |:--------------------------------------|:------------------------------------------------------|:-------------|:---------------------------------------------|
 | 📦 [`csharp-publish`][csharp-publish] | Publishes a C# project to GitHub Packages.            | C#, .NET     | Caching, Auto-detection, Token auth, Outputs |
 | ☁️ [`docker-publish`][docker-publish] | Simple wrapper to publish Docker images to GitHub ... | Docker       | Token auth, Outputs                          |
-| 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Token auth, Outputs                          |
+| 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Caching, Token auth, Outputs                 |
 
 #### 📦 Repository (6 actions)
 
@@ -149,8 +149,8 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | [`go-lint`][go-lint]                                 |    ✅    |       -        |     ✅      |    ✅    |
 | [`language-version-detect`][language-version-detect] |    -    |       ✅        |     ✅      |    ✅    |
 | [`node-setup`][node-setup]                           |    -    |       ✅        |     ✅      |    ✅    |
-| [`npm-publish`][npm-publish]                         |    -    |       -        |     ✅      |    ✅    |
-| [`php-composer`][php-composer]                       |    -    |       ✅        |     ✅      |    ✅    |
+| [`npm-publish`][npm-publish]                         |    ✅    |       -        |     ✅      |    ✅    |
+| [`php-composer`][php-composer]                       |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`php-laravel-phpunit`][php-laravel-phpunit]         |    -    |       ✅        |     ✅      |    ✅    |
 | [`php-tests`][php-tests]                             |    -    |       -        |     ✅      |    ✅    |
 | [`pr-lint`][pr-lint]                                 |    ✅    |       ✅        |     ✅      |    ✅    |

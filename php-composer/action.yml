@@ -176,13 +176,15 @@ runs:
 
     - name: Cache Composer packages
       id: composer-cache
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        type: 'composer'
-        paths: vendor,~/.composer/cache${{ inputs.cache-directories != "" && format(",{0}", inputs.cache-directories) || "" }}
-        key-prefix: 'php-${{ inputs.php }}-composer-${{ inputs.composer-version }}'
-        key-files: 'composer.lock,composer.json'
+        path: |
+          vendor
+          ~/.composer/cache
+          ${{ inputs.cache-directories }}
+        key: ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-composer-${{ hashFiles('composer.lock', 'composer.json') }}
         restore-keys: |
+          ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-composer-
           ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-
           ${{ runner.os }}-php-${{ inputs.php }}-composer-
           ${{ runner.os }}-php-${{ inputs.php }}-
