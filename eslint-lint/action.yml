@@ -248,12 +248,13 @@ runs:
 
     - name: Cache Node Dependencies
       id: cache
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        type: 'npm'
-        paths: 'node_modules'
-        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
-        key-prefix: 'eslint-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}'
+        path: node_modules
+        key: ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}-
+          ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-
 
     - name: Install Dependencies
       if: steps.cache.outputs.cache-hit != 'true'
