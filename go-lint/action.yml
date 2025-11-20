@@ -215,13 +215,13 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
 
-    - name: Set up Cache
+    - name: Cache golangci-lint
       id: cache
       if: inputs.cache == 'true'
       uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
       with:
         type: 'go'
-        paths: '~/.cache/golangci-lint,~/.cache/go-build'
+        paths: '~/.cache/golangci-lint'
         key-prefix: 'golangci-${{ inputs.golangci-lint-version }}'
         key-files: 'go.sum,${{ inputs.config-file }}'
         restore-keys: '${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-'

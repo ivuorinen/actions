@@ -164,17 +164,7 @@ runs:
         go-version: ${{ steps.detect-go-version.outputs.detected-version }}
         cache: true
 
-    - name: Cache Go Dependencies
-      id: cache-go
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        type: 'go'
-        paths: '~/go/pkg/mod'
-        key-files: 'go.mod,go.sum'
-        key-prefix: 'go-build'
-
     - name: Download Dependencies
-      if: steps.cache-go.outputs.cache-hit != 'true'
       uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
       with:
         timeout_minutes: 10
