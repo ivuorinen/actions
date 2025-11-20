@@ -192,16 +192,50 @@ runs:
         printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
         echo "Final detected Python version: $detected_version" >&2
 
+    - name: Detect Package Manager
+      id: package-manager
+      shell: sh
+      run: |
+        set -eu
+
+        # Detect Python package manager based on lock files and config
+        package_manager="pip"
+
+        if [ -f "uv.lock" ]; then
+          # uv uses pip-compatible caching, so we use 'pip' as cache type
+          package_manager="pip"
+          echo "Detected uv (using pip-compatible caching)" >&2
+        elif [ -f "poetry.lock" ]; then
+          package_manager="poetry"
+          echo "Detected Poetry" >&2
+        elif [ -f "Pipfile.lock" ] || [ -f "Pipfile" ]; then
+          package_manager="pipenv"
+          echo "Detected Pipenv" >&2
+        elif [ -f "requirements.txt" ] || [ -f "requirements-dev.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
+          package_manager="pip"
+          echo "Detected pip" >&2
+        else
+          package_manager="pip"
+          echo "No package manager detected, defaulting to pip" >&2
+        fi
+
+        printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
+        echo "Using package manager: $package_manager" >&2
+
     - name: Setup Python
       uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
       with:
         python-version: ${{ steps.python-version.outputs.detected-version }}
-        cache: 'pip'
+        cache: ${{ steps.package-manager.outputs.package-manager }}
         cache-dependency-path: |
           **/requirements.txt
           **/requirements-dev.txt
           **/pyproject.toml
           **/setup.py
+          **/Pipfile
+          **/Pipfile.lock
+          **/poetry.lock
+          **/uv.lock
 
     - name: Check for Python Files
       id: check-files
@@ -219,18 +253,8 @@ runs:
         fi
         printf '%s\n' "result=found" >> "$GITHUB_OUTPUT"
 
-    - name: Cache Python Dependencies
-      if: steps.check-files.outputs.result == 'found'
-      id: cache-pip
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        type: 'pip'
-        paths: '~/.cache/pip'
-        key-files: 'requirements*.txt,pyproject.toml,setup.py,setup.cfg'
-        key-prefix: 'python-lint-fix'
-
     - name: Install Dependencies
-      if: steps.check-files.outputs.result == 'found' && steps.cache-pip.outputs.cache-hit != 'true'
+      if: steps.check-files.outputs.result == 'found'
       id: install
       shell: sh
       env:

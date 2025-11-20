@@ -29,7 +29,7 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | Icon | Action                                               | Category   | Description                                                     | Key Features                                 |
 |:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
 |  🔀  | [`action-versioning`][action-versioning]             | Utilities  | Automatically update SHA-pinned action references to match l... | Token auth, Outputs                          |
-|  📦  | [`ansible-lint-fix`][ansible-lint-fix]               | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Token auth, Outputs                          |
+|  📦  | [`ansible-lint-fix`][ansible-lint-fix]               | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Caching, Token auth, Outputs                 |
 |  ✅   | [`biome-lint`][biome-lint]                           | Linting    | Run Biome linter in check or fix mode                           | Token auth, Outputs                          |
 | 🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
 |  💾  | [`common-cache`][common-cache]                       | Repository | Standardized caching strategy for all actions                   | Caching, Outputs                             |
@@ -77,7 +77,7 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 
 | Action                                         | Description                                           | Languages                                    | Features                                     |
 |:-----------------------------------------------|:------------------------------------------------------|:---------------------------------------------|:---------------------------------------------|
-| 📦 [`ansible-lint-fix`][ansible-lint-fix]      | Lints and fixes Ansible playbooks, commits changes... | Ansible, YAML                                | Token auth, Outputs                          |
+| 📦 [`ansible-lint-fix`][ansible-lint-fix]      | Lints and fixes Ansible playbooks, commits changes... | Ansible, YAML                                | Caching, Token auth, Outputs                 |
 | ✅ [`biome-lint`][biome-lint]                   | Run Biome linter in check or fix mode                 | JavaScript, TypeScript, JSON                 | Token auth, Outputs                          |
 | 📝 [`csharp-lint-check`][csharp-lint-check]    | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Auto-detection, Token auth, Outputs          |
 | ✅ [`eslint-lint`][eslint-lint]                 | Run ESLint in check or fix mode with advanced conf... | JavaScript, TypeScript                       | Caching, Token auth, Outputs                 |
@@ -134,7 +134,7 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | Action                                               | Caching | Auto-detection | Token auth | Outputs |
 |:-----------------------------------------------------|:-------:|:--------------:|:----------:|:-------:|
 | [`action-versioning`][action-versioning]             |    -    |       -        |     ✅      |    ✅    |
-| [`ansible-lint-fix`][ansible-lint-fix]               |    -    |       -        |     ✅      |    ✅    |
+| [`ansible-lint-fix`][ansible-lint-fix]               |    ✅    |       -        |     ✅      |    ✅    |
 | [`biome-lint`][biome-lint]                           |    -    |       -        |     ✅      |    ✅    |
 | [`codeql-analysis`][codeql-analysis]                 |    -    |       ✅        |     ✅      |    ✅    |
 | [`common-cache`][common-cache]                       |    ✅    |       -        |     -      |    ✅    |
