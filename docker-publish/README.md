@@ -8,28 +8,28 @@ Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
 
 ### Inputs
 
-| name                 | description                                                       | required | default                   |
-|----------------------|-------------------------------------------------------------------|----------|---------------------------|
-| `registry`           | <p>Registry to publish to (dockerhub, github, or both)</p>        | `false`  | `both`                    |
-| `image-name`         | <p>Docker image name (defaults to repository name)</p>            | `false`  | `""`                      |
-| `tags`               | <p>Comma-separated list of tags (e.g., latest,v1.0.0)</p>         | `false`  | `latest`                  |
-| `platforms`          | <p>Platforms to build for (comma-separated)</p>                   | `false`  | `linux/amd64,linux/arm64` |
-| `context`            | <p>Build context path</p>                                         | `false`  | `.`                       |
-| `dockerfile`         | <p>Path to Dockerfile</p>                                         | `false`  | `Dockerfile`              |
-| `build-args`         | <p>Build arguments (newline-separated KEY=VALUE pairs)</p>        | `false`  | `""`                      |
-| `push`               | <p>Whether to push the image</p>                                  | `false`  | `true`                    |
-| `token`              | <p>GitHub token for authentication (for GitHub registry)</p>      | `false`  | `""`                      |
-| `dockerhub-username` | <p>Docker Hub username (required if publishing to Docker Hub)</p> | `false`  | `""`                      |
-| `dockerhub-token`    | <p>Docker Hub token (required if publishing to Docker Hub)</p>    | `false`  | `""`                      |
+| name | description | required | default |
+| --- | --- | --- | --- |
+| `registry` | <p>Registry to publish to (dockerhub, github, or both)</p> | `false` | `both` |
+| `image-name` | <p>Docker image name (defaults to repository name)</p> | `false` | `""` |
+| `tags` | <p>Comma-separated list of tags (e.g., latest,v1.0.0)</p> | `false` | `latest` |
+| `platforms` | <p>Platforms to build for (comma-separated)</p> | `false` | `linux/amd64,linux/arm64` |
+| `context` | <p>Build context path</p> | `false` | `.` |
+| `dockerfile` | <p>Path to Dockerfile</p> | `false` | `Dockerfile` |
+| `build-args` | <p>Build arguments (newline-separated KEY=VALUE pairs)</p> | `false` | `""` |
+| `push` | <p>Whether to push the image</p> | `false` | `true` |
+| `token` | <p>GitHub token for authentication (for GitHub registry)</p> | `false` | `""` |
+| `dockerhub-username` | <p>Docker Hub username (required if publishing to Docker Hub)</p> | `false` | `""` |
+| `dockerhub-token` | <p>Docker Hub token (required if publishing to Docker Hub)</p> | `false` | `""` |
 
 ### Outputs
 
-| name         | description                          |
-|--------------|--------------------------------------|
+| name | description |
+| --- | --- |
 | `image-name` | <p>Full image name with registry</p> |
-| `tags`       | <p>Tags that were published</p>      |
-| `digest`     | <p>Image digest</p>                  |
-| `metadata`   | <p>Build metadata</p>                |
+| `tags` | <p>Tags that were published</p> |
+| `digest` | <p>Image digest</p> |
+| `metadata` | <p>Build metadata</p> |
 
 ### Runs
 

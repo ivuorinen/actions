@@ -137,24 +137,76 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
 
-    - name: Node Setup
-      id: node-setup
-      uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
+    - name: Detect Package Manager
+      id: detect-pm
+      shell: sh
+      run: |
+        set -eu
+
+        # Detect package manager from lockfiles
+        if [ -f bun.lockb ]; then
+          package_manager="bun"
+        elif [ -f pnpm-lock.yaml ]; then
+          package_manager="pnpm"
+        elif [ -f yarn.lock ]; then
+          package_manager="yarn"
+        else
+          package_manager="npm"
+        fi
+
+        printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
+        echo "Detected package manager: $package_manager"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+      with:
+        node-version: '22'
+
+    - name: Enable Corepack
+      shell: sh
+      run: |
+        set -eu
+        corepack enable
+
+    - name: Install Package Manager
+      shell: sh
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+      run: |
+        set -eu
+
+        case "$PACKAGE_MANAGER" in
+          pnpm)
+            corepack prepare pnpm@latest --activate
+            ;;
+          yarn)
+            corepack prepare yarn@stable --activate
+            ;;
+          bun|npm)
+            # Bun installed separately, npm built-in
+            ;;
+        esac
+
+    - name: Setup Bun
+      if: steps.detect-pm.outputs.package-manager == 'bun'
+      uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+      with:
+        bun-version: latest
 
     - name: Cache Node Dependencies
       id: cache
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
         path: node_modules
-        key: ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
+        key: ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
         restore-keys: |
-          ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}-
+          ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-
           ${{ runner.os }}-biome-lint-${{ inputs.mode }}-
 
     - name: Install Biome
       shell: bash
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -euo pipefail

@@ -311,9 +311,6 @@ class ValidationRuleGenerator:
                 "backoff-strategy": "backoff_strategy",
                 "shell": "shell_type",
             },
-            "node-setup": {
-                "package-manager": "package_manager_enum",
-            },
             "docker-publish": {
                 "registry": "registry_enum",
                 "cache-mode": "cache_mode",

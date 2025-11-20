@@ -8,7 +8,6 @@ const { markdownTable } = require('markdown-table');
 // Category mappings
 const CATEGORIES = {
   // Setup & Environment
-  'node-setup': 'Setup',
   'language-version-detect': 'Setup',
 
   // Utilities
@@ -55,7 +54,6 @@ const CATEGORIES = {
 
 // Language support mappings
 const LANGUAGE_SUPPORT = {
-  'node-setup': ['Node.js', 'JavaScript', 'TypeScript'],
   'language-version-detect': ['PHP', 'Python', 'Go', '.NET', 'Node.js'],
   'php-tests': ['PHP'],
   'php-laravel-phpunit': ['PHP', 'Laravel'],
