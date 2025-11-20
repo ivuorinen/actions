@@ -8,17 +8,16 @@ Runs Composer install on a repository with advanced caching and configuration.
 
 ### Inputs
 
-| name                | description                                                   | required | default                                             |
-|---------------------|---------------------------------------------------------------|----------|-----------------------------------------------------|
-| `php`               | <p>PHP Version to use.</p>                                    | `true`   | `8.4`                                               |
-| `extensions`        | <p>Comma-separated list of PHP extensions to install</p>      | `false`  | `mbstring, xml, zip, curl, json`                    |
-| `tools`             | <p>Comma-separated list of Composer tools to install</p>      | `false`  | `composer:v2`                                       |
-| `args`              | <p>Arguments to pass to Composer.</p>                         | `false`  | `--no-progress --prefer-dist --optimize-autoloader` |
-| `composer-version`  | <p>Composer version to use (1 or 2)</p>                       | `false`  | `2`                                                 |
-| `stability`         | <p>Minimum stability (stable, RC, beta, alpha, dev)</p>       | `false`  | `stable`                                            |
-| `cache-directories` | <p>Additional directories to cache (comma-separated)</p>      | `false`  | `""`                                                |
-| `token`             | <p>GitHub token for private repository access</p>             | `false`  | `""`                                                |
-| `max-retries`       | <p>Maximum number of retry attempts for Composer commands</p> | `false`  | `3`                                                 |
+| name               | description                                                   | required | default                                             |
+|--------------------|---------------------------------------------------------------|----------|-----------------------------------------------------|
+| `php`              | <p>PHP Version to use.</p>                                    | `true`   | `8.4`                                               |
+| `extensions`       | <p>Comma-separated list of PHP extensions to install</p>      | `false`  | `mbstring, xml, zip, curl, json`                    |
+| `tools`            | <p>Comma-separated list of Composer tools to install</p>      | `false`  | `composer:v2`                                       |
+| `args`             | <p>Arguments to pass to Composer.</p>                         | `false`  | `--no-progress --prefer-dist --optimize-autoloader` |
+| `composer-version` | <p>Composer version to use (1 or 2)</p>                       | `false`  | `2`                                                 |
+| `stability`        | <p>Minimum stability (stable, RC, beta, alpha, dev)</p>       | `false`  | `stable`                                            |
+| `token`            | <p>GitHub token for private repository access</p>             | `false`  | `""`                                                |
+| `max-retries`      | <p>Maximum number of retry attempts for Composer commands</p> | `false`  | `3`                                                 |
 
 ### Outputs
 
@@ -73,12 +72,6 @@ This action is a `composite` action.
     #
     # Required: false
     # Default: stable
-
-    cache-directories:
-    # Additional directories to cache (comma-separated)
-    #
-    # Required: false
-    # Default: ""
 
     token:
     # GitHub token for private repository access

@@ -220,7 +220,9 @@ runs:
       if: inputs.cache == 'true'
       uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        path: ~/.cache/golangci-lint
+        path: |
+          ~/.cache/golangci-lint
+          ~/.cache/go-build
         key: ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-${{ hashFiles('go.sum', inputs.config-file) }}
         restore-keys: |
           ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-

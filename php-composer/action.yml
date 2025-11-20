@@ -35,10 +35,6 @@ inputs:
     description: 'Minimum stability (stable, RC, beta, alpha, dev)'
     required: false
     default: 'stable'
-  cache-directories:
-    description: 'Additional directories to cache (comma-separated)'
-    required: false
-    default: ''
   token:
     description: 'GitHub token for private repository access'
     required: false
@@ -98,36 +94,16 @@ runs:
       id: hash
       shell: bash
       env:
-        CACHE_DIRECTORIES: ${{ inputs.cache-directories }}
         COMPOSER_LOCK_HASH: ${{ hashFiles('**/composer.lock') }}
         COMPOSER_JSON_HASH: ${{ hashFiles('**/composer.json') }}
       run: |
         set -euo pipefail
-
-        # Function to calculate directory hash
-        calculate_dir_hash() {
-          local dir=$1
-          if [ -d "$dir" ]; then
-            find "$dir" -type f -exec sha256sum {} \; | sort | sha256sum | cut -d' ' -f1
-          fi
-        }
 
         # Get composer.lock hash or composer.json hash
         if [ -f composer.lock ]; then
           echo "lock=$COMPOSER_LOCK_HASH" >> $GITHUB_OUTPUT
         else
           echo "lock=$COMPOSER_JSON_HASH" >> $GITHUB_OUTPUT
-        fi
-
-        # Calculate additional directory hashes
-        if [ -n "$CACHE_DIRECTORIES" ]; then
-          IFS=',' read -ra DIRS <<< "$CACHE_DIRECTORIES"
-          for dir in "${DIRS[@]}"; do
-            dir_hash=$(calculate_dir_hash "$dir")
-            if [ -n "$dir_hash" ]; then
-              echo "${dir}_hash=$dir_hash" >> $GITHUB_OUTPUT
-            fi
-          done
         fi
 
     - name: Configure Composer
@@ -181,7 +157,6 @@ runs:
         path: |
           vendor
           ~/.composer/cache
-          ${{ inputs.cache-directories }}
         key: ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-composer-${{ hashFiles('composer.lock', 'composer.json') }}
         restore-keys: |
           ${{ runner.os }}-php-${{ inputs.php }}-composer-${{ inputs.composer-version }}-composer-
