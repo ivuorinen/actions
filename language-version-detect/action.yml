@@ -186,11 +186,203 @@ runs:
 
     - name: Parse Language Version
       id: parse-version
-      uses: ivuorinen/actions/version-file-parser@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        language: ${{ inputs.language }}
-        tool-versions-key: ${{ inputs.language == 'go' && 'golang' || inputs.language }}
-        dockerfile-image: ${{ inputs.language == 'go' && 'golang' || inputs.language }}
-        version-file: ${{ inputs.language == 'php' && '.php-version' || inputs.language == 'python' && '.python-version' || inputs.language == 'go' && '.go-version' || '' }}
-        validation-regex: '^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'
-        default-version: ${{ steps.validate.outputs.default_version || inputs.default-version }}
+      shell: sh
+      env:
+        LANGUAGE: ${{ inputs.language }}
+        DEFAULT_VERSION: ${{ steps.validate.outputs.default_version || inputs.default-version }}
+      run: |
+        set -eu
+
+        # Map language to tool-versions key and dockerfile image
+        case "$LANGUAGE" in
+          go)
+            TOOL_VERSIONS_KEY="golang"
+            DOCKERFILE_IMAGE="golang"
+            VERSION_FILE=".go-version"
+            ;;
+          php)
+            TOOL_VERSIONS_KEY="php"
+            DOCKERFILE_IMAGE="php"
+            VERSION_FILE=".php-version"
+            ;;
+          python)
+            TOOL_VERSIONS_KEY="python"
+            DOCKERFILE_IMAGE="python"
+            VERSION_FILE=".python-version"
+            ;;
+          dotnet)
+            TOOL_VERSIONS_KEY="dotnet"
+            DOCKERFILE_IMAGE="dotnet"
+            VERSION_FILE=""
+            ;;
+        esac
+
+        # Function to validate version format
+        validate_version() {
+          version=$1
+          # Use case pattern matching for POSIX compatibility
+          case "$version" in
+            [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        # Function to clean version string
+        clean_version() {
+          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+        }
+
+        # Initialize outputs
+        printf 'detected-version=\n' >> "$GITHUB_OUTPUT"
+        printf 'package-manager=\n' >> "$GITHUB_OUTPUT"
+
+        detected_version=""
+        detected_package_manager=""
+
+        # Parse .tool-versions file
+        if [ -f .tool-versions ]; then
+          echo "Checking .tool-versions for $TOOL_VERSIONS_KEY..." >&2
+          version=$(awk "/^$TOOL_VERSIONS_KEY[[:space:]]/ {gsub(/#.*/, \"\"); print \$2; exit}" .tool-versions 2>/dev/null || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found $LANGUAGE version in .tool-versions: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse Dockerfile
+        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
+          echo "Checking Dockerfile for $DOCKERFILE_IMAGE..." >&2
+          version=$(grep -iF "FROM" Dockerfile | grep -F "$DOCKERFILE_IMAGE:" | head -1 | \
+            sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found $LANGUAGE version in Dockerfile: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse devcontainer.json
+        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
+          echo "Checking devcontainer.json for $DOCKERFILE_IMAGE..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found $LANGUAGE version in devcontainer: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          fi
+        fi
+
+        # Parse language-specific version file
+        if [ -z "$detected_version" ] && [ -n "$VERSION_FILE" ] && [ -f "$VERSION_FILE" ]; then
+          echo "Checking $VERSION_FILE..." >&2
+          version=$(tr -d '\r' < "$VERSION_FILE" | head -1)
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found $LANGUAGE version in $VERSION_FILE: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse language-specific configuration files
+        if [ -z "$detected_version" ]; then
+          case "$LANGUAGE" in
+            php)
+              # Check composer.json
+              if [ -f composer.json ] && command -v jq >/dev/null 2>&1; then
+                version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+                if [ -z "$version" ]; then
+                  version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+                fi
+                if [ -n "$version" ] && validate_version "$version"; then
+                  echo "Found PHP version in composer.json: $version" >&2
+                  detected_version="$version"
+                fi
+              fi
+              # Detect package manager
+              if [ -f composer.json ]; then
+                detected_package_manager="composer"
+              fi
+              ;;
+
+            python)
+              # Check pyproject.toml
+              if [ -f pyproject.toml ]; then
+                if grep -q '^\[project\]' pyproject.toml; then
+                  version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+                  if [ -n "$version" ] && validate_version "$version"; then
+                    echo "Found Python version in pyproject.toml: $version" >&2
+                    detected_version="$version"
+                  fi
+                fi
+              fi
+              # Detect package manager
+              if [ -f pyproject.toml ] && grep -q '\[tool\.poetry\]' pyproject.toml; then
+                detected_package_manager="poetry"
+              elif [ -f Pipfile ]; then
+                detected_package_manager="pipenv"
+              else
+                detected_package_manager="pip"
+              fi
+              ;;
+
+            go)
+              # Check go.mod
+              if [ -f go.mod ]; then
+                version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1 || echo "")
+                if [ -n "$version" ] && validate_version "$version"; then
+                  echo "Found Go version in go.mod: $version" >&2
+                  detected_version="$version"
+                fi
+                detected_package_manager="go"
+              fi
+              ;;
+
+            dotnet)
+              # Check global.json
+              if [ -f global.json ] && command -v jq >/dev/null 2>&1; then
+                version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null || echo "")
+                if [ -n "$version" ] && validate_version "$version"; then
+                  echo "Found .NET version in global.json: $version" >&2
+                  detected_version="$version"
+                fi
+              fi
+              detected_package_manager="dotnet"
+              ;;
+          esac
+        fi
+
+        # Use default version if nothing detected
+        if [ -z "$detected_version" ]; then
+          if [ -n "$DEFAULT_VERSION" ]; then
+            detected_version="$DEFAULT_VERSION"
+            echo "Using default $LANGUAGE version: $detected_version" >&2
+          else
+            echo "No $LANGUAGE version detected and no default provided" >&2
+          fi
+        fi
+
+        # Set outputs
+        if [ -n "$detected_version" ]; then
+          printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
+          echo "Final detected $LANGUAGE version: $detected_version" >&2
+        fi
+
+        if [ -n "$detected_package_manager" ]; then
+          printf 'package-manager=%s\n' "$detected_package_manager" >> "$GITHUB_OUTPUT"
+          echo "Detected package manager: $detected_package_manager" >&2
+        fi
