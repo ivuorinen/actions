@@ -54,10 +54,109 @@ runs:
 
     - name: Detect Go Version
       id: detect-go-version
-      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        language: 'go'
-        default-version: "${{ inputs.go-version || '1.21' }}"
+      shell: sh
+      env:
+        DEFAULT_VERSION: "${{ inputs.go-version || '1.24' }}"
+      run: |
+        set -eu
+
+        # Function to validate version format
+        validate_version() {
+          version=$1
+          case "$version" in
+            [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        # Function to clean version string
+        clean_version() {
+          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+        }
+
+        detected_version=""
+
+        # Parse .tool-versions file
+        if [ -f .tool-versions ]; then
+          echo "Checking .tool-versions for golang..." >&2
+          version=$(awk '/^golang[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found Go version in .tool-versions: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse Dockerfile
+        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
+          echo "Checking Dockerfile for golang..." >&2
+          version=$(grep -iF "FROM" Dockerfile | grep -F "golang:" | head -1 | \
+            sed -n -E "s/.*golang:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/ \1/p" || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found Go version in Dockerfile: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse devcontainer.json
+        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
+          echo "Checking devcontainer.json for golang..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*golang:([0-9]+(\.[0-9]+)*)(-[^:]*)?. */\1/p" || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found Go version in devcontainer: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          fi
+        fi
+
+        # Parse .go-version file
+        if [ -z "$detected_version" ] && [ -f .go-version ]; then
+          echo "Checking .go-version..." >&2
+          version=$(tr -d '\r' < .go-version | head -1)
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found Go version in .go-version: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse go.mod
+        if [ -z "$detected_version" ] && [ -f go.mod ]; then
+          echo "Checking go.mod..." >&2
+          version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1 || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found Go version in go.mod: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Use default version if nothing detected
+        if [ -z "$detected_version" ]; then
+          detected_version="$DEFAULT_VERSION"
+          echo "Using default Go version: $detected_version" >&2
+        fi
+
+        # Set output
+        printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
+        echo "Final detected Go version: $detected_version" >&2
 
     - name: Setup Go
       uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
