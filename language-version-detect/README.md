@@ -4,7 +4,7 @@
 
 ### Description
 
-Detects language version from project configuration files with support for PHP, Python, Go, and .NET.
+DEPRECATED: This action is deprecated. Inline version detection directly in your actions instead. Detects language version from project configuration files with support for PHP, Python, Go, and .NET.
 
 ### Inputs
 

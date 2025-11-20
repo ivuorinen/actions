@@ -42,7 +42,7 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 |  ✅   | [`eslint-lint`][eslint-lint]                         | Linting    | Run ESLint in check or fix mode with advanced configuration ... | Caching, Token auth, Outputs                 |
 |  📦  | [`go-build`][go-build]                               | Build      | Builds the Go project.                                          | Caching, Auto-detection, Token auth, Outputs |
 |  📝  | [`go-lint`][go-lint]                                 | Linting    | Run golangci-lint with advanced configuration, caching, and ... | Caching, Token auth, Outputs                 |
-|  📝  | [`language-version-detect`][language-version-detect] | Setup      | Detects language version from project configuration files wi... | Auto-detection, Token auth, Outputs          |
+|  📝  | [`language-version-detect`][language-version-detect] | Setup      | DEPRECATED: This action is deprecated. Inline version detect... | Auto-detection, Token auth, Outputs          |
 | 🖥️  | [`node-setup`][node-setup]                           | Setup      | Sets up Node.js environment with version detection and packa... | Auto-detection, Token auth, Outputs          |
 |  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Token auth, Outputs                          |
 | 🖥️  | [`php-composer`][php-composer]                       | Testing    | Runs Composer install on a repository with advanced caching ... | Auto-detection, Token auth, Outputs          |
@@ -64,7 +64,7 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 
 | Action                                                  | Description                                           | Languages                       | Features                            |
 |:--------------------------------------------------------|:------------------------------------------------------|:--------------------------------|:------------------------------------|
-| 📝 [`language-version-detect`][language-version-detect] | Detects language version from project configuratio... | PHP, Python, Go, .NET, Node.js  | Auto-detection, Token auth, Outputs |
+| 📝 [`language-version-detect`][language-version-detect] | DEPRECATED: This action is deprecated. Inline vers... | PHP, Python, Go, .NET, Node.js  | Auto-detection, Token auth, Outputs |
 | 🖥️ [`node-setup`][node-setup]                          | Sets up Node.js environment with version detection... | Node.js, JavaScript, TypeScript | Auto-detection, Token auth, Outputs |
 
 #### 🛠️ Utilities (1 action)

@@ -3,8 +3,9 @@
 #   - contents: read  # Required for reading version files
 ---
 name: Language Version Detect
-description: 'Detects language version from project configuration files with support for PHP, Python, Go, and .NET.'
+description: 'DEPRECATED: This action is deprecated. Inline version detection directly in your actions instead. Detects language version from project configuration files with support for PHP, Python, Go, and .NET.'
 author: 'Ismo Vuorinen'
+deprecated: true
 
 branding:
   icon: code
