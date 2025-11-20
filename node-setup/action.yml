@@ -130,16 +130,144 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
 
-    - name: Parse Node.js Version
+    - name: Detect Node.js Version
       id: version
-      uses: ivuorinen/actions/version-file-parser@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        language: 'node'
-        tool-versions-key: 'nodejs'
-        dockerfile-image: 'node'
-        version-file: '.nvmrc'
-        validation-regex: '^[0-9]+(\.[0-9]+)*$'
-        default-version: ${{ inputs.force-version != '' && inputs.force-version || inputs.default-version }}
+      shell: sh
+      env:
+        DEFAULT_VERSION: "${{ inputs.force-version != '' && inputs.force-version || inputs.default-version }}"
+      run: |
+        set -eu
+
+        # Function to validate version format
+        validate_version() {
+          version=$1
+          case "$version" in
+            [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        # Function to clean version string
+        clean_version() {
+          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+        }
+
+        detected_version=""
+        detected_package_manager=""
+
+        # Parse .nvmrc file (highest priority for Node.js)
+        if [ -f .nvmrc ]; then
+          echo "Checking .nvmrc..." >&2
+          version=$(tr -d '\r' < .nvmrc | head -1)
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found Node.js version in .nvmrc: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse package.json
+        if [ -z "$detected_version" ] && [ -f package.json ]; then
+          echo "Checking package.json for Node.js version..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.engines.node // empty' package.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found Node.js version in package.json: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping package.json version parsing" >&2
+          fi
+        fi
+
+        # Parse .tool-versions file
+        if [ -z "$detected_version" ] && [ -f .tool-versions ]; then
+          echo "Checking .tool-versions for nodejs..." >&2
+          version=$(awk '/^nodejs[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found Node.js version in .tool-versions: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse Dockerfile
+        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
+          echo "Checking Dockerfile for node..." >&2
+          version=$(grep -iF "FROM" Dockerfile | grep -F "node:" | head -1 | \
+            sed -n -E "s/.*node:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found Node.js version in Dockerfile: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse devcontainer.json
+        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
+          echo "Checking devcontainer.json for node..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*node:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found Node.js version in devcontainer: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping devcontainer.json parsing" >&2
+          fi
+        fi
+
+        # Detect package manager
+        if [ -f bun.lockb ]; then
+          detected_package_manager="bun"
+        elif [ -f pnpm-lock.yaml ]; then
+          detected_package_manager="pnpm"
+        elif [ -f yarn.lock ]; then
+          detected_package_manager="yarn"
+        elif [ -f package-lock.json ]; then
+          detected_package_manager="npm"
+        elif [ -f package.json ]; then
+          if command -v jq >/dev/null 2>&1; then
+            pkg_manager=$(jq -r '.packageManager // empty' package.json 2>/dev/null | sed 's/@.*//')
+            if [ -n "$pkg_manager" ]; then
+              detected_package_manager="$pkg_manager"
+            else
+              detected_package_manager="npm"
+            fi
+          else
+            detected_package_manager="npm"
+          fi
+        else
+          detected_package_manager="npm"
+        fi
+
+        # Use default version if nothing detected
+        if [ -z "$detected_version" ]; then
+          detected_version="$DEFAULT_VERSION"
+          echo "Using default Node.js version: $detected_version" >&2
+        fi
+
+        # Set outputs
+        printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
+        printf 'package-manager=%s\n' "$detected_package_manager" >> "$GITHUB_OUTPUT"
+        echo "Final detected Node.js version: $detected_version" >&2
+        echo "Detected package manager: $detected_package_manager" >&2
 
     - name: Resolve Package Manager
       id: package-manager-resolution
