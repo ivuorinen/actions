@@ -71,9 +71,9 @@
 
 Flat structure. Each action self-contained with `action.yml`.
 
-**26 Actions**: Setup (language-version-detect), Utilities (action-versioning, version-file-parser),
+**24 Actions**: Setup (language-version-detect), Utilities (action-versioning, version-file-parser),
 Linting (ansible-lint-fix, biome-lint, csharp-lint-check, eslint-lint, go-lint, pr-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix),
-Testing (php-tests, php-laravel-phpunit, php-composer), Build (csharp-build, go-build, docker-build),
+Testing (php-tests), Build (csharp-build, go-build, docker-build),
 Publishing (npm-publish, docker-publish, csharp-publish),
 Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysis),
 Validation (validate-inputs)

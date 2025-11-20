@@ -331,9 +331,6 @@ class ValidationRuleGenerator:
                 "file-pattern": "file_pattern",
                 "plugins": "plugin_list",
             },
-            "php-laravel-phpunit": {
-                "extensions": "php_extensions",
-            },
             "codeql-analysis": {
                 "language": "codeql_language",
                 "queries": "codeql_queries",

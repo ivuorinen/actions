@@ -8,32 +8,32 @@ Run Prettier in check or fix mode with advanced configuration and reporting
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `mode` | <p>Mode to run (check or fix)</p> | `false` | `check` |
-| `working-directory` | <p>Directory containing files to format</p> | `false` | `.` |
-| `prettier-version` | <p>Prettier version to use</p> | `false` | `latest` |
-| `config-file` | <p>Path to Prettier config file</p> | `false` | `.prettierrc` |
-| `ignore-file` | <p>Path to Prettier ignore file</p> | `false` | `.prettierignore` |
-| `file-pattern` | <p>Files to include (glob pattern)</p> | `false` | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
-| `cache` | <p>Enable Prettier caching</p> | `false` | `true` |
-| `fail-on-error` | <p>Fail workflow if issues are found (check mode only)</p> | `false` | `true` |
-| `report-format` | <p>Output format for check mode (json, sarif)</p> | `false` | `sarif` |
-| `max-retries` | <p>Maximum number of retry attempts</p> | `false` | `3` |
-| `plugins` | <p>Comma-separated list of Prettier plugins to install</p> | `false` | `""` |
-| `token` | <p>GitHub token for authentication</p> | `false` | `""` |
-| `username` | <p>GitHub username for commits (fix mode only)</p> | `false` | `github-actions` |
-| `email` | <p>GitHub email for commits (fix mode only)</p> | `false` | `github-actions@github.com` |
+| name                | description                                                | required | default                                          |
+|---------------------|------------------------------------------------------------|----------|--------------------------------------------------|
+| `mode`              | <p>Mode to run (check or fix)</p>                          | `false`  | `check`                                          |
+| `working-directory` | <p>Directory containing files to format</p>                | `false`  | `.`                                              |
+| `prettier-version`  | <p>Prettier version to use</p>                             | `false`  | `latest`                                         |
+| `config-file`       | <p>Path to Prettier config file</p>                        | `false`  | `.prettierrc`                                    |
+| `ignore-file`       | <p>Path to Prettier ignore file</p>                        | `false`  | `.prettierignore`                                |
+| `file-pattern`      | <p>Files to include (glob pattern)</p>                     | `false`  | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
+| `cache`             | <p>Enable Prettier caching</p>                             | `false`  | `true`                                           |
+| `fail-on-error`     | <p>Fail workflow if issues are found (check mode only)</p> | `false`  | `true`                                           |
+| `report-format`     | <p>Output format for check mode (json, sarif)</p>          | `false`  | `sarif`                                          |
+| `max-retries`       | <p>Maximum number of retry attempts</p>                    | `false`  | `3`                                              |
+| `plugins`           | <p>Comma-separated list of Prettier plugins to install</p> | `false`  | `""`                                             |
+| `token`             | <p>GitHub token for authentication</p>                     | `false`  | `""`                                             |
+| `username`          | <p>GitHub username for commits (fix mode only)</p>         | `false`  | `github-actions`                                 |
+| `email`             | <p>GitHub email for commits (fix mode only)</p>            | `false`  | `github-actions@github.com`                      |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `status` | <p>Overall status (success/failure)</p> |
-| `files-checked` | <p>Number of files checked (check mode only)</p> |
+| name                | description                                                     |
+|---------------------|-----------------------------------------------------------------|
+| `status`            | <p>Overall status (success/failure)</p>                         |
+| `files-checked`     | <p>Number of files checked (check mode only)</p>                |
 | `unformatted-files` | <p>Number of files with formatting issues (check mode only)</p> |
-| `sarif-file` | <p>Path to SARIF report file (check mode only)</p> |
-| `files-changed` | <p>Number of files changed (fix mode only)</p> |
+| `sarif-file`        | <p>Path to SARIF report file (check mode only)</p>              |
+| `files-changed`     | <p>Number of files changed (fix mode only)</p>                  |
 
 ### Runs
 

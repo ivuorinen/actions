@@ -28,8 +28,6 @@ const CATEGORIES = {
 
   // Testing & Quality
   'php-tests': 'Testing',
-  'php-laravel-phpunit': 'Testing',
-  'php-composer': 'Testing',
 
   // Build & Package
   'csharp-build': 'Build',
@@ -55,9 +53,7 @@ const CATEGORIES = {
 // Language support mappings
 const LANGUAGE_SUPPORT = {
   'language-version-detect': ['PHP', 'Python', 'Go', '.NET', 'Node.js'],
-  'php-tests': ['PHP'],
-  'php-laravel-phpunit': ['PHP', 'Laravel'],
-  'php-composer': ['PHP'],
+  'php-tests': ['PHP', 'Laravel'],
   'python-lint-fix': ['Python'],
   'go-lint': ['Go'],
   'go-build': ['Go'],

@@ -8,21 +8,21 @@ Publishes the package to the NPM registry with configurable scope and registry U
 
 ### Inputs
 
-| name | description | required | default |
-| --- | --- | --- | --- |
-| `npm_token` | <p>NPM token.</p> | `true` | `""` |
-| `registry-url` | <p>Registry URL for publishing.</p> | `false` | `https://registry.npmjs.org/` |
-| `scope` | <p>Package scope to use.</p> | `false` | `@ivuorinen` |
-| `package-version` | <p>The version to publish.</p> | `false` | `${{ github.event.release.tag_name }}` |
-| `token` | <p>GitHub token for authentication</p> | `false` | `""` |
+| name              | description                            | required | default                                |
+|-------------------|----------------------------------------|----------|----------------------------------------|
+| `npm_token`       | <p>NPM token.</p>                      | `true`   | `""`                                   |
+| `registry-url`    | <p>Registry URL for publishing.</p>    | `false`  | `https://registry.npmjs.org/`          |
+| `scope`           | <p>Package scope to use.</p>           | `false`  | `@ivuorinen`                           |
+| `package-version` | <p>The version to publish.</p>         | `false`  | `${{ github.event.release.tag_name }}` |
+| `token`           | <p>GitHub token for authentication</p> | `false`  | `""`                                   |
 
 ### Outputs
 
-| name | description |
-| --- | --- |
-| `registry-url` | <p>Registry URL for publishing.</p> |
-| `scope` | <p>Package scope to use.</p> |
-| `package-version` | <p>The version to publish.</p> |
+| name              | description                         |
+|-------------------|-------------------------------------|
+| `registry-url`    | <p>Registry URL for publishing.</p> |
+| `scope`           | <p>Package scope to use.</p>        |
+| `package-version` | <p>The version to publish.</p>      |
 
 ### Runs
 
