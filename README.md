@@ -34,9 +34,9 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | 🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
 |  💾  | [`common-cache`][common-cache]                       | Repository | Standardized caching strategy for all actions                   | Caching, Outputs                             |
 | 🖼️  | [`compress-images`][compress-images]                 | Repository | Compress images on demand (workflow_dispatch), and at 11pm e... | Token auth, Outputs                          |
-|  📝  | [`csharp-build`][csharp-build]                       | Build      | Builds and tests C# projects.                                   | Auto-detection, Token auth, Outputs          |
+|  📝  | [`csharp-build`][csharp-build]                       | Build      | Builds and tests C# projects.                                   | Caching, Auto-detection, Token auth, Outputs |
 |  📝  | [`csharp-lint-check`][csharp-lint-check]             | Linting    | Runs linters like StyleCop or dotnet-format for C# code styl... | Auto-detection, Token auth, Outputs          |
-|  📦  | [`csharp-publish`][csharp-publish]                   | Publishing | Publishes a C# project to GitHub Packages.                      | Auto-detection, Token auth, Outputs          |
+|  📦  | [`csharp-publish`][csharp-publish]                   | Publishing | Publishes a C# project to GitHub Packages.                      | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`docker-build`][docker-build]                       | Build      | Builds a Docker image for multiple architectures with enhanc... | Caching, Auto-detection, Token auth, Outputs |
 |  ☁️  | [`docker-publish`][docker-publish]                   | Publishing | Simple wrapper to publish Docker images to GitHub Packages a... | Token auth, Outputs                          |
 |  ✅   | [`eslint-lint`][eslint-lint]                         | Linting    | Run ESLint in check or fix mode with advanced configuration ... | Caching, Token auth, Outputs                 |
@@ -100,17 +100,17 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 
 | Action                            | Description                                           | Languages | Features                                     |
 |:----------------------------------|:------------------------------------------------------|:----------|:---------------------------------------------|
-| 📝 [`csharp-build`][csharp-build] | Builds and tests C# projects.                         | C#, .NET  | Auto-detection, Token auth, Outputs          |
+| 📝 [`csharp-build`][csharp-build] | Builds and tests C# projects.                         | C#, .NET  | Caching, Auto-detection, Token auth, Outputs |
 | 📦 [`docker-build`][docker-build] | Builds a Docker image for multiple architectures w... | Docker    | Caching, Auto-detection, Token auth, Outputs |
 | 📦 [`go-build`][go-build]         | Builds the Go project.                                | Go        | Caching, Auto-detection, Token auth, Outputs |
 
 #### 🚀 Publishing (3 actions)
 
-| Action                                | Description                                           | Languages    | Features                            |
-|:--------------------------------------|:------------------------------------------------------|:-------------|:------------------------------------|
-| 📦 [`csharp-publish`][csharp-publish] | Publishes a C# project to GitHub Packages.            | C#, .NET     | Auto-detection, Token auth, Outputs |
-| ☁️ [`docker-publish`][docker-publish] | Simple wrapper to publish Docker images to GitHub ... | Docker       | Token auth, Outputs                 |
-| 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Token auth, Outputs                 |
+| Action                                | Description                                           | Languages    | Features                                     |
+|:--------------------------------------|:------------------------------------------------------|:-------------|:---------------------------------------------|
+| 📦 [`csharp-publish`][csharp-publish] | Publishes a C# project to GitHub Packages.            | C#, .NET     | Caching, Auto-detection, Token auth, Outputs |
+| ☁️ [`docker-publish`][docker-publish] | Simple wrapper to publish Docker images to GitHub ... | Docker       | Token auth, Outputs                          |
+| 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Token auth, Outputs                          |
 
 #### 📦 Repository (6 actions)
 
@@ -139,9 +139,9 @@ This repository contains **29 reusable GitHub Actions** for CI/CD automation.
 | [`codeql-analysis`][codeql-analysis]                 |    -    |       ✅        |     ✅      |    ✅    |
 | [`common-cache`][common-cache]                       |    ✅    |       -        |     -      |    ✅    |
 | [`compress-images`][compress-images]                 |    -    |       -        |     ✅      |    ✅    |
-| [`csharp-build`][csharp-build]                       |    -    |       ✅        |     ✅      |    ✅    |
+| [`csharp-build`][csharp-build]                       |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`csharp-lint-check`][csharp-lint-check]             |    -    |       ✅        |     ✅      |    ✅    |
-| [`csharp-publish`][csharp-publish]                   |    -    |       ✅        |     ✅      |    ✅    |
+| [`csharp-publish`][csharp-publish]                   |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`docker-build`][docker-build]                       |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`docker-publish`][docker-publish]                   |    -    |       -        |     ✅      |    ✅    |
 | [`eslint-lint`][eslint-lint]                         |    ✅    |       -        |     ✅      |    ✅    |

@@ -151,18 +151,10 @@ runs:
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
         dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
-
-    - name: Cache NuGet packages
-      id: cache-nuget
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        type: 'nuget'
-        paths: '~/.nuget/packages'
-        key-files: '**/*.csproj,**/*.props,**/*.targets'
-        key-prefix: 'csharp-build'
+        cache: true
+        cache-dependency-path: '**/*.csproj'
 
     - name: Restore Dependencies
-      if: steps.cache-nuget.outputs.cache-hit != 'true'
       uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
       with:
         timeout_minutes: 10
@@ -171,8 +163,7 @@ runs:
           echo "Restoring .NET dependencies..."
           dotnet restore --verbosity normal
 
-    - name: Skip Restore (Cache Hit)
-      if: steps.cache-nuget.outputs.cache-hit == 'true'
+    - name: Restore Complete
       shell: bash
       run: |
         echo "Cache hit - skipping dotnet restore"
