@@ -97,7 +97,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         MODE: ${{ inputs.mode }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
@@ -113,7 +113,7 @@ runs:
         EMAIL: ${{ inputs.email }}
         USERNAME: ${{ inputs.username }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate mode
         case "$MODE" in
@@ -133,44 +133,62 @@ runs:
         fi
 
         # Validate working directory path security (prevent traversal)
-        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
-          echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
-          exit 1
-        fi
+        case "$WORKING_DIRECTORY" in
+          *..*)
+            echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
+            exit 1
+            ;;
+        esac
 
         # Validate ESLint version format
-        if [[ -n "$ESLINT_VERSION" ]] && [[ "$ESLINT_VERSION" != "latest" ]]; then
-          if ! [[ "$ESLINT_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[a-zA-Z0-9.-]+)?$ ]]; then
-            echo "::error::Invalid eslint-version format: '$ESLINT_VERSION'. Expected format: X.Y.Z or 'latest' (e.g., 8.57.0, latest)"
-            exit 1
-          fi
+        if [ -n "$ESLINT_VERSION" ] && [ "$ESLINT_VERSION" != "latest" ]; then
+          case "$ESLINT_VERSION" in
+            [0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*-*)
+              ;;
+            *)
+              echo "::error::Invalid eslint-version format: '$ESLINT_VERSION'. Expected format: X.Y.Z or 'latest' (e.g., 8.57.0, latest)"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate config file path if not default
-        if [[ "$CONFIG_FILE" != ".eslintrc" ]] && [[ "$CONFIG_FILE" == *".."* ]]; then
-          echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
-          exit 1
+        if [ "$CONFIG_FILE" != ".eslintrc" ]; then
+          case "$CONFIG_FILE" in
+            *..*)
+              echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate ignore file path if not default
-        if [[ "$IGNORE_FILE" != ".eslintignore" ]] && [[ "$IGNORE_FILE" == *".."* ]]; then
-          echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
-          exit 1
+        if [ "$IGNORE_FILE" != ".eslintignore" ]; then
+          case "$IGNORE_FILE" in
+            *..*)
+              echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
-        # Validate file extensions format
-        if ! [[ "$FILE_EXTENSIONS" =~ ^(\.[a-zA-Z0-9]+)(,\.[a-zA-Z0-9]+)*$ ]]; then
-          echo "::error::Invalid file extensions format: '$FILE_EXTENSIONS'. Expected format: .js,.jsx,.ts,.tsx"
-          exit 1
-        fi
+        # Validate file extensions format (must start with . and contain letters/numbers)
+        case "$FILE_EXTENSIONS" in
+          .[a-zA-Z0-9]*|.[a-zA-Z0-9]*,.[a-zA-Z0-9]*)
+            ;;
+          *)
+            echo "::error::Invalid file extensions format: '$FILE_EXTENSIONS'. Expected format: .js,.jsx,.ts,.tsx"
+            exit 1
+            ;;
+        esac
 
         # Validate boolean inputs
         validate_boolean() {
-          local value="$1"
-          local name="$2"
+          value="$1"
+          name="$2"
 
-          case "${value,,}" in
-            true|false)
+          case "$value" in
+            true|True|TRUE|false|False|FALSE)
               ;;
             *)
               echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
@@ -182,11 +200,13 @@ runs:
         validate_boolean "$CACHE" "cache"
         validate_boolean "$FAIL_ON_ERROR" "fail-on-error"
 
-        # Validate max warnings (positive integer)
-        if ! [[ "$MAX_WARNINGS" =~ ^[0-9]+$ ]]; then
-          echo "::error::Invalid max-warnings: '$MAX_WARNINGS'. Must be a non-negative integer"
-          exit 1
-        fi
+        # Validate max warnings (non-negative integer)
+        case "$MAX_WARNINGS" in
+          ''|*[!0-9]*)
+            echo "::error::Invalid max-warnings: '$MAX_WARNINGS'. Must be a non-negative integer"
+            exit 1
+            ;;
+        esac
 
         # Validate report format
         case "$REPORT_FORMAT" in
@@ -199,17 +219,27 @@ runs:
         esac
 
         # Validate max retries
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+        case "$MAX_RETRIES" in
+          ''|*[!0-9]*)
+            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+            exit 1
+            ;;
+        esac
+
+        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
           echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
         # Validate email and username for fix mode
         if [ "$MODE" = "fix" ]; then
-          if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-            exit 1
-          fi
+          case "$EMAIL" in
+            *@*.*) ;;
+            *)
+              echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+              exit 1
+              ;;
+          esac
 
           # Validate username format (GitHub canonical rules)
           username="$USERNAME"
@@ -219,20 +249,26 @@ runs:
             exit 1
           fi
 
-          if ! [[ "$username" =~ ^[a-zA-Z0-9-]+$ ]]; then
-            echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
-            exit 1
-          fi
+          case "$username" in
+            *[!a-zA-Z0-9-]*)
+              echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
+              exit 1
+              ;;
+          esac
 
-          if [[ "$username" == -* ]] || [[ "$username" == *- ]]; then
-            echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
-            exit 1
-          fi
+          case "$username" in
+            -*|*-)
+              echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
+              exit 1
+              ;;
+          esac
 
-          if [[ "$username" == *--* ]]; then
-            echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
-            exit 1
-          fi
+          case "$username" in
+            *--*)
+              echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         echo "Input validation completed successfully"
@@ -310,11 +346,11 @@ runs:
 
     - name: Install Dependencies
       if: steps.cache.outputs.cache-hit != 'true'
-      shell: bash
+      shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Installing dependencies using $PACKAGE_MANAGER..."
 
@@ -342,7 +378,7 @@ runs:
     - name: Run ESLint Check
       if: inputs.mode == 'check'
       id: check
-      shell: bash
+      shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
@@ -354,7 +390,7 @@ runs:
         REPORT_FORMAT: ${{ inputs.report-format }}
         FILE_EXTENSIONS: ${{ inputs.file-extensions }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running ESLint check mode..."
 
@@ -426,12 +462,12 @@ runs:
     - name: Run ESLint Fix
       if: inputs.mode == 'fix'
       id: fix
-      shell: bash
+      shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running ESLint fix mode..."
 
