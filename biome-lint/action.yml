@@ -56,7 +56,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         MODE: ${{ inputs.mode }}
         GITHUB_TOKEN: ${{ inputs.token }}
@@ -65,7 +65,7 @@ runs:
         MAX_RETRIES: ${{ inputs.max-retries }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate mode
         case "$MODE" in
@@ -79,16 +79,26 @@ runs:
         esac
 
         # Validate GitHub token presence if provided
-        if [[ -n "$GITHUB_TOKEN" ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
-          echo "Using provided GitHub token"
+        if [ -n "$GITHUB_TOKEN" ]; then
+          case "$GITHUB_TOKEN" in
+            \$\{\{*)
+              # Token is a GitHub Actions expression, skip validation
+              ;;
+            *)
+              echo "Using provided GitHub token"
+              ;;
+          esac
         fi
 
         # Validate email format (basic check) - required for fix mode
         if [ "$MODE" = "fix" ]; then
-          if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-            exit 1
-          fi
+          case "$EMAIL" in
+            *@*.*) ;;
+            *)
+              echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+              exit 1
+              ;;
+          esac
 
           # Validate username format (GitHub canonical rules)
           username="$USERNAME"
@@ -100,32 +110,45 @@ runs:
           fi
 
           # Check allowed characters (letters, digits, hyphens only)
-          if ! [[ "$username" =~ ^[a-zA-Z0-9-]+$ ]]; then
-            echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
-            exit 1
-          fi
+          case "$username" in
+            *[!a-zA-Z0-9-]*)
+              echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
+              exit 1
+              ;;
+          esac
 
           # Check doesn't start or end with hyphen
-          if [[ "$username" == -* ]] || [[ "$username" == *- ]]; then
-            echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
-            exit 1
-          fi
+          case "$username" in
+            -*|*-)
+              echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
+              exit 1
+              ;;
+          esac
 
           # Check no consecutive hyphens
-          if [[ "$username" == *--* ]]; then
-            echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
-            exit 1
-          fi
+          case "$username" in
+            *--*)
+              echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+        case "$MAX_RETRIES" in
+          ''|*[!0-9]*)
+            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+            exit 1
+            ;;
+        esac
+
+        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
           echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
         # Validate fail-on-error (boolean)
-        if [[ "$FAIL_ON_ERROR" != "true" ]] && [[ "$FAIL_ON_ERROR" != "false" ]]; then
+        if [ "$FAIL_ON_ERROR" != "true" ] && [ "$FAIL_ON_ERROR" != "false" ]; then
           echo "::error::Invalid fail-on-error value: '$FAIL_ON_ERROR'. Must be 'true' or 'false'"
           exit 1
         fi
@@ -204,12 +227,12 @@ runs:
           ${{ runner.os }}-biome-lint-${{ inputs.mode }}-
 
     - name: Install Biome
-      shell: bash
+      shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Check if biome is already installed
         if command -v biome >/dev/null 2>&1; then
@@ -261,11 +284,11 @@ runs:
     - name: Run Biome Check
       if: inputs.mode == 'check'
       id: check
-      shell: bash
+      shell: sh
       env:
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running Biome check mode..."
 
@@ -315,9 +338,9 @@ runs:
     - name: Run Biome Fix
       if: inputs.mode == 'fix'
       id: fix
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running Biome fix mode..."
 

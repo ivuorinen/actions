@@ -39,13 +39,13 @@ runs:
   using: 'composite'
   steps:
     - name: Validate Inputs
-      shell: bash
+      shell: sh
       env:
         INPUT_TOKEN: ${{ inputs.token }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
         INPUT_PREFIX: ${{ inputs.prefix }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate token
         if [ -z "$INPUT_TOKEN" ]; then
@@ -59,12 +59,15 @@ runs:
           exit 1
         fi
 
-        # Validate prefix format if provided
+        # Validate prefix format if provided (alphanumeric, dots, underscores, hyphens)
         if [ -n "$INPUT_PREFIX" ]; then
-          if ! [[ "$INPUT_PREFIX" =~ ^[a-zA-Z0-9_.-]*$ ]]; then
-            echo "::error::Invalid prefix format. Only alphanumeric characters, dots, underscores, and hyphens are allowed"
-            exit 1
-          fi
+          # Use case pattern matching for validation
+          case "$INPUT_PREFIX" in
+            *[!a-zA-Z0-9_.-]*)
+              echo "::error::Invalid prefix format. Only alphanumeric characters, dots, underscores, and hyphens are allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         # Write validated values to GITHUB_ENV for use in subsequent steps
@@ -82,21 +85,51 @@ runs:
 
     - name: Create Release
       id: create-release
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         # Use validated environment variables from GITHUB_ENV
         GITHUB_TOKEN="$VALIDATED_TOKEN"
         PREFIX="$VALIDATED_PREFIX"
         DRY_RUN="$VALIDATED_DRY_RUN"
 
-        # Function to validate version format
+        # Function to validate version format (YYYY.M.N or YYYY.MM.N)
         validate_version() {
-          local version=$1
-          if ! [[ $version =~ ^[0-9]{4}\.[0-9]{1,2}\.[0-9]+$ ]]; then
-            echo "::error::Invalid version format: $version"
-            return 1
-          fi
+          version=$1
+          # Check basic format with case statement
+          case "$version" in
+            [0-9][0-9][0-9][0-9].[0-9].[0-9]*|[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9]*)
+              # Extract parts for detailed validation
+              year="${version%%.*}"
+              rest="${version#*.}"
+              month="${rest%%.*}"
+              patch="${rest#*.}"
+
+              # Validate year (4 digits)
+              if [ ${#year} -ne 4 ]; then
+                echo "::error::Invalid version format: $version"
+                return 1
+              fi
+
+              # Validate month (1 or 2 digits)
+              if [ ${#month} -gt 2 ] || [ ${#month} -lt 1 ]; then
+                echo "::error::Invalid version format: $version"
+                return 1
+              fi
+
+              # Validate patch is numeric
+              case "$patch" in
+                ''|*[!0-9]*)
+                  echo "::error::Invalid version format: $version"
+                  return 1
+                  ;;
+              esac
+              ;;
+            *)
+              echo "::error::Invalid version format: $version"
+              return 1
+              ;;
+          esac
         }
 
         # Function to get previous release tag with error handling
@@ -129,7 +162,7 @@ runs:
         # Determine next release tag
         next_major_minor="$(date +'%Y').$(date +'%-m')"
 
-        if [ -n "$previous_tag" ] && [[ "${previous_major}.${previous_minor}" == "${next_major_minor}" ]]; then
+        if [ -n "$previous_tag" ] && [ "${previous_major}.${previous_minor}" = "${next_major_minor}" ]; then
           echo "Month release already exists for year, incrementing patch number by 1"
           next_patch="$((previous_patch + 1))"
         else
@@ -170,16 +203,16 @@ runs:
 
     - name: Verify Release
       if: inputs.dry-run == 'false'
-      shell: bash
+      shell: sh
       env:
         RELEASE_TAG: ${{ steps.create-release.outputs.release_tag }}
       run: |-
-        set -euo pipefail
+        set -eu
         # Use validated environment variables from GITHUB_ENV
         GITHUB_TOKEN="$VALIDATED_TOKEN"
 
         # Verify the release was created
-        if ! gh release view "$RELEASE_TAG" &>/dev/null; then
+        if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
           echo "::error::Failed to verify release creation"
           exit 1
         fi
