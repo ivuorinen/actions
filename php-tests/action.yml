@@ -75,18 +75,18 @@ runs:
   using: composite
   steps:
     - name: Mask Secrets
-      shell: bash
+      shell: sh
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
-        set -euo pipefail
+        set -eu
         if [ -n "$GITHUB_TOKEN" ]; then
           echo "::add-mask::$GITHUB_TOKEN"
         fi
 
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         FRAMEWORK: ${{ inputs.framework }}
         PHP_VERSION: ${{ inputs.php-version }}
@@ -95,7 +95,7 @@ runs:
         EMAIL: ${{ inputs.email }}
         USERNAME: ${{ inputs.username }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate framework mode
         case "$FRAMEWORK" in
@@ -178,11 +178,11 @@ runs:
 
     - name: Detect Framework
       id: detect-framework
-      shell: bash
+      shell: sh
       env:
         FRAMEWORK_MODE: ${{ inputs.framework }}
       run: |
-        set -euo pipefail
+        set -eu
 
         framework="generic"
 
@@ -329,11 +329,11 @@ runs:
 
     - name: Configure Composer
       id: composer-config
-      shell: bash
+      shell: sh
       env:
         GITHUB_TOKEN: ${{ inputs.token || github.token }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Configure Composer environment
         composer config --global process-timeout 600
@@ -369,9 +369,9 @@ runs:
 
     - name: Clear Composer Cache Before Install
       if: steps.composer-cache.outputs.cache-hit != 'true'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         echo "Clearing Composer cache to ensure clean installation..."
         composer clear-cache
 
@@ -384,9 +384,9 @@ runs:
         command: composer install ${{ inputs.composer-args }}
 
     - name: Verify Composer Installation
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Verify vendor directory
         if [ ! -d "vendor" ]; then
@@ -404,46 +404,46 @@ runs:
 
     - name: Laravel Setup - Copy .env
       if: steps.detect-framework.outputs.framework == 'laravel'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         php -r "file_exists('.env') || copy('.env.example', '.env');"
         echo "✅ Laravel .env file configured"
 
     - name: Laravel Setup - Generate Key
       if: steps.detect-framework.outputs.framework == 'laravel'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         php artisan key:generate
         echo "✅ Laravel application key generated"
 
     - name: Laravel Setup - Directory Permissions
       if: steps.detect-framework.outputs.framework == 'laravel'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         chmod -R 777 storage bootstrap/cache
         echo "✅ Laravel directory permissions configured"
 
     - name: Laravel Setup - Create Database
       if: steps.detect-framework.outputs.framework == 'laravel'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         mkdir -p database
         touch database/database.sqlite
         echo "✅ Laravel SQLite database created"
 
     - name: Run PHPUnit Tests
       id: test
-      shell: bash
+      shell: sh
       env:
         IS_LARAVEL: ${{ steps.detect-framework.outputs.framework == 'laravel' }}
         DB_CONNECTION: sqlite
         DB_DATABASE: database/database.sqlite
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running PHPUnit tests..."
 
