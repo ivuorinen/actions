@@ -30,37 +30,43 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         LABELS_FILE: ${{ inputs.labels }}
         GITHUB_TOKEN: ${{ inputs.token }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate labels file path format
-        if [[ "$LABELS_FILE" == *".."* ]] || [[ "$LABELS_FILE" == "/"* ]]; then
-          echo "::error::Invalid labels file path: '$LABELS_FILE'. Path traversal not allowed"
-          exit 1
-        fi
+        case "$LABELS_FILE" in
+          *".."*|"/"*)
+            echo "::error::Invalid labels file path: '$LABELS_FILE'. Path traversal not allowed"
+            exit 1
+            ;;
+        esac
 
         # Validate labels file extension
-        if ! [[ "$LABELS_FILE" =~ \.(yml|yaml)$ ]]; then
-          echo "::error::Invalid labels file extension: '$LABELS_FILE'. Expected .yml or .yaml file"
-          exit 1
-        fi
+        case "$LABELS_FILE" in
+          *.yml|*.yaml)
+            ;;
+          *)
+            echo "::error::Invalid labels file extension: '$LABELS_FILE'. Expected .yml or .yaml file"
+            exit 1
+            ;;
+        esac
 
         # Validate token is provided (basic check)
-        if [[ -z "$GITHUB_TOKEN" ]]; then
+        if [ -z "$GITHUB_TOKEN" ]; then
           echo "::error::GitHub token is required for label synchronization"
           exit 1
         fi
 
     - name: ⤵️ Download latest labels definitions
-      shell: bash
+      shell: sh
       env:
         LABELS_FILE: ${{ inputs.labels }}
       run: |
-        set -euo pipefail
+        set -eu
 
         curl -s --retry 5 \
           "https://raw.githubusercontent.com/ivuorinen/actions/main/sync-labels/labels.yml" \

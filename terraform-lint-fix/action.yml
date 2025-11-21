@@ -213,7 +213,7 @@ runs:
           error_count=$(grep -c "level\": \"error\"" "$tflint_output" || echo 0)
           printf '%s\n' "error_count=$error_count" >> "$GITHUB_OUTPUT"
 
-          if [[ "$FAIL_ON_ERROR" == "true" ]]; then
+          if [ "$FAIL_ON_ERROR" = "true" ]; then
             echo "::error::Found $error_count linting errors"
             exit 1
           fi
