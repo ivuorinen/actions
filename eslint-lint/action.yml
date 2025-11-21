@@ -393,16 +393,16 @@ runs:
         # Build ESLint command based on package manager
         case "$PACKAGE_MANAGER" in
           "pnpm")
-            eslint_cmd="pnpm exec eslint ."
+            eslint_cmd="pnpm exec eslint . --ext $FILE_EXTENSIONS"
             ;;
           "yarn")
-            eslint_cmd="yarn eslint ."
+            eslint_cmd="yarn eslint . --ext $FILE_EXTENSIONS"
             ;;
           "bun")
-            eslint_cmd="bunx eslint ."
+            eslint_cmd="bunx eslint . --ext $FILE_EXTENSIONS"
             ;;
           "npm"|*)
-            eslint_cmd="npx eslint ."
+            eslint_cmd="npx eslint . --ext $FILE_EXTENSIONS"
             ;;
         esac
 
@@ -475,6 +475,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        FILE_EXTENSIONS: ${{ inputs.file-extensions }}
       run: |
         set -eu
 
@@ -486,16 +487,16 @@ runs:
         # Run ESLint fix based on package manager
         case "$PACKAGE_MANAGER" in
           "pnpm")
-            pnpm exec eslint . --fix || true
+            pnpm exec eslint . --ext $FILE_EXTENSIONS --fix || true
             ;;
           "yarn")
-            yarn eslint . --fix || true
+            yarn eslint . --ext $FILE_EXTENSIONS --fix || true
             ;;
           "bun")
-            bunx eslint . --fix || true
+            bunx eslint . --ext $FILE_EXTENSIONS --fix || true
             ;;
           "npm"|*)
-            npx eslint . --fix || true
+            npx eslint . --ext $FILE_EXTENSIONS --fix || true
             ;;
         esac
 
