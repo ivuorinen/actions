@@ -128,13 +128,14 @@ runs:
         skip-queries: ${{ inputs.skip-queries }}
 
     - name: Validate checkout safety
-      shell: bash
+      shell: sh
       env:
         CHECKOUT_REF: ${{ inputs.checkout-ref }}
         EVENT_NAME: ${{ github.event_name }}
       run: |
+        set -eu
         # Security check: Warn if checking out custom ref on pull_request_target
-        if [[ "$EVENT_NAME" == "pull_request_target" ]] && [[ -n "$CHECKOUT_REF" ]]; then
+        if [ "$EVENT_NAME" = "pull_request_target" ] && [ -n "$CHECKOUT_REF" ]; then
           echo "::warning::Using custom checkout-ref on pull_request_target is potentially unsafe"
           echo "::warning::Ensure the ref is validated before running untrusted code"
         fi
@@ -147,28 +148,30 @@ runs:
 
     - name: Set analysis category
       id: set-category
-      shell: bash
+      shell: sh
       env:
         CATEGORY: ${{ inputs.category }}
         LANGUAGE: ${{ inputs.language }}
       run: |
-        if [[ -n "$CATEGORY" ]]; then
+        set -eu
+        if [ -n "$CATEGORY" ]; then
           category="$CATEGORY"
         else
           category="/language:$LANGUAGE"
         fi
-        echo "category=$category" >> $GITHUB_OUTPUT
+        echo "category=$category" >> "$GITHUB_OUTPUT"
         echo "Using analysis category: $category"
 
     - name: Set build mode
       id: set-build-mode
-      shell: bash
+      shell: sh
       env:
         BUILD_MODE: ${{ inputs.build-mode }}
         LANGUAGE: ${{ inputs.language }}
       run: |
+        set -eu
         build_mode="$BUILD_MODE"
-        if [[ -z "$build_mode" ]]; then
+        if [ -z "$build_mode" ]; then
           # Auto-detect build mode based on language
           case "$LANGUAGE" in
             javascript|python|ruby|actions)
@@ -179,7 +182,7 @@ runs:
               ;;
           esac
         fi
-        echo "build-mode=$build_mode" >> $GITHUB_OUTPUT
+        echo "build-mode=$build_mode" >> "$GITHUB_OUTPUT"
         echo "Using build mode: $build_mode"
 
     - name: Initialize CodeQL
@@ -211,7 +214,7 @@ runs:
         skip-queries: ${{ inputs.skip-queries }}
 
     - name: Summary
-      shell: bash
+      shell: sh
       env:
         LANGUAGE: ${{ inputs.language }}
         CATEGORY: ${{ steps.set-category.outputs.category }}
@@ -221,14 +224,15 @@ runs:
         UPLOAD_RESULTS: ${{ inputs.upload-results }}
         OUTPUT: ${{ inputs.output }}
       run: |
+        set -eu
         echo "✅ CodeQL analysis completed for language: $LANGUAGE"
         echo "📊 Category: $CATEGORY"
         echo "🏗️ Build mode: $BUILD_MODE"
         echo "🔍 Queries: ${QUERIES:-default}"
         echo "📦 Packs: ${PACKS:-none}"
-        if [[ "$UPLOAD_RESULTS" == "true" ]]; then
+        if [ "$UPLOAD_RESULTS" = "true" ]; then
           echo "📤 Results uploaded to GitHub Security tab"
         fi
-        if [[ -n "$OUTPUT" ]]; then
+        if [ -n "$OUTPUT" ]; then
           echo "💾 SARIF saved to: $OUTPUT"
         fi

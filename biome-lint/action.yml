@@ -56,7 +56,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         MODE: ${{ inputs.mode }}
         GITHUB_TOKEN: ${{ inputs.token }}
@@ -65,7 +65,7 @@ runs:
         MAX_RETRIES: ${{ inputs.max-retries }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate mode
         case "$MODE" in
@@ -79,16 +79,26 @@ runs:
         esac
 
         # Validate GitHub token presence if provided
-        if [[ -n "$GITHUB_TOKEN" ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
-          echo "Using provided GitHub token"
+        if [ -n "$GITHUB_TOKEN" ]; then
+          case "$GITHUB_TOKEN" in
+            \$\{\{*)
+              # Token is a GitHub Actions expression, skip validation
+              ;;
+            *)
+              echo "Using provided GitHub token"
+              ;;
+          esac
         fi
 
         # Validate email format (basic check) - required for fix mode
         if [ "$MODE" = "fix" ]; then
-          if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-            exit 1
-          fi
+          case "$EMAIL" in
+            *@*.*) ;;
+            *)
+              echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+              exit 1
+              ;;
+          esac
 
           # Validate username format (GitHub canonical rules)
           username="$USERNAME"
@@ -100,32 +110,45 @@ runs:
           fi
 
           # Check allowed characters (letters, digits, hyphens only)
-          if ! [[ "$username" =~ ^[a-zA-Z0-9-]+$ ]]; then
-            echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
-            exit 1
-          fi
+          case "$username" in
+            *[!a-zA-Z0-9-]*)
+              echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
+              exit 1
+              ;;
+          esac
 
           # Check doesn't start or end with hyphen
-          if [[ "$username" == -* ]] || [[ "$username" == *- ]]; then
-            echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
-            exit 1
-          fi
+          case "$username" in
+            -*|*-)
+              echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
+              exit 1
+              ;;
+          esac
 
           # Check no consecutive hyphens
-          if [[ "$username" == *--* ]]; then
-            echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
-            exit 1
-          fi
+          case "$username" in
+            *--*)
+              echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate max retries (positive integer with reasonable upper limit)
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+        case "$MAX_RETRIES" in
+          ''|*[!0-9]*)
+            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+            exit 1
+            ;;
+        esac
+
+        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
           echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
         # Validate fail-on-error (boolean)
-        if [[ "$FAIL_ON_ERROR" != "true" ]] && [[ "$FAIL_ON_ERROR" != "false" ]]; then
+        if [ "$FAIL_ON_ERROR" != "true" ] && [ "$FAIL_ON_ERROR" != "false" ]; then
           echo "::error::Invalid fail-on-error value: '$FAIL_ON_ERROR'. Must be 'true' or 'false'"
           exit 1
         fi
@@ -137,26 +160,79 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
 
-    - name: Node Setup
-      id: node-setup
-      uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
+    - name: Detect Package Manager
+      id: detect-pm
+      shell: sh
+      run: |
+        set -eu
+
+        # Detect package manager from lockfiles
+        if [ -f bun.lockb ]; then
+          package_manager="bun"
+        elif [ -f pnpm-lock.yaml ]; then
+          package_manager="pnpm"
+        elif [ -f yarn.lock ]; then
+          package_manager="yarn"
+        else
+          package_manager="npm"
+        fi
+
+        printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
+        echo "Detected package manager: $package_manager"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+      with:
+        node-version: '22'
+
+    - name: Enable Corepack
+      shell: sh
+      run: |
+        set -eu
+        corepack enable
+
+    - name: Install Package Manager
+      shell: sh
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+      run: |
+        set -eu
+
+        case "$PACKAGE_MANAGER" in
+          pnpm)
+            corepack prepare pnpm@latest --activate
+            ;;
+          yarn)
+            corepack prepare yarn@stable --activate
+            ;;
+          bun|npm)
+            # Bun installed separately, npm built-in
+            ;;
+        esac
+
+    - name: Setup Bun
+      if: steps.detect-pm.outputs.package-manager == 'bun'
+      uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+      with:
+        bun-version: latest
 
     - name: Cache Node Dependencies
       id: cache
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        type: 'npm'
-        paths: 'node_modules'
-        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
-        key-prefix: 'biome-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}'
+        path: node_modules
+        key: ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-
+          ${{ runner.os }}-biome-lint-${{ inputs.mode }}-
 
     - name: Install Biome
-      shell: bash
+      shell: sh
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         MAX_RETRIES: ${{ inputs.max-retries }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Check if biome is already installed
         if command -v biome >/dev/null 2>&1; then
@@ -208,11 +284,11 @@ runs:
     - name: Run Biome Check
       if: inputs.mode == 'check'
       id: check
-      shell: bash
+      shell: sh
       env:
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running Biome check mode..."
 
@@ -262,9 +338,9 @@ runs:
     - name: Run Biome Fix
       if: inputs.mode == 'fix'
       id: fix
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running Biome fix mode..."
 

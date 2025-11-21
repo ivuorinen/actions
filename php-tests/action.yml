@@ -3,7 +3,7 @@
 #   - contents: read  # Required for checking out repository
 ---
 name: PHP Tests
-description: Run PHPUnit tests on the repository
+description: Run PHPUnit tests with optional Laravel setup and Composer dependency management
 author: Ismo Vuorinen
 
 branding:
@@ -11,6 +11,30 @@ branding:
   color: green
 
 inputs:
+  framework:
+    description: 'Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework)'
+    required: false
+    default: 'auto'
+  php-version:
+    description: 'PHP Version to use (latest, 8.4, 8.3, etc.)'
+    required: false
+    default: 'latest'
+  extensions:
+    description: 'PHP extensions to install (comma-separated)'
+    required: false
+    default: 'mbstring, intl, json, pdo_sqlite, sqlite3'
+  coverage:
+    description: 'Code-coverage driver (none, xdebug, pcov)'
+    required: false
+    default: 'none'
+  composer-args:
+    description: 'Arguments to pass to Composer install'
+    required: false
+    default: '--no-progress --prefer-dist --optimize-autoloader'
+  max-retries:
+    description: 'Maximum number of retry attempts for Composer commands'
+    required: false
+    default: '3'
   token:
     description: 'GitHub token for authentication'
     required: false
@@ -25,56 +49,123 @@ inputs:
     default: 'github-actions@github.com'
 
 outputs:
-  test_status:
-    description: 'Test execution status (success/failure/skipped)'
+  framework:
+    description: 'Detected framework (laravel or generic)'
+    value: ${{ steps.detect-framework.outputs.framework }}
+  php-version:
+    description: 'The PHP version that was setup'
+    value: ${{ steps.setup-php.outputs.php-version }}
+  composer-version:
+    description: 'Installed Composer version'
+    value: ${{ steps.composer-config.outputs.version }}
+  cache-hit:
+    description: 'Indicates if there was a cache hit'
+    value: ${{ steps.composer-cache.outputs.cache-hit }}
+  test-status:
+    description: 'Test execution status (success/failure)'
     value: ${{ steps.test.outputs.status }}
-  tests_run:
+  tests-run:
     description: 'Number of tests executed'
     value: ${{ steps.test.outputs.tests_run }}
-  tests_passed:
+  tests-passed:
     description: 'Number of tests passed'
     value: ${{ steps.test.outputs.tests_passed }}
-  coverage_path:
-    description: 'Path to coverage report'
-    value: 'coverage.xml'
 
 runs:
   using: composite
   steps:
-    - name: Validate Inputs
-      id: validate
-      shell: bash
+    - name: Mask Secrets
+      shell: sh
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
+      run: |
+        set -eu
+        if [ -n "$GITHUB_TOKEN" ]; then
+          echo "::add-mask::$GITHUB_TOKEN"
+        fi
+
+    - name: Validate Inputs
+      id: validate
+      shell: sh
+      env:
+        FRAMEWORK: ${{ inputs.framework }}
+        PHP_VERSION: ${{ inputs.php-version }}
+        COVERAGE: ${{ inputs.coverage }}
+        MAX_RETRIES: ${{ inputs.max-retries }}
         EMAIL: ${{ inputs.email }}
         USERNAME: ${{ inputs.username }}
       run: |
-        set -euo pipefail
+        set -eu
 
-        # Validate GitHub token format (basic validation)
-        if [[ -n "$GITHUB_TOKEN" ]]; then
-          # Skip validation for GitHub expressions (they'll be resolved at runtime)
-          if ! [[ "$GITHUB_TOKEN" =~ ^gh[efpousr]_[a-zA-Z0-9]{36}$ ]] && ! [[ "$GITHUB_TOKEN" =~ ^\$\{\{ ]]; then
-            echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
-          fi
+        # Validate framework mode
+        case "$FRAMEWORK" in
+          auto|laravel|generic)
+            echo "Framework mode: $FRAMEWORK"
+            ;;
+          *)
+            echo "::error::Invalid framework: '$FRAMEWORK'. Must be 'auto', 'laravel', or 'generic'"
+            exit 1
+            ;;
+        esac
+
+        # Validate PHP version format
+        if [ "$PHP_VERSION" != "latest" ]; then
+          case "$PHP_VERSION" in
+            [0-9]*\.[0-9]*\.[0-9]*)
+              # X.Y.Z format (e.g., 8.3.0)
+              ;;
+            [0-9]*\.[0-9]*)
+              # X.Y format (e.g., 8.4)
+              ;;
+            *)
+              echo "::error::Invalid php-version format: '$PHP_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 8.4, 8.3.0)"
+              exit 1
+              ;;
+          esac
         fi
 
-        # Validate email format (basic check)
-        if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
-          echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+        # Validate coverage driver
+        case "$COVERAGE" in
+          none|xdebug|pcov)
+            ;;
+          *)
+            echo "::error::Invalid coverage driver: '$COVERAGE'. Must be 'none', 'xdebug', or 'pcov'"
+            exit 1
+            ;;
+        esac
+
+        # Validate max retries (must be digits only)
+        case "$MAX_RETRIES" in
+          *[!0-9]*)
+            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+            exit 1
+            ;;
+        esac
+        # Validate max retries range
+        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
-        # Validate username format (prevent command injection)
-        if [[ "$USERNAME" == *";"* ]] || [[ "$USERNAME" == *"&&"* ]] || [[ "$USERNAME" == *"|"* ]]; then
-          echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
-          exit 1
-        fi
+        # Validate email format (must contain @ and .)
+        case "$EMAIL" in
+          *@*.*) ;;
+          *)
+            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+            exit 1
+            ;;
+        esac
 
-        # Validate username length
-        username="$USERNAME"
-        if [ ${#username} -gt 39 ]; then
-          echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
+        # Validate username format (reject command injection patterns)
+        case "$USERNAME" in
+          *";"*|*"&&"*|*"|"*)
+            echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
+            exit 1
+            ;;
+        esac
+
+        if [ ${#USERNAME} -gt 39 ]; then
+          echo "::error::Username too long: ${#USERNAME} characters. GitHub usernames are max 39 characters"
           exit 1
         fi
 
@@ -85,37 +176,328 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
 
-    - name: Composer Install
-      uses: ivuorinen/actions/php-composer@0fa9a68f07a1260b321f814202658a6089a43d42
+    - name: Detect Framework
+      id: detect-framework
+      shell: sh
+      env:
+        FRAMEWORK_MODE: ${{ inputs.framework }}
+      run: |
+        set -eu
+
+        framework="generic"
+
+        if [ "$FRAMEWORK_MODE" = "laravel" ]; then
+          framework="laravel"
+          echo "Framework mode forced to Laravel"
+        elif [ "$FRAMEWORK_MODE" = "auto" ]; then
+          if [ -f "artisan" ]; then
+            framework="laravel"
+            echo "Detected Laravel framework (artisan file found)"
+          else
+            echo "No Laravel framework detected (no artisan file)"
+          fi
+        else
+          echo "Framework mode set to generic"
+        fi
+
+        printf 'framework=%s\n' "$framework" >> "$GITHUB_OUTPUT"
+
+    - name: Detect PHP Version
+      id: detect-php-version
+      shell: sh
+      env:
+        DEFAULT_VERSION: ${{ inputs.php-version }}
+      run: |
+        set -eu
+
+        # Function to validate version format
+        validate_version() {
+          version=$1
+          case "$version" in
+            [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        # Function to clean version string
+        clean_version() {
+          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+        }
+
+        detected_version=""
+
+        # Parse .tool-versions file
+        if [ -f .tool-versions ]; then
+          echo "Checking .tool-versions for php..." >&2
+          version=$(awk '/^php[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found PHP version in .tool-versions: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse Dockerfile
+        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
+          echo "Checking Dockerfile for php..." >&2
+          version=$(grep -iF "FROM" Dockerfile | grep -F "php:" | head -1 | \
+            sed -n -E "s/.*php:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found PHP version in Dockerfile: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse devcontainer.json
+        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
+          echo "Checking devcontainer.json for php..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*php:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found PHP version in devcontainer: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping devcontainer.json parsing" >&2
+          fi
+        fi
+
+        # Parse .php-version file
+        if [ -z "$detected_version" ] && [ -f .php-version ]; then
+          echo "Checking .php-version..." >&2
+          version=$(tr -d '\r' < .php-version | head -1)
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found PHP version in .php-version: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse composer.json
+        if [ -z "$detected_version" ] && [ -f composer.json ]; then
+          echo "Checking composer.json..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            if [ -z "$version" ]; then
+              version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            fi
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found PHP version in composer.json: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping composer.json parsing" >&2
+          fi
+        fi
+
+        # Use default version if nothing detected
+        if [ -z "$detected_version" ]; then
+          detected_version="$DEFAULT_VERSION"
+          echo "Using default PHP version: $detected_version" >&2
+        fi
+
+        # Set output
+        printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
+        echo "Final detected PHP version: $detected_version" >&2
+
+    - name: Setup PHP
+      id: setup-php
+      uses: shivammathur/setup-php@bf6b4fbd49ca58e4608c9c89fba0b8d90bd2a39f # 2.35.5
+      with:
+        php-version: ${{ steps.detect-php-version.outputs.detected-version }}
+        extensions: ${{ inputs.extensions }}
+        coverage: ${{ inputs.coverage }}
+        ini-values: memory_limit=1G, max_execution_time=600
+        fail-fast: true
+
+    - name: Configure Composer
+      id: composer-config
+      shell: sh
+      env:
+        GITHUB_TOKEN: ${{ inputs.token || github.token }}
+      run: |
+        set -eu
+
+        # Configure Composer environment
+        composer config --global process-timeout 600
+        composer config --global allow-plugins true
+        composer config --global github-oauth.github.com "$GITHUB_TOKEN"
+
+        # Verify Composer installation
+        composer_full_version=$(composer --version | sed -n 's/.*Composer version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' || echo "")
+        if [ -z "$composer_full_version" ]; then
+          echo "::error::Failed to detect Composer version"
+          exit 1
+        fi
+
+        echo "Detected Composer version: $composer_full_version"
+        printf 'version=%s\n' "$composer_full_version" >> "$GITHUB_OUTPUT"
+
+        # Log Composer configuration
+        echo "Composer Configuration:"
+        composer config --list
+
+    - name: Cache Composer packages
+      id: composer-cache
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      with:
+        path: |
+          vendor
+          ~/.composer/cache
+        key: ${{ runner.os }}-php-${{ steps.setup-php.outputs.php-version }}-composer-${{ hashFiles('composer.lock', 'composer.json') }}
+        restore-keys: |
+          ${{ runner.os }}-php-${{ steps.setup-php.outputs.php-version }}-composer-
+          ${{ runner.os }}-php-${{ steps.setup-php.outputs.php-version }}-
+          ${{ runner.os }}-php-
+
+    - name: Clear Composer Cache Before Install
+      if: steps.composer-cache.outputs.cache-hit != 'true'
+      shell: sh
+      run: |
+        set -eu
+        echo "Clearing Composer cache to ensure clean installation..."
+        composer clear-cache
+
+    - name: Install Composer Dependencies
+      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
+      with:
+        timeout_minutes: 10
+        max_attempts: ${{ inputs.max-retries }}
+        retry_wait_seconds: 30
+        command: composer install ${{ inputs.composer-args }}
+
+    - name: Verify Composer Installation
+      shell: sh
+      run: |
+        set -eu
+
+        # Verify vendor directory
+        if [ ! -d "vendor" ]; then
+          echo "::error::vendor directory not found"
+          exit 1
+        fi
+
+        # Verify autoloader
+        if [ ! -f "vendor/autoload.php" ]; then
+          echo "::error::autoload.php not found"
+          exit 1
+        fi
+
+        echo "✅ Composer installation verified"
+
+    - name: Laravel Setup - Copy .env
+      if: steps.detect-framework.outputs.framework == 'laravel'
+      shell: sh
+      run: |
+        set -eu
+        php -r "file_exists('.env') || copy('.env.example', '.env');"
+        echo "✅ Laravel .env file configured"
+
+    - name: Laravel Setup - Generate Key
+      if: steps.detect-framework.outputs.framework == 'laravel'
+      shell: sh
+      run: |
+        set -eu
+        php artisan key:generate
+        echo "✅ Laravel application key generated"
+
+    - name: Laravel Setup - Directory Permissions
+      if: steps.detect-framework.outputs.framework == 'laravel'
+      shell: sh
+      run: |
+        set -eu
+        chmod -R 777 storage bootstrap/cache
+        echo "✅ Laravel directory permissions configured"
+
+    - name: Laravel Setup - Create Database
+      if: steps.detect-framework.outputs.framework == 'laravel'
+      shell: sh
+      run: |
+        set -eu
+        mkdir -p database
+        touch database/database.sqlite
+        echo "✅ Laravel SQLite database created"
 
     - name: Run PHPUnit Tests
       id: test
-      shell: bash
-      run: |-
-        set -euo pipefail
+      shell: sh
+      env:
+        IS_LARAVEL: ${{ steps.detect-framework.outputs.framework == 'laravel' }}
+        DB_CONNECTION: sqlite
+        DB_DATABASE: database/database.sqlite
+      run: |
+        set -eu
+
+        echo "Running PHPUnit tests..."
 
         # Run PHPUnit and capture results
         phpunit_exit_code=0
-        phpunit_output=$(vendor/bin/phpunit --verbose 2>&1) || phpunit_exit_code=$?
+        if [ "$IS_LARAVEL" = "true" ] && [ -f "composer.json" ] && grep -q '"test"' composer.json; then
+          echo "Running Laravel tests via composer test..."
+          phpunit_output=$(composer test 2>&1) || phpunit_exit_code=$?
+        elif [ -f "vendor/bin/phpunit" ]; then
+          echo "Running PHPUnit directly..."
+          phpunit_output=$(vendor/bin/phpunit --verbose 2>&1) || phpunit_exit_code=$?
+        else
+          echo "::error::PHPUnit not found. Ensure Composer dependencies are installed."
+          exit 1
+        fi
 
         echo "$phpunit_output"
 
-        # Parse test results from output
-        tests_run=$(echo "$phpunit_output" | grep -E "Tests:|tests" | head -1 | grep -oE '[0-9]+' | head -1 || echo "0")
-        tests_passed=$(echo "$phpunit_output" | grep -oE 'OK.*[0-9]+ tests' | grep -oE '[0-9]+' || echo "0")
+        # Parse test results from output - handle various PHPUnit formats
+        tests_run="0"
+        tests_passed="0"
+
+        # Pattern 1: "OK (N test(s), M assertions)" - success case (handles both singular and plural)
+        if echo "$phpunit_output" | grep -qE 'OK \([0-9]+ tests?,'; then
+          tests_run=$(echo "$phpunit_output" | grep -oE 'OK \([0-9]+ tests?,' | grep -oE '[0-9]+' | head -1)
+          tests_passed="$tests_run"
+        # Pattern 2: "Tests: N" line - failure/error/skipped case
+        elif echo "$phpunit_output" | grep -qE '^Tests:'; then
+          tests_run=$(echo "$phpunit_output" | grep -E '^Tests:' | grep -oE '[0-9]+' | head -1)
+
+          # Calculate passed from failures and errors
+          failures=$(echo "$phpunit_output" | grep -oE 'Failures: [0-9]+' | grep -oE '[0-9]+' | head -1 || echo "0")
+          errors=$(echo "$phpunit_output" | grep -oE 'Errors: [0-9]+' | grep -oE '[0-9]+' | head -1 || echo "0")
+          tests_passed=$((tests_run - failures - errors))
+
+          # Ensure non-negative
+          if [ "$tests_passed" -lt 0 ]; then
+            tests_passed="0"
+          fi
+        fi
 
         # Determine status
         if [ $phpunit_exit_code -eq 0 ]; then
           status="success"
+          echo "✅ Tests passed: $tests_passed/$tests_run"
         else
           status="failure"
+          echo "❌ Tests failed"
         fi
 
         # Output results
-        echo "tests_run=$tests_run" >> $GITHUB_OUTPUT
-        echo "tests_passed=$tests_passed" >> $GITHUB_OUTPUT
-        echo "status=$status" >> $GITHUB_OUTPUT
-        echo "coverage_path=coverage.xml" >> $GITHUB_OUTPUT
+        printf 'tests_run=%s\n' "$tests_run" >> "$GITHUB_OUTPUT"
+        printf 'tests_passed=%s\n' "$tests_passed" >> "$GITHUB_OUTPUT"
+        printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
 
         # Exit with original code to maintain test failure behavior
         exit $phpunit_exit_code

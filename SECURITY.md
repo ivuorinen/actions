@@ -231,7 +231,7 @@ When security issues are fixed:
 - Replaced custom Bun installation with official action
 - Replaced custom Trivy installation with official action
 - Added secret masking to 7 critical actions (including docker-publish)
-- Optimized file hashing in common-cache
+- Migrated from custom common-cache to official actions/cache
 - Status: ✅ Complete
 
 ### Phase 3: Documentation & Policy (2024)

@@ -11,7 +11,8 @@
 
 schema_version: '1.0'
 action: language-version-detect
-description: Detects language version from project configuration files with support for PHP, Python, Go, and .NET.
+description: 'DEPRECATED: This action is deprecated. Inline version detection directly in your actions instead. Detects language
+  version from project configuration files with support for PHP, Python, Go, and .NET.'
 generator_version: 1.0.0
 required_inputs:
   - language

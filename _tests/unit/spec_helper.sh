@@ -92,10 +92,6 @@ setup_default_inputs() {
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
     ;;
-  "common-cache")
-    [[ "$input_name" != "type" ]] && export INPUT_TYPE="npm"
-    [[ "$input_name" != "paths" ]] && export INPUT_PATHS="node_modules"
-    ;;
   "common-retry")
     [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
     ;;
@@ -113,11 +109,6 @@ setup_default_inputs() {
     ;;
   "validate-inputs")
     [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
-    ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="node"
-    [[ "$input_name" != "tool-versions-key" ]] && export INPUT_TOOL_VERSIONS_KEY="nodejs"
-    [[ "$input_name" != "dockerfile-image" ]] && export INPUT_DOCKERFILE_IMAGE="node"
     ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
@@ -163,10 +154,6 @@ cleanup_default_inputs() {
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
     ;;
-  "common-cache")
-    [[ "$input_name" != "type" ]] && unset INPUT_TYPE
-    [[ "$input_name" != "paths" ]] && unset INPUT_PATHS
-    ;;
   "common-retry")
     [[ "$input_name" != "command" ]] && unset INPUT_COMMAND
     ;;
@@ -184,11 +171,6 @@ cleanup_default_inputs() {
     ;;
   "validate-inputs")
     [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
-    ;;
-  "version-file-parser")
-    [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
-    [[ "$input_name" != "tool-versions-key" ]] && unset INPUT_TOOL_VERSIONS_KEY
-    [[ "$input_name" != "dockerfile-image" ]] && unset INPUT_DOCKERFILE_IMAGE
     ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
@@ -244,10 +226,6 @@ shellspec_mock_action_run() {
   action_name=$(basename "$action_dir")
 
   case "$action_name" in
-  "version-file-parser")
-    echo "detected-version=1.0.0" >>"$GITHUB_OUTPUT"
-    echo "package-manager=npm" >>"$GITHUB_OUTPUT"
-    ;;
   "node-setup")
     echo "node-version=18.0.0" >>"$GITHUB_OUTPUT"
     echo "package-manager=npm" >>"$GITHUB_OUTPUT"
@@ -257,11 +235,6 @@ shellspec_mock_action_run() {
     echo "image-digest=sha256:abc123" >>"$GITHUB_OUTPUT"
     echo "build-time=45" >>"$GITHUB_OUTPUT"
     echo "platforms=linux/amd64" >>"$GITHUB_OUTPUT"
-    ;;
-  "common-cache")
-    echo "cache-hit=true" >>"$GITHUB_OUTPUT"
-    echo "cache-key=Linux-npm-abc123" >>"$GITHUB_OUTPUT"
-    echo "cache-paths=node_modules" >>"$GITHUB_OUTPUT"
     ;;
   "common-file-check")
     echo "found=true" >>"$GITHUB_OUTPUT"

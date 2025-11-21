@@ -8,7 +8,6 @@ const { markdownTable } = require('markdown-table');
 // Category mappings
 const CATEGORIES = {
   // Setup & Environment
-  'node-setup': 'Setup',
   'language-version-detect': 'Setup',
 
   // Utilities
@@ -29,8 +28,6 @@ const CATEGORIES = {
 
   // Testing & Quality
   'php-tests': 'Testing',
-  'php-laravel-phpunit': 'Testing',
-  'php-composer': 'Testing',
 
   // Build & Package
   'csharp-build': 'Build',
@@ -47,7 +44,6 @@ const CATEGORIES = {
   'sync-labels': 'Repository',
   stale: 'Repository',
   'compress-images': 'Repository',
-  'common-cache': 'Repository',
   'codeql-analysis': 'Repository',
 
   // Validation
@@ -56,11 +52,8 @@ const CATEGORIES = {
 
 // Language support mappings
 const LANGUAGE_SUPPORT = {
-  'node-setup': ['Node.js', 'JavaScript', 'TypeScript'],
   'language-version-detect': ['PHP', 'Python', 'Go', '.NET', 'Node.js'],
-  'php-tests': ['PHP'],
-  'php-laravel-phpunit': ['PHP', 'Laravel'],
-  'php-composer': ['PHP'],
+  'php-tests': ['PHP', 'Laravel'],
   'python-lint-fix': ['Python'],
   'go-lint': ['Go'],
   'go-build': ['Go'],
@@ -85,7 +78,6 @@ const LANGUAGE_SUPPORT = {
   'release-monthly': ['GitHub Actions'],
   stale: ['GitHub Actions'],
   'compress-images': ['Images', 'PNG', 'JPEG'],
-  'common-cache': ['Caching'],
 };
 
 // Icon mapping for GitHub branding

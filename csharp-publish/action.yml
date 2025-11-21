@@ -22,6 +22,10 @@ inputs:
   token:
     description: 'GitHub token with package write permissions'
     required: false
+  max-retries:
+    description: 'Maximum number of retry attempts for dependency restoration'
+    required: false
+    default: '3'
 
 outputs:
   publish_status:
@@ -38,7 +42,7 @@ runs:
   using: composite
   steps:
     - name: Mask Secrets
-      shell: bash
+      shell: sh
       env:
         API_KEY: ${{ inputs.token || github.token }}
       run: |
@@ -60,57 +64,138 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        language: 'dotnet'
-        default-version: '7.0'
+      shell: sh
+      env:
+        DEFAULT_VERSION: '7.0'
+      run: |
+        set -eu
+
+        # Function to validate version format
+        validate_version() {
+          version=$1
+          case "$version" in
+            [0-9]* | [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        # Function to clean version string
+        clean_version() {
+          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+        }
+
+        detected_version=""
+
+        # Parse .tool-versions file
+        if [ -f .tool-versions ]; then
+          echo "Checking .tool-versions for dotnet..." >&2
+          version=$(awk '/^dotnet[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found .NET version in .tool-versions: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse Dockerfile
+        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
+          echo "Checking Dockerfile for dotnet..." >&2
+          version=$(grep -iF "FROM" Dockerfile | grep -F "dotnet:" | head -1 | \
+            sed -n -E "s/.*dotnet:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found .NET version in Dockerfile: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse devcontainer.json
+        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
+          echo "Checking devcontainer.json for dotnet..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*dotnet:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found .NET version in devcontainer: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping devcontainer.json parsing" >&2
+          fi
+        fi
+
+        # Parse global.json
+        if [ -z "$detected_version" ] && [ -f global.json ]; then
+          echo "Checking global.json..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found .NET version in global.json: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping global.json parsing" >&2
+          fi
+        fi
+
+        # Use default version if nothing detected
+        if [ -z "$detected_version" ]; then
+          detected_version="$DEFAULT_VERSION"
+          echo "Using default .NET version: $detected_version" >&2
+        fi
+
+        # Set output
+        printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
+        echo "Final detected .NET version: $detected_version" >&2
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
         dotnet-version: ${{ inputs.dotnet-version || steps.detect-dotnet-version.outputs.detected-version }}
-
-    - name: Cache NuGet packages
-      id: cache-nuget
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        type: 'nuget'
-        paths: '~/.nuget/packages'
-        key-files: '**/*.csproj,**/*.props,**/*.targets'
-        key-prefix: 'csharp-publish'
+        cache: true
+        cache-dependency-path: '**/packages.lock.json'
 
     - name: Restore Dependencies
-      shell: bash
-      env:
-        CACHE_HIT: ${{ steps.cache-nuget.outputs.cache-hit }}
-      run: |
-        set -euo pipefail
-
-        # Always run dotnet restore to ensure project.assets.json is present
-        if [[ "$CACHE_HIT" == 'true' ]]; then
-          echo "Cache hit - running fast dotnet restore"
-        fi
-        dotnet restore
+      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
+      with:
+        timeout_minutes: 10
+        max_attempts: ${{ inputs.max-retries }}
+        command: |
+          echo "Restoring .NET dependencies..."
+          dotnet restore --verbosity normal
 
     - name: Build Solution
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         dotnet build --configuration Release --no-restore
 
     - name: Pack Solution
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         dotnet pack --configuration Release --no-build --no-restore --output ./artifacts
 
     - name: Extract Package Version
       id: extract-version
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Find the newest .nupkg file by modification time and extract version
         PACKAGE_FILE=$(find ./artifacts -name "*.nupkg" -type f -printf '%T@ %p\n' | sort -rn | head -n 1 | cut -d' ' -f2-)
@@ -126,12 +211,12 @@ runs:
 
     - name: Publish Package
       id: publish-package
-      shell: bash
+      shell: sh
       env:
         API_KEY: ${{ inputs.token || github.token }}
         NAMESPACE: ${{ inputs.namespace }}
       run: |
-        set -euo pipefail
+        set -eu
 
         PACKAGE_URL="https://github.com/$NAMESPACE/packages/nuget"
         printf '%s\n' "package_url=$PACKAGE_URL" >> "$GITHUB_OUTPUT"
@@ -156,7 +241,7 @@ runs:
     - name: Set publish status output
       if: always()
       id: set-status
-      shell: bash
+      shell: sh
       env:
         PUBLISH_STATUS: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
       run: |-

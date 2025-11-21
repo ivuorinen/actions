@@ -304,19 +304,12 @@ class ValidationRuleGenerator:
                 "cache-mode": "cache_mode",
                 "sbom-format": "sbom_format",
             },
-            "common-cache": {
-                "paths": "file_path",
-                "key-files": "file_path",
-            },
             "common-file-check": {
                 "file-pattern": "file_path",
             },
             "common-retry": {
                 "backoff-strategy": "backoff_strategy",
                 "shell": "shell_type",
-            },
-            "node-setup": {
-                "package-manager": "package_manager_enum",
             },
             "docker-publish": {
                 "registry": "registry_enum",
@@ -337,9 +330,6 @@ class ValidationRuleGenerator:
                 "check-only": "boolean",
                 "file-pattern": "file_pattern",
                 "plugins": "plugin_list",
-            },
-            "php-laravel-phpunit": {
-                "extensions": "php_extensions",
             },
             "codeql-analysis": {
                 "language": "codeql_language",

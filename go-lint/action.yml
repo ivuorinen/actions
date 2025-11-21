@@ -215,16 +215,17 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
 
-    - name: Set up Cache
+    - name: Cache golangci-lint
       id: cache
       if: inputs.cache == 'true'
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        type: 'go'
-        paths: '~/.cache/golangci-lint,~/.cache/go-build'
-        key-prefix: 'golangci-${{ inputs.golangci-lint-version }}'
-        key-files: 'go.sum,${{ inputs.config-file }}'
-        restore-keys: '${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-'
+        path: |
+          ~/.cache/golangci-lint
+          ~/.cache/go-build
+        key: ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-${{ hashFiles('go.sum', inputs.config-file) }}
+        restore-keys: |
+          ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-
 
     - name: Install golangci-lint
       shell: sh

@@ -159,7 +159,7 @@ runs:
         parallel-builds: ${{ inputs.parallel-builds }}
 
     - name: Check Dockerfile Exists
-      shell: bash
+      shell: sh
       env:
         DOCKERFILE: ${{ inputs.dockerfile }}
       run: |
@@ -186,12 +186,12 @@ runs:
 
     - name: Detect Available Platforms
       id: detect-platforms
-      shell: bash
+      shell: sh
       env:
         ARCHITECTURES: ${{ inputs.architectures }}
         AUTO_DETECT: ${{ inputs.auto-detect-platforms }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # When auto-detect is enabled, try to detect available platforms
         if [ "$AUTO_DETECT" = "true" ]; then
@@ -212,11 +212,11 @@ runs:
 
     - name: Determine Image Name
       id: image-name
-      shell: bash
+      shell: sh
       env:
         IMAGE_NAME: ${{ inputs.image-name }}
       run: |
-        set -euo pipefail
+        set -eu
 
         if [ -z "$IMAGE_NAME" ]; then
           repo_name=$(basename "${GITHUB_REPOSITORY}")
@@ -227,16 +227,23 @@ runs:
 
     - name: Parse Build Arguments
       id: build-args
-      shell: bash
+      shell: sh
       env:
         BUILD_ARGS_INPUT: ${{ inputs.build-args }}
       run: |
-        set -euo pipefail
+        set -eu
 
         args=""
         if [ -n "$BUILD_ARGS_INPUT" ]; then
-          IFS=',' read -ra BUILD_ARGS <<< "$BUILD_ARGS_INPUT"
-          for arg in "${BUILD_ARGS[@]}"; do
+          # Save IFS and use comma as delimiter
+          old_ifs="$IFS"
+          IFS=','
+          # Use set -- to load comma-separated values into positional parameters
+          set -- $BUILD_ARGS_INPUT
+          IFS="$old_ifs"
+
+          # Iterate through positional parameters
+          for arg; do
             args="$args --build-arg $arg"
           done
         fi
@@ -244,16 +251,23 @@ runs:
 
     - name: Parse Build Contexts
       id: build-contexts
-      shell: bash
+      shell: sh
       env:
         BUILD_CONTEXTS: ${{ inputs.build-contexts }}
       run: |
-        set -euo pipefail
+        set -eu
 
         contexts=""
         if [ -n "$BUILD_CONTEXTS" ]; then
-          IFS=',' read -ra CONTEXTS <<< "$BUILD_CONTEXTS"
-          for ctx in "${CONTEXTS[@]}"; do
+          # Save IFS and use comma as delimiter
+          old_ifs="$IFS"
+          IFS=','
+          # Use set -- to load comma-separated values into positional parameters
+          set -- $BUILD_CONTEXTS
+          IFS="$old_ifs"
+
+          # Iterate through positional parameters
+          for ctx; do
             contexts="$contexts --build-context $ctx"
           done
         fi
@@ -261,36 +275,46 @@ runs:
 
     - name: Parse Secrets
       id: secrets
-      shell: bash
+      shell: sh
       env:
         INPUT_SECRETS: ${{ inputs.secrets }}
       run: |
-        set -euo pipefail
+        set -eu
 
         secrets=""
         if [ -n "$INPUT_SECRETS" ]; then
-          IFS=',' read -ra SECRETS <<< "$INPUT_SECRETS"
-          for secret in "${SECRETS[@]}"; do
+          # Save IFS and use comma as delimiter
+          old_ifs="$IFS"
+          IFS=','
+          # Use set -- to load comma-separated values into positional parameters
+          set -- $INPUT_SECRETS
+          IFS="$old_ifs"
+
+          # Iterate through positional parameters
+          for secret; do
             # Trim whitespace
             secret=$(echo "$secret" | xargs)
 
-            if [[ "$secret" == *"="* ]]; then
-              # Parse id=src format
-              id="${secret%%=*}"
-              src="${secret#*=}"
+            case "$secret" in
+              *=*)
+                # Parse id=src format
+                id="${secret%%=*}"
+                src="${secret#*=}"
 
-              # Validate id and src are not empty
-              if [[ -z "$id" || -z "$src" ]]; then
-                echo "::error::Invalid secret format: '$secret'. Expected 'id=src' where both id and src are non-empty"
+                # Validate id and src are not empty
+                if [ -z "$id" ] || [ -z "$src" ]; then
+                  echo "::error::Invalid secret format: '$secret'. Expected 'id=src' where both id and src are non-empty"
+                  exit 1
+                fi
+
+                secrets="$secrets --secret id=$id,src=$src"
+                ;;
+              *)
+                # Handle legacy format - treat as id only (error for now)
+                echo "::error::Invalid secret format: '$secret'. Expected 'id=src' format for Buildx compatibility"
                 exit 1
-              fi
-
-              secrets="$secrets --secret id=$id,src=$src"
-            else
-              # Handle legacy format - treat as id only (error for now)
-              echo "::error::Invalid secret format: '$secret'. Expected 'id=src' format for Buildx compatibility"
-              exit 1
-            fi
+                ;;
+            esac
           done
         fi
         echo "secrets=${secrets}" >> $GITHUB_OUTPUT
@@ -305,7 +329,7 @@ runs:
 
     - name: Set up Build Cache
       id: cache
-      shell: bash
+      shell: sh
       env:
         CACHE_IMPORT: ${{ inputs.cache-import }}
         CACHE_FROM: ${{ inputs.cache-from }}
@@ -314,7 +338,7 @@ runs:
         INPUT_TOKEN: ${{ inputs.token }}
         CACHE_MODE: ${{ inputs.cache-mode }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Use provided token or fall back to GITHUB_TOKEN
         TOKEN="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
@@ -335,7 +359,7 @@ runs:
         fi
 
         # Registry cache configuration for better performance (only if authenticated)
-        if [ "$PUSH" == "true" ] || [ -n "$TOKEN" ]; then
+        if [ "$PUSH" = "true" ] || [ -n "$TOKEN" ]; then
           normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
           registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
           cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
@@ -349,16 +373,21 @@ runs:
 
         # Also include local cache as fallback
         cache_from="$cache_from --cache-from type=local,src=/tmp/.buildx-cache"
-        if [[ "$cache_to" != *"type=local"* ]]; then
-          cache_to="$cache_to --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=${cache_mode}"
-        fi
+        case "$cache_to" in
+          *"type=local"*)
+            # Already has local cache, don't add
+            ;;
+          *)
+            cache_to="$cache_to --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=${cache_mode}"
+            ;;
+        esac
 
         echo "from=${cache_from}" >> $GITHUB_OUTPUT
         echo "to=${cache_to}" >> $GITHUB_OUTPUT
 
     - name: Build Multi-Architecture Docker Image
       id: build
-      shell: bash
+      shell: sh
       env:
         AUTO_DETECT_PLATFORMS: ${{ inputs.auto-detect-platforms }}
         DETECTED_PLATFORMS: ${{ steps.detect-platforms.outputs.platforms }}
@@ -378,7 +407,7 @@ runs:
         DOCKERFILE: ${{ inputs.dockerfile }}
         CONTEXT: ${{ inputs.context }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Track build start time
         build_start=$(date +%s)
@@ -518,9 +547,9 @@ runs:
     - name: Process Scan Results
       id: scan-output
       if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Read and format scan results for output
         scan_results=$(cat trivy-results.json | jq -c '.')
@@ -539,12 +568,12 @@ runs:
     - name: Sign Image
       id: sign
       if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
-      shell: bash
+      shell: sh
       env:
         IMAGE_NAME: ${{ steps.image-name.outputs.name }}
         IMAGE_TAG: ${{ inputs.tag }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Sign the image (using keyless signing with OIDC)
         export COSIGN_EXPERIMENTAL=1
@@ -555,13 +584,13 @@ runs:
     - name: Verify Build
       id: verify
       if: inputs.dry-run != 'true'
-      shell: bash
+      shell: sh
       env:
         PUSH: ${{ inputs.push }}
         IMAGE_NAME: ${{ steps.image-name.outputs.name }}
         IMAGE_TAG: ${{ inputs.tag }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Verify image exists
         if [ "$PUSH" == "true" ]; then
@@ -584,9 +613,9 @@ runs:
 
     - name: Cleanup
       if: always()
-      shell: bash
+      shell: sh
       run: |-
-        set -euo pipefail
+        set -eu
 
         # Cleanup temporary files
         rm -rf /tmp/.buildx-cache*

@@ -36,15 +36,15 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         DOTNET_VERSION: ${{ inputs.dotnet-version }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate .NET version format if provided
-        if [[ -n "$DOTNET_VERSION" ]]; then
-          if ! [[ "$DOTNET_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$ ]]; then
+        if [ -n "$DOTNET_VERSION" ]; then
+          if ! printf '%s' "$DOTNET_VERSION" | grep -qE '^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'; then
             echo "::error::Invalid dotnet-version format: '$DOTNET_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 7.0, 8.0.100)"
             exit 1
           fi
@@ -66,28 +66,122 @@ runs:
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
-      uses: ivuorinen/actions/language-version-detect@0fa9a68f07a1260b321f814202658a6089a43d42
-      with:
-        language: 'dotnet'
-        default-version: ${{ inputs.dotnet-version || '7.0' }}
+      shell: sh
+      env:
+        DEFAULT_VERSION: "${{ inputs.dotnet-version || '7.0' }}"
+      run: |
+        set -eu
+
+        # Function to validate version format
+        validate_version() {
+          version=$1
+          case "$version" in
+            [0-9]* | [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
+              return 0
+              ;;
+            *)
+              return 1
+              ;;
+          esac
+        }
+
+        # Function to clean version string
+        clean_version() {
+          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+        }
+
+        detected_version=""
+
+        # Parse .tool-versions file
+        if [ -f .tool-versions ]; then
+          echo "Checking .tool-versions for dotnet..." >&2
+          version=$(awk '/^dotnet[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found .NET version in .tool-versions: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse Dockerfile
+        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
+          echo "Checking Dockerfile for dotnet..." >&2
+          version=$(grep -iF "FROM" Dockerfile | grep -F "dotnet:" | head -1 | \
+            sed -n -E "s/.*dotnet:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+          if [ -n "$version" ]; then
+            version=$(clean_version "$version")
+            if validate_version "$version"; then
+              echo "Found .NET version in Dockerfile: $version" >&2
+              detected_version="$version"
+            fi
+          fi
+        fi
+
+        # Parse devcontainer.json
+        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
+          echo "Checking devcontainer.json for dotnet..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*dotnet:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found .NET version in devcontainer: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping devcontainer.json parsing" >&2
+          fi
+        fi
+
+        # Parse global.json
+        if [ -z "$detected_version" ] && [ -f global.json ]; then
+          echo "Checking global.json..." >&2
+          if command -v jq >/dev/null 2>&1; then
+            version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null || echo "")
+            if [ -n "$version" ]; then
+              version=$(clean_version "$version")
+              if validate_version "$version"; then
+                echo "Found .NET version in global.json: $version" >&2
+                detected_version="$version"
+              fi
+            fi
+          else
+            echo "jq not found; skipping global.json parsing" >&2
+          fi
+        fi
+
+        # Use default version if nothing detected
+        if [ -z "$detected_version" ]; then
+          detected_version="$DEFAULT_VERSION"
+          echo "Using default .NET version: $detected_version" >&2
+        fi
+
+        # Set output
+        printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
+        echo "Final detected .NET version: $detected_version" >&2
 
     - name: Setup .NET SDK
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
         dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
+        cache: true
+        cache-dependency-path: '**/packages.lock.json'
 
     - name: Install dotnet-format
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         dotnet tool install --global dotnet-format --version 7.0.1
 
     - name: Run dotnet-format
       id: dotnet-format
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Initialize counters
         errors_count=0

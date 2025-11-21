@@ -213,7 +213,7 @@ runs:
           error_count=$(grep -c "level\": \"error\"" "$tflint_output" || echo 0)
           printf '%s\n' "error_count=$error_count" >> "$GITHUB_OUTPUT"
 
-          if [[ "$FAIL_ON_ERROR" == "true" ]]; then
+          if [ "$FAIL_ON_ERROR" = "true" ]; then
             echo "::error::Found $error_count linting errors"
             exit 1
           fi
@@ -246,7 +246,7 @@ runs:
         printf '%s\n' "fixed_count=$fixed_count" >> "$GITHUB_OUTPUT"
 
     - name: Commit Fixes
-      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
+      if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true' && fromJSON(steps.fix.outputs.fixed_count) > 0
       uses: stefanzweifel/git-auto-commit-action@be7095c202abcf573b09f20541e0ee2f6a3a9d9b # v5.0.1
       with:
         commit_message: 'style: apply terraform formatting fixes'

@@ -4,7 +4,7 @@
 
 ### Description
 
-Detects language version from project configuration files with support for PHP, Python, Go, and .NET.
+DEPRECATED: This action is deprecated. Inline version detection directly in your actions instead. Detects language version from project configuration files with support for PHP, Python, Go, and .NET.
 
 ### Inputs
 
@@ -28,7 +28,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/language-version-detect@v2025
+- uses: ivuorinen/actions/language-version-detect@main
   with:
     language:
     # Language to detect version for (php, python, go, dotnet)

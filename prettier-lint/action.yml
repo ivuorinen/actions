@@ -91,7 +91,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         MODE: ${{ inputs.mode }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
@@ -107,7 +107,7 @@ runs:
         EMAIL: ${{ inputs.email }}
         USERNAME: ${{ inputs.username }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate mode
         case "$MODE" in
@@ -127,38 +127,52 @@ runs:
         fi
 
         # Validate working directory path security
-        if [[ "$WORKING_DIRECTORY" == *".."* ]]; then
-          echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
-          exit 1
-        fi
+        case "$WORKING_DIRECTORY" in
+          *..*)
+            echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
+            exit 1
+            ;;
+        esac
 
         # Validate Prettier version format
-        if [[ -n "$PRETTIER_VERSION" ]] && [[ "$PRETTIER_VERSION" != "latest" ]]; then
-          if ! [[ "$PRETTIER_VERSION" =~ ^[0-9]+(\.[0-9]+(\.[0-9]+)?)?(-[a-zA-Z0-9.-]+)?$ ]]; then
-            echo "::error::Invalid prettier-version format: '$PRETTIER_VERSION'. Expected format: X.Y.Z or 'latest'"
-            exit 1
-          fi
+        if [ -n "$PRETTIER_VERSION" ] && [ "$PRETTIER_VERSION" != "latest" ]; then
+          case "$PRETTIER_VERSION" in
+            [0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*-*)
+              ;;
+            *)
+              echo "::error::Invalid prettier-version format: '$PRETTIER_VERSION'. Expected format: X.Y.Z or 'latest'"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate config file path
-        if [[ "$CONFIG_FILE" != ".prettierrc" ]] && [[ "$CONFIG_FILE" == *".."* ]]; then
-          echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
-          exit 1
+        if [ "$CONFIG_FILE" != ".prettierrc" ]; then
+          case "$CONFIG_FILE" in
+            *..*)
+              echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate ignore file path
-        if [[ "$IGNORE_FILE" != ".prettierignore" ]] && [[ "$IGNORE_FILE" == *".."* ]]; then
-          echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
-          exit 1
+        if [ "$IGNORE_FILE" != ".prettierignore" ]; then
+          case "$IGNORE_FILE" in
+            *..*)
+              echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         # Validate boolean inputs
         validate_boolean() {
-          local value="$1"
-          local name="$2"
+          value="$1"
+          name="$2"
 
-          case "${value,,}" in
-            true|false)
+          case "$value" in
+            true|True|TRUE|false|False|FALSE)
               ;;
             *)
               echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
@@ -181,17 +195,27 @@ runs:
         esac
 
         # Validate max retries
-        if ! [[ "$MAX_RETRIES" =~ ^[0-9]+$ ]] || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
+        case "$MAX_RETRIES" in
+          ''|*[!0-9]*)
+            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
+            exit 1
+            ;;
+        esac
+
+        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
           echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
           exit 1
         fi
 
         # Validate email and username for fix mode
         if [ "$MODE" = "fix" ]; then
-          if [[ "$EMAIL" != *"@"* ]] || [[ "$EMAIL" != *"."* ]]; then
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-            exit 1
-          fi
+          case "$EMAIL" in
+            *@*.*) ;;
+            *)
+              echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
+              exit 1
+              ;;
+          esac
 
           username="$USERNAME"
 
@@ -200,20 +224,26 @@ runs:
             exit 1
           fi
 
-          if ! [[ "$username" =~ ^[a-zA-Z0-9-]+$ ]]; then
-            echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
-            exit 1
-          fi
+          case "$username" in
+            *[!a-zA-Z0-9-]*)
+              echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
+              exit 1
+              ;;
+          esac
 
-          if [[ "$username" == -* ]] || [[ "$username" == *- ]]; then
-            echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
-            exit 1
-          fi
+          case "$username" in
+            -*|*-)
+              echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
+              exit 1
+              ;;
+          esac
 
-          if [[ "$username" == *--* ]]; then
-            echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
-            exit 1
-          fi
+          case "$username" in
+            *--*)
+              echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         echo "Input validation completed successfully"
@@ -223,26 +253,79 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
 
-    - name: Node Setup
-      id: node-setup
-      uses: ivuorinen/actions/node-setup@0fa9a68f07a1260b321f814202658a6089a43d42
+    - name: Detect Package Manager
+      id: detect-pm
+      shell: sh
+      run: |
+        set -eu
+
+        # Detect package manager from lockfiles
+        if [ -f bun.lockb ]; then
+          package_manager="bun"
+        elif [ -f pnpm-lock.yaml ]; then
+          package_manager="pnpm"
+        elif [ -f yarn.lock ]; then
+          package_manager="yarn"
+        else
+          package_manager="npm"
+        fi
+
+        printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
+        echo "Detected package manager: $package_manager"
+
+    - name: Setup Node.js
+      uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+      with:
+        node-version: '22'
+
+    - name: Enable Corepack
+      shell: sh
+      run: |
+        set -eu
+        corepack enable
+
+    - name: Install Package Manager
+      shell: sh
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+      run: |
+        set -eu
+
+        case "$PACKAGE_MANAGER" in
+          pnpm)
+            corepack prepare pnpm@latest --activate
+            ;;
+          yarn)
+            corepack prepare yarn@stable --activate
+            ;;
+          bun|npm)
+            # Bun installed separately, npm built-in
+            ;;
+        esac
+
+    - name: Setup Bun
+      if: steps.detect-pm.outputs.package-manager == 'bun'
+      uses: oven-sh/setup-bun@735343b667d3e6f658f44d0eca948eb6282f2b76 # v2.0.2
+      with:
+        bun-version: latest
 
     - name: Cache Node Dependencies
       id: cache
-      uses: ivuorinen/actions/common-cache@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       with:
-        type: 'npm'
-        paths: 'node_modules'
-        key-files: 'package-lock.json,yarn.lock,pnpm-lock.yaml,bun.lockb'
-        key-prefix: 'prettier-lint-${{ inputs.mode }}-${{ steps.node-setup.outputs.package-manager }}'
+        path: node_modules
+        key: ${{ runner.os }}-prettier-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-prettier-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-
+          ${{ runner.os }}-prettier-lint-${{ inputs.mode }}-
 
     - name: Install Dependencies
       if: steps.cache.outputs.cache-hit != 'true'
-      shell: bash
+      shell: sh
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Installing dependencies using $PACKAGE_MANAGER..."
 
@@ -269,12 +352,12 @@ runs:
 
     - name: Install Prettier Plugins
       if: inputs.plugins != ''
-      shell: bash
+      shell: sh
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         PLUGINS: ${{ inputs.plugins }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Installing Prettier plugins: $PLUGINS"
 
@@ -301,16 +384,16 @@ runs:
     - name: Run Prettier Check
       if: inputs.mode == 'check'
       id: check
-      shell: bash
+      shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         CONFIG_FILE: ${{ inputs.config-file }}
         CACHE: ${{ inputs.cache }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running Prettier check mode..."
 
@@ -358,13 +441,13 @@ runs:
     - name: Run Prettier Fix
       if: inputs.mode == 'fix'
       id: fix
-      shell: bash
+      shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |
-        set -euo pipefail
+        set -eu
 
         echo "Running Prettier fix mode..."
 
