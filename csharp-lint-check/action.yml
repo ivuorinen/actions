@@ -167,6 +167,8 @@ runs:
       uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
       with:
         dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
+        cache: true
+        cache-dependency-path: '**/packages.lock.json'
 
     - name: Install dotnet-format
       shell: sh

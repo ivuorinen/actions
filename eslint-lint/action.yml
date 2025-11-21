@@ -174,7 +174,7 @@ runs:
 
         # Validate file extensions format (must start with . and contain letters/numbers)
         case "$FILE_EXTENSIONS" in
-          .[a-zA-Z0-9]*|.[a-zA-Z0-9]*,.[a-zA-Z0-9]*)
+          .[a-zA-Z0-9]*|.[a-zA-Z0-9]*,*.[a-zA-Z0-9]*)
             ;;
           *)
             echo "::error::Invalid file extensions format: '$FILE_EXTENSIONS'. Expected format: .js,.jsx,.ts,.tsx"
