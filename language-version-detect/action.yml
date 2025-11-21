@@ -81,7 +81,7 @@ runs:
           php)
             # Validate PHP version format (X.Y or X.Y.Z)
             case "$version" in
-              [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+              [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
                 ;;
               *)
                 echo "::error::Invalid PHP version format: '$version'. Expected format: X.Y or X.Y.Z (e.g., 8.4, 8.3.1)"
@@ -109,7 +109,7 @@ runs:
           python)
             # Validate Python version format
             case "$version" in
-              [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+              [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
                 ;;
               *)
                 echo "::error::Invalid Python version format: '$version'. Expected format: X.Y or X.Y.Z (e.g., 3.12, 3.11.5)"
@@ -135,7 +135,7 @@ runs:
           go)
             # Validate Go version format
             case "$version" in
-              [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+              [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
                 ;;
               *)
                 echo "::error::Invalid Go version format: '$version'. Expected format: X.Y or X.Y.Z (e.g., 1.21, 1.21.5)"
@@ -161,7 +161,7 @@ runs:
           dotnet)
             # Validate .NET version format
             case "$version" in
-              [0-9]* | [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+              [0-9]* | [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
                 ;;
               *)
                 echo "::error::Invalid .NET version format: '$version'. Expected format: X, X.Y, or X.Y.Z (e.g., 7, 7.0, 7.0.1)"
@@ -223,7 +223,7 @@ runs:
           version=$1
           # Use case pattern matching for POSIX compatibility
           case "$version" in
-            [0-9]*.[0-9]* | [0-9]*.[0-9]*.[0-9]*)
+            [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
               return 0
               ;;
             *)
