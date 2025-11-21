@@ -341,7 +341,7 @@ runs:
         composer config --global github-oauth.github.com "$GITHUB_TOKEN"
 
         # Verify Composer installation
-        composer_full_version=$(composer --version | grep -oP 'Composer version \K[0-9]+\.[0-9]+\.[0-9]+' || echo "")
+        composer_full_version=$(composer --version | sed -n 's/.*Composer version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' || echo "")
         if [ -z "$composer_full_version" ]; then
           echo "::error::Failed to detect Composer version"
           exit 1
