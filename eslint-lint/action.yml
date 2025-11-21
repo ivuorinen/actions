@@ -142,14 +142,10 @@ runs:
 
         # Validate ESLint version format
         if [ -n "$ESLINT_VERSION" ] && [ "$ESLINT_VERSION" != "latest" ]; then
-          case "$ESLINT_VERSION" in
-            [0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*-*)
-              ;;
-            *)
-              echo "::error::Invalid eslint-version format: '$ESLINT_VERSION'. Expected format: X.Y.Z or 'latest' (e.g., 8.57.0, latest)"
-              exit 1
-              ;;
-          esac
+          if ! echo "$ESLINT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$'; then
+            echo "::error::Invalid eslint-version format: '$ESLINT_VERSION'. Expected format: X.Y.Z or X.Y.Z-prerelease or 'latest' (e.g., 8.57.0, 8.57.0-rc.1, latest)"
+            exit 1
+          fi
         fi
 
         # Validate config file path if not default
