@@ -324,7 +324,7 @@ runs:
       if: inputs.plugins != ''
       shell: bash
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         PLUGINS: ${{ inputs.plugins }}
       run: |
         set -euo pipefail
@@ -357,7 +357,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         CONFIG_FILE: ${{ inputs.config-file }}
         CACHE: ${{ inputs.cache }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
@@ -414,7 +414,7 @@ runs:
       shell: bash
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.node-setup.outputs.package-manager }}
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |
         set -euo pipefail
