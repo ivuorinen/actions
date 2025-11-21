@@ -36,11 +36,11 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: bash
+      shell: sh
       env:
         DOTNET_VERSION: ${{ inputs.dotnet-version }}
       run: |
-        set -euo pipefail
+        set -eu
 
         # Validate .NET version format if provided
         if [[ -n "$DOTNET_VERSION" ]]; then
@@ -169,17 +169,17 @@ runs:
         dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
 
     - name: Install dotnet-format
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         dotnet tool install --global dotnet-format --version 7.0.1
 
     - name: Run dotnet-format
       id: dotnet-format
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Initialize counters
         errors_count=0

@@ -42,7 +42,7 @@ runs:
   using: composite
   steps:
     - name: Mask Secrets
-      shell: bash
+      shell: sh
       env:
         API_KEY: ${{ inputs.token || github.token }}
       run: |
@@ -178,24 +178,24 @@ runs:
           dotnet restore --verbosity normal
 
     - name: Build Solution
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         dotnet build --configuration Release --no-restore
 
     - name: Pack Solution
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         dotnet pack --configuration Release --no-build --no-restore --output ./artifacts
 
     - name: Extract Package Version
       id: extract-version
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Find the newest .nupkg file by modification time and extract version
         PACKAGE_FILE=$(find ./artifacts -name "*.nupkg" -type f -printf '%T@ %p\n' | sort -rn | head -n 1 | cut -d' ' -f2-)
@@ -211,12 +211,12 @@ runs:
 
     - name: Publish Package
       id: publish-package
-      shell: bash
+      shell: sh
       env:
         API_KEY: ${{ inputs.token || github.token }}
         NAMESPACE: ${{ inputs.namespace }}
       run: |
-        set -euo pipefail
+        set -eu
 
         PACKAGE_URL="https://github.com/$NAMESPACE/packages/nuget"
         printf '%s\n' "package_url=$PACKAGE_URL" >> "$GITHUB_OUTPUT"
@@ -241,7 +241,7 @@ runs:
     - name: Set publish status output
       if: always()
       id: set-status
-      shell: bash
+      shell: sh
       env:
         PUBLISH_STATUS: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
       run: |-

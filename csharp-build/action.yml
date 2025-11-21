@@ -165,9 +165,9 @@ runs:
 
     - name: Build Solution
       id: build
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         echo "Building .NET solution..."
         if dotnet build --configuration Release --no-restore --verbosity normal; then
           echo "status=success" >> "$GITHUB_OUTPUT"
@@ -180,9 +180,9 @@ runs:
 
     - name: Run Tests
       id: test
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         echo "Running .NET tests..."
         if find . -name "*.csproj" | xargs grep -lE "(Microsoft\.NET\.Test\.Sdk|xunit|nunit)" | head -1 | grep -q .; then
           if dotnet test --configuration Release --no-build \

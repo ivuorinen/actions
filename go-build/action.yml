@@ -176,11 +176,11 @@ runs:
 
     - name: Build Go Project
       id: build
-      shell: bash
+      shell: sh
       env:
         DESTINATION: ${{ inputs.destination }}
       run: |
-        set -euo pipefail
+        set -eu
         echo "Building Go project..."
 
         # Create destination directory
@@ -215,9 +215,9 @@ runs:
 
     - name: Run Tests
       id: test
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
         echo "Running Go tests..."
         if find . -name "*_test.go" | grep -q .; then
           # Check if race detector is supported on this platform
