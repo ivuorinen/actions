@@ -225,13 +225,10 @@ runs:
 
         # Validate email and username for fix mode
         if [ "$MODE" = "fix" ]; then
-          case "$EMAIL" in
-            *@*.*) ;;
-            *)
-              echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-              exit 1
-              ;;
-          esac
+          if ! echo "$EMAIL" | grep -Eq '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'; then
+            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address (e.g., user@example.com)"
+            exit 1
+          fi
 
           # Validate username format (GitHub canonical rules)
           username="$USERNAME"
