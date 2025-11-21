@@ -173,14 +173,10 @@ runs:
         fi
 
         # Validate file extensions format (must start with . and contain letters/numbers)
-        case "$FILE_EXTENSIONS" in
-          .[a-zA-Z0-9]*|.[a-zA-Z0-9]*,*.[a-zA-Z0-9]*)
-            ;;
-          *)
-            echo "::error::Invalid file extensions format: '$FILE_EXTENSIONS'. Expected format: .js,.jsx,.ts,.tsx"
-            exit 1
-            ;;
-        esac
+        if ! echo "$FILE_EXTENSIONS" | grep -Eq '^\.[a-zA-Z0-9]+(,\.[a-zA-Z0-9]+)*$'; then
+          echo "::error::Invalid file extensions format: '$FILE_EXTENSIONS'. Expected format: .js,.jsx,.ts,.tsx"
+          exit 1
+        fi
 
         # Validate boolean inputs
         validate_boolean() {
@@ -394,8 +390,21 @@ runs:
 
         echo "Running ESLint check mode..."
 
-        # Build ESLint command
-        eslint_cmd="npx eslint ."
+        # Build ESLint command based on package manager
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            eslint_cmd="pnpm exec eslint ."
+            ;;
+          "yarn")
+            eslint_cmd="yarn eslint ."
+            ;;
+          "bun")
+            eslint_cmd="bunx eslint ."
+            ;;
+          "npm"|*)
+            eslint_cmd="npx eslint ."
+            ;;
+        esac
 
         # Add config file if specified
         if [ "$CONFIG_FILE" != ".eslintrc" ] && [ -f "$CONFIG_FILE" ]; then
