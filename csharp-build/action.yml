@@ -163,11 +163,6 @@ runs:
           echo "Restoring .NET dependencies..."
           dotnet restore --verbosity normal
 
-    - name: Restore Complete
-      shell: bash
-      run: |
-        echo "Cache hit - skipping dotnet restore"
-
     - name: Build Solution
       id: build
       shell: bash
