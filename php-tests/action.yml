@@ -462,9 +462,28 @@ runs:
 
         echo "$phpunit_output"
 
-        # Parse test results from output
-        tests_run=$(echo "$phpunit_output" | grep -E "Tests:|tests" | head -1 | grep -oE '[0-9]+' | head -1 || echo "0")
-        tests_passed=$(echo "$phpunit_output" | grep -oE 'OK.*[0-9]+ tests' | grep -oE '[0-9]+' || echo "0")
+        # Parse test results from output - handle various PHPUnit formats
+        tests_run="0"
+        tests_passed="0"
+
+        # Pattern 1: "OK (N test(s), M assertions)" - success case (handles both singular and plural)
+        if echo "$phpunit_output" | grep -qE 'OK \([0-9]+ tests?,'; then
+          tests_run=$(echo "$phpunit_output" | grep -oE 'OK \([0-9]+ tests?,' | grep -oE '[0-9]+' | head -1)
+          tests_passed="$tests_run"
+        # Pattern 2: "Tests: N" line - failure/error/skipped case
+        elif echo "$phpunit_output" | grep -qE '^Tests:'; then
+          tests_run=$(echo "$phpunit_output" | grep -E '^Tests:' | grep -oE '[0-9]+' | head -1)
+
+          # Calculate passed from failures and errors
+          failures=$(echo "$phpunit_output" | grep -oE 'Failures: [0-9]+' | grep -oE '[0-9]+' | head -1 || echo "0")
+          errors=$(echo "$phpunit_output" | grep -oE 'Errors: [0-9]+' | grep -oE '[0-9]+' | head -1 || echo "0")
+          tests_passed=$((tests_run - failures - errors))
+
+          # Ensure non-negative
+          if [ "$tests_passed" -lt 0 ]; then
+            tests_passed="0"
+          fi
+        fi
 
         # Determine status
         if [ $phpunit_exit_code -eq 0 ]; then
