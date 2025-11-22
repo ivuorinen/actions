@@ -1,7 +1,11 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 # permissions:
-#   - contents: write  # Required for committing linter fixes
-#   - pull-requests: write  # Required for creating pull requests with fixes
+#   actions: write          # Required for uploading MegaLinter artifacts
+#   contents: write         # Required for checkout and committing linter fixes
+#   issues: write           # Required for MegaLinter to comment on issues
+#   pull-requests: write    # Required for creating pull requests with fixes
+#   security-events: write  # Required for uploading SARIF reports (if enabled)
+#   statuses: write         # Required for creating status checks
 ---
 # MegaLinter GitHub Action configuration file
 # More info at https://megalinter.io
