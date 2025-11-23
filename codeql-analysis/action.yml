@@ -107,7 +107,7 @@ runs:
   using: composite
   steps:
     - name: Validate inputs
-      uses: ivuorinen/actions/validate-inputs@0fa9a68f07a1260b321f814202658a6089a43d42
+      uses: ivuorinen/actions/validate-inputs@8fb52522ab00fe73cf181ef299e56066f0b2c8d8
       with:
         action-type: codeql-analysis
         language: ${{ inputs.language }}
