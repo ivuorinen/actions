@@ -616,8 +616,8 @@ class ConventionBasedValidator(BaseValidator):
         self,
         value: str,
         input_name: str,
-        item_pattern: str = None,
-        valid_items: list = None,
+        item_pattern: str | None = None,
+        valid_items: list | None = None,
         check_injection: bool = False,
         item_name: str = "item",
     ) -> bool:
@@ -660,8 +660,11 @@ class ConventionBasedValidator(BaseValidator):
             return True  # Optional
 
         # Security check for injection patterns
-        if check_injection and re.search(r"[;&|`$()@#]", value):
-            self.add_error(f"Potential injection detected in {input_name}: {value}")
+        if check_injection and re.search(r"[;&|`$()]", value):
+            self.add_error(
+                f"Potential injection detected in {input_name}: {value}. "
+                f"Avoid using shell metacharacters (;, &, |, `, $, parentheses)"
+            )
             return False
 
         # Split by comma and validate each item
@@ -726,7 +729,7 @@ class ConventionBasedValidator(BaseValidator):
         self,
         value: str,
         input_name: str,
-        valid_values: list = None,
+        valid_values: list | None = None,
         case_sensitive: bool = True,
     ) -> bool:
         """Validate binary enum (two-value choice) (generic validator).
@@ -787,7 +790,7 @@ class ConventionBasedValidator(BaseValidator):
         self,
         value: str,
         input_name: str,
-        valid_formats: list = None,
+        valid_formats: list | None = None,
         allow_custom: bool = False,
     ) -> bool:
         """Validate output format enum (generic validator).
@@ -851,7 +854,7 @@ class ConventionBasedValidator(BaseValidator):
         self,
         value: str,
         input_name: str,
-        valid_values: list = None,
+        valid_values: list | None = None,
         case_sensitive: bool = True,
         min_values: int = 2,
         max_values: int = 10,
@@ -1155,7 +1158,7 @@ class ConventionBasedValidator(BaseValidator):
         self,
         value: str,
         input_name: str,
-        key_pattern: str = None,
+        key_pattern: str | None = None,
         check_injection: bool = True,
     ) -> bool:
         """Validate comma-separated list of key-value pairs (generic validator).
@@ -1211,7 +1214,6 @@ class ConventionBasedValidator(BaseValidator):
             # Split by first = only (value may contain =)
             parts = pair.split("=", 1)
             key = parts[0].strip()
-            parts[1].strip() if len(parts) > 1 else ""
 
             # Validate key is not empty
             if not key:

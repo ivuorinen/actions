@@ -221,9 +221,13 @@ optional_inputs:
         assert self.validator._validate_php_extensions("mbstring, intl, pdo", "extensions") is True
         assert self.validator._validate_php_extensions("mbstring,intl,pdo", "extensions") is True
 
-        # Invalid formats (@ is in injection pattern)
-        assert self.validator._validate_php_extensions("mbstring@intl", "extensions") is False
-        assert self.validator._validate_php_extensions("mbstring;rm -rf /", "extensions") is False
+        # Invalid formats (pattern mismatch and injection)
+        assert (
+            self.validator._validate_php_extensions("mbstring@intl", "extensions") is False
+        )  # @ not in pattern
+        assert (
+            self.validator._validate_php_extensions("mbstring;rm -rf /", "extensions") is False
+        )  # injection
         assert self.validator._validate_php_extensions("ext`whoami`", "extensions") is False
 
     def test_validate_coverage_driver(self):
@@ -594,35 +598,43 @@ optional_inputs:
 
     def test_validate_comma_separated_list_injection_check(self):
         """Test comma-separated list validator with injection checking."""
-        # Valid values (no injection)
+        # Valid values (no injection) - using relaxed pattern that allows @#
         valid_values = [
             "item1,item2",
             "safe_value",
+            "item@host",  # @ is not a shell injection vector
+            "item#comment",  # # is not a shell injection vector
             "",  # Empty
         ]
 
         for value in valid_values:
             self.validator.clear_errors()
             result = self.validator._validate_comma_separated_list(
-                value, "test-input", check_injection=True, item_name="item"
+                value,
+                "test-input",
+                item_pattern=r"^[a-zA-Z0-9_@#-]+$",  # Explicit pattern allowing @#
+                check_injection=True,
+                item_name="item",
             )
             assert result is True, f"Should accept safe value: {value}"
 
-        # Invalid values (injection patterns)
+        # Invalid values (shell injection patterns)
         injection_values = [
             "item;ls",  # Semicolon
             "item&whoami",  # Ampersand
             "item|cat",  # Pipe
             "item`date`",  # Backtick
             "item$(echo)",  # Command substitution
-            "item@host",  # At sign
-            "item#comment",  # Hash
         ]
 
         for value in injection_values:
             self.validator.clear_errors()
             result = self.validator._validate_comma_separated_list(
-                value, "test-input", check_injection=True, item_name="item"
+                value,
+                "test-input",
+                item_pattern=r"^[a-zA-Z0-9_@#-]+$",  # Same pattern for consistency
+                check_injection=True,
+                item_name="item",
             )
             assert result is False, f"Should reject injection pattern: {value}"
             assert self.validator.has_errors()
