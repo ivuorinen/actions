@@ -148,14 +148,14 @@ runs:
         echo "Final detected .NET version: $detected_version" >&2
 
     - name: Setup .NET SDK
-      uses: actions/setup-dotnet@d4c94342e560b34958eacfc5d055d21461ed1c5d # v5.0.0
+      uses: actions/setup-dotnet@2016bd2012dba4e32de620c46fe006a3ac9f0602 # v5.0.1
       with:
         dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
         cache: true
         cache-dependency-path: '**/packages.lock.json'
 
     - name: Restore Dependencies
-      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
+      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3.0.4
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
