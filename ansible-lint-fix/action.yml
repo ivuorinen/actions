@@ -75,7 +75,7 @@ runs:
 
     - name: Setup Python
       if: steps.check-files.outputs.files_found == 'true'
-      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
       with:
         python-version: '3.11'
         cache: 'pip'
@@ -83,7 +83,7 @@ runs:
     - name: Install ansible-lint
       id: install-ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
-      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3
+      uses: step-security/retry@e1d59ce1f574b32f0915e3a8df055cfe9f99be5d # v3.0.4
       with:
         timeout_minutes: 5
         max_attempts: ${{ inputs.max-retries }}
@@ -130,6 +130,6 @@ runs:
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.files_found == 'true'
-      uses: github/codeql-action/upload-sarif@e12f0178983d466f2f6028f5cc7a6d786fd97f4b # v4.31.4
+      uses: github/codeql-action/upload-sarif@fdbfb4d2750291e159f0156def62b853c2798ca2 # v4.31.5
       with:
         sarif_file: ansible-lint.sarif
