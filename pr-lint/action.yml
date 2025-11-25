@@ -95,7 +95,7 @@ runs:
         fi
 
         printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
-        echo "Detected package manager: $package_manager"
+        printf 'Detected package manager: %s\n' "$package_manager"
 
     - name: Setup Node.js
       if: steps.detect-node.outputs.found == 'true'
@@ -154,7 +154,7 @@ runs:
       run: |
         set -eu
 
-        echo "Installing dependencies using $PACKAGE_MANAGER..."
+        printf 'Installing dependencies using %s...\n' "$PACKAGE_MANAGER"
 
         case "$PACKAGE_MANAGER" in
           "pnpm")
@@ -175,7 +175,7 @@ runs:
             ;;
         esac
 
-        echo "✅ Dependencies installed successfully"
+        printf '✅ Dependencies installed successfully\n'
 
     # PHP tests if composer.json exists
     - name: Detect composer.json
@@ -219,12 +219,12 @@ runs:
 
         # Parse .tool-versions file
         if [ -f .tool-versions ]; then
-          echo "Checking .tool-versions for php..." >&2
+          printf 'Checking .tool-versions for php...\n' >&2
           version=$(awk '/^php[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found PHP version in .tool-versions: $version" >&2
+              printf 'Found PHP version in .tool-versions: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -232,13 +232,13 @@ runs:
 
         # Parse Dockerfile
         if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
-          echo "Checking Dockerfile for php..." >&2
+          printf 'Checking Dockerfile for php...\n' >&2
           version=$(grep -iF "FROM" Dockerfile | grep -F "php:" | head -1 | \
             sed -n -E "s/.*php:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found PHP version in Dockerfile: $version" >&2
+              printf 'Found PHP version in Dockerfile: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -246,29 +246,29 @@ runs:
 
         # Parse devcontainer.json
         if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
-          echo "Checking devcontainer.json for php..." >&2
+          printf 'Checking devcontainer.json for php...\n' >&2
           if command -v jq >/dev/null 2>&1; then
             version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*php:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
-                echo "Found PHP version in devcontainer: $version" >&2
+                printf 'Found PHP version in devcontainer: %s\n' "$version" >&2
                 detected_version="$version"
               fi
             fi
           else
-            echo "jq not found; skipping devcontainer.json parsing" >&2
+            printf 'jq not found; skipping devcontainer.json parsing\n' >&2
           fi
         fi
 
         # Parse .php-version file
         if [ -z "$detected_version" ] && [ -f .php-version ]; then
-          echo "Checking .php-version..." >&2
+          printf 'Checking .php-version...\n' >&2
           version=$(tr -d '\r' < .php-version | head -1)
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found PHP version in .php-version: $version" >&2
+              printf 'Found PHP version in .php-version: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -276,7 +276,7 @@ runs:
 
         # Parse composer.json
         if [ -z "$detected_version" ] && [ -f composer.json ]; then
-          echo "Checking composer.json..." >&2
+          printf 'Checking composer.json...\n' >&2
           if command -v jq >/dev/null 2>&1; then
             version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
             if [ -z "$version" ]; then
@@ -285,24 +285,24 @@ runs:
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
-                echo "Found PHP version in composer.json: $version" >&2
+                printf 'Found PHP version in composer.json: %s\n' "$version" >&2
                 detected_version="$version"
               fi
             fi
           else
-            echo "jq not found; skipping composer.json parsing" >&2
+            printf 'jq not found; skipping composer.json parsing\n' >&2
           fi
         fi
 
         # Use default version if nothing detected
         if [ -z "$detected_version" ]; then
           detected_version="$DEFAULT_VERSION"
-          echo "Using default PHP version: $detected_version" >&2
+          printf 'Using default PHP version: %s\n' "$detected_version" >&2
         fi
 
         # Set output
         printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
-        echo "Final detected PHP version: $detected_version" >&2
+        printf 'Final detected PHP version: %s\n' "$detected_version" >&2
 
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
@@ -312,7 +312,7 @@ runs:
         tools: composer
         coverage: none
       env:
-        GITHUB_TOKEN: ${{ inputs.token }}
+        GITHUB_TOKEN: ${{ inputs.token || github.token }}
 
     - name: Setup problem matchers for PHP
       if: steps.detect-php.outputs.found == 'true'
@@ -322,7 +322,8 @@ runs:
       run: |
         set -eu
 
-        echo "::add-matcher::$RUNNER_TOOL_CACHE/php.json"
+        matcher_path=$(printf '%s' "$RUNNER_TOOL_CACHE/php.json" | tr -d '\n\r')
+        echo "::add-matcher::$matcher_path"
 
     - name: Install PHP dependencies
       if: steps.detect-php.outputs.found == 'true'
@@ -374,12 +375,12 @@ runs:
 
         # Parse .tool-versions file
         if [ -f .tool-versions ]; then
-          echo "Checking .tool-versions for python..." >&2
+          printf 'Checking .tool-versions for python...\n' >&2
           version=$(awk '/^python[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found Python version in .tool-versions: $version" >&2
+              printf 'Found Python version in .tool-versions: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -387,13 +388,13 @@ runs:
 
         # Parse Dockerfile
         if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
-          echo "Checking Dockerfile for python..." >&2
+          printf 'Checking Dockerfile for python...\n' >&2
           version=$(grep -iF "FROM" Dockerfile | grep -F "python:" | head -1 | \
             sed -n -E "s/.*python:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found Python version in Dockerfile: $version" >&2
+              printf 'Found Python version in Dockerfile: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -401,29 +402,29 @@ runs:
 
         # Parse devcontainer.json
         if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
-          echo "Checking devcontainer.json for python..." >&2
+          printf 'Checking devcontainer.json for python...\n' >&2
           if command -v jq >/dev/null 2>&1; then
             version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*python:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
-                echo "Found Python version in devcontainer: $version" >&2
+                printf 'Found Python version in devcontainer: %s\n' "$version" >&2
                 detected_version="$version"
               fi
             fi
           else
-            echo "jq not found; skipping devcontainer.json parsing" >&2
+            printf 'jq not found; skipping devcontainer.json parsing\n' >&2
           fi
         fi
 
         # Parse .python-version file
         if [ -z "$detected_version" ] && [ -f .python-version ]; then
-          echo "Checking .python-version..." >&2
+          printf 'Checking .python-version...\n' >&2
           version=$(tr -d '\r' < .python-version | head -1)
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found Python version in .python-version: $version" >&2
+              printf 'Found Python version in .python-version: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -431,13 +432,13 @@ runs:
 
         # Parse pyproject.toml
         if [ -z "$detected_version" ] && [ -f pyproject.toml ]; then
-          echo "Checking pyproject.toml..." >&2
-          if grep -q '^\\[project\\]' pyproject.toml; then
-            version=$(grep -A 20 '^\\[project\\]' pyproject.toml | grep -E '^\\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+          printf 'Checking pyproject.toml...\n' >&2
+          if grep -q '^\[project\]' pyproject.toml; then
+            version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
-                echo "Found Python version in pyproject.toml: $version" >&2
+                printf 'Found Python version in pyproject.toml: %s\n' "$version" >&2
                 detected_version="$version"
               fi
             fi
@@ -447,16 +448,16 @@ runs:
         # Use default version if nothing detected
         if [ -z "$detected_version" ]; then
           detected_version="$DEFAULT_VERSION"
-          echo "Using default Python version: $detected_version" >&2
+          printf 'Using default Python version: %s\n' "$detected_version" >&2
         fi
 
         # Set output
         printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
-        echo "Final detected Python version: $detected_version" >&2
+        printf 'Final detected Python version: %s\n' "$detected_version" >&2
 
     - name: Setup Python
       if: steps.detect-python.outputs.found == 'true'
-      uses: actions/setup-python@e797f83bcb11b83ae66e0230d6156d7c80228e7c # v6.0.0
+      uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
       with:
         python-version: ${{ steps.python-version.outputs.detected-version }}
         cache: 'pip'
@@ -511,12 +512,12 @@ runs:
 
         # Parse .tool-versions file
         if [ -f .tool-versions ]; then
-          echo "Checking .tool-versions for golang..." >&2
+          printf 'Checking .tool-versions for golang...\n' >&2
           version=$(awk '/^golang[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found Go version in .tool-versions: $version" >&2
+              printf 'Found Go version in .tool-versions: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -524,13 +525,13 @@ runs:
 
         # Parse Dockerfile
         if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
-          echo "Checking Dockerfile for golang..." >&2
+          printf 'Checking Dockerfile for golang...\n' >&2
           version=$(grep -iF "FROM" Dockerfile | grep -F "golang:" | head -1 | \
             sed -n -E "s/.*golang:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found Go version in Dockerfile: $version" >&2
+              printf 'Found Go version in Dockerfile: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -538,29 +539,29 @@ runs:
 
         # Parse devcontainer.json
         if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
-          echo "Checking devcontainer.json for golang..." >&2
+          printf 'Checking devcontainer.json for golang...\n' >&2
           if command -v jq >/dev/null 2>&1; then
             version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*golang:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
-                echo "Found Go version in devcontainer: $version" >&2
+                printf 'Found Go version in devcontainer: %s\n' "$version" >&2
                 detected_version="$version"
               fi
             fi
           else
-            echo "jq not found; skipping devcontainer.json parsing" >&2
+            printf 'jq not found; skipping devcontainer.json parsing\n' >&2
           fi
         fi
 
         # Parse .go-version file
         if [ -z "$detected_version" ] && [ -f .go-version ]; then
-          echo "Checking .go-version..." >&2
+          printf 'Checking .go-version...\n' >&2
           version=$(tr -d '\r' < .go-version | head -1)
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found Go version in .go-version: $version" >&2
+              printf 'Found Go version in .go-version: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -568,12 +569,12 @@ runs:
 
         # Parse go.mod
         if [ -z "$detected_version" ] && [ -f go.mod ]; then
-          echo "Checking go.mod..." >&2
+          printf 'Checking go.mod...\n' >&2
           version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1 || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
-              echo "Found Go version in go.mod: $version" >&2
+              printf 'Found Go version in go.mod: %s\n' "$version" >&2
               detected_version="$version"
             fi
           fi
@@ -582,12 +583,12 @@ runs:
         # Use default version if nothing detected
         if [ -z "$detected_version" ]; then
           detected_version="$DEFAULT_VERSION"
-          echo "Using default Go version: $detected_version" >&2
+          printf 'Using default Go version: %s\n' "$detected_version" >&2
         fi
 
         # Set output
         printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
-        echo "Final detected Go version: $detected_version" >&2
+        printf 'Final detected Go version: %s\n' "$detected_version" >&2
 
     - name: Setup Go
       if: steps.detect-go.outputs.found == 'true'
@@ -720,8 +721,8 @@ runs:
       run: |
         set -eu
 
-        echo "PR Number - $PR_NUMBER"
-        echo "PR URL - $PR_URL"
+        printf 'PR Number - %s\n' "$PR_NUMBER"
+        printf 'PR URL - %s\n' "$PR_URL"
 
     # Push new commit if applicable
     # (for now works only on PR from same repository, not from forks)
@@ -739,7 +740,8 @@ runs:
         set -eu
 
         # Fix .git directory ownership after MegaLinter container execution
-        sudo chown -Rc "$UID" .git/
+        current_uid=$(id -u)
+        sudo chown -Rc "$current_uid" .git/
 
         # Ensure we're on the correct branch (not in detached HEAD state)
         # This is necessary because MegaLinter may leave the repo in a detached HEAD state
