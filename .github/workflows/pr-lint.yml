@@ -25,7 +25,7 @@ on:
 
 env:
   # Apply linter fixes configuration
-  APPLY_FIXES: all
+  APPLY_FIXES: none
   APPLY_FIXES_EVENT: pull_request
   APPLY_FIXES_MODE: commit
 
@@ -113,7 +113,7 @@ jobs:
         if: steps.ml.outputs.has_updated_sources == 1
         shell: sh
         run: |
-          sudo chown -Rc $UID .git/
+          sudo chown -Rc $(id -u) .git/
           git config --global user.name "fiximus"
           git config --global user.email "github-bot@ivuorinen.net"
 
