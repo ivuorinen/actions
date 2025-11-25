@@ -564,6 +564,7 @@ class ConventionBasedValidator(BaseValidator):
             "report_format",
             "linter_list",
             "timeout_with_unit",
+            "severity_enum",
         ]:
             # Return self for validation methods implemented in this class
             return self, f"_validate_{validator_type}"
@@ -759,5 +760,46 @@ class ConventionBasedValidator(BaseValidator):
                 "(e.g., 5m, 30s, 1h, 500ms)"
             )
             return False
+
+        return True
+
+    def _validate_severity_enum(self, value: str, input_name: str) -> bool:
+        """Validate severity levels enum (generalized).
+
+        Generic validator for security tool severity levels.
+        Supports common severity formats used by various security tools.
+
+        Default levels: UNKNOWN, LOW, MEDIUM, HIGH, CRITICAL (Trivy/CVSSv3 style)
+        Case-sensitive by default.
+
+        Args:
+            value: The severity value (comma-separated for multiple levels)
+            input_name: The input name for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        if not value or value.strip() == "":
+            return True  # Optional
+
+        # Standard severity levels (Trivy/CVSSv3/OWASP compatible)
+        # Can be extended for specific tools by creating tool-specific validators
+        valid_severities = ["UNKNOWN", "LOW", "MEDIUM", "HIGH", "CRITICAL"]
+
+        # Split by comma and validate each severity
+        severities = [s.strip() for s in value.split(",")]
+
+        for severity in severities:
+            if not severity:  # Empty after strip
+                self.add_error(f"Invalid {input_name}: {value}. Contains empty severity level")
+                return False
+
+            # Case-sensitive validation
+            if severity not in valid_severities:
+                self.add_error(
+                    f"Invalid {input_name}: {value}. Severity '{severity}' is not valid. "
+                    f"Must be one of: {', '.join(valid_severities)}"
+                )
+                return False
 
         return True

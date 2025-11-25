@@ -355,9 +355,9 @@ class ValidationRuleGenerator:
             },
             "security-scan": {
                 "gitleaks-config": "file_path",
-                "trivy-severity": None,  # Skip - complex severity format (e.g., "CRITICAL,HIGH")
+                "trivy-severity": "severity_enum",
                 "trivy-scanners": None,  # Skip - complex scanner list (e.g., "vuln,config,secret")
-                "trivy-timeout": None,  # Skip - Go duration format (e.g., "10m")
+                "trivy-timeout": "timeout_with_unit",
                 "actionlint-enabled": "boolean",
                 "token": "github_token",
             },

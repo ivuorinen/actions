@@ -465,3 +465,58 @@ optional_inputs:
             result = self.validator._validate_timeout_with_unit(timeout, "timeout")
             assert result is False, f"Should reject timeout: {timeout}"
             assert self.validator.has_errors()
+
+    def test_validate_severity_enum_valid(self):
+        """Test severity enum validation with valid values."""
+        valid_severities = [
+            "CRITICAL",
+            "HIGH",
+            "MEDIUM",
+            "LOW",
+            "UNKNOWN",
+            "CRITICAL,HIGH",
+            "CRITICAL,HIGH,MEDIUM",
+            "LOW,MEDIUM,HIGH,CRITICAL",
+            "UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL",
+            "",  # Empty is optional
+        ]
+
+        for severity in valid_severities:
+            self.validator.clear_errors()
+            result = self.validator._validate_severity_enum(severity, "severity")
+            assert result is True, f"Should accept severity: {severity}"
+
+    def test_validate_severity_enum_invalid(self):
+        """Test severity enum validation with invalid values."""
+        invalid_severities = [
+            "INVALID",  # Wrong value
+            "critical",  # Lowercase not allowed
+            "Critical",  # Mixed case
+            "CRITICAL,INVALID",  # One invalid
+            "CRITICAL,,HIGH",  # Double comma (empty severity)
+            ",CRITICAL",  # Leading comma (empty severity)
+            "CRITICAL,",  # Trailing comma (empty severity)
+            "CRIT",  # Wrong abbreviation
+            "HI",  # Wrong abbreviation
+        ]
+
+        for severity in invalid_severities:
+            self.validator.clear_errors()
+            result = self.validator._validate_severity_enum(severity, "severity")
+            assert result is False, f"Should reject severity: {severity}"
+            assert self.validator.has_errors()
+
+    def test_validate_severity_enum_with_spaces(self):
+        """Test that spaces after commas are handled correctly."""
+        # These should be valid - spaces are stripped
+        valid_with_spaces = [
+            "CRITICAL, HIGH",
+            "CRITICAL , HIGH",
+            "CRITICAL,  HIGH",
+            "LOW, MEDIUM, HIGH",
+        ]
+
+        for severity in valid_with_spaces:
+            self.validator.clear_errors()
+            result = self.validator._validate_severity_enum(severity, "severity")
+            assert result is True, f"Should accept severity with spaces: {severity}"
