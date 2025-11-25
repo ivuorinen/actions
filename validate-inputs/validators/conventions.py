@@ -557,12 +557,19 @@ class ConventionBasedValidator(BaseValidator):
             return self._validator_modules["codeql"], f"validate_{validator_type}"
 
         # PHP-specific validators
-        if validator_type in ["php_extensions", "coverage_driver", "mode_enum"]:
-            # Return self for PHP-specific validation methods
+        if validator_type in [
+            "php_extensions",
+            "coverage_driver",
+            "mode_enum",
+            "report_format",
+            "linter_list",
+            "timeout_with_unit",
+        ]:
+            # Return self for validation methods implemented in this class
             return self, f"_validate_{validator_type}"
 
-        # Package manager and report format validators
-        if validator_type in ["package_manager_enum", "report_format"]:
+        # Package manager validators
+        if validator_type in ["package_manager_enum"]:
             # These could be in a separate module, but for now we'll put them in file validator
             if "file" not in self._validator_modules:
                 from . import file
@@ -654,6 +661,102 @@ class ConventionBasedValidator(BaseValidator):
         if value and value not in valid_modes:
             self.add_error(
                 f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_modes)}"
+            )
+            return False
+
+        return True
+
+    def _validate_report_format(self, value: str, input_name: str) -> bool:
+        """Validate report format for linting/analysis actions.
+
+        Supports multiple report formats used across different tools.
+
+        Args:
+            value: The report format value
+            input_name: The input name for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        # Comprehensive list of supported formats across all actions
+        valid_formats = [
+            "checkstyle",
+            "colored-line-number",
+            "compact",
+            "github-actions",
+            "html",
+            "json",
+            "junit",
+            "junit-xml",
+            "line-number",
+            "sarif",
+            "stylish",
+            "tab",
+            "teamcity",
+            "xml",
+        ]
+
+        if not value or value.strip() == "":
+            return True  # Optional
+
+        if value not in valid_formats:
+            self.add_error(
+                f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_formats)}"
+            )
+            return False
+
+        return True
+
+    def _validate_linter_list(self, value: str, input_name: str) -> bool:
+        """Validate comma-separated list of linter names.
+
+        Args:
+            value: The linter list value
+            input_name: The input name for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        import re
+
+        if not value or value.strip() == "":
+            return True  # Optional
+
+        # Pattern: alphanumeric linter names separated by commas
+        # Allow hyphens and underscores in linter names
+        pattern = r"^[a-zA-Z0-9_-]+(,[a-zA-Z0-9_-]+)*$"
+
+        if not re.match(pattern, value):
+            self.add_error(
+                f"Invalid {input_name}: {value}. Expected comma-separated linter names "
+                "(alphanumeric with hyphens/underscores, e.g., gosec,govet,static-check)"
+            )
+            return False
+
+        return True
+
+    def _validate_timeout_with_unit(self, value: str, input_name: str) -> bool:
+        """Validate timeout duration with unit (Go duration format).
+
+        Args:
+            value: The timeout value
+            input_name: The input name for error messages
+
+        Returns:
+            True if valid, False otherwise
+        """
+        import re
+
+        if not value or value.strip() == "":
+            return True  # Optional
+
+        # Go duration format: number + unit (ns, us/µs, ms, s, m, h)
+        pattern = r"^[0-9]+(ns|us|µs|ms|s|m|h)$"
+
+        if not re.match(pattern, value):
+            self.add_error(
+                f"Invalid {input_name}: {value}. Expected format: number with unit "
+                "(e.g., 5m, 30s, 1h, 500ms)"
             )
             return False
 

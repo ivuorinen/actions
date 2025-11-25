@@ -42,7 +42,8 @@ conventions:
   token: github_token
   username: username
   working-directory: file_path
-overrides: {}
+overrides:
+  mode: mode_enum
 statistics:
   total_inputs: 14
   validated_inputs: 12

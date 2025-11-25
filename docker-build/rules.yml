@@ -47,14 +47,14 @@ conventions:
   auto-detect-platforms: docker_architectures
   buildkit-version: semantic_version
   buildx-version: semantic_version
-  cache-mode: boolean
+  cache-mode: cache_mode
   dockerfile: file_path
   dry-run: boolean
   image-name: docker_image_name
   max-retries: numeric_range_1_10
   parallel-builds: numeric_range_0_16
   platform-fallback: docker_architectures
-  sbom-format: report_format
+  sbom-format: sbom_format
   scan-image: boolean
   sign-image: boolean
   tag: docker_tag

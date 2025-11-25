@@ -314,7 +314,6 @@ class ValidationRuleGenerator:
             "docker-publish": {
                 "registry": "registry_enum",
                 "cache-mode": "cache_mode",
-                "platforms": None,  # Skip validation - complex platform format
             },
             "docker-publish-hub": {
                 "password": "docker_password",
@@ -366,22 +365,16 @@ class ValidationRuleGenerator:
 
         if action_name in action_overrides:
             # Apply overrides for existing conventions
-            overrides.update(
-                {
-                    input_name: override_value
-                    for input_name, override_value in action_overrides[action_name].items()
-                    if input_name in conventions
-                },
-            )
-            # Add missing inputs from overrides to conventions
             for input_name, override_value in action_overrides[action_name].items():
-                if input_name not in conventions and input_name in action_data["inputs"]:
+                if input_name in action_data["inputs"]:
+                    overrides[input_name] = override_value
+                    # Update conventions to match override (or set to None if skipped)
                     conventions[input_name] = override_value
 
         # Calculate statistics
         total_inputs = len(action_data["inputs"])
-        validated_inputs = len(conventions)
-        skipped_inputs = sum(1 for v in overrides.values() if v is None)
+        validated_inputs = sum(1 for v in conventions.values() if v is not None)
+        skipped_inputs = sum(1 for v in conventions.values() if v is None)
         coverage = round((validated_inputs / total_inputs) * 100) if total_inputs > 0 else 0
 
         # Generate rules object with enhanced metadata

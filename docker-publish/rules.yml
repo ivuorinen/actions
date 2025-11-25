@@ -32,16 +32,15 @@ conventions:
   dockerhub-username: username
   image-name: docker_image_name
   platforms: docker_architectures
-  registry: registry
+  registry: registry_enum
   tags: docker_tag
   token: github_token
 overrides:
-  platforms: null
   registry: registry_enum
 statistics:
   total_inputs: 11
   validated_inputs: 8
-  skipped_inputs: 1
+  skipped_inputs: 0
   coverage_percentage: 73
 validation_coverage: 73
 auto_detected: true

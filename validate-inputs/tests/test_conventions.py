@@ -312,3 +312,156 @@ optional_inputs:
         """Test validation with empty inputs."""
         result = self.validator.validate_inputs({})
         assert result is True  # Empty inputs should pass
+
+    def test_validate_mode_enum_valid(self):
+        """Test mode enum validation with valid values."""
+        valid_modes = [
+            "check",
+            "fix",
+            "",  # Empty is optional
+        ]
+
+        for mode in valid_modes:
+            self.validator.clear_errors()
+            result = self.validator._validate_mode_enum(mode, "mode")
+            assert result is True, f"Should accept mode: {mode}"
+
+    def test_validate_mode_enum_invalid(self):
+        """Test mode enum validation with invalid values."""
+        invalid_modes = [
+            "lint",  # Wrong value
+            "validate",  # Wrong value
+            "CHECK",  # Uppercase
+            "Fix",  # Mixed case
+            "check,fix",  # Comma-separated not allowed
+            "auto",  # Wrong value
+            "both",  # Wrong value
+        ]
+
+        for mode in invalid_modes:
+            self.validator.clear_errors()
+            result = self.validator._validate_mode_enum(mode, "mode")
+            assert result is False, f"Should reject mode: {mode}"
+            assert self.validator.has_errors()
+
+    def test_validate_report_format_valid(self):
+        """Test report format validation with valid values."""
+        valid_formats = [
+            "checkstyle",
+            "colored-line-number",
+            "compact",
+            "github-actions",
+            "html",
+            "json",
+            "junit",
+            "junit-xml",
+            "line-number",
+            "sarif",
+            "stylish",
+            "tab",
+            "teamcity",
+            "xml",
+            "",  # Empty is optional
+        ]
+
+        for fmt in valid_formats:
+            self.validator.clear_errors()
+            result = self.validator._validate_report_format(fmt, "report-format")
+            assert result is True, f"Should accept format: {fmt}"
+
+    def test_validate_report_format_invalid(self):
+        """Test report format validation with invalid values."""
+        invalid_formats = [
+            "text",  # Wrong value
+            "csv",  # Wrong value
+            "markdown",  # Wrong value
+            "SARIF",  # Uppercase
+            "Json",  # Mixed case
+            "json,sarif",  # Comma-separated not allowed
+            "pdf",  # Wrong value
+        ]
+
+        for fmt in invalid_formats:
+            self.validator.clear_errors()
+            result = self.validator._validate_report_format(fmt, "report-format")
+            assert result is False, f"Should reject format: {fmt}"
+            assert self.validator.has_errors()
+
+    def test_validate_linter_list_valid(self):
+        """Test linter list validation with valid values."""
+        valid_lists = [
+            "gosec",
+            "govet",
+            "staticcheck",
+            "gosec,govet,staticcheck",
+            "eslint,prettier,typescript-eslint",
+            "my_linter",
+            "my-linter",
+            "linter123",
+            "a,b,c",
+            "",  # Empty is optional
+        ]
+
+        for linter_list in valid_lists:
+            self.validator.clear_errors()
+            result = self.validator._validate_linter_list(linter_list, "enable-linters")
+            assert result is True, f"Should accept linter list: {linter_list}"
+
+    def test_validate_linter_list_invalid(self):
+        """Test linter list validation with invalid values."""
+        invalid_lists = [
+            "linter;rm -rf /",  # Dangerous characters
+            "linter1,,linter2",  # Double comma
+            ",linter",  # Leading comma
+            "linter,",  # Trailing comma
+            "linter one",  # Space
+            "linter@test",  # @ not allowed
+            "linter$name",  # $ not allowed
+        ]
+
+        for linter_list in invalid_lists:
+            self.validator.clear_errors()
+            result = self.validator._validate_linter_list(linter_list, "enable-linters")
+            assert result is False, f"Should reject linter list: {linter_list}"
+            assert self.validator.has_errors()
+
+    def test_validate_timeout_with_unit_valid(self):
+        """Test timeout with unit validation with valid values."""
+        valid_timeouts = [
+            "5m",
+            "30s",
+            "1h",
+            "500ms",
+            "100ns",
+            "1000us",
+            "1000µs",
+            "2h",
+            "90s",
+            "15m",
+            "",  # Empty is optional
+        ]
+
+        for timeout in valid_timeouts:
+            self.validator.clear_errors()
+            result = self.validator._validate_timeout_with_unit(timeout, "timeout")
+            assert result is True, f"Should accept timeout: {timeout}"
+
+    def test_validate_timeout_with_unit_invalid(self):
+        """Test timeout with unit validation with invalid values."""
+        invalid_timeouts = [
+            "5",  # Missing unit
+            "m",  # Missing number
+            "5minutes",  # Wrong unit
+            "5M",  # Uppercase unit
+            "5 m",  # Space
+            "-5m",  # Negative not allowed
+            "5.5m",  # Decimal not allowed
+            "5sec",  # Wrong unit
+            "5min",  # Wrong unit
+        ]
+
+        for timeout in invalid_timeouts:
+            self.validator.clear_errors()
+            result = self.validator._validate_timeout_with_unit(timeout, "timeout")
+            assert result is False, f"Should reject timeout: {timeout}"
+            assert self.validator.has_errors()

@@ -42,7 +42,7 @@ conventions:
   packs: codeql_packs
   queries: codeql_queries
   ram: numeric_range_256_32768
-  skip-queries: codeql_queries
+  skip-queries: boolean
   source-root: file_path
   threads: numeric_range_1_128
   token: github_token
@@ -51,6 +51,7 @@ overrides:
   build-mode: codeql_build_mode
   category: category_format
   config: codeql_config
+  language: codeql_language
   output: file_path
   packs: codeql_packs
   queries: codeql_queries

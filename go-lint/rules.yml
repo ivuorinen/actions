@@ -36,15 +36,17 @@ conventions:
   disable-linters: linter_list
   enable-linters: linter_list
   fail-on-error: boolean
-  go-version: semantic_version
+  go-version: go_version
   golangci-lint-version: semantic_version
   max-retries: numeric_range_1_10
-  only-new-issues: branch_name
+  only-new-issues: boolean
   report-format: report_format
-  timeout: numeric_range_1_3600
+  timeout: timeout_with_unit
   token: github_token
   working-directory: file_path
 overrides:
+  disable-linters: linter_list
+  enable-linters: linter_list
   go-version: go_version
   only-new-issues: boolean
   timeout: timeout_with_unit
