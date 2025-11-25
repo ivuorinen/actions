@@ -22,9 +22,9 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 ## 📚 Action Catalog
 
-This repository contains **25 reusable GitHub Actions** for CI/CD automation.
+This repository contains **26 reusable GitHub Actions** for CI/CD automation.
 
-### Quick Reference (25 Actions)
+### Quick Reference (26 Actions)
 
 | Icon | Action                                               | Category   | Description                                                     | Key Features                                 |
 |:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
@@ -34,7 +34,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | 🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
 | 🖼️  | [`compress-images`][compress-images]                 | Repository | Compress images on demand (workflow_dispatch), and at 11pm e... | Token auth, Outputs                          |
 |  📝  | [`csharp-build`][csharp-build]                       | Build      | Builds and tests C# projects.                                   | Caching, Auto-detection, Token auth, Outputs |
-|  📝  | [`csharp-lint-check`][csharp-lint-check]             | Linting    | Runs linters like StyleCop or dotnet-format for C# code styl... | Auto-detection, Token auth, Outputs          |
+|  📝  | [`csharp-lint-check`][csharp-lint-check]             | Linting    | Runs linters like StyleCop or dotnet-format for C# code styl... | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`csharp-publish`][csharp-publish]                   | Publishing | Publishes a C# project to GitHub Packages.                      | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`docker-build`][docker-build]                       | Build      | Builds a Docker image for multiple architectures with enhanc... | Caching, Auto-detection, Token auth, Outputs |
 |  ☁️  | [`docker-publish`][docker-publish]                   | Publishing | Simple wrapper to publish Docker images to GitHub Packages a... | Token auth, Outputs                          |
@@ -49,6 +49,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |  ✅   | [`prettier-lint`][prettier-lint]                     | Linting    | Run Prettier in check or fix mode with advanced configuratio... | Caching, Auto-detection, Token auth, Outputs |
 |  📝  | [`python-lint-fix`][python-lint-fix]                 | Linting    | Lints and fixes Python files, commits changes, and uploads S... | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`release-monthly`][release-monthly]                 | Repository | Creates a release for the current month, incrementing patch ... | Token auth, Outputs                          |
+| 🛡️  | [`security-scan`][security-scan]                     | Security   | Comprehensive security scanning for GitHub Actions including... | Caching, Token auth, Outputs                 |
 |  📦  | [`stale`][stale]                                     | Repository | A GitHub Action to close stale issues and pull requests.        | Token auth, Outputs                          |
 | 🏷️  | [`sync-labels`][sync-labels]                         | Repository | Sync labels from a YAML file to a GitHub repository             | Token auth, Outputs                          |
 | 🖥️  | [`terraform-lint-fix`][terraform-lint-fix]           | Linting    | Lints and fixes Terraform files with advanced validation and... | Token auth, Outputs                          |
@@ -74,7 +75,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |:-----------------------------------------------|:------------------------------------------------------|:---------------------------------------------|:---------------------------------------------|
 | 📦 [`ansible-lint-fix`][ansible-lint-fix]      | Lints and fixes Ansible playbooks, commits changes... | Ansible, YAML                                | Caching, Token auth, Outputs                 |
 | ✅ [`biome-lint`][biome-lint]                   | Run Biome linter in check or fix mode                 | JavaScript, TypeScript, JSON                 | Caching, Auto-detection, Token auth, Outputs |
-| 📝 [`csharp-lint-check`][csharp-lint-check]    | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Auto-detection, Token auth, Outputs          |
+| 📝 [`csharp-lint-check`][csharp-lint-check]    | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Caching, Auto-detection, Token auth, Outputs |
 | ✅ [`eslint-lint`][eslint-lint]                 | Run ESLint in check or fix mode with advanced conf... | JavaScript, TypeScript                       | Caching, Auto-detection, Token auth, Outputs |
 | 📝 [`go-lint`][go-lint]                        | Run golangci-lint with advanced configuration, cac... | Go                                           | Caching, Token auth, Outputs                 |
 | ✅ [`pr-lint`][pr-lint]                         | Runs MegaLinter against pull requests                 | Conventional Commits                         | Caching, Auto-detection, Token auth, Outputs |
@@ -115,6 +116,12 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | 📦 [`stale`][stale]                      | A GitHub Action to close stale issues and pull req... | GitHub Actions                                          | Token auth, Outputs                 |
 | 🏷️ [`sync-labels`][sync-labels]         | Sync labels from a YAML file to a GitHub repositor... | YAML, GitHub                                            | Token auth, Outputs                 |
 
+#### 🛡️ Security (1 action)
+
+| Action                               | Description                                           | Languages | Features                     |
+|:-------------------------------------|:------------------------------------------------------|:----------|:-----------------------------|
+| 🛡️ [`security-scan`][security-scan] | Comprehensive security scanning for GitHub Actions... | -         | Caching, Token auth, Outputs |
+
 #### ✅ Validation (1 action)
 
 | Action                                   | Description                                           | Languages            | Features            |
@@ -131,7 +138,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | [`codeql-analysis`][codeql-analysis]                 |    -    |       ✅        |     ✅      |    ✅    |
 | [`compress-images`][compress-images]                 |    -    |       -        |     ✅      |    ✅    |
 | [`csharp-build`][csharp-build]                       |    ✅    |       ✅        |     ✅      |    ✅    |
-| [`csharp-lint-check`][csharp-lint-check]             |    -    |       ✅        |     ✅      |    ✅    |
+| [`csharp-lint-check`][csharp-lint-check]             |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`csharp-publish`][csharp-publish]                   |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`docker-build`][docker-build]                       |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`docker-publish`][docker-publish]                   |    -    |       -        |     ✅      |    ✅    |
@@ -146,6 +153,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | [`prettier-lint`][prettier-lint]                     |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`python-lint-fix`][python-lint-fix]                 |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`release-monthly`][release-monthly]                 |    -    |       -        |     ✅      |    ✅    |
+| [`security-scan`][security-scan]                     |    ✅    |       -        |     ✅      |    ✅    |
 | [`stale`][stale]                                     |    -    |       -        |     ✅      |    ✅    |
 | [`sync-labels`][sync-labels]                         |    -    |       -        |     ✅      |    ✅    |
 | [`terraform-lint-fix`][terraform-lint-fix]           |    -    |       -        |     ✅      |    ✅    |
@@ -224,6 +232,7 @@ All actions can be used independently in your workflows:
 [prettier-lint]: prettier-lint/README.md
 [python-lint-fix]: python-lint-fix/README.md
 [release-monthly]: release-monthly/README.md
+[security-scan]: security-scan/README.md
 [stale]: stale/README.md
 [sync-labels]: sync-labels/README.md
 [terraform-lint-fix]: terraform-lint-fix/README.md

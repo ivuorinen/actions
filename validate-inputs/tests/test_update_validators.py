@@ -151,7 +151,7 @@ class TestValidationRuleGenerator:
         generator = ValidationRuleGenerator()
 
         # Test special cases from the mapping
-        assert generator.detect_validation_type("build-args", {}) is None
+        assert generator.detect_validation_type("build-args", {}) == "key_value_list"
         assert generator.detect_validation_type("version", {}) == "flexible_version"
         assert (
             generator.detect_validation_type("dotnet-version", {}) == "dotnet_version"

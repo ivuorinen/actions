@@ -46,6 +46,9 @@ const CATEGORIES = {
   'compress-images': 'Repository',
   'codeql-analysis': 'Repository',
 
+  // Security
+  'security-scan': 'Security',
+
   // Validation
   'validate-inputs': 'Validation',
 };
@@ -120,6 +123,7 @@ const CATEGORY_ICONS = {
   Build: '🏗️',
   Publishing: '🚀',
   Repository: '📦',
+  Security: '🛡️',
   Validation: '✅',
 };
 
@@ -232,7 +236,7 @@ function generateCategoryTables(actions) {
   let output = '';
 
   // Sort categories by priority
-  const categoryOrder = ['Setup', 'Utilities', 'Linting', 'Testing', 'Build', 'Publishing', 'Repository', 'Validation'];
+  const categoryOrder = ['Setup', 'Utilities', 'Linting', 'Testing', 'Build', 'Publishing', 'Repository', 'Security', 'Validation'];
 
   for (const category of categoryOrder) {
     if (!categories[category]) continue;

@@ -173,6 +173,26 @@ inputs:
     description: 'Add code snippets to SARIF'
     required: false
 
+  # Security-scan specific inputs
+  gitleaks-license:
+    description: 'Gitleaks license key'
+    required: false
+  gitleaks-config:
+    description: 'Gitleaks configuration file path'
+    required: false
+  trivy-severity:
+    description: 'Trivy severity levels to scan'
+    required: false
+  trivy-scanners:
+    description: 'Trivy scanner types to run'
+    required: false
+  trivy-timeout:
+    description: 'Trivy scan timeout'
+    required: false
+  actionlint-enabled:
+    description: 'Enable actionlint scanning'
+    required: false
+
 outputs:
   validation-status:
     description: 'Overall validation status (success/failure)'

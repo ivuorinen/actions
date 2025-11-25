@@ -6,8 +6,8 @@ set -euo pipefail
 
 # Source setup utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=_tests/framework/setup.sh
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/setup.sh"
 
 # Action testing utilities
@@ -57,6 +57,13 @@ get_action_name() {
   uv run "$script_dir/../shared/validation_core.py" --name "$action_file"
 }
 
+get_action_runs_using() {
+  local action_file="$1"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  uv run "$script_dir/../shared/validation_core.py" --runs-using "$action_file"
+}
+
 # Check if an input is required in an action.yml file
 is_input_required() {
   local action_file="$1"
@@ -69,7 +76,7 @@ is_input_required() {
   required_status=$(uv run "$script_dir/../shared/validation_core.py" --property "$action_file" "$input_name" "required")
 
   # Return 0 (success) if input is required, 1 (failure) if optional
-  [[ $required_status == "required" ]]
+  [[ "$required_status" == "required" ]]
 }
 
 # Test input validation using Python validation module
@@ -363,5 +370,5 @@ run_action_tests() {
 }
 
 # Export all functions
-export -f validate_action_yml get_action_inputs get_action_outputs get_action_name is_input_required
+export -f validate_action_yml get_action_inputs get_action_outputs get_action_name get_action_runs_using is_input_required
 export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests

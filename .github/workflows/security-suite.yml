@@ -53,7 +53,7 @@ jobs:
           # Record the base commit for diffing without checking it out
           # Keep PR head checked out so scanners analyze the new changes
           BASE_REF="refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}"
-          echo "BASE_REF=${BASE_REF}" >> $GITHUB_ENV
+          echo "BASE_REF=${BASE_REF}" >> "$GITHUB_ENV"
           echo "Base ref: ${BASE_REF}"
           git log -1 --oneline "${BASE_REF}"
 

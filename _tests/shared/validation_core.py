@@ -522,6 +522,16 @@ class ActionFileParser:
             return []
 
     @staticmethod
+    def get_action_runs_using(action_file: str) -> str:
+        """Get the runs.using value from an action.yml file."""
+        try:
+            data = ActionFileParser.load_action_file(action_file)
+            runs = data.get("runs", {})
+            return runs.get("using", "unknown")
+        except (OSError, ValueError, yaml.YAMLError, AttributeError):
+            return "unknown"
+
+    @staticmethod
     def _get_required_property(input_data: dict, property_name: str) -> str:
         """Get the required/optional property."""
         is_required = input_data.get("required") in [True, "true"]
@@ -788,6 +798,11 @@ Examples:
     mode_group.add_argument("--outputs", metavar="ACTION_FILE", help="List action outputs")
     mode_group.add_argument("--name", metavar="ACTION_FILE", help="Get action name")
     mode_group.add_argument(
+        "--runs-using",
+        metavar="ACTION_FILE",
+        help="Get action runs.using value",
+    )
+    mode_group.add_argument(
         "--validate-yaml",
         metavar="YAML_FILE",
         help="Validate YAML file syntax",
@@ -834,6 +849,12 @@ def _handle_name_command(args):
     print(name)
 
 
+def _handle_runs_using_command(args):
+    """Handle the runs-using command."""
+    runs_using = ActionFileParser.get_action_runs_using(args.runs_using)
+    print(runs_using)
+
+
 def _handle_validate_yaml_command(args):
     """Handle the validate-yaml command."""
     try:
@@ -853,6 +874,7 @@ def _execute_command(args):
         "inputs": _handle_inputs_command,
         "outputs": _handle_outputs_command,
         "name": _handle_name_command,
+        "runs_using": _handle_runs_using_command,
         "validate_yaml": _handle_validate_yaml_command,
     }
 

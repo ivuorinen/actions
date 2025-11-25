@@ -274,6 +274,71 @@ class TestDockerValidator:
         result = self.validator.validate_inputs(inputs)
         assert isinstance(result, bool)
 
+    def test_validate_registry_valid(self):
+        """Test registry enum validation with valid values."""
+        valid_registries = [
+            "dockerhub",
+            "github",
+            "both",
+        ]
+
+        for registry in valid_registries:
+            self.validator.errors = []
+            result = self.validator.validate_registry(registry)
+            assert result is True, f"Should accept registry: {registry}"
+
+    def test_validate_registry_invalid(self):
+        """Test registry enum validation with invalid values."""
+        invalid_registries = [
+            "",  # Empty
+            "   ",  # Whitespace only
+            "docker",  # Wrong value (should be dockerhub)
+            "hub",  # Wrong value
+            "ghcr",  # Wrong value
+            "gcr",  # Wrong value
+            "both,github",  # Comma-separated not allowed
+            "DOCKERHUB",  # Uppercase
+            "DockerHub",  # Mixed case
+            "docker hub",  # Space
+            "github.com",  # Full URL not allowed
+        ]
+
+        for registry in invalid_registries:
+            self.validator.errors = []
+            result = self.validator.validate_registry(registry)
+            assert result is False, f"Should reject registry: {registry}"
+
+    def test_validate_sbom_format_valid(self):
+        """Test SBOM format validation with valid values."""
+        valid_formats = [
+            "spdx-json",
+            "cyclonedx-json",
+            "",  # Empty is optional
+        ]
+
+        for sbom_format in valid_formats:
+            self.validator.errors = []
+            result = self.validator.validate_sbom_format(sbom_format)
+            assert result is True, f"Should accept SBOM format: {sbom_format}"
+
+    def test_validate_sbom_format_invalid(self):
+        """Test SBOM format validation with invalid values."""
+        invalid_formats = [
+            "spdx",  # Missing -json suffix
+            "cyclonedx",  # Missing -json suffix
+            "json",  # Just json
+            "spdx-xml",  # Wrong format
+            "cyclonedx-xml",  # Wrong format
+            "SPDX-JSON",  # Uppercase
+            "spdx json",  # Space
+            "invalid",  # Invalid value
+        ]
+
+        for sbom_format in invalid_formats:
+            self.validator.errors = []
+            result = self.validator.validate_sbom_format(sbom_format)
+            assert result is False, f"Should reject SBOM format: {sbom_format}"
+
     def test_empty_values_handling(self):
         """Test that empty values are handled appropriately."""
         # Some Docker fields might be required, others optional
@@ -281,3 +346,5 @@ class TestDockerValidator:
         assert isinstance(self.validator.validate_docker_tag(""), bool)
         assert isinstance(self.validator.validate_architectures(""), bool)
         assert isinstance(self.validator.validate_prefix(""), bool)
+        # Registry should reject empty values
+        assert self.validator.validate_registry("") is False

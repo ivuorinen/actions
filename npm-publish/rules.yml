@@ -22,7 +22,7 @@ optional_inputs:
   - token
 conventions:
   npm_token: github_token
-  package-version: semantic_version
+  package-version: strict_semantic_version
   registry-url: url
   scope: scope
   token: github_token
