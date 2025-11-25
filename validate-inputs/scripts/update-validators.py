@@ -354,6 +354,14 @@ class ValidationRuleGenerator:
             "prettier-lint": {
                 "mode": "mode_enum",
             },
+            "security-scan": {
+                "gitleaks-config": "file_path",
+                "trivy-severity": None,  # Skip - complex severity format (e.g., "CRITICAL,HIGH")
+                "trivy-scanners": None,  # Skip - complex scanner list (e.g., "vuln,config,secret")
+                "trivy-timeout": None,  # Skip - Go duration format (e.g., "10m")
+                "actionlint-enabled": "boolean",
+                "token": "github_token",
+            },
         }
 
         if action_name in action_overrides:

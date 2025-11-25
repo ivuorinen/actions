@@ -46,6 +46,9 @@ const CATEGORIES = {
   'compress-images': 'Repository',
   'codeql-analysis': 'Repository',
 
+  // Security
+  'security-scan': 'Security',
+
   // Validation
   'validate-inputs': 'Validation',
 };
@@ -120,6 +123,7 @@ const CATEGORY_ICONS = {
   Build: '🏗️',
   Publishing: '🚀',
   Repository: '📦',
+  Security: '🛡️',
   Validation: '✅',
 };
 

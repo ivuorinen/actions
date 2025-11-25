@@ -57,6 +57,13 @@ get_action_name() {
   uv run "$script_dir/../shared/validation_core.py" --name "$action_file"
 }
 
+get_action_runs_using() {
+  local action_file="$1"
+  local script_dir
+  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  uv run "$script_dir/../shared/validation_core.py" --runs-using "$action_file"
+}
+
 # Check if an input is required in an action.yml file
 is_input_required() {
   local action_file="$1"

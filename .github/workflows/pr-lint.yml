@@ -24,17 +24,9 @@ on:
   merge_group:
 
 env:
-  # Apply linter fixes configuration
-  APPLY_FIXES: none
-  APPLY_FIXES_EVENT: pull_request
-  APPLY_FIXES_MODE: commit
-
-  # Disable linters that do not work or conflict
+  # MegaLinter configuration - these override the action's defaults
   DISABLE_LINTERS: REPOSITORY_DEVSKIM
-
-  # Additional settings
   VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
-  GITHUB_TOKEN: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
 
   # Report configuration
   REPORT_OUTPUT_FOLDER: megalinter-reports
@@ -72,35 +64,13 @@ jobs:
           token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
 
-      - name: MegaLinter
-        id: ml
-        uses: oxsecurity/megalinter/flavors/cupcake@62c799d895af9bcbca5eacfebca29d527f125a57 # v9.1.0
-
-      - name: Check MegaLinter Results
-        id: check-results
-        if: always()
-        shell: sh
-        run: |
-          printf '%s\n' "status=success" >> "$GITHUB_OUTPUT"
-
-          if [ -f "${{ env.REPORT_OUTPUT_FOLDER }}/megalinter.log" ]; then
-            if grep -q "ERROR\|CRITICAL" "${{ env.REPORT_OUTPUT_FOLDER }}/megalinter.log"; then
-              echo "Linting errors found"
-              printf '%s\n' "status=failure" >> "$GITHUB_OUTPUT"
-            fi
-          else
-            echo "::warning::MegaLinter log file not found"
-          fi
-
-      - name: Upload Reports
-        if: always()
-        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
+      - name: Run MegaLinter
+        id: pr-lint
+        uses: ./pr-lint
         with:
-          name: MegaLinter reports
-          path: |
-            megalinter-reports
-            mega-linter.log
-          retention-days: 30
+          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
+          username: fiximus
+          email: github-bot@ivuorinen.net
 
       - name: Upload SARIF Report
         if: always() && hashFiles('megalinter-reports/sarif/*.sarif')
@@ -109,74 +79,12 @@ jobs:
           sarif_file: megalinter-reports/sarif
           category: megalinter
 
-      - name: Prepare Git for Fixes
-        if: steps.ml.outputs.has_updated_sources == 1
-        shell: sh
-        run: |
-          sudo chown -Rc $(id -u) .git/
-          git config --global user.name "fiximus"
-          git config --global user.email "github-bot@ivuorinen.net"
-
-      - name: Create Pull Request
-        if: |
-          steps.ml.outputs.has_updated_sources == 1 &&
-          (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) &&
-          env.APPLY_FIXES_MODE == 'pull_request' &&
-          (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) &&
-          !contains(github.event.head_commit.message, 'skip fix')
-        uses: peter-evans/create-pull-request@84ae59a2cdc2258d6fa0732dd66352dddae2a412 # v7.0.9
-        id: cpr
-        with:
-          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
-          commit-message: '[MegaLinter] Apply linters automatic fixes'
-          title: '[MegaLinter] Apply linters automatic fixes'
-          labels: bot
-          branch: megalinter/fixes-${{ github.ref_name }}
-          branch-suffix: timestamp
-          delete-branch: true
-          body: |
-            ## MegaLinter Fixes
-
-            MegaLinter has identified and fixed code style issues.
-
-            ### 🔍 Changes Made
-            - Automated code style fixes
-            - Formatting improvements
-            - Lint error corrections
-
-            ### 📝 Notes
-            - Please review the changes carefully
-            - Run tests before merging
-            - Verify formatting matches project standards
-
-            > Generated automatically by MegaLinter
-
-      - name: Commit Fixes
-        if: |
-          steps.ml.outputs.has_updated_sources == 1 &&
-          (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) &&
-          env.APPLY_FIXES_MODE == 'commit' &&
-          github.ref != 'refs/heads/main' &&
-          (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository) &&
-          !contains(github.event.head_commit.message, 'skip fix')
-        uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
-        with:
-          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
-          branch: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref }}
-          commit_message: |
-            style: apply MegaLinter fixes
-
-            [skip ci]
-          commit_user_name: fiximus
-          commit_user_email: github-bot@ivuorinen.net
-          push_options: --force
-
-      - name: Create Status Check
+      - name: Check Results
         if: always()
         uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
         with:
           script: |
-            const status = '${{ steps.check-results.outputs.status }}';
+            const status = '${{ steps.pr-lint.outputs.validation_status }}';
             const conclusion = status === 'success' ? 'success' : 'failure';
 
             const summary = `## MegaLinter Results

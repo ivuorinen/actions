@@ -5,13 +5,14 @@
 - **Path**: /Users/ivuorinen/Code/ivuorinen/actions
 - **Branch**: main
 - **External Usage**: `ivuorinen/actions/<action-name>@main`
-- **Total Actions**: 43 self-contained actions
+- **Total Actions**: 44 self-contained actions
+- **Dogfooding**: Workflows use local actions (pr-lint, codeql-analysis, security-scan)
 
 ## Structure
 
 ```text
 /
-├── <action-dirs>/           # 43 self-contained actions
+├── <action-dirs>/           # 44 self-contained actions
 │   ├── action.yml          # Action definition
 │   ├── README.md           # Auto-generated
 │   └── CustomValidator.py  # Optional validator
@@ -25,11 +26,13 @@
 └── Makefile               # Build automation
 ```
 
-## Action Categories (43 total)
+## Action Categories (44 total)
 
 **Setup (7)**: node-setup, set-git-config, php-version-detect, python-version-detect, python-version-detect-v2, go-version-detect, dotnet-version-detect
 
 **Linting (13)**: ansible-lint-fix, biome-check/fix, csharp-lint-check, eslint-check/fix, go-lint, pr-lint, pre-commit, prettier-check/fix, python-lint-fix, terraform-lint-fix
+
+**Security (1)**: security-scan (actionlint, Gitleaks, Trivy scanning)
 
 **Build (3)**: csharp-build, go-build, docker-build
 
@@ -85,3 +88,28 @@ make test       # All tests (pytest + ShellSpec)
 - ✅ Convention-based validation
 - ✅ Test generation system
 - ✅ Full backward compatibility
+
+## Dogfooding Strategy
+
+The repository actively dogfoods its own actions in workflows:
+
+**Fully Dogfooded Workflows**:
+
+- **pr-lint.yml**: Uses `./pr-lint` (was 204 lines, now 112 lines - 45% reduction)
+- **action-security.yml**: Uses `./security-scan` (was 264 lines, now 82 lines - 69% reduction)
+- **codeql-new.yml**: Uses `./codeql-analysis`
+- **sync-labels.yml**: Uses `./sync-labels`
+- **version-maintenance.yml**: Uses `./action-versioning`
+
+**Intentionally External**:
+
+- **build-testing-image.yml**: Uses docker/\* actions directly (needs metadata extraction)
+- Core GitHub actions (checkout, upload-artifact, setup-\*) kept for standardization
+
+**Benefits**:
+
+- Early detection of action issues
+- Real-world testing of actions
+- Reduced workflow duplication
+- Improved maintainability
+- Better documentation through usage examples
