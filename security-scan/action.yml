@@ -189,7 +189,6 @@ runs:
       shell: node {0}
       run: |
         const fs = require('fs');
-        const core = require('@actions/core');
 
         try {
           let totalIssues = 0;
@@ -259,19 +258,25 @@ runs:
           - Gitleaks: ${{ steps.check-configs.outputs.run_gitleaks }}
           `;
 
-          // Set outputs
-          core.setOutput('total_issues', totalIssues);
-          core.setOutput('critical_issues', criticalIssues);
+          // Set outputs using GITHUB_OUTPUT
+          const outputFile = process.env.GITHUB_OUTPUT;
+          if (outputFile) {
+            fs.appendFileSync(outputFile, `total_issues=${totalIssues}\n`);
+            fs.appendFileSync(outputFile, `critical_issues=${criticalIssues}\n`);
+          }
 
-          // Add job summary
-          core.summary
-            .addRaw(summary)
-            .write();
+          // Add job summary using GITHUB_STEP_SUMMARY
+          const summaryFile = process.env.GITHUB_STEP_SUMMARY;
+          if (summaryFile) {
+            fs.appendFileSync(summaryFile, summary + '\n');
+          }
 
           // Fail if critical issues found
           if (criticalIssues > 0) {
-            core.setFailed(`Found ${criticalIssues} critical security issues`);
+            console.error(`Found ${criticalIssues} critical security issues`);
+            process.exit(1);
           }
         } catch (error) {
-          core.setFailed(`Analysis failed: ${error.message}`);
+          console.error(`Analysis failed: ${error.message}`);
+          process.exit(1);
         }
