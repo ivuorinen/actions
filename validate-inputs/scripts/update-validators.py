@@ -440,8 +440,20 @@ class ValidationRuleGenerator:
 
         # Use a custom yaml dumper to ensure proper indentation
         class CustomYamlDumper(yaml.SafeDumper):
-            def increase_indent(self, flow: bool = False, *, indentless: bool = False) -> None:  # noqa: FBT001, FBT002
-                return super().increase_indent(flow, indentless=indentless)
+            def increase_indent(self, flow: bool = False, *, indentless: bool = False) -> None:  # noqa: FBT001, FBT002, ARG002  # type: ignore[override]
+                return super().increase_indent(flow, False)
+
+            def choose_scalar_style(self):
+                """Choose appropriate quote style based on string content."""
+                if hasattr(self, "event") and hasattr(self.event, "value") and self.event.value:  # type: ignore[attr-defined]
+                    value = self.event.value  # type: ignore[attr-defined]
+                    # Use literal block style for multiline strings
+                    if "\n" in value:
+                        return "|"
+                    # Use double quotes for strings with single quotes
+                    if "'" in value:
+                        return '"'
+                return super().choose_scalar_style()
 
         yaml_content = yaml.dump(
             rules,

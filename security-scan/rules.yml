@@ -11,13 +11,10 @@
 
 schema_version: '1.0'
 action: security-scan
-description: "Comprehensive security scanning for GitHub Actions including actionlint,
-
+description: |
+  Comprehensive security scanning for GitHub Actions including actionlint,
   Gitleaks (optional), and Trivy vulnerability scanning. Requires
-
   'security-events: write' and 'contents: read' permissions in the workflow.
-
-  "
 generator_version: 1.0.0
 required_inputs: []
 optional_inputs:

@@ -6,8 +6,8 @@ set -euo pipefail
 
 # Source setup utilities
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # shellcheck source=_tests/framework/setup.sh
+# shellcheck disable=SC1091
 source "${SCRIPT_DIR}/setup.sh"
 
 # Action testing utilities
@@ -76,7 +76,7 @@ is_input_required() {
   required_status=$(uv run "$script_dir/../shared/validation_core.py" --property "$action_file" "$input_name" "required")
 
   # Return 0 (success) if input is required, 1 (failure) if optional
-  [[ $required_status == "required" ]]
+  [[ "$required_status" == "required" ]]
 }
 
 # Test input validation using Python validation module
