@@ -236,7 +236,7 @@ function generateCategoryTables(actions) {
   let output = '';
 
   // Sort categories by priority
-  const categoryOrder = ['Setup', 'Utilities', 'Linting', 'Testing', 'Build', 'Publishing', 'Repository', 'Validation'];
+  const categoryOrder = ['Setup', 'Utilities', 'Linting', 'Testing', 'Build', 'Publishing', 'Repository', 'Security', 'Validation'];
 
   for (const category of categoryOrder) {
     if (!categories[category]) continue;

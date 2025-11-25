@@ -370,5 +370,5 @@ run_action_tests() {
 }
 
 # Export all functions
-export -f validate_action_yml get_action_inputs get_action_outputs get_action_name is_input_required
+export -f validate_action_yml get_action_inputs get_action_outputs get_action_name get_action_runs_using is_input_required
 export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests

@@ -141,7 +141,7 @@ runs:
 
         # Check Trivy results
         if [ -f "trivy-results.sarif" ]; then
-          if jq -e . </dev/null 2>&1 <"trivy-results.sarif"; then
+          if jq -e . <"trivy-results.sarif" >/dev/null 2>&1; then
             printf '%s\n' "has_trivy=true" >> "$GITHUB_OUTPUT"
           else
             printf '::warning::Trivy SARIF file exists but is not valid JSON\n'
@@ -151,7 +151,7 @@ runs:
         # Check Gitleaks results if it ran
         if [ "${{ steps.check-configs.outputs.run_gitleaks }}" = "true" ]; then
           if [ -f "gitleaks-report.sarif" ]; then
-            if jq -e . </dev/null 2>&1 <"gitleaks-report.sarif"; then
+            if jq -e . <"gitleaks-report.sarif" >/dev/null 2>&1; then
               printf '%s\n' "has_gitleaks=true" >> "$GITHUB_OUTPUT"
             else
               printf '::warning::Gitleaks SARIF file exists but is not valid JSON\n'

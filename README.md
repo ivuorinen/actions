@@ -116,6 +116,12 @@ This repository contains **26 reusable GitHub Actions** for CI/CD automation.
 | 📦 [`stale`][stale]                      | A GitHub Action to close stale issues and pull req... | GitHub Actions                                          | Token auth, Outputs                 |
 | 🏷️ [`sync-labels`][sync-labels]         | Sync labels from a YAML file to a GitHub repositor... | YAML, GitHub                                            | Token auth, Outputs                 |
 
+#### 🛡️ Security (1 action)
+
+| Action                               | Description                                           | Languages | Features                     |
+|:-------------------------------------|:------------------------------------------------------|:----------|:-----------------------------|
+| 🛡️ [`security-scan`][security-scan] | Comprehensive security scanning for GitHub Actions... | -         | Caching, Token auth, Outputs |
+
 #### ✅ Validation (1 action)
 
 | Action                                   | Description                                           | Languages            | Features            |
