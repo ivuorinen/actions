@@ -8,19 +8,19 @@ on:
       - main
       - master
     paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".github/*.md"
-      - "LICENSE"
+      - '**.md'
+      - 'docs/**'
+      - '.github/*.md'
+      - 'LICENSE'
   pull_request:
     branches:
       - main
       - master
     paths-ignore:
-      - "**.md"
-      - "docs/**"
-      - ".github/*.md"
-      - "LICENSE"
+      - '**.md'
+      - 'docs/**'
+      - '.github/*.md'
+      - 'LICENSE'
   merge_group:
 
 env:
@@ -128,8 +128,8 @@ jobs:
         id: cpr
         with:
           token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
-          commit-message: "[MegaLinter] Apply linters automatic fixes"
-          title: "[MegaLinter] Apply linters automatic fixes"
+          commit-message: '[MegaLinter] Apply linters automatic fixes'
+          title: '[MegaLinter] Apply linters automatic fixes'
           labels: bot
           branch: megalinter/fixes-${{ github.ref_name }}
           branch-suffix: timestamp
