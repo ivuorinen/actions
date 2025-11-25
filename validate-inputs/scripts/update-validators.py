@@ -114,7 +114,7 @@ class ValidationRuleGenerator:
             "prefix": re.compile(r"\b(prefix|tag[_-]?prefix)\b", re.IGNORECASE),
             # Boolean patterns (broad, should be lower priority)
             "boolean": re.compile(
-                r"\b(dry-?run|verbose|enable|disable|auto|skip|force|cache|provenance|sbom|scan|sign|fail[_-]?on[_-]?error|nightly)\b",
+                r"\b(dry-?run|verbose|enable|disable|auto|skip|force|cache|provenance|sbom|scan|sign|push|fail[_-]?on[_-]?error|nightly)\b",
                 re.IGNORECASE,
             ),
             # File extensions pattern
@@ -160,36 +160,36 @@ class ValidationRuleGenerator:
             "npm_token": "github_token",
             "password": "github_token",
             # Complex fields that should skip validation
-            "build-args": None,  # Can be empty
-            "context": None,  # Default handled
-            "cache-from": None,  # Complex cache syntax
-            "cache-export": None,  # Complex cache syntax
-            "cache-import": None,  # Complex cache syntax
-            "build-contexts": None,  # Complex syntax
-            "secrets": None,  # Complex syntax
-            "platform-build-args": None,  # JSON format
-            "extensions": None,  # PHP extensions list
-            "tools": None,  # PHP tools list
+            "build-args": "key_value_list",  # Docker build arguments (KEY=VALUE format)
+            "context": "file_path",  # Build context path
+            "cache-from": "cache_config",  # Docker cache configuration
+            "cache-export": "cache_config",  # Docker cache configuration
+            "cache-import": "cache_config",  # Docker cache configuration
+            "build-contexts": "key_value_list",  # Docker build contexts (KEY=VALUE format)
+            "secrets": "key_value_list",  # Docker secrets (KEY=VALUE format)
+            "platform-build-args": "json_format",  # JSON format for platform-specific args
+            "extensions": "php_extensions",  # PHP extensions list
+            "tools": "linter_list",  # PHP tools list - same pattern as linters
+            "framework": "framework_mode",  # PHP framework mode (auto, laravel, generic)
             "args": None,  # Composer args
             "stability": None,  # Composer stability
             "registry-url": "url",  # URL format
             "scope": "scope",  # NPM scope
-            "plugins": None,  # Prettier plugins
+            "plugins": "linter_list",  # Prettier plugins - same pattern as linters
             "file-extensions": "file_extensions",  # File extension list
-            "file-pattern": None,  # Glob pattern
-            "enable-linters": None,  # Linter list
-            "disable-linters": None,  # Linter list
-            "success-codes": None,  # Exit code list
-            "retry-codes": None,  # Exit code list
-            "ignore-paths": None,  # Path patterns
-            "key-files": None,  # Cache key files
-            "restore-keys": None,  # Cache restore keys
-            "env-vars": None,  # Environment variables
+            "file-pattern": "path_list",  # Glob pattern for file paths
+            "enable-linters": "linter_list",  # Linter list
+            "disable-linters": "linter_list",  # Linter list
+            "success-codes": "exit_code_list",  # Exit code list
+            "retry-codes": "exit_code_list",  # Exit code list
+            "ignore-paths": "path_list",  # Path patterns to ignore
+            "key-files": "path_list",  # Cache key files (paths)
+            "restore-keys": "path_list",  # Cache restore keys (paths)
+            "env-vars": "key_value_list",  # Environment variables (KEY=VALUE format)
             # Action-specific fields that need special handling
             "type": None,  # Cache type enum (npm, composer, go, etc.) - complex enum,
             # skip validation
-            "paths": None,  # File paths for caching (comma-separated) - complex format,
-            # skip validation
+            "paths": "path_list",  # File paths for caching (comma-separated)
             "command": None,  # Shell command - complex format, skip validation for safety
             "backoff-strategy": None,  # Retry strategy enum - complex enum, skip validation
             "shell": None,  # Shell type enum - simple enum, skip validation
@@ -199,10 +199,13 @@ class ValidationRuleGenerator:
             "retry-delay": "numeric_range_1_300",  # Retry delay should support higher values
             "max-warnings": "numeric_range_0_10000",
             # version-file-parser specific fields
-            "language": None,  # Simple enum (node, php, python, go, dotnet)
             "tool-versions-key": None,  # Simple string (nodejs, python, php, golang, dotnet)
             "dockerfile-image": None,  # Simple string (node, python, php, golang, dotnet)
             "validation-regex": "regex_pattern",  # Regex pattern - validate for ReDoS
+            # Docker network mode
+            "network": "network_mode",  # Docker network mode (host, none, default)
+            # Language enum for version detection
+            "language": "language_enum",  # Language type (php, python, go, dotnet)
         }
 
     def get_action_directories(self) -> list[str]:
@@ -356,7 +359,7 @@ class ValidationRuleGenerator:
             "security-scan": {
                 "gitleaks-config": "file_path",
                 "trivy-severity": "severity_enum",
-                "trivy-scanners": None,  # Skip - complex scanner list (e.g., "vuln,config,secret")
+                "trivy-scanners": "scanner_list",
                 "trivy-timeout": "timeout_with_unit",
                 "actionlint-enabled": "boolean",
                 "token": "github_token",
