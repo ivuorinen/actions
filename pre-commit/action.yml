@@ -49,7 +49,7 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@8fb52522ab00fe73cf181ef299e56066f0b2c8d8
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
       with:
         action-type: 'pre-commit'
         token: ${{ inputs.token }}
