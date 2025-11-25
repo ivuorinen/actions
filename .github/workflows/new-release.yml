@@ -4,7 +4,7 @@ name: Release Daily State
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 21 * * *' # 00:00 at Europe/Helsinki
+    - cron: "0 21 * * *" # 00:00 at Europe/Helsinki
 
 permissions: read-all
 
@@ -25,6 +25,8 @@ jobs:
       - name: Create tag if necessary
         uses: fregante/daily-version-action@fb1a60b7c4daf1410cd755e360ebec3901e58588 # v2.1.3
         id: daily-version
+        with:
+          prefix: v
 
       - name: Create changelog text
         if: steps.daily-version.outputs.created
