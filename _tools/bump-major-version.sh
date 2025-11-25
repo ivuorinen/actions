@@ -76,11 +76,7 @@ if ! git diff --quiet; then
   git commit -m "chore: bump major version from $OLD_VERSION to $NEW_VERSION
 
 This commit updates all internal action references from $OLD_VERSION
-to $NEW_VERSION.
-
-🤖 Generated with [Claude Code](https://claude.com/claude-code)
-
-Co-Authored-By: Claude <noreply@anthropic.com>"
+to $NEW_VERSION."
 
   printf '%b' "${GREEN}✅ Committed version bump${NC}\n"
 else
