@@ -454,7 +454,7 @@ runs:
           phpunit_output=$(composer test 2>&1) || phpunit_exit_code=$?
         elif [ -f "vendor/bin/phpunit" ]; then
           echo "Running PHPUnit directly..."
-          phpunit_output=$(vendor/bin/phpunit --verbose 2>&1) || phpunit_exit_code=$?
+          phpunit_output=$(vendor/bin/phpunit 2>&1) || phpunit_exit_code=$?
         else
           echo "::error::PHPUnit not found. Ensure Composer dependencies are installed."
           exit 1
