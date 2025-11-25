@@ -8,24 +8,24 @@ on:
       - main
       - master
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.github/*.md'
-      - 'LICENSE'
+      - "**.md"
+      - "docs/**"
+      - ".github/*.md"
+      - "LICENSE"
   pull_request:
     branches:
       - main
       - master
     paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - '.github/*.md'
-      - 'LICENSE'
+      - "**.md"
+      - "docs/**"
+      - ".github/*.md"
+      - "LICENSE"
   merge_group:
 
 env:
   # Apply linter fixes configuration
-  APPLY_FIXES: all
+  APPLY_FIXES: none
   APPLY_FIXES_EVENT: pull_request
   APPLY_FIXES_MODE: commit
 
@@ -113,7 +113,7 @@ jobs:
         if: steps.ml.outputs.has_updated_sources == 1
         shell: sh
         run: |
-          sudo chown -Rc $UID .git/
+          sudo chown -Rc $(id -u) .git/
           git config --global user.name "fiximus"
           git config --global user.email "github-bot@ivuorinen.net"
 
@@ -128,8 +128,8 @@ jobs:
         id: cpr
         with:
           token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
-          commit-message: '[MegaLinter] Apply linters automatic fixes'
-          title: '[MegaLinter] Apply linters automatic fixes'
+          commit-message: "[MegaLinter] Apply linters automatic fixes"
+          title: "[MegaLinter] Apply linters automatic fixes"
           labels: bot
           branch: megalinter/fixes-${{ github.ref_name }}
           branch-suffix: timestamp
