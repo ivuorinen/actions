@@ -112,7 +112,7 @@ runs:
           dockerhub|github|both)
             ;;
           *)
-            echo "::error::Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
+            printf '%s\n' "::error::Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
             exit 1
             ;;
         esac
@@ -120,7 +120,7 @@ runs:
         # Validate Docker Hub credentials if needed
         if [ "$INPUT_REGISTRY" = "dockerhub" ] || [ "$INPUT_REGISTRY" = "both" ]; then
           if [ -z "$INPUT_DOCKERHUB_USERNAME" ] || [ -z "$INPUT_DOCKERHUB_TOKEN" ]; then
-            echo "::error::Docker Hub username and token are required when publishing to Docker Hub"
+            printf '%s\n' "::error::Docker Hub username and token are required when publishing to Docker Hub"
             exit 1
           fi
         fi
@@ -129,46 +129,77 @@ runs:
         if [ "$INPUT_REGISTRY" = "github" ] || [ "$INPUT_REGISTRY" = "both" ]; then
           token="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
           if [ -z "$token" ]; then
-            echo "::error::GitHub token is required when publishing to GitHub Packages"
+            printf '%s\n' "::error::GitHub token is required when publishing to GitHub Packages"
             exit 1
           fi
         fi
 
         # Validate context input for security
         INPUT_CONTEXT="${INPUT_CONTEXT:-.}"
+
         case "$INPUT_CONTEXT" in
           .|./*|*/*)
             # Relative paths are allowed
+            # Check for path traversal attempts
+            case "$INPUT_CONTEXT" in
+              */../*|../*|*/..)
+                printf '%s\n' "::error::Context path contains path traversal: '$INPUT_CONTEXT'"
+                exit 1
+                ;;
+            esac
             ;;
           /*)
-            echo "::error::Context cannot be an absolute path: '$INPUT_CONTEXT'"
-            echo "::error::Use relative paths (e.g., '.', './app') to prevent code injection"
+            printf '%s\n' "::error::Context cannot be an absolute path: '$INPUT_CONTEXT'"
+            printf '%s\n' "::error::Use relative paths (e.g., '.', './app')"
             exit 1
             ;;
-          *://*)
-            echo "::warning::Context is a remote URL: '$INPUT_CONTEXT'"
-            echo "::warning::Ensure this URL is from a trusted source to prevent code injection"
+          git://*|git@*|https://*.git|https://github.com/*|https://gitlab.com/*)
+            # Allow trusted git repository URLs
+            printf '%s\n' "::notice::Using git repository URL for context"
+            ;;
+          http://*|https://*)
+            printf '%s\n' "::error::Context cannot be an arbitrary HTTP URL: '$INPUT_CONTEXT'"
+            printf '%s\n' "::error::Only git repository URLs are allowed for remote contexts"
+            exit 1
+            ;;
+          *)
+            printf '%s\n' "::error::Invalid context format: '$INPUT_CONTEXT'"
+            printf '%s\n' "::error::Must be a relative path or git repository URL"
+            exit 1
             ;;
         esac
 
         # Validate dockerfile input for security
         INPUT_DOCKERFILE="${INPUT_DOCKERFILE:-Dockerfile}"
+
         case "$INPUT_DOCKERFILE" in
           Dockerfile|*/Dockerfile|*.dockerfile|*/*.dockerfile)
             # Common dockerfile patterns are allowed
+            # Check for path traversal attempts
+            case "$INPUT_DOCKERFILE" in
+              */../*|../*|*/..)
+                printf '%s\n' "::error::Dockerfile path contains path traversal: '$INPUT_DOCKERFILE'"
+                exit 1
+                ;;
+            esac
             ;;
           /*)
-            echo "::error::Dockerfile path cannot be absolute: '$INPUT_DOCKERFILE'"
-            echo "::error::Use relative paths (e.g., 'Dockerfile', './docker/Dockerfile')"
+            printf '%s\n' "::error::Dockerfile path cannot be absolute: '$INPUT_DOCKERFILE'"
+            printf '%s\n' "::error::Use relative paths (e.g., 'Dockerfile', './docker/Dockerfile')"
             exit 1
             ;;
           *://*)
-            echo "::error::Dockerfile path cannot be a URL: '$INPUT_DOCKERFILE'"
+            printf '%s\n' "::error::Dockerfile path cannot be a URL: '$INPUT_DOCKERFILE'"
+            exit 1
+            ;;
+          *)
+            printf '%s\n' "::error::Invalid Dockerfile format: '$INPUT_DOCKERFILE'"
+            printf '%s\n' "::error::Must be 'Dockerfile', '*/Dockerfile', '*.dockerfile', or '*/*.dockerfile'"
             exit 1
             ;;
         esac
 
-        echo "Input validation completed successfully"
+        printf '%s\n' "Input validation completed successfully"
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
@@ -223,14 +254,14 @@ runs:
         # Output results
         printf 'image-name=%s\n' "$base_name" >> "$GITHUB_OUTPUT"
         {
-          echo 'tags<<EOF'
-          echo "$tags"
-          echo 'EOF'
+          printf '%s\n' 'tags<<EOF'
+          printf '%s\n' "$tags"
+          printf '%s\n' 'EOF'
         } >> "$GITHUB_OUTPUT"
 
-        echo "Image name: $base_name"
-        echo "Tags:"
-        echo "$tags"
+        printf 'Image name: %s\n' "$base_name"
+        printf '%s\n' "Tags:"
+        printf '%s\n' "$tags"
 
     - name: Login to Docker Hub
       if: inputs.registry == 'dockerhub' || inputs.registry == 'both'

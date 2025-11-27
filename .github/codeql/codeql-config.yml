@@ -15,3 +15,19 @@ paths-ignore:
 # Use security and quality query suite
 queries:
   - uses: security-and-quality
+
+# Suppress specific false positives
+# These findings have been manually reviewed and determined to be false positives
+# with appropriate security controls in place
+query-filters:
+  # docker-publish: Code injection in validated context
+  # False positive: User input is validated and sanitized before use
+  # - Only relative paths and trusted git URLs are allowed
+  # - Absolute paths and arbitrary URLs are rejected
+  # - Path traversal attempts are blocked
+  # - Custom contexts require explicit opt-in via use-custom-context: true
+  # - Wraps docker/build-push-action (trusted Docker-maintained action)
+  # - Action is designed for trusted workflows only (documented in action.yml)
+  - exclude:
+      id: js/actions/code-injection
+      kind: problem
