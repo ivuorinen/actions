@@ -95,7 +95,7 @@ runs:
         find . -maxdepth 2 -name "action.yml" -path "*/action.yml" ! -path "./_*" ! -path "./.github/*" -exec grep -h "uses: ivuorinen/actions/" {} \; > "$temp_file"
 
         while IFS= read -r line; do
-          current_sha=$(echo "$line" | grep -oE '@[a-f0-9]{40}' | sed 's/@//')
+          current_sha=$(printf '%s' "$line" | grep -oE '@[a-f0-9]{40}' | sed 's/@//')
 
           if [ "$current_sha" != "$TAG_SHA" ]; then
             echo "Found outdated reference: $current_sha (should be $TAG_SHA)"
@@ -153,11 +153,7 @@ runs:
           git commit -m "chore: update action references to $MAJOR_VERSION ($TAG_SHA)" \
                      -m "" \
                      -m "This commit updates all internal action references to point to the latest" \
-                     -m "$MAJOR_VERSION tag SHA." \
-                     -m "" \
-                     -m "🤖 Generated with [Claude Code](https://claude.com/claude-code)" \
-                     -m "" \
-                     -m "Co-Authored-By: Claude <noreply@anthropic.com>"
+                     -m "$MAJOR_VERSION tag SHA."
 
           commit_sha=$(git rev-parse HEAD)
           printf '%s\n' "sha=$commit_sha" >> "$GITHUB_OUTPUT"

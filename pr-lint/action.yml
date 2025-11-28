@@ -54,7 +54,7 @@ runs:
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
-        ref: ${{ github.event.pull_request.head.ref || github.head_ref || github.ref_name }}
+        ref: ${{ github.event.pull_request.head.sha || github.sha }}
         persist-credentials: false
 
         # If you use VALIDATE_ALL_CODEBASE = true, you can remove this line to
@@ -729,13 +729,6 @@ runs:
     - name: Prepare commit
       if: env.APPLY_FIXES_IF_COMMIT == 'true'
       shell: sh
-      env:
-        BRANCH_REF: >-
-          ${{
-            github.event.pull_request.head.ref ||
-            github.head_ref ||
-            github.ref_name
-          }}
       run: |
         set -eu
 
@@ -747,27 +740,38 @@ runs:
         # This is necessary because MegaLinter may leave the repo in a detached HEAD state
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         if [ "$current_branch" = "HEAD" ]; then
-          echo "Repository is in detached HEAD state, checking out $BRANCH_REF"
-          # Validate branch reference to prevent command injection
-          if ! git check-ref-format --branch "$BRANCH_REF"; then
-            echo "::error::Invalid branch reference format: $BRANCH_REF"
+          printf '%s\n' "Repository is in detached HEAD state"
+
+          # Get the branch name from git refs (safer than trusting event data)
+          # This finds the branch that points to the current commit
+          branch_ref=$(git for-each-ref --format='%(refname:short)' --points-at=HEAD 'refs/remotes/origin/*' | head -1 | sed 's|^origin/||')
+
+          if [ -z "$branch_ref" ]; then
+            echo "::error::Could not determine branch name from git refs"
             exit 1
           fi
-          git checkout "$BRANCH_REF"
+
+          # Validate branch reference to prevent command injection
+          if ! git check-ref-format --branch "$branch_ref"; then
+            echo "::error::Invalid branch reference format: $branch_ref"
+            exit 1
+          fi
+
+          echo "Checking out branch: $branch_ref"
+          git checkout "$branch_ref"
+
+          # Export for next step
+          echo "VALIDATED_BRANCH=$branch_ref" >> "$GITHUB_ENV"
         else
           echo "Repository is on branch: $current_branch"
+          echo "VALIDATED_BRANCH=$current_branch" >> "$GITHUB_ENV"
         fi
 
     - name: Commit and push applied linter fixes
       uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
       if: env.APPLY_FIXES_IF_COMMIT == 'true'
       with:
-        branch: >-
-          ${{
-            github.event.pull_request.head.ref ||
-            github.head_ref ||
-            github.ref
-          }}
+        branch: ${{ env.VALIDATED_BRANCH }}
         commit_message: 'style: apply linter fixes'
         commit_user_name: ${{ inputs.username }}
         commit_user_email: ${{ inputs.email }}
