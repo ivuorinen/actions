@@ -740,7 +740,7 @@ runs:
         # This is necessary because MegaLinter may leave the repo in a detached HEAD state
         current_branch=$(git rev-parse --abbrev-ref HEAD)
         if [ "$current_branch" = "HEAD" ]; then
-          echo "Repository is in detached HEAD state"
+          printf '%s\n' "Repository is in detached HEAD state"
 
           # Get the branch name from git refs (safer than trusting event data)
           # This finds the branch that points to the current commit

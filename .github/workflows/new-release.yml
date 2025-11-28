@@ -28,12 +28,12 @@ jobs:
           set -eu
 
           VERSION="v$(date '+%Y.%m.%d')"
-          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "version=$VERSION" >> "$GITHUB_OUTPUT"
 
           # Check if release already exists
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            echo "created=false" >> "$GITHUB_OUTPUT"
-            echo "Release $VERSION already exists - skipping"
+            printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
+            printf '%s\n' "Release $VERSION already exists - skipping"
             exit 0
           fi
 
@@ -43,7 +43,7 @@ jobs:
             --generate-notes \
             --target main
 
-          echo "created=true" >> "$GITHUB_OUTPUT"
-          echo "Created release $VERSION"
+          printf '%s\n' "created=true" >> "$GITHUB_OUTPUT"
+          printf '%s\n' "Created release $VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
