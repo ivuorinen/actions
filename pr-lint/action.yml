@@ -189,8 +189,10 @@ runs:
             pnpm install --frozen-lockfile
             ;;
           "yarn")
-            # Detect Yarn version: Yarn 2+ uses .yarnrc.yml, Yarn 1.x doesn't
-            if [ -f ".yarnrc.yml" ] || [ -f ".yarnrc.yaml" ]; then
+            # Detect Yarn version by checking actual version output
+            # Yarn 2+ (Berry) uses --immutable, Yarn 1.x (Classic) uses --frozen-lockfile
+            yarn_version=$(yarn --version 2>/dev/null || printf '1.0.0')
+            if printf '%s' "$yarn_version" | grep -q '^[2-9]'; then
               # Yarn 2+ (Berry) - use --immutable
               yarn install --immutable
             else
