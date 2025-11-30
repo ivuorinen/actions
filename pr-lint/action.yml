@@ -193,11 +193,8 @@ runs:
             pnpm install --frozen-lockfile
             ;;
           "yarn")
-            if [ -f ".yarnrc.yml" ]; then
-              yarn install --immutable
-            else
-              yarn install --frozen-lockfile
-            fi
+            # Use --immutable (Yarn 2+/Berry) instead of deprecated --frozen-lockfile
+            yarn install --immutable
             ;;
           "bun")
             bun install --frozen-lockfile
