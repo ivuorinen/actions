@@ -86,13 +86,17 @@ runs:
             fi
           else
             # Fallback: check with grep if jq not available
-            if grep -q '"packageManager"' package.json 2>/dev/null; then
+            # Use robust pattern to verify non-empty value
+            if grep -q '"packageManager"[[:space:]]*:[[:space:]]*"[^"]\+"' package.json 2>/dev/null; then
               printf '%s\n' "has-package-manager=true" >> "$GITHUB_OUTPUT"
               printf '%s\n' "Found packageManager field in package.json"
             else
               printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
             fi
           fi
+        else
+          # Explicitly set has-package-manager to false when package.json doesn't exist
+          printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect Package Manager
@@ -128,18 +132,10 @@ runs:
       run: |
         set -eu
         corepack enable
-        printf '%s\n' "Corepack enabled - will use packageManager field from package.json"
-
-    - name: Install Package Manager
-      if: steps.detect-node.outputs.found == 'true' && steps.detect-node.outputs.has-package-manager == 'true'
-      shell: sh
-      run: |
-        set -eu
-        # Corepack will automatically install the package manager specified in package.json
-        printf '%s\n' "Package manager will be installed automatically by corepack"
+        printf '%s\n' "Corepack enabled - package manager will be installed automatically from package.json"
 
     - name: Install Package Manager (Fallback)
-      if: steps.detect-node.outputs.found == 'true' && steps.detect-node.outputs.has-package-manager != 'true'
+      if: steps.detect-node.outputs.found == 'true' && steps.detect-node.outputs.has-package-manager == 'false'
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
@@ -193,8 +189,14 @@ runs:
             pnpm install --frozen-lockfile
             ;;
           "yarn")
-            # Use --immutable (Yarn 2+/Berry) instead of deprecated --frozen-lockfile
-            yarn install --immutable
+            # Detect Yarn version: Yarn 2+ uses .yarnrc.yml, Yarn 1.x doesn't
+            if [ -f ".yarnrc.yml" ] || [ -f ".yarnrc.yaml" ]; then
+              # Yarn 2+ (Berry) - use --immutable
+              yarn install --immutable
+            else
+              # Yarn 1.x (Classic) - use --frozen-lockfile
+              yarn install --frozen-lockfile
+            fi
             ;;
           "bun")
             bun install --frozen-lockfile
