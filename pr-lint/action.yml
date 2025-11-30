@@ -74,6 +74,29 @@ runs:
 
         if [ -f package.json ]; then
           printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
+
+          # Check if packageManager field is set (for corepack)
+          if command -v jq >/dev/null 2>&1; then
+            has_package_manager=$(jq -r '.packageManager // empty' package.json 2>/dev/null || printf '')
+            if [ -n "$has_package_manager" ]; then
+              printf '%s\n' "has-package-manager=true" >> "$GITHUB_OUTPUT"
+              printf 'Found packageManager field: %s\n' "$has_package_manager"
+            else
+              printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            # Fallback: check with grep if jq not available
+            # Use robust pattern to verify non-empty value
+            if grep -q '"packageManager"[[:space:]]*:[[:space:]]*"[^"]\+"' package.json 2>/dev/null; then
+              printf '%s\n' "has-package-manager=true" >> "$GITHUB_OUTPUT"
+              printf '%s\n' "Found packageManager field in package.json"
+            else
+              printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+        else
+          # Explicitly set has-package-manager to false when package.json doesn't exist
+          printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect Package Manager
@@ -104,25 +127,30 @@ runs:
         node-version: '22'
 
     - name: Enable Corepack
-      if: steps.detect-node.outputs.found == 'true'
+      if: steps.detect-node.outputs.found == 'true' && steps.detect-node.outputs.has-package-manager == 'true'
       shell: sh
       run: |
         set -eu
         corepack enable
+        printf '%s\n' "Corepack enabled - package manager will be installed automatically from package.json"
 
-    - name: Install Package Manager
-      if: steps.detect-node.outputs.found == 'true'
+    - name: Install Package Manager (Fallback)
+      if: steps.detect-node.outputs.found == 'true' && steps.detect-node.outputs.has-package-manager == 'false'
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
       run: |
         set -eu
 
+        printf 'No packageManager field found, using detected package manager: %s\n' "$PACKAGE_MANAGER"
+
         case "$PACKAGE_MANAGER" in
           pnpm)
+            corepack enable
             corepack prepare pnpm@latest --activate
             ;;
           yarn)
+            corepack enable
             corepack prepare yarn@stable --activate
             ;;
           bun|npm)
@@ -161,9 +189,14 @@ runs:
             pnpm install --frozen-lockfile
             ;;
           "yarn")
-            if [ -f ".yarnrc.yml" ]; then
+            # Detect Yarn version by checking actual version output
+            # Yarn 2+ (Berry) uses --immutable, Yarn 1.x (Classic) uses --frozen-lockfile
+            yarn_version=$(yarn --version 2>/dev/null || printf '1.0.0')
+            if printf '%s' "$yarn_version" | grep -q '^[2-9]'; then
+              # Yarn 2+ (Berry) - use --immutable
               yarn install --immutable
             else
+              # Yarn 1.x (Classic) - use --frozen-lockfile
               yarn install --frozen-lockfile
             fi
             ;;
@@ -323,7 +356,7 @@ runs:
         set -eu
 
         matcher_path=$(printf '%s' "$RUNNER_TOOL_CACHE/php.json" | tr -d '\n\r')
-        echo "::add-matcher::$matcher_path"
+        printf '%s\n' "::add-matcher::$matcher_path"
 
     - name: Install PHP dependencies
       if: steps.detect-php.outputs.found == 'true'
@@ -653,8 +686,8 @@ runs:
     - name: Export Apply Fixes Variables
       shell: sh
       run: |
-        echo "APPLY_FIXES_EVENT=pull_request" >> "$GITHUB_ENV"
-        echo "APPLY_FIXES_MODE=commit" >> "$GITHUB_ENV"
+        printf '%s\n' "APPLY_FIXES_EVENT=pull_request" >> "$GITHUB_ENV"
+        printf '%s\n' "APPLY_FIXES_MODE=commit" >> "$GITHUB_ENV"
 
     # Upload MegaLinter artifacts
     - name: Archive production artifacts
@@ -747,24 +780,24 @@ runs:
           branch_ref=$(git for-each-ref --format='%(refname:short)' --points-at=HEAD 'refs/remotes/origin/*' | head -1 | sed 's|^origin/||')
 
           if [ -z "$branch_ref" ]; then
-            echo "::error::Could not determine branch name from git refs"
+            printf '%s\n' "::error::Could not determine branch name from git refs"
             exit 1
           fi
 
           # Validate branch reference to prevent command injection
           if ! git check-ref-format --branch "$branch_ref"; then
-            echo "::error::Invalid branch reference format: $branch_ref"
+            printf '%s\n' "::error::Invalid branch reference format: $branch_ref"
             exit 1
           fi
 
-          echo "Checking out branch: $branch_ref"
+          printf 'Checking out branch: %s\n' "$branch_ref"
           git checkout "$branch_ref"
 
           # Export for next step
-          echo "VALIDATED_BRANCH=$branch_ref" >> "$GITHUB_ENV"
+          printf '%s\n' "VALIDATED_BRANCH=$branch_ref" >> "$GITHUB_ENV"
         else
-          echo "Repository is on branch: $current_branch"
-          echo "VALIDATED_BRANCH=$current_branch" >> "$GITHUB_ENV"
+          printf 'Repository is on branch: %s\n' "$current_branch"
+          printf '%s\n' "VALIDATED_BRANCH=$current_branch" >> "$GITHUB_ENV"
         fi
 
     - name: Commit and push applied linter fixes
