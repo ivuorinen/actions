@@ -15,24 +15,24 @@ branding:
 
 inputs:
   token:
-    description: "GitHub token for authentication"
+    description: 'GitHub token for authentication'
     required: false
-    default: ""
+    default: ''
   username:
-    description: "GitHub username for commits"
+    description: 'GitHub username for commits'
     required: false
-    default: "github-actions"
+    default: 'github-actions'
   email:
-    description: "GitHub email for commits"
+    description: 'GitHub email for commits'
     required: false
-    default: "github-actions@github.com"
+    default: 'github-actions@github.com'
 
 outputs:
   validation_status:
-    description: "Overall validation status (success/failure)"
+    description: 'Overall validation status (success/failure)'
     value: ${{ steps.ml.outputs.has_updated_sources == '1' && 'failure' || 'success' }}
   errors_found:
-    description: "Number of linting errors found"
+    description: 'Number of linting errors found'
     value: ${{ steps.ml.outputs.has_updated_sources }}
 
 runs:
@@ -120,7 +120,7 @@ runs:
       if: steps.detect-node.outputs.found == 'true'
       uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
       with:
-        node-version: "24"
+        node-version: '24'
 
     - name: Enable Corepack
       if: steps.detect-node.outputs.found == 'true' && steps.detect-node.outputs.has-package-manager == 'true'
@@ -222,7 +222,7 @@ runs:
       id: php-version
       shell: sh
       env:
-        DEFAULT_VERSION: "8.4"
+        DEFAULT_VERSION: '8.4'
       run: |
         set -eu
 
@@ -378,7 +378,7 @@ runs:
       id: python-version
       shell: sh
       env:
-        DEFAULT_VERSION: "3.14"
+        DEFAULT_VERSION: '3.14'
       run: |
         set -eu
 
@@ -489,7 +489,7 @@ runs:
       uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548 # v6.1.0
       with:
         python-version: ${{ steps.python-version.outputs.detected-version }}
-        cache: "pip"
+        cache: 'pip'
 
     - name: Install Python dependencies
       if: steps.detect-python.outputs.found == 'true'
@@ -515,7 +515,7 @@ runs:
       id: go-version
       shell: sh
       env:
-        DEFAULT_VERSION: "1.25"
+        DEFAULT_VERSION: '1.25'
       run: |
         set -eu
 
@@ -680,7 +680,7 @@ runs:
       uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5.0.0
       with:
         name: MegaLinter reports
-        include-hidden-files: "true"
+        include-hidden-files: 'true'
         path: |
           megalinter-reports
           mega-linter.log
