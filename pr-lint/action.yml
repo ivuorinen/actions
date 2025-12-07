@@ -57,10 +57,6 @@ runs:
         ref: ${{ github.event.pull_request.head.sha || github.sha }}
         persist-credentials: false
 
-        # If you use VALIDATE_ALL_CODEBASE = true, you can remove this line to
-        # improve performance
-        fetch-depth: 0
-
     #   ╭──────────────────────────────────────────────────────────╮
     #   │               Install packages for linting               │
     #   ╰──────────────────────────────────────────────────────────╯
@@ -122,7 +118,7 @@ runs:
 
     - name: Setup Node.js
       if: steps.detect-node.outputs.found == 'true'
-      uses: actions/setup-node@2028fbc5c25fe9cf00d9f06a71cc4710d4507903 # v6.0.0
+      uses: actions/setup-node@395ad3262231945c25e8478fd5baf05154b1d79f # v6.1.0
       with:
         node-version: '24'
 
@@ -382,7 +378,7 @@ runs:
       id: python-version
       shell: sh
       env:
-        DEFAULT_VERSION: '3.11'
+        DEFAULT_VERSION: '3.14'
       run: |
         set -eu
 
@@ -519,7 +515,7 @@ runs:
       id: go-version
       shell: sh
       env:
-        DEFAULT_VERSION: '1.24'
+        DEFAULT_VERSION: '1.25'
       run: |
         set -eu
 
@@ -654,11 +650,7 @@ runs:
         #     github.event_name == 'push' &&
         #     contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
         #   }}
-        VALIDATE_ALL_CODEBASE: >-
-          ${{
-            github.event_name == 'push' &&
-            contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)
-          }}
+        VALIDATE_ALL_CODEBASE: false
 
         GITHUB_TOKEN: ${{ inputs.token || github.token }}
 
@@ -682,13 +674,6 @@ runs:
         # Uncomment to disable copy-paste and spell checks
         DISABLE: COPYPASTE,SPELL
 
-    # Export env vars to make them available for subsequent expressions
-    - name: Export Apply Fixes Variables
-      shell: sh
-      run: |
-        printf '%s\n' "APPLY_FIXES_EVENT=pull_request" >> "$GITHUB_ENV"
-        printf '%s\n' "APPLY_FIXES_MODE=commit" >> "$GITHUB_ENV"
-
     # Upload MegaLinter artifacts
     - name: Archive production artifacts
       if: success() || failure()
@@ -699,112 +684,3 @@ runs:
         path: |
           megalinter-reports
           mega-linter.log
-
-    # Set APPLY_FIXES_IF var for use in future steps
-    - name: Set APPLY_FIXES_IF var
-      shell: sh
-      env:
-        APPLY_FIXES_CONDITION: >-
-          ${{
-            steps.ml.outputs.has_updated_sources == 1 &&
-            (env.APPLY_FIXES_EVENT == 'all' || env.APPLY_FIXES_EVENT == github.event_name) &&
-            (github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository)
-          }}
-      run: |
-        set -eu
-
-        # Sanitize by removing newlines to prevent env var injection
-        sanitized_condition="$(echo "$APPLY_FIXES_CONDITION" | tr -d '\n\r')"
-        printf 'APPLY_FIXES_IF=%s\n' "$sanitized_condition" >> "${GITHUB_ENV}"
-
-    # Set APPLY_FIXES_IF_* vars for use in future steps
-    - name: Set APPLY_FIXES_IF_* vars
-      shell: sh
-      env:
-        APPLY_FIXES_IF_PR_CONDITION: ${{ env.APPLY_FIXES_IF == 'true' && env.APPLY_FIXES_MODE == 'pull_request' }}
-        APPLY_FIXES_IF_COMMIT_CONDITION: ${{ env.APPLY_FIXES_IF == 'true' && env.APPLY_FIXES_MODE == 'commit' && (!contains(fromJSON('["refs/heads/main", "refs/heads/master"]'), github.ref)) }}
-      run: |
-        set -eu
-
-        # Sanitize by removing newlines to prevent env var injection
-        sanitized_pr="$(echo "$APPLY_FIXES_IF_PR_CONDITION" | tr -d '\n\r')"
-        sanitized_commit="$(echo "$APPLY_FIXES_IF_COMMIT_CONDITION" | tr -d '\n\r')"
-
-        printf 'APPLY_FIXES_IF_PR=%s\n' "$sanitized_pr" >> "${GITHUB_ENV}"
-        printf 'APPLY_FIXES_IF_COMMIT=%s\n' "$sanitized_commit" >> "${GITHUB_ENV}"
-
-    # Create pull request if applicable
-    # (for now works only on PR from same repository, not from forks)
-    - name: Create Pull Request with applied fixes
-      uses: peter-evans/create-pull-request@84ae59a2cdc2258d6fa0732dd66352dddae2a412 # v7.0.9
-      id: cpr
-      if: env.APPLY_FIXES_IF_PR == 'true'
-      with:
-        token: ${{ inputs.token || github.token }}
-        commit-message: 'style: apply linter fixes'
-        title: 'style: apply linter fixes'
-        labels: bot
-
-    - name: Create PR output
-      if: env.APPLY_FIXES_IF_PR == 'true'
-      shell: sh
-      env:
-        PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
-        PR_URL: ${{ steps.cpr.outputs.pull-request-url }}
-      run: |
-        set -eu
-
-        printf 'PR Number - %s\n' "$PR_NUMBER"
-        printf 'PR URL - %s\n' "$PR_URL"
-
-    # Push new commit if applicable
-    # (for now works only on PR from same repository, not from forks)
-    - name: Prepare commit
-      if: env.APPLY_FIXES_IF_COMMIT == 'true'
-      shell: sh
-      run: |
-        set -eu
-
-        # Fix .git directory ownership after MegaLinter container execution
-        current_uid=$(id -u)
-        sudo chown -Rc "$current_uid" .git/
-
-        # Ensure we're on the correct branch (not in detached HEAD state)
-        # This is necessary because MegaLinter may leave the repo in a detached HEAD state
-        current_branch=$(git rev-parse --abbrev-ref HEAD)
-        if [ "$current_branch" = "HEAD" ]; then
-          printf '%s\n' "Repository is in detached HEAD state"
-
-          # Get the branch name from git refs (safer than trusting event data)
-          # This finds the branch that points to the current commit
-          branch_ref=$(git for-each-ref --format='%(refname:short)' --points-at=HEAD 'refs/remotes/origin/*' | head -1 | sed 's|^origin/||')
-
-          if [ -z "$branch_ref" ]; then
-            printf '%s\n' "::error::Could not determine branch name from git refs"
-            exit 1
-          fi
-
-          # Validate branch reference to prevent command injection
-          if ! git check-ref-format --branch "$branch_ref"; then
-            printf '%s\n' "::error::Invalid branch reference format: $branch_ref"
-            exit 1
-          fi
-
-          printf 'Checking out branch: %s\n' "$branch_ref"
-          git checkout "$branch_ref"
-
-          # Export for next step
-          printf '%s\n' "VALIDATED_BRANCH=$branch_ref" >> "$GITHUB_ENV"
-        else
-          printf 'Repository is on branch: %s\n' "$current_branch"
-          printf '%s\n' "VALIDATED_BRANCH=$current_branch" >> "$GITHUB_ENV"
-        fi
-
-    - name: Commit and push applied linter fixes
-      uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
-      if: env.APPLY_FIXES_IF_COMMIT == 'true'
-      with:
-        branch: ${{ env.VALIDATED_BRANCH }}
-        commit_message: 'style: apply linter fixes'
-        commit_user_name: ${{ inputs.username }}
-        commit_user_email: ${{ inputs.email }}

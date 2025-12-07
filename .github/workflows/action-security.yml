@@ -48,7 +48,7 @@ jobs:
 
       - name: Notify on Critical Issues
         if: failure() && steps.security-scan.outputs.critical_issues != '0'
-        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |-
             const { repo, owner } = context.repo;
