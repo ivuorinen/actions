@@ -3,138 +3,138 @@
 #   - (none required)  # Build action, publishing handled by separate actions
 ---
 name: Docker Build
-description: 'Builds a Docker image for multiple architectures with enhanced security and reliability.'
-author: 'Ismo Vuorinen'
+description: "Builds a Docker image for multiple architectures with enhanced security and reliability."
+author: "Ismo Vuorinen"
 
 branding:
-  icon: 'package'
-  color: 'blue'
+  icon: "package"
+  color: "blue"
 
 inputs:
   image-name:
-    description: 'The name of the Docker image to build. Defaults to the repository name.'
+    description: "The name of the Docker image to build. Defaults to the repository name."
     required: false
   tag:
-    description: 'The tag for the Docker image. Must follow semver or valid Docker tag format.'
+    description: "The tag for the Docker image. Must follow semver or valid Docker tag format."
     required: true
   architectures:
-    description: 'Comma-separated list of architectures to build for.'
+    description: "Comma-separated list of architectures to build for."
     required: false
-    default: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
+    default: "linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6"
   dockerfile:
-    description: 'Path to the Dockerfile'
+    description: "Path to the Dockerfile"
     required: false
-    default: 'Dockerfile'
+    default: "Dockerfile"
   context:
-    description: 'Docker build context'
+    description: "Docker build context"
     required: false
-    default: '.'
+    default: "."
   build-args:
-    description: 'Build arguments in format KEY=VALUE,KEY2=VALUE2'
+    description: "Build arguments in format KEY=VALUE,KEY2=VALUE2"
     required: false
   cache-from:
-    description: 'External cache sources (e.g., type=registry,ref=user/app:cache)'
+    description: "External cache sources (e.g., type=registry,ref=user/app:cache)"
     required: false
   push:
-    description: 'Whether to push the image after building'
+    description: "Whether to push the image after building"
     required: false
-    default: 'true'
+    default: "true"
   max-retries:
-    description: 'Maximum number of retry attempts for build and push operations'
+    description: "Maximum number of retry attempts for build and push operations"
     required: false
-    default: '3'
+    default: "3"
   token:
-    description: 'GitHub token for authentication'
+    description: "GitHub token for authentication"
     required: false
-    default: ''
+    default: ""
   buildx-version:
-    description: 'Specific Docker Buildx version to use'
+    description: "Specific Docker Buildx version to use"
     required: false
-    default: 'latest'
+    default: "latest"
   buildkit-version:
-    description: 'Specific BuildKit version to use'
+    description: "Specific BuildKit version to use"
     required: false
-    default: 'v0.11.0'
+    default: "v0.11.0"
   cache-mode:
-    description: 'Cache mode for build layers (min, max, or inline)'
+    description: "Cache mode for build layers (min, max, or inline)"
     required: false
-    default: 'max'
+    default: "max"
   build-contexts:
-    description: 'Additional build contexts in format name=path,name2=path2'
+    description: "Additional build contexts in format name=path,name2=path2"
     required: false
   network:
-    description: 'Network mode for build (host, none, or default)'
+    description: "Network mode for build (host, none, or default)"
     required: false
-    default: 'default'
+    default: "default"
   secrets:
-    description: 'Build secrets in format id=path,id2=path2'
+    description: "Build secrets in format id=path,id2=path2"
     required: false
   auto-detect-platforms:
-    description: 'Automatically detect and build for all available platforms'
+    description: "Automatically detect and build for all available platforms"
     required: false
-    default: 'false'
+    default: "false"
   platform-build-args:
-    description: 'Platform-specific build args in JSON format'
+    description: "Platform-specific build args in JSON format"
     required: false
   parallel-builds:
-    description: 'Number of parallel platform builds (0 for auto)'
+    description: "Number of parallel platform builds (0 for auto)"
     required: false
-    default: '0'
+    default: "0"
   cache-export:
-    description: 'Export cache destination (e.g., type=local,dest=/tmp/cache)'
+    description: "Export cache destination (e.g., type=local,dest=/tmp/cache)"
     required: false
   cache-import:
-    description: 'Import cache sources (e.g., type=local,src=/tmp/cache)'
+    description: "Import cache sources (e.g., type=local,src=/tmp/cache)"
     required: false
   dry-run:
-    description: 'Perform a dry run without actually building'
+    description: "Perform a dry run without actually building"
     required: false
-    default: 'false'
+    default: "false"
   verbose:
-    description: 'Enable verbose logging with platform-specific output'
+    description: "Enable verbose logging with platform-specific output"
     required: false
-    default: 'false'
+    default: "false"
   platform-fallback:
-    description: 'Continue building other platforms if one fails'
+    description: "Continue building other platforms if one fails"
     required: false
-    default: 'true'
+    default: "true"
   scan-image:
-    description: 'Scan built image for vulnerabilities'
+    description: "Scan built image for vulnerabilities"
     required: false
-    default: 'false'
+    default: "false"
   sign-image:
-    description: 'Sign the built image with cosign'
+    description: "Sign the built image with cosign"
     required: false
-    default: 'false'
+    default: "false"
   sbom-format:
-    description: 'SBOM format (spdx-json, cyclonedx-json, or syft-json)'
+    description: "SBOM format (spdx-json, cyclonedx-json, or syft-json)"
     required: false
-    default: 'spdx-json'
+    default: "spdx-json"
 
 outputs:
   image-digest:
-    description: 'The digest of the built image'
+    description: "The digest of the built image"
     value: ${{ steps.build.outputs.digest }}
   metadata:
-    description: 'Build metadata in JSON format'
+    description: "Build metadata in JSON format"
     value: ${{ steps.build.outputs.metadata }}
   platforms:
-    description: 'Successfully built platforms'
+    description: "Successfully built platforms"
     value: ${{ steps.detect-platforms.outputs.platforms }}
   platform-matrix:
-    description: 'Build status per platform in JSON format'
+    description: "Build status per platform in JSON format"
     value: ${{ steps.build.outputs.platform-matrix }}
   build-time:
-    description: 'Total build time in seconds'
+    description: "Total build time in seconds"
     value: ${{ steps.build.outputs.build-time }}
   scan-results:
-    description: 'Vulnerability scan results if scanning enabled'
+    description: "Vulnerability scan results if scanning enabled"
     value: ${{ steps.scan-output.outputs.results }}
   signature:
-    description: 'Image signature if signing enabled'
+    description: "Image signature if signing enabled"
     value: ${{ steps.sign.outputs.signature }}
   sbom-location:
-    description: 'SBOM document location'
+    description: "SBOM document location"
     value: ${{ steps.build.outputs.sbom-location }}
 
 runs:
@@ -149,7 +149,7 @@ runs:
       id: validate
       uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
       with:
-        action-type: 'docker-build'
+        action-type: "docker-build"
         image-name: ${{ inputs.image-name }}
         tag: ${{ inputs.tag }}
         architectures: ${{ inputs.architectures }}
@@ -538,11 +538,11 @@ runs:
       if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
       uses: aquasecurity/trivy-action@b6643a29fecd7f34b3597bc6acb0a98b03d33ff8 # 0.33.1
       with:
-        scan-type: 'image'
+        scan-type: "image"
         image-ref: ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
-        format: 'json'
-        output: 'trivy-results.json'
-        severity: 'HIGH,CRITICAL'
+        format: "json"
+        output: "trivy-results.json"
+        severity: "HIGH,CRITICAL"
 
     - name: Process Scan Results
       id: scan-output
@@ -563,7 +563,7 @@ runs:
 
     - name: Install Cosign
       if: inputs.sign-image == 'true' && inputs.push == 'true' && inputs.dry-run != 'true'
-      uses: sigstore/cosign-installer@7e8b541eb2e61bf99390e1afd4be13a184e9ebc5 # v3.10.1
+      uses: sigstore/cosign-installer@faadad0cce49287aee09b3a48701e75088a2c6ad # v4.0.0
 
     - name: Sign Image
       id: sign
