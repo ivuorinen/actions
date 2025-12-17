@@ -163,7 +163,7 @@ runs:
     - name: Cache Node Dependencies
       if: steps.detect-node.outputs.found == 'true'
       id: node-cache
-      uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+      uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
       with:
         path: node_modules
         key: ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
