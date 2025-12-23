@@ -895,7 +895,7 @@ optional_inputs:
             self.validator._validate_multi_value_enum("test", "input", valid_values=["only_one"])
             raise AssertionError("Should raise ValueError for single value")
         except ValueError as e:
-            assert "at least 2 valid values" in str(e)
+            assert ">= 2 values" in str(e)
 
         # Should raise ValueError if more than max_values
         try:
@@ -906,7 +906,7 @@ optional_inputs:
             )
             raise AssertionError("Should raise ValueError for 11 values")
         except ValueError as e:
-            assert "at most 10 valid values" in str(e)
+            assert "<= 10 values" in str(e)
 
     def test_validate_exit_code_list_valid(self):
         """Test exit code list validation with valid values."""

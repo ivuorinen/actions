@@ -11,6 +11,7 @@ This validator handles Docker publish-specific validation including:
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sys
 
 # Add validate-inputs directory to path to import validators
@@ -58,12 +59,9 @@ class CustomValidator(BaseValidator):
 
         # Validate platforms
         if inputs.get("platforms"):
-            result = self.docker_validator.validate_architectures(inputs["platforms"], "platforms")
-            for error in self.docker_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.docker_validator.clear_errors()
-            valid &= result
+            valid &= self.validate_with(
+                self.docker_validator, "validate_architectures", inputs["platforms"], "platforms"
+            )
 
         # Validate boolean flags
         for bool_input in [
@@ -74,18 +72,18 @@ class CustomValidator(BaseValidator):
             "verbose",
         ]:
             if inputs.get(bool_input):
-                result = self.boolean_validator.validate_optional_boolean(
-                    inputs[bool_input], bool_input
+                valid &= self.validate_with(
+                    self.boolean_validator,
+                    "validate_optional_boolean",
+                    inputs[bool_input],
+                    bool_input,
                 )
-                for error in self.boolean_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.boolean_validator.clear_errors()
-                valid &= result
 
         # Validate cache-mode
         if inputs.get("cache-mode"):
-            valid &= self.validate_cache_mode(inputs["cache-mode"])
+            valid &= self.validate_enum(
+                inputs["cache-mode"], "cache-mode", ["min", "max", "inline"]
+            )
 
         # Validate buildx-version
         if inputs.get("buildx-version"):
@@ -96,24 +94,18 @@ class CustomValidator(BaseValidator):
             valid &= self.validate_username(inputs["dockerhub-username"])
 
         if inputs.get("dockerhub-password"):
-            # Use token validator for password/token
-            result = self.token_validator.validate_docker_token(
-                inputs["dockerhub-password"], "dockerhub-password"
+            valid &= self.validate_with(
+                self.token_validator,
+                "validate_docker_token",
+                inputs["dockerhub-password"],
+                "dockerhub-password",
             )
-            for error in self.token_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.token_validator.clear_errors()
-            valid &= result
 
         # Validate github-token
         if inputs.get("github-token"):
-            result = self.token_validator.validate_github_token(inputs["github-token"])
-            for error in self.token_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.token_validator.clear_errors()
-            valid &= result
+            valid &= self.validate_with(
+                self.token_validator, "validate_github_token", inputs["github-token"]
+            )
 
         return valid
 
@@ -156,40 +148,7 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
-        if self.is_github_expression(registry):
-            return True
-
-        # Valid registry values according to action description
-        valid_registries = ["dockerhub", "github", "both"]
-        if registry.lower() not in valid_registries:
-            self.add_error(
-                f"Invalid registry: {registry}. Must be one of: dockerhub, github, or both"
-            )
-            return False
-
-        return True
-
-    def validate_cache_mode(self, cache_mode: str) -> bool:
-        """Validate cache mode.
-
-        Args:
-            cache_mode: Cache mode value
-
-        Returns:
-            True if valid, False otherwise
-        """
-        # Allow GitHub Actions expressions
-        if self.is_github_expression(cache_mode):
-            return True
-
-        # Valid cache modes
-        valid_modes = ["min", "max", "inline"]
-        if cache_mode.lower() not in valid_modes:
-            self.add_error(f"Invalid cache-mode: {cache_mode}. Must be one of: min, max, inline")
-            return False
-
-        return True
+        return self.validate_enum(registry, "registry", ["dockerhub", "github", "both"])
 
     def validate_buildx_version(self, version: str) -> bool:
         """Validate buildx version.
@@ -213,8 +172,6 @@ class CustomValidator(BaseValidator):
             return False
 
         # Basic version format validation
-        import re
-
         if not re.match(r"^v?\d+\.\d+(\.\d+)?$", version):
             self.add_error(f"Invalid buildx-version format: {version}")
             return False
@@ -244,8 +201,6 @@ class CustomValidator(BaseValidator):
             return False
 
         # Docker Hub username rules: lowercase letters, digits, periods, hyphens, underscores
-        import re
-
         if not re.match(r"^[a-z0-9._-]+$", username.lower()):
             self.add_error(f"Invalid Docker Hub username format: {username}")
             return False

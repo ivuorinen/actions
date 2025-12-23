@@ -30,54 +30,32 @@ class CustomValidator(BaseValidator):
         """Validate terraform-lint-fix action inputs."""
         valid = True
 
-        # Validate terraform-version if provided
-        if "terraform-version" in inputs:
-            value = inputs["terraform-version"]
+        # Validate terraform-version if provided (empty is OK - uses default)
+        if inputs.get("terraform-version"):
+            valid &= self.validate_with(
+                self.version_validator,
+                "validate_terraform_version",
+                inputs["terraform-version"],
+                "terraform-version",
+            )
 
-            # Empty string is OK - uses default
-            if value == "":
-                pass  # Allow empty, will use default
-            elif value:
-                result = self.version_validator.validate_terraform_version(
-                    value, "terraform-version"
-                )
-
-                # Propagate errors from the version validator
-                for error in self.version_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-
-                self.version_validator.clear_errors()
-
-                if not result:
-                    valid = False
-
-        # Validate token if provided
-        if "token" in inputs:
-            value = inputs["token"]
-            if value == "":
-                # Empty token is OK - uses default
-                pass
-            elif value:
-                result = self.token_validator.validate_github_token(value, required=False)
-                for error in self.token_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.token_validator.clear_errors()
-                if not result:
-                    valid = False
+        # Validate token if provided (empty is OK - uses default)
+        if inputs.get("token"):
+            valid &= self.validate_with(
+                self.token_validator,
+                "validate_github_token",
+                inputs["token"],
+                required=False,
+            )
 
         # Validate working-directory if provided
-        if "working-directory" in inputs:
-            value = inputs["working-directory"]
-            if value:
-                result = self.file_validator.validate_file_path(value, "working-directory")
-                for error in self.file_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.file_validator.clear_errors()
-                if not result:
-                    valid = False
+        if inputs.get("working-directory"):
+            valid &= self.validate_with(
+                self.file_validator,
+                "validate_file_path",
+                inputs["working-directory"],
+                "working-directory",
+            )
 
         return valid
 

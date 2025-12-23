@@ -78,16 +78,9 @@ class CustomValidator(BaseValidator):
 
         # Validate token if provided
         if "token" in inputs:
-            token_valid = self.token_validator.validate_github_token(
-                inputs["token"],
-                required=False,  # Token is optional, defaults to ${{ github.token }}
+            valid &= self.validate_with(
+                self.token_validator, "validate_github_token", inputs["token"], required=False
             )
-            # Copy any errors from token validator
-            for error in self.token_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.token_validator.clear_errors()
-            valid &= token_valid
 
         return valid
 
@@ -100,27 +93,15 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
         if self.is_github_expression(path):
             return True
 
-        # First check basic file path security
-        result = self.file_validator.validate_file_path(path, "labels")
-        # Copy any errors from file validator
-        for error in self.file_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.file_validator.clear_errors()
-
+        result = self.validate_with(self.file_validator, "validate_file_path", path, "labels")
         if not result:
             return False
 
-        # Check file extension
         if not (path.endswith(".yml") or path.endswith(".yaml")):
             self.add_error(f'Invalid labels file: "{path}". Must be a .yml or .yaml file')
             return False
-
-        # Additional custom validation could go here
-        # For example, checking if the file exists, validating YAML structure, etc.
 
         return True

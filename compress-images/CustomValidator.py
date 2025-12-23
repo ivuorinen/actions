@@ -36,47 +36,35 @@ class CustomValidator(BaseValidator):
 
         # Validate optional inputs
         if inputs.get("image-quality"):
-            result = self.numeric_validator.validate_numeric_range(
-                inputs["image-quality"], min_val=0, max_val=100
+            valid &= self.validate_with(
+                self.numeric_validator,
+                "validate_numeric_range",
+                inputs["image-quality"],
+                min_val=0,
+                max_val=100,
             )
-            for error in self.numeric_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.numeric_validator.clear_errors()
-            if not result:
-                valid = False
 
         if inputs.get("png-quality"):
-            result = self.numeric_validator.validate_numeric_range(
-                inputs["png-quality"], min_val=0, max_val=100
+            valid &= self.validate_with(
+                self.numeric_validator,
+                "validate_numeric_range",
+                inputs["png-quality"],
+                min_val=0,
+                max_val=100,
             )
-            for error in self.numeric_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.numeric_validator.clear_errors()
-            if not result:
-                valid = False
 
         if inputs.get("directory"):
-            result = self.file_validator.validate_file_path(inputs["directory"], "directory")
-            for error in self.file_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.file_validator.clear_errors()
-            if not result:
-                valid = False
+            valid &= self.validate_with(
+                self.file_validator, "validate_file_path", inputs["directory"], "directory"
+            )
 
         if inputs.get("ignore-paths"):
-            # Validate for injection
-            result = self.security_validator.validate_no_injection(
-                inputs["ignore-paths"], "ignore-paths"
+            valid &= self.validate_with(
+                self.security_validator,
+                "validate_no_injection",
+                inputs["ignore-paths"],
+                "ignore-paths",
             )
-            for error in self.security_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.security_validator.clear_errors()
-            if not result:
-                valid = False
 
         return valid
 

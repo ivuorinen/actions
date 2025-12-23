@@ -21,6 +21,9 @@ import sys
 
 import yaml  # pylint: disable=import-error
 
+# Default value for unknown action names (matches shared.validation_core.DEFAULT_UNKNOWN)
+_DEFAULT_UNKNOWN = "Unknown"
+
 
 class ActionValidator:
     """Handles validation of GitHub Action inputs using Python regex engine."""
@@ -86,7 +89,7 @@ class ActionValidator:
             return True, ""
 
         # Check for environment variable reference (e.g., $GITHUB_TOKEN)
-        if re.match(r"^\$[A-Za-z_][A-Za-z0-9_]*$", token):
+        if re.match(r"^\$[A-Za-z_]\w*$", token, re.ASCII):
             return True, ""
 
         # Check against all known token patterns
@@ -330,16 +333,16 @@ def get_action_name(action_file: str) -> str:
         action_file: Path to the action.yml file
 
     Returns:
-        Action name or "Unknown" if not found
+        Action name or _DEFAULT_UNKNOWN if not found
     """
     try:
         with Path(action_file).open(encoding="utf-8") as f:
             data = yaml.safe_load(f)
 
-        return data.get("name", "Unknown")
+        return data.get("name", _DEFAULT_UNKNOWN)
 
     except Exception:
-        return "Unknown"
+        return _DEFAULT_UNKNOWN
 
 
 def _show_usage():
