@@ -122,7 +122,7 @@ runs:
 
     - name: Commit Fixes
       if: steps.check-files.outputs.files_found == 'true'
-      uses: stefanzweifel/git-auto-commit-action@28e16e81777b558cc906c8750092100bbb34c5e3 # v7.0.0
+      uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0
       with:
         commit_message: 'style: apply ansible lint fixes'
         commit_user_name: ${{ inputs.username }}
