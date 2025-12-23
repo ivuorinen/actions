@@ -659,8 +659,6 @@ class ConventionBasedValidator(BaseValidator):
             ... )
             True
         """
-        import re
-
         if not value or value.strip() == "":
             return True  # Optional
 
@@ -1027,8 +1025,6 @@ class ConventionBasedValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        import re
-
         if not value or value.strip() == "":
             return True  # Optional
 
@@ -1126,8 +1122,6 @@ class ConventionBasedValidator(BaseValidator):
             Valid: "0", "0,1,2", "5,10,15", "0,130", ""
             Invalid: "256", "0,256", "-1", "0,abc", "0,,1"
         """
-        import re
-
         if not value or value.strip() == "":
             return True  # Optional
 
@@ -1264,8 +1258,6 @@ class ConventionBasedValidator(BaseValidator):
         Returns:
             bool: True if valid, False otherwise
         """
-        import re
-
         if not value or value.strip() == "":
             return True  # Optional
 
@@ -1416,8 +1408,6 @@ class ConventionBasedValidator(BaseValidator):
         Returns:
             bool: True if valid, False otherwise
         """
-        import re
-
         if not value or value.strip() == "":
             return True  # Optional
 

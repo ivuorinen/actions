@@ -34,10 +34,10 @@ class CustomValidator(BaseValidator):
         version_key = self.get_key_variant(inputs, "python-version", "python_version")
         if version_key:
             value = inputs[version_key]
-            if value == "":
+            if not value:
                 self.add_error("Python version cannot be empty")
                 valid = False
-            elif value:
+            else:
                 valid &= self.validate_with(
                     self.version_validator, "validate_python_version", value, version_key
                 )

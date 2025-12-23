@@ -12,7 +12,6 @@ This validator handles complex Docker build validation including:
 from __future__ import annotations
 
 from pathlib import Path
-import re
 import sys
 
 # Add validate-inputs directory to path to import validators
@@ -105,12 +104,23 @@ class CustomValidator(BaseValidator):
         # Validate cache-mode
         if inputs.get("cache-mode"):
             valid &= self.validate_enum(
-                inputs["cache-mode"], "cache-mode", ["min", "max", "inline"]
+                inputs["cache-mode"],
+                "cache-mode",
+                ["min", "max", "inline"],
+                case_sensitive=True,
             )
 
         # Validate buildx-version
         if inputs.get("buildx-version"):
-            valid &= self.validate_buildx_version(inputs["buildx-version"])
+            version = inputs["buildx-version"]
+            # Allow 'latest' as special value
+            if version != "latest" and not self.is_github_expression(version):
+                valid &= self.validate_with(
+                    self.version_validator,
+                    "validate_semantic_version",
+                    version,
+                    "buildx-version",
+                )
 
         # Validate parallel-builds
         if inputs.get("parallel-builds"):
@@ -143,7 +153,10 @@ class CustomValidator(BaseValidator):
         # Validate sbom-format
         if inputs.get("sbom-format"):
             valid &= self.validate_enum(
-                inputs["sbom-format"], "sbom-format", ["spdx-json", "cyclonedx-json", "syft-json"]
+                inputs["sbom-format"],
+                "sbom-format",
+                ["spdx-json", "cyclonedx-json", "syft-json"],
+                case_sensitive=True,
             )
 
         # Validate max-retries
@@ -327,31 +340,3 @@ class CustomValidator(BaseValidator):
 
         # Check for security issues
         return self.validate_security_patterns(cache_to, "cache-to")
-
-    def validate_buildx_version(self, version: str) -> bool:
-        """Validate buildx version.
-
-        Args:
-            version: Buildx version
-
-        Returns:
-            True if valid, False otherwise
-        """
-        # Allow GitHub Actions expressions
-        if self.is_github_expression(version):
-            return True
-
-        # Allow 'latest'
-        if version == "latest":
-            return True
-
-        # Check for security issues (semicolon injection etc)
-        if not self.validate_security_patterns(version, "buildx-version"):
-            return False
-
-        # Basic version format validation (e.g., 0.12.0, v0.12.0)
-        if not re.match(r"^v?\d+\.\d+(\.\d+)?$", version):
-            self.add_error(f"Invalid buildx-version format: {version}")
-            return False
-
-        return True
