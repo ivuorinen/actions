@@ -25,6 +25,9 @@ from typing import Any
 
 import yaml  # pylint: disable=import-error
 
+# Default value for unknown items (used by ActionFileParser)
+DEFAULT_UNKNOWN = "Unknown"
+
 
 class ValidationCore:
     """Core validation functionality with standardized patterns and functions."""
@@ -497,9 +500,9 @@ class ActionFileParser:
         """Get the action name from an action.yml file."""
         try:
             data = ActionFileParser.load_action_file(action_file)
-            return data.get("name", "Unknown")
+            return data.get("name", DEFAULT_UNKNOWN)
         except (OSError, ValueError, yaml.YAMLError, AttributeError):
-            return "Unknown"
+            return DEFAULT_UNKNOWN
 
     @staticmethod
     def get_action_inputs(action_file: str) -> list[str]:

@@ -33,59 +33,31 @@ class CustomValidator(BaseValidator):
         # Validate token (optional)
         if inputs.get("token"):
             token = inputs["token"]
-            result = self.token_validator.validate_github_token(token)
-            for error in self.token_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.token_validator.clear_errors()
-            if not result:
-                valid = False
-
+            valid &= self.validate_with(self.token_validator, "validate_github_token", token)
             # Also check for variable expansion
             if not self.is_github_expression(token):
-                result = self.security_validator.validate_no_injection(token, "token")
-                for error in self.security_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.security_validator.clear_errors()
-                if not result:
-                    valid = False
+                valid &= self.validate_with(
+                    self.security_validator, "validate_no_injection", token, "token"
+                )
 
         # Validate email (optional, empty means use default)
-        if "email" in inputs and inputs["email"] and inputs["email"] != "":
+        if inputs.get("email"):
             email = inputs["email"]
-            result = self.network_validator.validate_email(email, "email")
-            for error in self.network_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.network_validator.clear_errors()
-            if not result:
-                valid = False
-
+            valid &= self.validate_with(self.network_validator, "validate_email", email, "email")
             # Also check for shell metacharacters (but allow @ and .)
             if not self.is_github_expression(email):
-                # Only check for dangerous shell metacharacters, not @ or .
                 dangerous_chars = [";", "&", "|", "`", "$", "(", ")", "<", ">", "\n", "\r"]
-                for char in dangerous_chars:
-                    if char in email:
-                        self.add_error(f"email: Contains dangerous character '{char}'")
-                        valid = False
-                        break
+                if any(char in email for char in dangerous_chars):
+                    self.add_error("email: Contains dangerous shell metacharacter")
+                    valid = False
 
         # Validate username (optional)
         if inputs.get("username"):
             username = inputs["username"]
             if not self.is_github_expression(username):
-                # Check for injection
-                result = self.security_validator.validate_no_injection(username, "username")
-                for error in self.security_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.security_validator.clear_errors()
-                if not result:
-                    valid = False
-
-                # Check username length (GitHub usernames are max 39 characters)
+                valid &= self.validate_with(
+                    self.security_validator, "validate_no_injection", username, "username"
+                )
                 if len(username) > 39:
                     self.add_error("Username is too long (max 39 characters)")
                     valid = False

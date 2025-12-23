@@ -227,3 +227,82 @@ class BaseValidator(ABC):
             or ("${{" in value and "}}" in value)
             or (value.strip().startswith("${{") and value.strip().endswith("}}"))
         )
+
+    def propagate_errors(self, validator: BaseValidator, result: bool) -> bool:
+        """Copy errors from another validator and return result.
+
+        Args:
+            validator: The validator to copy errors from
+            result: The validation result to return
+
+        Returns:
+            The result parameter unchanged
+        """
+        for error in validator.errors:
+            if error not in self.errors:
+                self.add_error(error)
+        validator.clear_errors()
+        return result
+
+    def validate_with(
+        self, validator: BaseValidator, method: str, *args: Any, **kwargs: Any
+    ) -> bool:
+        """Call validator method and propagate errors.
+
+        Args:
+            validator: The validator instance to use
+            method: The method name to call on the validator
+            *args: Positional arguments to pass to the method
+            **kwargs: Keyword arguments to pass to the method
+
+        Returns:
+            The validation result
+        """
+        result = getattr(validator, method)(*args, **kwargs)
+        return self.propagate_errors(validator, result)
+
+    def validate_enum(
+        self,
+        value: str,
+        name: str,
+        valid_values: list[str],
+        *,
+        case_sensitive: bool = False,
+    ) -> bool:
+        """Validate value is one of allowed options.
+
+        Args:
+            value: The value to validate
+            name: The name of the input for error messages
+            valid_values: List of allowed values
+            case_sensitive: Whether comparison should be case sensitive
+
+        Returns:
+            True if value is valid or empty/GitHub expression, False otherwise
+        """
+        if not value or self.is_github_expression(value):
+            return True
+        check = value if case_sensitive else value.lower()
+        allowed = valid_values if case_sensitive else [v.lower() for v in valid_values]
+        if check not in allowed:
+            self.add_error(f"Invalid {name}: {value}. Must be one of: {', '.join(valid_values)}")
+            return False
+        return True
+
+    @staticmethod
+    def get_key_variant(inputs: dict[str, str], *variants: str) -> str | None:
+        """Get first matching key variant from inputs.
+
+        Useful for inputs that may use underscore or hyphen variants.
+
+        Args:
+            inputs: Dictionary of inputs to check
+            *variants: Key variants to search for in order
+
+        Returns:
+            The first matching key, or None if no match
+        """
+        for key in variants:
+            if key in inputs:
+                return key
+        return None

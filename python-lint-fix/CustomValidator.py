@@ -31,68 +31,42 @@ class CustomValidator(BaseValidator):
         valid = True
 
         # Validate python-version if provided
-        if "python-version" in inputs or "python_version" in inputs:
-            key = "python-version" if "python-version" in inputs else "python_version"
-            value = inputs[key]
-
-            # Empty string should fail validation
+        version_key = self.get_key_variant(inputs, "python-version", "python_version")
+        if version_key:
+            value = inputs[version_key]
             if value == "":
                 self.add_error("Python version cannot be empty")
                 valid = False
             elif value:
-                result = self.version_validator.validate_python_version(value, key)
-
-                # Propagate errors from the version validator
-                for error in self.version_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-
-                self.version_validator.clear_errors()
-
-                if not result:
-                    valid = False
+                valid &= self.validate_with(
+                    self.version_validator, "validate_python_version", value, version_key
+                )
 
         # Validate username
-        if "username" in inputs:
+        if inputs.get("username"):
             username = inputs["username"]
-            if username:
-                # Check username length (GitHub usernames are max 39 characters)
-                if len(username) > 39:
-                    self.add_error("Username is too long (max 39 characters)")
-                    valid = False
-                # Check for command injection patterns
-                if ";" in username or "`" in username or "$" in username:
-                    self.add_error("Username contains potentially dangerous characters")
-                    valid = False
+            if len(username) > 39:
+                self.add_error("Username is too long (max 39 characters)")
+                valid = False
+            if ";" in username or "`" in username or "$" in username:
+                self.add_error("Username contains potentially dangerous characters")
+                valid = False
 
         # Validate email
-        if "email" in inputs:
-            email = inputs["email"]
-            if email:
-                result = self.network_validator.validate_email(email, "email")
-                for error in self.network_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.network_validator.clear_errors()
-                if not result:
-                    valid = False
+        if inputs.get("email"):
+            valid &= self.validate_with(
+                self.network_validator, "validate_email", inputs["email"], "email"
+            )
 
         # Validate token
-        if "token" in inputs:
+        if inputs.get("token"):
             token = inputs["token"]
-            if token:
-                # Check for variable expansion (but allow GitHub Actions expressions)
-                if "${" in token and not token.startswith("${{ ") and not token.endswith(" }}"):
-                    self.add_error("Token contains potentially dangerous variable expansion")
-                    valid = False
-                else:
-                    result = self.token_validator.validate_github_token(token)
-                    for error in self.token_validator.errors:
-                        if error not in self.errors:
-                            self.add_error(error)
-                    self.token_validator.clear_errors()
-                    if not result:
-                        valid = False
+            # Check for variable expansion (but allow GitHub Actions expressions)
+            if "${" in token and not token.startswith("${{ ") and not token.endswith(" }}"):
+                self.add_error("Token contains potentially dangerous variable expansion")
+                valid = False
+            else:
+                valid &= self.validate_with(self.token_validator, "validate_github_token", token)
 
         return valid
 

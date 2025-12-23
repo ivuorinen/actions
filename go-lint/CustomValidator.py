@@ -37,105 +37,78 @@ class CustomValidator(BaseValidator):
 
         # Validate working-directory if provided
         if inputs.get("working-directory"):
-            result = self.file_validator.validate_file_path(
-                inputs["working-directory"], "working-directory"
+            valid &= self.validate_with(
+                self.file_validator,
+                "validate_file_path",
+                inputs["working-directory"],
+                "working-directory",
             )
-            for error in self.file_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.file_validator.clear_errors()
-            if not result:
-                valid = False
 
         # Validate golangci-lint-version if provided
         if inputs.get("golangci-lint-version"):
             value = inputs["golangci-lint-version"]
-            # Accept 'latest' or version format
             if value != "latest" and not self.is_github_expression(value):
-                result = self.version_validator.validate_semantic_version(
-                    value, "golangci-lint-version"
+                valid &= self.validate_with(
+                    self.version_validator,
+                    "validate_semantic_version",
+                    value,
+                    "golangci-lint-version",
                 )
-                for error in self.version_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.version_validator.clear_errors()
-                if not result:
-                    valid = False
 
         # Validate go-version if provided
         if inputs.get("go-version"):
             value = inputs["go-version"]
-            # Accept 'stable', 'oldstable' or version format
             if value not in ["stable", "oldstable"] and not self.is_github_expression(value):
-                result = self.version_validator.validate_go_version(value, "go-version")
-                for error in self.version_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.version_validator.clear_errors()
-                if not result:
-                    valid = False
+                valid &= self.validate_with(
+                    self.version_validator, "validate_go_version", value, "go-version"
+                )
 
         # Validate config-file if provided
         if inputs.get("config-file"):
-            result = self.file_validator.validate_file_path(inputs["config-file"], "config-file")
-            for error in self.file_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.file_validator.clear_errors()
-            if not result:
-                valid = False
+            valid &= self.validate_with(
+                self.file_validator, "validate_file_path", inputs["config-file"], "config-file"
+            )
 
         # Validate timeout if provided
         if inputs.get("timeout"):
             value = inputs["timeout"]
-            # Validate timeout format (e.g., 5m, 1h, 30s)
-            if not self.is_github_expression(value):
-                timeout_pattern = r"^\d+[smh]$"
-                if not re.match(timeout_pattern, value):
-                    self.add_error(
-                        f"Invalid timeout format: {value}. Expected format like '5m', '1h', '30s'"
-                    )
-                    valid = False
+            if not self.is_github_expression(value) and not re.match(r"^\d+[smh]$", value):
+                self.add_error(
+                    f"Invalid timeout format: {value}. Expected format like '5m', '1h', '30s'"
+                )
+                valid = False
 
         # Validate boolean inputs
         for field in ["cache", "fail-on-error", "only-new-issues", "disable-all"]:
             if inputs.get(field):
-                result = self.boolean_validator.validate_boolean(inputs[field], field)
-                for error in self.boolean_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.boolean_validator.clear_errors()
-                if not result:
-                    valid = False
+                valid &= self.validate_with(
+                    self.boolean_validator, "validate_boolean", inputs[field], field
+                )
 
         # Validate report-format
         if inputs.get("report-format"):
-            value = inputs["report-format"]
-            valid_formats = ["json", "sarif", "github-actions", "colored-line-number", "tab"]
-            if value not in valid_formats and not self.is_github_expression(value):
-                self.add_error(
-                    f"Invalid report format: {value}. Must be one of: {', '.join(valid_formats)}"
-                )
-                valid = False
+            valid &= self.validate_enum(
+                inputs["report-format"],
+                "report-format",
+                ["json", "sarif", "github-actions", "colored-line-number", "tab"],
+                case_sensitive=True,
+            )
 
         # Validate max-retries
         if inputs.get("max-retries"):
-            result = self.numeric_validator.validate_numeric_range(
-                inputs["max-retries"], min_val=1, max_val=10, name="max-retries"
+            valid &= self.validate_with(
+                self.numeric_validator,
+                "validate_numeric_range",
+                inputs["max-retries"],
+                min_val=1,
+                max_val=10,
+                name="max-retries",
             )
-            for error in self.numeric_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.numeric_validator.clear_errors()
-            if not result:
-                valid = False
 
         # Validate enable-linters and disable-linters
         for field in ["enable-linters", "disable-linters"]:
             if inputs.get(field):
                 value = inputs[field]
-
-                # First check format - must be comma-separated without spaces
                 if not self.is_github_expression(value):
                     if " " in value:
                         self.add_error(f"Invalid {field} format: spaces not allowed in linter list")
@@ -145,15 +118,9 @@ class CustomValidator(BaseValidator):
                             f"Invalid {field} format: must be comma-separated list of linters"
                         )
                         valid = False
-
-                # Then check for injection
-                result = self.security_validator.validate_no_injection(value, field)
-                for error in self.security_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.security_validator.clear_errors()
-                if not result:
-                    valid = False
+                valid &= self.validate_with(
+                    self.security_validator, "validate_no_injection", value, field
+                )
 
         return valid
 

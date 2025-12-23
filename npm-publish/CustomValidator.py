@@ -42,109 +42,40 @@ class CustomValidator(BaseValidator):
             self.add_error("Input 'npm_token' is required")
             valid = False
         elif inputs["npm_token"]:
-            token = inputs["npm_token"]
-            # Check for NPM classic token format first
-            if token.startswith("npm_"):
-                # NPM classic token format: npm_ followed by 36+ alphanumeric characters
-                if not re.match(r"^npm_[a-zA-Z0-9]{36,}$", token):
-                    self.add_error("Invalid NPM token format")
-                    valid = False
-                # Also check for injection
-                result = self.security_validator.validate_no_injection(token, "npm_token")
-                for error in self.security_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.security_validator.clear_errors()
-                if not result:
-                    valid = False
-            else:
-                # Otherwise validate as GitHub token
-                result = self.token_validator.validate_github_token(token, required=True)
-                for error in self.token_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.token_validator.clear_errors()
-                if not result:
-                    valid = False
+            valid &= self._validate_npm_token(inputs["npm_token"])
 
         # Validate registry-url
         if inputs.get("registry-url"):
-            url = inputs["registry-url"]
-            if not self.is_github_expression(url):
-                # Must be http or https URL
-                if not url.startswith(("http://", "https://")):
-                    self.add_error("Registry URL must use http or https protocol")
-                    valid = False
-                else:
-                    # Validate URL format
-                    result = self.network_validator.validate_url(url, "registry-url")
-                    for error in self.network_validator.errors:
-                        if error not in self.errors:
-                            self.add_error(error)
-                    self.network_validator.clear_errors()
-                    if not result:
-                        valid = False
+            valid &= self._validate_registry_url(inputs["registry-url"])
 
         # Validate scope
         if inputs.get("scope"):
-            scope = inputs["scope"]
-            if not self.is_github_expression(scope):
-                # Scope must start with @ and contain only valid characters
-                if not scope.startswith("@"):
-                    self.add_error("Scope must start with @ symbol")
-                    valid = False
-                elif not re.match(r"^@[a-z0-9][a-z0-9\-_.]*$", scope):
-                    self.add_error(
-                        "Invalid scope format: must be @org-name with lowercase "
-                        "letters, numbers, hyphens, dots, and underscores"
-                    )
-                    valid = False
-
-                # Check for injection
-                result = self.security_validator.validate_no_injection(scope, "scope")
-                for error in self.security_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.security_validator.clear_errors()
-                if not result:
-                    valid = False
+            valid &= self._validate_scope(inputs["scope"])
 
         # Validate access
         if inputs.get("access"):
-            access = inputs["access"]
-            if not self.is_github_expression(access):
-                valid_access = ["public", "restricted", "private"]
-                if access and access not in valid_access:
-                    self.add_error(
-                        f"Invalid access level: {access}. Must be one of: {', '.join(valid_access)}"
-                    )
-                    valid = False
+            valid &= self.validate_enum(
+                inputs["access"], "access", ["public", "restricted", "private"]
+            )
 
         # Validate boolean inputs (only always-auth and include-merged-tags are strict)
         for field in ["always-auth", "include-merged-tags"]:
             if inputs.get(field):
-                result = self.boolean_validator.validate_boolean(inputs[field], field)
-                for error in self.boolean_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.boolean_validator.clear_errors()
-                if not result:
-                    valid = False
+                valid &= self.validate_with(
+                    self.boolean_validator, "validate_boolean", inputs[field], field
+                )
 
         # provenance and dry-run accept any value (npm handles them)
         # No validation needed for these
 
         # Validate package-version
         if inputs.get("package-version"):
-            result = self.version_validator.validate_semantic_version(
-                inputs["package-version"], "package-version"
+            valid &= self.validate_with(
+                self.version_validator,
+                "validate_semantic_version",
+                inputs["package-version"],
+                "package-version",
             )
-            for error in self.version_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.version_validator.clear_errors()
-            if not result:
-                valid = False
 
         # Validate tag
         if inputs.get("tag"):
@@ -161,15 +92,56 @@ class CustomValidator(BaseValidator):
         # Validate working-directory and ignore-scripts as file paths
         for field in ["working-directory", "ignore-scripts"]:
             if inputs.get(field):
-                result = self.file_validator.validate_path(inputs[field], field)
-                for error in self.file_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.file_validator.clear_errors()
-                if not result:
-                    valid = False
+                valid &= self.validate_with(
+                    self.file_validator, "validate_path", inputs[field], field
+                )
 
         return valid
+
+    def _validate_npm_token(self, token: str) -> bool:
+        """Validate NPM token format."""
+        # Check for NPM classic token format first
+        if token.startswith("npm_"):
+            # NPM classic token format: npm_ followed by 36+ alphanumeric characters
+            if not re.match(r"^npm_[a-zA-Z0-9]{36,}$", token):
+                self.add_error("Invalid NPM token format")
+                return False
+            # Also check for injection
+            return self.validate_with(
+                self.security_validator, "validate_no_injection", token, "npm_token"
+            )
+        # Otherwise validate as GitHub token
+        return self.validate_with(
+            self.token_validator, "validate_github_token", token, required=True
+        )
+
+    def _validate_registry_url(self, url: str) -> bool:
+        """Validate registry URL format."""
+        if self.is_github_expression(url):
+            return True
+        # Must be http or https URL
+        if not url.startswith(("http://", "https://")):
+            self.add_error("Registry URL must use http or https protocol")
+            return False
+        # Validate URL format
+        return self.validate_with(self.network_validator, "validate_url", url, "registry-url")
+
+    def _validate_scope(self, scope: str) -> bool:
+        """Validate NPM scope format."""
+        if self.is_github_expression(scope):
+            return True
+        # Scope must start with @ and contain only valid characters
+        if not scope.startswith("@"):
+            self.add_error("Scope must start with @ symbol")
+            return False
+        if not re.match(r"^@[a-z0-9][a-z0-9\-_.]*$", scope):
+            self.add_error(
+                "Invalid scope format: must be @org-name with lowercase "
+                "letters, numbers, hyphens, dots, and underscores"
+            )
+            return False
+        # Check for injection
+        return self.validate_with(self.security_validator, "validate_no_injection", scope, "scope")
 
     def get_required_inputs(self) -> list[str]:
         """Get list of required inputs."""

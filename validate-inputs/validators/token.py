@@ -12,7 +12,8 @@ class TokenValidator(BaseValidator):
     """Validator for various authentication tokens."""
 
     # Token patterns for different token types (based on official GitHub documentation)
-    # https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github#githubs-token-formats
+    # See: https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/
+    # about-authentication-to-github#githubs-token-formats
     # Note: The lengths include the prefix
     TOKEN_PATTERNS: ClassVar[dict[str, str]] = {
         # Personal access token (classic):

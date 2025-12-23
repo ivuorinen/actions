@@ -5,6 +5,7 @@ This validator automatically applies validation based on input naming convention
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -424,7 +425,10 @@ class ConventionBasedValidator(BaseValidator):
                         if error not in self.errors:
                             self.add_error(error)
                     # Clear the module's errors after copying
-                    validator_module.errors = []
+                    if hasattr(validator_module, "clear_errors"):
+                        validator_module.clear_errors()
+                    else:
+                        validator_module.errors = []
 
                 return result
             # Method not found, skip validation
@@ -629,7 +633,8 @@ class ConventionBasedValidator(BaseValidator):
         Args:
             value: The comma-separated list value
             input_name: The input name for error messages
-            item_pattern: Regex pattern each item must match (default: alphanumeric+hyphens+underscores)
+            item_pattern: Regex pattern each item must match
+                (default: alphanumeric+hyphens+underscores)
             valid_items: Optional list of valid items for enum-style validation
             check_injection: Whether to check for shell injection patterns
             item_name: Descriptive name for items in error messages (e.g., "linter", "extension")
@@ -895,14 +900,12 @@ class ConventionBasedValidator(BaseValidator):
 
         # Validate valid_values count
         if len(valid_values) < min_values:
-            raise ValueError(
-                f"Multi-value enum requires at least {min_values} valid values, got {len(valid_values)}"
-            )
+            msg = f"Multi-value enum needs >= {min_values} values, got {len(valid_values)}"
+            raise ValueError(msg)
 
         if len(valid_values) > max_values:
-            raise ValueError(
-                f"Multi-value enum supports at most {max_values} valid values, got {len(valid_values)}"
-            )
+            msg = f"Multi-value enum allows <= {max_values} values, got {len(valid_values)}"
+            raise ValueError(msg)
 
         if not value or value.strip() == "":
             return True  # Optional
@@ -1169,8 +1172,10 @@ class ConventionBasedValidator(BaseValidator):
         Args:
             value: The key-value list value (comma-separated KEY=VALUE pairs)
             input_name: The input name for error messages
-            key_pattern: Regex pattern for key validation (default: alphanumeric+underscores+hyphens)
-            check_injection: Whether to check for shell injection patterns in values (default: True)
+            key_pattern: Regex pattern for key validation
+                (default: alphanumeric+underscores+hyphens)
+            check_injection: Whether to check for shell injection patterns
+                in values (default: True)
 
         Returns:
             True if valid, False otherwise
@@ -1179,7 +1184,6 @@ class ConventionBasedValidator(BaseValidator):
             Valid: "KEY=value", "KEY1=value1,KEY2=value2", "BUILD_ARG=hello", ""
             Invalid: "KEY", "=value", "KEY=", "KEY=value,", "KEY=val;whoami"
         """
-        import re
 
         if not value or value.strip() == "":
             return True  # Optional

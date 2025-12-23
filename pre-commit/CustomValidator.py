@@ -34,74 +34,45 @@ class CustomValidator(BaseValidator):
 
         # Validate pre-commit-config if provided
         if "pre-commit-config" in inputs:
-            result = self.file_validator.validate_file_path(
-                inputs["pre-commit-config"], "pre-commit-config"
+            valid &= self.validate_with(
+                self.file_validator,
+                "validate_file_path",
+                inputs["pre-commit-config"],
+                "pre-commit-config",
             )
-            for error in self.file_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.file_validator.clear_errors()
-            if not result:
-                valid = False
 
         # Validate base-branch if provided (just check for injection)
         if inputs.get("base-branch"):
-            # Check for dangerous characters that could cause shell injection
-            result = self.security_validator.validate_no_injection(
-                inputs["base-branch"], "base-branch"
+            valid &= self.validate_with(
+                self.security_validator,
+                "validate_no_injection",
+                inputs["base-branch"],
+                "base-branch",
             )
-            for error in self.security_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.security_validator.clear_errors()
-            if not result:
-                valid = False
 
         # Validate token if provided
         if inputs.get("token"):
-            result = self.token_validator.validate_github_token(inputs["token"])
-            for error in self.token_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.token_validator.clear_errors()
-            if not result:
-                valid = False
+            valid &= self.validate_with(
+                self.token_validator, "validate_github_token", inputs["token"]
+            )
 
         # Validate commit_user if provided (allow spaces for Git usernames)
-        # Check both underscore and hyphen versions since inputs can have either
-        commit_user_key = (
-            "commit_user"
-            if "commit_user" in inputs
-            else "commit-user"
-            if "commit-user" in inputs
-            else None
-        )
+        commit_user_key = self.get_key_variant(inputs, "commit_user", "commit-user")
         if commit_user_key and inputs[commit_user_key]:
-            # Check for dangerous injection patterns
             value = inputs[commit_user_key]
-            if any(char in value for char in [";", "&", "|", "`", "$", "(", ")", "\n", "\r"]):
+            if any(c in value for c in [";", "&", "|", "`", "$", "(", ")", "\n", "\r"]):
                 self.add_error(f"{commit_user_key}: Contains potentially dangerous characters")
                 valid = False
 
         # Validate commit_email if provided
-        # Check both underscore and hyphen versions
-        commit_email_key = (
-            "commit_email"
-            if "commit_email" in inputs
-            else "commit-email"
-            if "commit-email" in inputs
-            else None
-        )
+        commit_email_key = self.get_key_variant(inputs, "commit_email", "commit-email")
         if commit_email_key and inputs[commit_email_key]:
-            result = self.network_validator.validate_email(
-                inputs[commit_email_key], commit_email_key
+            valid &= self.validate_with(
+                self.network_validator,
+                "validate_email",
+                inputs[commit_email_key],
+                commit_email_key,
             )
-            for error in self.network_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.network_validator.clear_errors()
-            if not result:
-                valid = False
 
         return valid
 

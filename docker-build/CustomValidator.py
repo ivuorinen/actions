@@ -12,6 +12,7 @@ This validator handles complex Docker build validation including:
 from __future__ import annotations
 
 from pathlib import Path
+import re
 import sys
 
 # Add validate-inputs directory to path to import validators
@@ -65,35 +66,24 @@ class CustomValidator(BaseValidator):
 
         # Validate image name
         if inputs.get("image-name"):
-            result = self.docker_validator.validate_image_name(inputs["image-name"], "image-name")
-            # Propagate errors from docker validator
-            for error in self.docker_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.docker_validator.clear_errors()
-            valid &= result
+            valid &= self.validate_with(
+                self.docker_validator, "validate_image_name", inputs["image-name"], "image-name"
+            )
 
         # Validate tag (singular - as per action.yml)
         if inputs.get("tag"):
-            result = self.docker_validator.validate_docker_tag(inputs["tag"], "tag")
-            # Propagate errors
-            for error in self.docker_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.docker_validator.clear_errors()
-            valid &= result
+            valid &= self.validate_with(
+                self.docker_validator, "validate_docker_tag", inputs["tag"], "tag"
+            )
 
         # Validate architectures/platforms
         if inputs.get("architectures"):
-            result = self.docker_validator.validate_architectures(
-                inputs["architectures"], "architectures"
+            valid &= self.validate_with(
+                self.docker_validator,
+                "validate_architectures",
+                inputs["architectures"],
+                "architectures",
             )
-            # Propagate errors
-            for error in self.docker_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.docker_validator.clear_errors()
-            valid &= result
 
         # Validate build arguments
         if inputs.get("build-args"):
@@ -101,12 +91,9 @@ class CustomValidator(BaseValidator):
 
         # Validate push flag
         if inputs.get("push"):
-            result = self.boolean_validator.validate_optional_boolean(inputs["push"], "push")
-            for error in self.boolean_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.boolean_validator.clear_errors()
-            valid &= result
+            valid &= self.validate_with(
+                self.boolean_validator, "validate_optional_boolean", inputs["push"], "push"
+            )
 
         # Validate cache settings
         if inputs.get("cache-from"):
@@ -117,7 +104,9 @@ class CustomValidator(BaseValidator):
 
         # Validate cache-mode
         if inputs.get("cache-mode"):
-            valid &= self.validate_cache_mode(inputs["cache-mode"])
+            valid &= self.validate_enum(
+                inputs["cache-mode"], "cache-mode", ["min", "max", "inline"]
+            )
 
         # Validate buildx-version
         if inputs.get("buildx-version"):
@@ -125,14 +114,14 @@ class CustomValidator(BaseValidator):
 
         # Validate parallel-builds
         if inputs.get("parallel-builds"):
-            result = self.numeric_validator.validate_numeric_range(
-                inputs["parallel-builds"], min_val=0, max_val=16, name="parallel-builds"
+            valid &= self.validate_with(
+                self.numeric_validator,
+                "validate_numeric_range",
+                inputs["parallel-builds"],
+                min_val=0,
+                max_val=16,
+                name="parallel-builds",
             )
-            for error in self.numeric_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.numeric_validator.clear_errors()
-            valid &= result
 
         # Validate boolean flags
         for bool_input in [
@@ -144,29 +133,29 @@ class CustomValidator(BaseValidator):
             "auto-detect-platforms",
         ]:
             if inputs.get(bool_input):
-                result = self.boolean_validator.validate_optional_boolean(
-                    inputs[bool_input], bool_input
+                valid &= self.validate_with(
+                    self.boolean_validator,
+                    "validate_optional_boolean",
+                    inputs[bool_input],
+                    bool_input,
                 )
-                for error in self.boolean_validator.errors:
-                    if error not in self.errors:
-                        self.add_error(error)
-                self.boolean_validator.clear_errors()
-                valid &= result
 
         # Validate sbom-format
         if inputs.get("sbom-format"):
-            valid &= self.validate_sbom_format(inputs["sbom-format"])
+            valid &= self.validate_enum(
+                inputs["sbom-format"], "sbom-format", ["spdx-json", "cyclonedx-json", "syft-json"]
+            )
 
         # Validate max-retries
         if inputs.get("max-retries"):
-            result = self.numeric_validator.validate_numeric_range(
-                inputs["max-retries"], min_val=0, max_val=10, name="max-retries"
+            valid &= self.validate_with(
+                self.numeric_validator,
+                "validate_numeric_range",
+                inputs["max-retries"],
+                min_val=0,
+                max_val=10,
+                name="max-retries",
             )
-            for error in self.numeric_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.numeric_validator.clear_errors()
-            valid &= result
 
         return valid
 
@@ -209,19 +198,11 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
         if self.is_github_expression(dockerfile):
             return True
-
-        # Use file validator for path validation
-        result = self.file_validator.validate_file_path(dockerfile, "dockerfile")
-        # Propagate errors
-        for error in self.file_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.file_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.file_validator, "validate_file_path", dockerfile, "dockerfile"
+        )
 
     def validate_context(self, context: str) -> bool:
         """Validate build context path.
@@ -245,10 +226,9 @@ class CustomValidator(BaseValidator):
         # We allow path traversal for context as Docker needs to access parent directories
         # Only check for command injection patterns like ; | ` $()
         dangerous_chars = [";", "|", "`", "$(", "&&", "||"]
-        for char in dangerous_chars:
-            if char in context:
-                self.add_error(f"Command injection detected in context: {context}")
-                return False
+        if any(char in context for char in dangerous_chars):
+            self.add_error(f"Command injection detected in context: {context}")
+            return False
 
         return True
 
@@ -261,15 +241,9 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Use docker validator for architectures
-        result = self.docker_validator.validate_architectures(platforms, "platforms")
-        # Propagate errors
-        for error in self.docker_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.docker_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.docker_validator, "validate_architectures", platforms, "platforms"
+        )
 
     def validate_build_args(self, build_args: str) -> bool:
         """Validate build arguments.
@@ -354,27 +328,6 @@ class CustomValidator(BaseValidator):
         # Check for security issues
         return self.validate_security_patterns(cache_to, "cache-to")
 
-    def validate_cache_mode(self, cache_mode: str) -> bool:
-        """Validate cache mode.
-
-        Args:
-            cache_mode: Cache mode value
-
-        Returns:
-            True if valid, False otherwise
-        """
-        # Allow GitHub Actions expressions
-        if self.is_github_expression(cache_mode):
-            return True
-
-        # Valid cache modes
-        valid_modes = ["min", "max", "inline"]
-        if cache_mode.lower() not in valid_modes:
-            self.add_error(f"Invalid cache-mode: {cache_mode}. Must be one of: min, max, inline")
-            return False
-
-        return True
-
     def validate_buildx_version(self, version: str) -> bool:
         """Validate buildx version.
 
@@ -397,34 +350,8 @@ class CustomValidator(BaseValidator):
             return False
 
         # Basic version format validation (e.g., 0.12.0, v0.12.0)
-        import re
-
         if not re.match(r"^v?\d+\.\d+(\.\d+)?$", version):
             self.add_error(f"Invalid buildx-version format: {version}")
-            return False
-
-        return True
-
-    def validate_sbom_format(self, sbom_format: str) -> bool:
-        """Validate SBOM format.
-
-        Args:
-            sbom_format: SBOM format value
-
-        Returns:
-            True if valid, False otherwise
-        """
-        # Allow GitHub Actions expressions
-        if self.is_github_expression(sbom_format):
-            return True
-
-        # Valid SBOM formats
-        valid_formats = ["spdx-json", "cyclonedx-json", "syft-json"]
-        if sbom_format.lower() not in valid_formats:
-            self.add_error(
-                f"Invalid sbom-format: {sbom_format}. "
-                "Must be one of: spdx-json, cyclonedx-json, syft-json"
-            )
             return False
 
         return True

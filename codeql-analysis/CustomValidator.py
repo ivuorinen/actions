@@ -81,21 +81,13 @@ class CustomValidator(BaseValidator):
 
         # Validate threads
         if inputs.get("threads"):
-            result = self.codeql_validator.validate_threads(inputs["threads"])
-            for error in self.codeql_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.codeql_validator.clear_errors()
-            valid &= result
+            valid &= self.validate_with(
+                self.codeql_validator, "validate_threads", inputs["threads"]
+            )
 
         # Validate RAM
         if inputs.get("ram"):
-            result = self.codeql_validator.validate_ram(inputs["ram"])
-            for error in self.codeql_validator.errors:
-                if error not in self.errors:
-                    self.add_error(error)
-            self.codeql_validator.clear_errors()
-            valid &= result
+            valid &= self.validate_with(self.codeql_validator, "validate_ram", inputs["ram"])
 
         # Validate debug mode
         if inputs.get("debug"):
@@ -226,19 +218,10 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Check for empty queries first
         if not queries or not queries.strip():
             self.add_error("CodeQL queries cannot be empty")
             return False
-
-        # Use the CodeQL validator
-        result = self.codeql_validator.validate_codeql_queries(queries)
-        # Copy any errors from codeql validator
-        for error in self.codeql_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.codeql_validator.clear_errors()
-        return result
+        return self.validate_with(self.codeql_validator, "validate_codeql_queries", queries)
 
     def validate_categories(self, categories: str) -> bool:
         """Validate CodeQL categories.
@@ -249,14 +232,7 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Use the CodeQL validator
-        result = self.codeql_validator.validate_category_format(categories)
-        # Copy any errors from codeql validator
-        for error in self.codeql_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.codeql_validator.clear_errors()
-        return result
+        return self.validate_with(self.codeql_validator, "validate_category_format", categories)
 
     def validate_category(self, category: str) -> bool:
         """Validate CodeQL category (singular).
@@ -267,14 +243,7 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Use the CodeQL validator
-        result = self.codeql_validator.validate_category_format(category)
-        # Copy any errors from codeql validator
-        for error in self.codeql_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.codeql_validator.clear_errors()
-        return result
+        return self.validate_with(self.codeql_validator, "validate_category_format", category)
 
     def validate_config_file(self, config_file: str) -> bool:
         """Validate CodeQL configuration file path.
@@ -287,21 +256,11 @@ class CustomValidator(BaseValidator):
         """
         if not config_file or not config_file.strip():
             return True
-
-        # Allow GitHub Actions expressions
         if self.is_github_expression(config_file):
             return True
-
-        # Use FileValidator for yaml file validation
-        result = self.file_validator.validate_yaml_file(config_file, "config-file")
-
-        # Copy any errors from file validator
-        for error in self.file_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.file_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.file_validator, "validate_yaml_file", config_file, "config-file"
+        )
 
     def validate_database(self, database: str) -> bool:
         """Validate CodeQL database path.
@@ -312,25 +271,13 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
         if self.is_github_expression(database):
             return True
-
-        # Use FileValidator for path validation
-        result = self.file_validator.validate_file_path(database, "database")
-
-        # Copy any errors from file validator
-        for error in self.file_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.file_validator.clear_errors()
-
+        result = self.validate_with(self.file_validator, "validate_file_path", database, "database")
         # Database paths often contain the language
         # e.g., "codeql-database/javascript" or "/tmp/codeql_databases/python"
-        # Just validate it's a reasonable path after basic validation
         if result and database.startswith("/tmp/"):  # noqa: S108
             return True
-
         return result
 
     def validate_debug(self, debug: str) -> bool:
@@ -342,20 +289,9 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
         if self.is_github_expression(debug):
             return True
-
-        # Use BooleanValidator
-        result = self.boolean_validator.validate_boolean(debug, "debug")
-
-        # Copy any errors from boolean validator
-        for error in self.boolean_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.boolean_validator.clear_errors()
-
-        return result
+        return self.validate_with(self.boolean_validator, "validate_boolean", debug, "debug")
 
     def validate_upload_database(self, upload: str) -> bool:
         """Validate upload-database setting.
@@ -366,20 +302,11 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
         if self.is_github_expression(upload):
             return True
-
-        # Use BooleanValidator
-        result = self.boolean_validator.validate_boolean(upload, "upload-database")
-
-        # Copy any errors from boolean validator
-        for error in self.boolean_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.boolean_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.boolean_validator, "validate_boolean", upload, "upload-database"
+        )
 
     def validate_upload_sarif(self, upload: str) -> bool:
         """Validate upload-sarif setting.
@@ -390,20 +317,11 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
         if self.is_github_expression(upload):
             return True
-
-        # Use BooleanValidator
-        result = self.boolean_validator.validate_boolean(upload, "upload-sarif")
-
-        # Copy any errors from boolean validator
-        for error in self.boolean_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.boolean_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.boolean_validator, "validate_boolean", upload, "upload-sarif"
+        )
 
     def validate_packs(self, packs: str) -> bool:
         """Validate CodeQL packs.
@@ -487,16 +405,9 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Use the TokenValidator for proper validation
-        result = self.token_validator.validate_github_token(token, required=False)
-
-        # Copy any errors from token validator
-        for error in self.token_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.token_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.token_validator, "validate_github_token", token, required=False
+        )
 
     def validate_token(self, token: str) -> bool:
         """Validate GitHub token.
@@ -507,21 +418,12 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Check for empty token
         if not token or not token.strip():
             self.add_error("Input 'token' is missing or empty")
             return False
-
-        # Use the TokenValidator for proper validation
-        result = self.token_validator.validate_github_token(token, required=True)
-
-        # Copy any errors from token validator
-        for error in self.token_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.token_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.token_validator, "validate_github_token", token, required=True
+        )
 
     def validate_working_directory(self, directory: str) -> bool:
         """Validate working directory path.
@@ -532,20 +434,11 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Allow GitHub Actions expressions
         if self.is_github_expression(directory):
             return True
-
-        # Use FileValidator for path validation
-        result = self.file_validator.validate_file_path(directory, "working-directory")
-
-        # Copy any errors from file validator
-        for error in self.file_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.file_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.file_validator, "validate_file_path", directory, "working-directory"
+        )
 
     def validate_upload_results(self, value: str) -> bool:
         """Validate upload-results boolean value.
@@ -556,27 +449,14 @@ class CustomValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        # Check for empty
         if not value or not value.strip():
             self.add_error("upload-results cannot be empty")
             return False
-
-        # Allow GitHub Actions expressions
         if self.is_github_expression(value):
             return True
-
-        # Check for uppercase TRUE/FALSE first
         if value in ["TRUE", "FALSE"]:
             self.add_error("Must be lowercase 'true' or 'false'")
             return False
-
-        # Use BooleanValidator for normal validation
-        result = self.boolean_validator.validate_boolean(value, "upload-results")
-
-        # Copy any errors from boolean validator
-        for error in self.boolean_validator.errors:
-            if error not in self.errors:
-                self.add_error(error)
-        self.boolean_validator.clear_errors()
-
-        return result
+        return self.validate_with(
+            self.boolean_validator, "validate_boolean", value, "upload-results"
+        )
