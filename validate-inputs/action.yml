@@ -213,6 +213,10 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Install Python dependencies
+      shell: bash
+      run: pip install pyyaml==6.0.3
+
     - name: Validate Action Inputs with Python
       id: validate
       shell: bash
