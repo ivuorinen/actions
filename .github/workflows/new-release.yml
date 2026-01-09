@@ -21,6 +21,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          fetch-depth: 0 # Fetch all history and tags for comparison
 
       - name: Create daily release
         id: daily-version
@@ -35,6 +37,20 @@ jobs:
             printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
             printf '%s\n' "Release $VERSION already exists - skipping"
             exit 0
+          fi
+
+          # Get the most recent tag
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | head -1)
+
+          # Check if there are any changes since the previous tag
+          if [ -n "$PREVIOUS_TAG" ]; then
+            CHANGES=$(git rev-list "$PREVIOUS_TAG"..HEAD --count)
+            if [ "$CHANGES" -eq 0 ]; then
+              printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
+              printf '%s\n' "No changes since $PREVIOUS_TAG - skipping release"
+              exit 0
+            fi
+            printf '%s\n' "Found $CHANGES commit(s) since $PREVIOUS_TAG"
           fi
 
           # Create release with auto-generated changelog (also creates tag)
