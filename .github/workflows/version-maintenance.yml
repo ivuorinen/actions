@@ -40,6 +40,29 @@ jobs:
             printf '%s\n' "major=v$current_year" >> "$GITHUB_OUTPUT"
           fi
 
+      - name: Ensure Major Version Tag Exists
+        id: ensure-tag
+        shell: sh
+        env:
+          MAJOR_VERSION: ${{ steps.version.outputs.major }}
+        run: |
+          set -eu
+
+          git fetch --tags --force
+
+          if git rev-list -n 1 "$MAJOR_VERSION" >/dev/null 2>&1; then
+            echo "Tag $MAJOR_VERSION already exists"
+            printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Tag $MAJOR_VERSION not found, creating..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "$MAJOR_VERSION" -m "Major version $MAJOR_VERSION"
+            git push origin "$MAJOR_VERSION"
+            echo "Created and pushed tag $MAJOR_VERSION"
+            printf '%s\n' "created=true" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Run Action Versioning
         id: action-versioning
         uses: ./action-versioning
