@@ -55,6 +55,8 @@ jobs:
             printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
           else
             echo "Tag $MAJOR_VERSION not found, creating..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
             git tag -a "$MAJOR_VERSION" -m "Major version $MAJOR_VERSION"
             git push origin "$MAJOR_VERSION"
             echo "Created and pushed tag $MAJOR_VERSION"
