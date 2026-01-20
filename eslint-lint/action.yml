@@ -325,7 +325,7 @@ runs:
 
     - name: Cache Node Dependencies
       id: cache
-      uses: actions/cache@9255dc7a253b0ccc959486e2bca901246202afeb # v5.0.1
+      uses: actions/cache@8b402f58fbc84540c8b491a91e594a4576fec3d7 # v5.0.2
       with:
         path: node_modules
         key: ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
