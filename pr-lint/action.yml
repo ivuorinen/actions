@@ -40,7 +40,7 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
+      uses: ivuorinen/actions/validate-inputs@f98ae7cd7d0feb1f9d6b01de0addbb11414cfc73
       with:
         action-type: pr-lint
         token: ${{ inputs.token }}
