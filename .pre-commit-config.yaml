@@ -78,7 +78,7 @@ repos:
         exclude: '^_tests/.*\.sh$'
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.11
+    rev: v1.7.10
     hooks:
       - id: actionlint
         args: ['-shellcheck=']
