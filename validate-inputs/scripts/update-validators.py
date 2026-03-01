@@ -310,10 +310,6 @@ class ValidationRuleGenerator:
             "common-file-check": {
                 "file-pattern": "file_path",
             },
-            "common-retry": {
-                "backoff-strategy": "backoff_strategy",
-                "shell": "shell_type",
-            },
             "docker-publish": {
                 "registry": "registry_enum",
                 "cache-mode": "cache_mode",

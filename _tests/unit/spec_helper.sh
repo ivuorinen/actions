@@ -92,9 +92,6 @@ setup_default_inputs() {
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
     ;;
-  "common-retry")
-    [[ "$input_name" != "command" ]] && export INPUT_COMMAND="echo test"
-    ;;
   "dotnet-version-detect")
     [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.0"
     ;;
@@ -153,9 +150,6 @@ cleanup_default_inputs() {
     ;;
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
-    ;;
-  "common-retry")
-    [[ "$input_name" != "command" ]] && unset INPUT_COMMAND
     ;;
   "dotnet-version-detect")
     [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
@@ -238,12 +232,6 @@ shellspec_mock_action_run() {
     ;;
   "common-file-check")
     echo "found=true" >>"$GITHUB_OUTPUT"
-    ;;
-  "common-retry")
-    echo "success=true" >>"$GITHUB_OUTPUT"
-    echo "attempts=1" >>"$GITHUB_OUTPUT"
-    echo "exit-code=0" >>"$GITHUB_OUTPUT"
-    echo "duration=5" >>"$GITHUB_OUTPUT"
     ;;
   "compress-images")
     echo "images_compressed=true" >>"$GITHUB_OUTPUT"
