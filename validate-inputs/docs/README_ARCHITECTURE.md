@@ -332,7 +332,7 @@ class CustomValidator(BaseValidator):
 
 ## Quality Metrics
 
-- **Test Coverage**: 100% (769 tests)
+- **Test Coverage**: 100%
 - **Validators**: 9 specialized + unlimited custom
 - **Performance**: < 10ms typical validation time
 - **Zero Dependencies**: Uses only Python stdlib + PyYAML

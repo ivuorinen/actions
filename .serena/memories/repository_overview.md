@@ -19,7 +19,7 @@
 ├── validate-inputs/         # Centralized validation
 │   ├── validators/         # 9 specialized modules
 │   ├── scripts/            # Rule/test generators
-│   └── tests/              # 769 pytest tests
+│   └── tests/              # pytest tests
 ├── _tests/                 # ShellSpec framework
 ├── _tools/                 # Development utilities
 ├── .github/workflows/      # CI/CD workflows
@@ -77,12 +77,12 @@ make test       # All tests (pytest + ShellSpec)
 ## Testing Framework
 
 - **ShellSpec**: GitHub Actions and shell scripts
-- **pytest**: Python validators (769 tests, 100% pass rate)
+- **pytest**: Python validators (100% pass rate)
 - **Test Generator**: Automatic scaffolding for new actions
 
 ## Current Status
 
-- ✅ All tests passing (769/769)
+- ✅ All tests passing
 - ✅ Zero linting issues
 - ✅ Modular validator architecture
 - ✅ Convention-based validation
