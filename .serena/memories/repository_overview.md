@@ -5,28 +5,28 @@
 - **Path**: /Users/ivuorinen/Code/ivuorinen/actions
 - **Branch**: main
 - **External Usage**: `ivuorinen/actions/<action-name>@main`
-- **Total Actions**: 44 self-contained actions
+- **Total Actions**: 43 self-contained actions
 - **Dogfooding**: Workflows use local actions (pr-lint, codeql-analysis, security-scan)
 
 ## Structure
 
 ```text
 /
-├── <action-dirs>/           # 44 self-contained actions
+├── <action-dirs>/           # 43 self-contained actions
 │   ├── action.yml          # Action definition
 │   ├── README.md           # Auto-generated
 │   └── CustomValidator.py  # Optional validator
 ├── validate-inputs/         # Centralized validation
 │   ├── validators/         # 9 specialized modules
 │   ├── scripts/            # Rule/test generators
-│   └── tests/              # 769 pytest tests
+│   └── tests/              # pytest tests
 ├── _tests/                 # ShellSpec framework
 ├── _tools/                 # Development utilities
 ├── .github/workflows/      # CI/CD workflows
 └── Makefile               # Build automation
 ```
 
-## Action Categories (44 total)
+## Action Categories (43 total)
 
 **Setup (7)**: node-setup, set-git-config, php-version-detect, python-version-detect, python-version-detect-v2, go-version-detect, dotnet-version-detect
 
@@ -40,7 +40,7 @@
 
 **Testing (3)**: php-tests, php-laravel-phpunit, php-composer
 
-**Repository (9)**: github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry, codeql-analysis
+**Repository (8)**: github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, codeql-analysis
 
 **Utilities (3)**: version-file-parser, version-validator, validate-inputs
 
@@ -77,12 +77,12 @@ make test       # All tests (pytest + ShellSpec)
 ## Testing Framework
 
 - **ShellSpec**: GitHub Actions and shell scripts
-- **pytest**: Python validators (769 tests, 100% pass rate)
+- **pytest**: Python validators (100% pass rate)
 - **Test Generator**: Automatic scaffolding for new actions
 
 ## Current Status
 
-- ✅ All tests passing (769/769)
+- ✅ All tests passing
 - ✅ Zero linting issues
 - ✅ Modular validator architecture
 - ✅ Convention-based validation

@@ -183,9 +183,6 @@ validate_input_python "docker-build" "tag" "v1.0.0"            # success
 validate_input_python "pre-commit" "config-file" "config.yml"   # success
 validate_input_python "pre-commit" "config-file" "../etc/pass"  # failure
 
-# Injection detection
-validate_input_python "common-retry" "command" "echo test"      # success
-validate_input_python "common-retry" "command" "rm -rf /; "     # failure
 ```
 
 ### Helper Functions from spec_helper.sh
@@ -482,11 +479,6 @@ End
 ✅ **Always include**:
 
 ```bash
-It "rejects command injection"
-  When call validate_input_python "common-retry" "command" "rm -rf /; "
-  The status should be failure
-End
-
 It "rejects path traversal"
   When call validate_input_python "pre-commit" "config-file" "../etc/passwd"
   The status should be failure
