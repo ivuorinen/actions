@@ -264,7 +264,7 @@ def get_input_property(action_file: str, input_name: str, property_check: str) -
 
         if property_check == "description":
             description = input_data.get("description", "")
-            return description if description else "no-description"
+            return description or "no-description"
 
         if property_check == "all_optional":
             # Check if all inputs are optional (none are required)

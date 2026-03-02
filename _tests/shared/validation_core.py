@@ -337,7 +337,7 @@ class ValidationCore:
         """
         if not value:  # Empty values are generally allowed, except for specific cases
             # Some inputs should not be empty even if they're optional
-            if action_name == "php-composer" and input_name in ["composer-version"]:
+            if action_name == "php-composer" and input_name == "composer-version":
                 return False, f"Empty {input_name} is not allowed"
             return None, ""
 
@@ -552,7 +552,7 @@ class ActionFileParser:
     def _get_description_property(input_data: dict) -> str:
         """Get the description property."""
         description = input_data.get("description", "")
-        return description if description else "no-description"
+        return description or "no-description"
 
     @staticmethod
     def _get_all_optional_property(inputs: dict) -> str:

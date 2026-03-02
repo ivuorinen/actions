@@ -5,14 +5,14 @@
 - **Path**: /Users/ivuorinen/Code/ivuorinen/actions
 - **Branch**: main
 - **External Usage**: `ivuorinen/actions/<action-name>@main`
-- **Total Actions**: 44 self-contained actions
+- **Total Actions**: 43 self-contained actions
 - **Dogfooding**: Workflows use local actions (pr-lint, codeql-analysis, security-scan)
 
 ## Structure
 
 ```text
 /
-├── <action-dirs>/           # 44 self-contained actions
+├── <action-dirs>/           # 43 self-contained actions
 │   ├── action.yml          # Action definition
 │   ├── README.md           # Auto-generated
 │   └── CustomValidator.py  # Optional validator
@@ -26,7 +26,7 @@
 └── Makefile               # Build automation
 ```
 
-## Action Categories (44 total)
+## Action Categories (43 total)
 
 **Setup (7)**: node-setup, set-git-config, php-version-detect, python-version-detect, python-version-detect-v2, go-version-detect, dotnet-version-detect
 
@@ -40,7 +40,7 @@
 
 **Testing (3)**: php-tests, php-laravel-phpunit, php-composer
 
-**Repository (9)**: github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, common-retry, codeql-analysis
+**Repository (8)**: github-release, release-monthly, sync-labels, stale, compress-images, common-cache, common-file-check, codeql-analysis
 
 **Utilities (3)**: version-file-parser, version-validator, validate-inputs
 
