@@ -12,15 +12,16 @@ on:
         required: false
         type: string
 
-permissions:
-  contents: write
-  pull-requests: write
-  issues: write
+permissions: {}
 
 jobs:
   check-and-update:
     name: Check Version References
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
 
     steps:
       - name: Checkout Repository

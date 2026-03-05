@@ -23,15 +23,16 @@ on:
         default: 'latest'
         type: string
 
-permissions:
-  contents: read
-  packages: write
+permissions: {}
 
 jobs:
   build-and-push:
     name: Build and Push Testing Image
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      packages: write
 
     steps:
       - name: Checkout repository
