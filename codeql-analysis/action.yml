@@ -186,7 +186,7 @@ runs:
         echo "Using build mode: $build_mode"
 
     - name: Initialize CodeQL
-      uses: github/codeql-action/init@89a39a4e59826350b863aa6b6252a07ad50cf83e # v4.32.4
+      uses: github/codeql-action/init@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
       with:
         languages: ${{ inputs.language }}
         queries: ${{ inputs.queries }}
@@ -199,12 +199,12 @@ runs:
         threads: ${{ inputs.threads }}
 
     - name: Autobuild
-      uses: github/codeql-action/autobuild@89a39a4e59826350b863aa6b6252a07ad50cf83e # v4.32.4
+      uses: github/codeql-action/autobuild@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
       if: ${{ steps.set-build-mode.outputs.build-mode == 'autobuild' }}
 
     - name: Perform CodeQL Analysis
       id: analysis
-      uses: github/codeql-action/analyze@89a39a4e59826350b863aa6b6252a07ad50cf83e # v4.32.4
+      uses: github/codeql-action/analyze@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
       with:
         category: ${{ steps.set-category.outputs.category }}
         upload: ${{ inputs.upload-results }}
