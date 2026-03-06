@@ -22,7 +22,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions: read-all
+permissions: {}
 
 jobs:
   labels:
@@ -31,6 +31,7 @@ jobs:
     timeout-minutes: 10
 
     permissions:
+      contents: read
       issues: write
 
     steps:

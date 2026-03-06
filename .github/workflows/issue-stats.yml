@@ -5,8 +5,7 @@ on:
   schedule:
     - cron: '3 2 1 * *'
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   build:

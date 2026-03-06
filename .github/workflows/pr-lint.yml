@@ -37,9 +37,7 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-permissions:
-  contents: read
-  packages: read # Required for private dependencies
+permissions: {}
 
 jobs:
   megalinter:

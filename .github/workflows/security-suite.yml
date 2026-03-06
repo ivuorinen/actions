@@ -18,11 +18,7 @@ on:
       - '**/*.yaml'
       - '.github/workflows/**'
 
-permissions:
-  contents: read
-  pull-requests: write
-  issues: write
-  actions: read
+permissions: {}
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
@@ -32,6 +28,11 @@ jobs:
   security-analysis:
     name: Security Analysis
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+      issues: write
+      actions: read
 
     steps:
       - name: Checkout PR
