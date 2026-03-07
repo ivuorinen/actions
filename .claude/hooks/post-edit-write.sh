@@ -1,0 +1,39 @@
+#!/bin/sh
+set -eu
+
+# Read JSON input from stdin to get the file path
+INPUT=$(cat)
+FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
+
+if [ -z "$FILE_PATH" ]; then
+  exit 0
+fi
+
+case "$FILE_PATH" in
+  */rules.yml)
+    # rules.yml should not be reached here (blocked by PreToolUse),
+    # but skip formatting just in case
+    exit 0
+    ;;
+  *.py)
+    ruff format --quiet "$FILE_PATH" 2>/dev/null || true
+    ruff check --fix --quiet "$FILE_PATH" 2>/dev/null || true
+    ;;
+  *.sh)
+    shfmt -w "$FILE_PATH" 2>/dev/null || true
+    shellcheck "$FILE_PATH" 2>&1 || true
+    ;;
+  *.yml|*.yaml|*.json)
+    npx prettier --write "$FILE_PATH" 2>/dev/null || true
+    ;;
+  *.md)
+    npx prettier --write "$FILE_PATH" 2>/dev/null || true
+    ;;
+esac
+
+# Run actionlint on action.yml files
+case "$FILE_PATH" in
+  */action.yml)
+    actionlint "$FILE_PATH" 2>&1 || true
+    ;;
+esac
