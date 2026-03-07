@@ -12,7 +12,9 @@ Run the complete validation pipeline:
 make all
 ```
 
-This runs in order: `docs` -> `format` -> `lint` -> `test`
+This runs in order: `install-tools` -> `update-validators` -> `docs` -> `update-catalog` -> `format` -> `lint` -> `precommit`
+
+**Note:** `make test` must be run separately.
 
 ## If validation fails
 
