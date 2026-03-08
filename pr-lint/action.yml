@@ -627,6 +627,33 @@ runs:
         cache: true
 
     #   ╭──────────────────────────────────────────────────────────╮
+    #   │                    Dependency Review                     │
+    #   ╰──────────────────────────────────────────────────────────╯
+    - name: Check Repository Visibility
+      id: repo-visibility
+      if: github.event_name == 'pull_request'
+      shell: sh
+      run: |
+        set -eu
+
+        is_private=$(jq -r '.repository.private' "$GITHUB_EVENT_PATH")
+
+        if [ "$is_private" = "false" ]; then
+          printf '%s\n' "is-public=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Dependency Review
+      id: dependency-review
+      continue-on-error: true
+      if: >-
+        steps.repo-visibility.outputs.is-public == 'true'
+        && github.event_name == 'pull_request'
+      uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+      with:
+        comment-summary-in-pr: always
+        fail-on-severity: critical
+
+    #   ╭──────────────────────────────────────────────────────────╮
     #   │                        MegaLinter                        │
     #   ╰──────────────────────────────────────────────────────────╯
     - name: MegaLinter
@@ -684,3 +711,10 @@ runs:
         path: |
           megalinter-reports
           mega-linter.log
+
+    - name: Fail if dependency review found critical issues
+      if: steps.dependency-review.outcome == 'failure'
+      shell: sh
+      run: |
+        printf '%s\n' "Dependency review found critical issues" >&2
+        exit 1
