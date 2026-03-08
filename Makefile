@@ -210,7 +210,7 @@ bump-major-version: ## Replace one major version with another (usage: make bump-
 	@sh _tools/bump-major-version.sh "$(OLD)" "$(NEW)"
 	@echo "$(GREEN)✅ Major version bumped$(RESET)"
 
-check-version-refs: ## List all current SHA-pinned action references
+check-version-refs: ## Verify all action references are SHA-pinned
 	@echo "$(BLUE)🔍 Checking action references...$(RESET)"
 	@sh _tools/check-version-refs.sh
 
