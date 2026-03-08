@@ -17,20 +17,26 @@ Thank you for your interest in contributing to this GitHub Actions monorepo.
    cd actions
    ```
 
-2. Install dependencies (Node.js, Python 3, ShellSpec, shellcheck, actionlint, ruff, prettier).
-3. Run the full validation suite:
+2. Install dependencies (Node.js, Python 3, ShellSpec, shellcheck, actionlint, ruff, prettier, markdownlint, yamllint).
+3. Run formatting, linting, and pre-commit checks:
 
    ```bash
    make all
    ```
 
+4. Run the test suite:
+
+   ```bash
+   make test
+   ```
+
 ## Code Style
 
-- **EditorConfig**: 2-space indentation, UTF-8, LF line endings, max 200 chars (120 for Markdown).
+- **EditorConfig**: 2-space indentation, UTF-8, LF line endings, max 200 chars.
 - **Shell scripts**: POSIX `sh` with `set -eu`. No bash-only syntax.
 - **Python**: Formatted and linted with `ruff`.
-- **YAML/JSON/Markdown**: Formatted with `prettier`.
-- **Action references**: All external and internal actions must be SHA-pinned.
+- **YAML/JSON/Markdown**: Formatted with `prettier`; linted with `yamllint` and `markdownlint`.
+- **Action references**: SHA-pinned in `action.yml` files. Date-based tags or commit SHAs for published refs.
 
 Run `make dev` (format + lint) to check your changes.
 
@@ -58,8 +64,11 @@ See [\_tests/README.md](_tests/README.md) for details on the ShellSpec testing f
 Each action is a self-contained directory at the repository root containing:
 
 - `action.yml` with inputs, outputs, and runs definition
-- `README.md` generated via `action-docs`
+- `README.md` generated via `action-docs` (`make docs`)
 - Tests in `_tests/`
+
+Do not manually edit sections between `<!--LISTING-->` markers in the root README.
+Use `npm run update-catalog` to regenerate the catalog.
 
 ## License
 
