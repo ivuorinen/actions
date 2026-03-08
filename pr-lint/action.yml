@@ -631,17 +631,20 @@ runs:
     #   ╰──────────────────────────────────────────────────────────╯
     - name: Check Repository Visibility
       id: repo-visibility
+      if: github.event_name == 'pull_request'
+      continue-on-error: true
       shell: sh
       env:
-        GH_TOKEN: ${{ inputs.token || github.token }}
+        GH_TOKEN: ${{ github.token }}
       run: |
         set -eu
 
-        response=$(curl -s \
+        response=$(curl --fail --show-error --silent \
+          -H "Accept: application/vnd.github+json" \
           -H "Authorization: Bearer $GH_TOKEN" \
           "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY")
 
-        is_private=$(printf '%s' "$response" | jq -r '.private')
+        is_private=$(printf '%s' "$response" | jq -er '.private | if type == "boolean" then tostring else error("missing .private") end')
 
         if [ "$is_private" = "false" ]; then
           printf '%s\n' "is-public=true" >> "$GITHUB_OUTPUT"
