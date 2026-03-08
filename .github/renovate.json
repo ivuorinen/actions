@@ -4,6 +4,8 @@
     "github>ivuorinen/renovate-config",
     "customManagers:biomeVersions"
   ],
+  "pinDigests": true,
+  "platformAutomerge": true,
   "packageRules": [
     {
       "matchUpdateTypes": [
