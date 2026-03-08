@@ -23,19 +23,44 @@ for tool in find grep sed printf sort cut tr wc; do
   fi
 done
 
+# --- Validation pass: detect non-SHA-pinned references ---
+violations_file=$(safe_mktemp)
+trap 'rm -f "$violations_file"' EXIT
+
+find . -maxdepth 2 -name "action.yml" -path "*/action.yml" \
+  ! -path "./_*" ! -path "./.github/*" \
+  -exec grep -nE '^\s+uses:\s+ivuorinen/actions/' {} /dev/null \; \
+  >"$violations_file.all"
+
+violations_found=false
+while IFS= read -r match; do
+  if ! printf '%s\n' "$match" | grep -qE '@[0-9a-f]{40}'; then
+    if [ "$violations_found" = false ]; then
+      msg_error "Non-SHA-pinned action references found:"
+      violations_found=true
+    fi
+    printf '  %s\n' "$match" >&2
+  fi
+done <"$violations_file.all"
+rm -f "$violations_file.all"
+
+if [ "$violations_found" = true ]; then
+  rm -f "$violations_file"
+  exit 1
+fi
+rm -f "$violations_file"
+
 printf '%b' "${BLUE}Current SHA-pinned action references:${NC}\n"
 printf '\n'
 
 # Create temp files for processing
 temp_file=$(safe_mktemp)
-trap 'rm -f "$temp_file"' EXIT
-
 temp_input=$(safe_mktemp)
 trap 'rm -f "$temp_file" "$temp_input"' EXIT
 
 # Find all action references and collect SHA|action pairs
 # Use input redirection to avoid subshell issues with pipeline
-find . -maxdepth 2 -name "action.yml" -path "*/action.yml" ! -path "./_*" ! -path "./.github/*" -exec grep -h "uses: ivuorinen/actions/" {} \; > "$temp_input"
+find . -maxdepth 2 -name "action.yml" -path "*/action.yml" ! -path "./_*" ! -path "./.github/*" -exec grep -h "uses: ivuorinen/actions/" {} \; >"$temp_input"
 
 while IFS= read -r line; do
   # Extract action name and SHA using sed
@@ -43,9 +68,9 @@ while IFS= read -r line; do
   sha=$(echo "$line" | sed -n 's|.*@\([a-f0-9]\{40\}\).*|\1|p')
 
   if [ -n "$action" ] && [ -n "$sha" ]; then
-    printf '%s\n' "$sha|$action" >> "$temp_file"
+    printf '%s\n' "$sha|$action" >>"$temp_file"
   fi
-done < "$temp_input"
+done <"$temp_input"
 
 # Check if we found any references
 if [ ! -s "$temp_file" ]; then
@@ -54,7 +79,7 @@ if [ ! -s "$temp_file" ]; then
 fi
 
 # Sort by SHA and group
-sort "$temp_file" | uniq > "${temp_file}.sorted"
+sort "$temp_file" | uniq >"${temp_file}.sorted"
 mv "${temp_file}.sorted" "$temp_file"
 
 # Count unique SHAs
@@ -95,7 +120,7 @@ while IFS='|' read -r sha action; do
     # Add to current SHA group
     actions_list="$actions_list, $action"
   fi
-done < "$temp_file"
+done <"$temp_file"
 
 # Print last SHA group
 if [ -n "$current_sha" ]; then
