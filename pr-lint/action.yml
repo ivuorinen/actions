@@ -627,6 +627,36 @@ runs:
         cache: true
 
     #   ╭──────────────────────────────────────────────────────────╮
+    #   │                    Dependency Review                     │
+    #   ╰──────────────────────────────────────────────────────────╯
+    - name: Check Repository Visibility
+      id: repo-visibility
+      shell: sh
+      env:
+        GH_TOKEN: ${{ inputs.token || github.token }}
+      run: |
+        set -eu
+
+        response=$(curl -s \
+          -H "Authorization: Bearer $GH_TOKEN" \
+          "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY")
+
+        is_private=$(printf '%s' "$response" | jq -r '.private')
+
+        if [ "$is_private" = "false" ]; then
+          printf '%s\n' "is-public=true" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Dependency Review
+      if: >-
+        steps.repo-visibility.outputs.is-public == 'true'
+        && github.event_name == 'pull_request'
+      uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
+      with:
+        comment-summary-in-pr: always
+        fail-on-severity: critical
+
+    #   ╭──────────────────────────────────────────────────────────╮
     #   │                        MegaLinter                        │
     #   ╰──────────────────────────────────────────────────────────╯
     - name: MegaLinter
