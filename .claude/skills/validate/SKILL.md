@@ -1,6 +1,6 @@
 ---
 name: validate
-description: Run full validation pipeline (docs, format, lint, test)
+description: Run full validation pipeline (docs, format, lint, precommit)
 disable-model-invocation: true
 ---
 

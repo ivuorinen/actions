@@ -30,10 +30,11 @@ This verifies that test workflows use `./action-name` format (local references a
 - `./action-name` in `action.yml` (non-test) files must use `ivuorinen/actions/action-name@<SHA>`
 - External actions must be pinned to SHA commits, not version tags
 
-**How to get the current SHA:**
+**How to get the SHA for pinning:**
 
 ```bash
-git rev-parse HEAD
+# After pushing, get the SHA of the latest commit on the remote
+git rev-parse origin/main
 ```
 
-Use this SHA when pinning internal action references after committing changes.
+Use a SHA that exists on the remote. Local-only commits won't resolve when the action is used externally.
