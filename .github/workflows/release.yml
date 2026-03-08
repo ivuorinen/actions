@@ -19,3 +19,49 @@ jobs:
       - uses: softprops/action-gh-release@a06a81a03ee405af7f2048a818ed3f03bbf83c7b # v2.5.0
         with:
           generate_release_notes: true
+
+  provenance:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      - name: Create source archive
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          git archive --format=tar.gz --prefix="${TAG}/" HEAD > "${TAG}-source.tar.gz"
+          sha256sum "${TAG}-source.tar.gz" > "${TAG}-source.tar.gz.sha256"
+      - uses: actions/attest-build-provenance@db473fddc028af60658334401dc6fa3ffd8669fd # v2.3.0
+        with:
+          subject-path: '${{ github.ref_name }}-source.tar.gz'
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          gh release upload "$TAG" "${TAG}-source.tar.gz" "${TAG}-source.tar.gz.sha256" --clobber
+
+  sbom:
+    needs: release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      - uses: anchore/sbom-action@e11c554f704a0b820cbf8c51673f6945e0731532 # v0.20.0
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+      - name: Upload SBOM to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          set -eu
+          gh release upload "$TAG" sbom.cdx.json --clobber
