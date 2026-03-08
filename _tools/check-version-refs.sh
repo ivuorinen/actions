@@ -30,7 +30,7 @@ trap 'rm -f "$violations_file"' EXIT
 find . -maxdepth 2 -name "action.yml" -path "*/action.yml" \
   ! -path "./_*" ! -path "./.github/*" \
   -exec grep -nE '^\s+uses:\s+ivuorinen/actions/' {} /dev/null \; \
-  >"$violations_file.all"
+  >"$violations_file"
 
 violations_found=false
 while IFS= read -r match; do
@@ -41,8 +41,7 @@ while IFS= read -r match; do
     fi
     printf '  %s\n' "$match" >&2
   fi
-done <"$violations_file.all"
-rm -f "$violations_file.all"
+done <"$violations_file"
 
 if [ "$violations_found" = true ]; then
   rm -f "$violations_file"
