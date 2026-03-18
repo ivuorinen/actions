@@ -6,11 +6,9 @@ on:
   push:
     paths:
       - '**/action.yml'
-      - '**/action.yaml'
   pull_request:
     paths:
       - '**/action.yml'
-      - '**/action.yaml'
   merge_group:
 
 concurrency:

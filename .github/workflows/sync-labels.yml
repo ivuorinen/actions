@@ -8,7 +8,6 @@ on:
       - main
       - master
     paths:
-      - '.github/labels.yml'
       - '.github/workflows/sync-labels.yml'
       - 'sync-labels/action.yml'
       - 'sync-labels/labels.yml'

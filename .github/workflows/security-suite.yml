@@ -7,16 +7,12 @@ on:
     paths:
       - '**/package.json'
       - '**/package-lock.json'
-      - '**/yarn.lock'
-      - '**/pnpm-lock.yaml'
-      - '**/requirements.txt'
       - '**/Dockerfile'
       - '**/*.py'
       - '**/*.js'
       - '**/*.ts'
       - '**/*.yml'
       - '**/*.yaml'
-      - '.github/workflows/**'
 
 permissions: {}
 
