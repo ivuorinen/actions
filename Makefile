@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release release-dry release-prep release-tag release-undo update-version-refs bump-major-version check-version-refs
+.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release release-dry release-prep release-tag release-undo update-version-refs bump-major-version check-version-refs lint-actions
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -98,7 +98,7 @@ update-validators-dry: ## Preview validation rules changes (dry run)
 format: format-markdown format-yaml-json format-python ## Format all files
 	@echo "$(GREEN)✅ All files formatted$(RESET)"
 
-lint: lint-markdown lint-yaml lint-shell lint-python ## Run all linters
+lint: lint-markdown lint-yaml lint-shell lint-python lint-actions ## Run all linters
 	@echo "$(GREEN)✅ All linting completed$(RESET)"
 
 check: check-tools check-syntax check-local-refs ## Quick syntax and tool availability checks
@@ -320,6 +320,20 @@ lint-python: ## Lint Python files with ruff and pyright
 	fi; \
 	if $$ruff_passed && $$pyright_passed; then \
 		echo "$(GREEN)✅ Python linting and type checking passed$(RESET)"; \
+	fi
+
+lint-actions: ## Validate GitHub Actions workflows and action.yml files
+	@echo "$(BLUE)🔍 Validating GitHub Actions...$(RESET)"
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		if PRE_COMMIT_USE_UV=1 pre-commit run action-validator --all-files; then \
+			echo "$(GREEN)✅ Actions validation passed$(RESET)"; \
+		else \
+			echo "$(RED)❌ Actions validation failed$(RESET)" | tee -a $(LOG_FILE); \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(RED)❌ pre-commit not found. Install it via 'make install-tools' before linting$(RESET)"; \
+		exit 1; \
 	fi
 
 # Check targets
