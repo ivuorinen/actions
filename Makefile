@@ -332,7 +332,8 @@ lint-actions: ## Validate GitHub Actions workflows and action.yml files
 			exit 1; \
 		fi; \
 	else \
-		echo "$(YELLOW)⚠️ pre-commit not found, skipping action-validator$(RESET)"; \
+		echo "$(RED)❌ pre-commit not found. Install it via 'make install-tools' before linting$(RESET)"; \
+		exit 1; \
 	fi
 
 # Check targets

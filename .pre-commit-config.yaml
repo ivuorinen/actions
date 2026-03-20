@@ -99,3 +99,4 @@ repos:
     rev: v0.8.0
     hooks:
       - id: action-validator
+        files: '(^\.github/workflows/.*\.ya?ml$|.*/action\.ya?ml$)'
