@@ -147,7 +147,7 @@ runs:
 
     - name: Setup TFLint
       if: steps.check-files.outputs.found == 'true'
-      uses: terraform-linters/setup-tflint@4cb9feea73331a35b422df102992a03a44a3bb33 # v6.2.1
+      uses: terraform-linters/setup-tflint@b480b8fcdaa6f2c577f8e4fa799e89e756bb7c93 # v6.2.2
       with:
         tflint_version: ${{ inputs.tflint-version }}
 
@@ -256,7 +256,7 @@ runs:
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.found == 'true' && inputs.format == 'sarif'
-      uses: github/codeql-action/upload-sarif@0d579ffd059c29b07949a3cce3983f0780820c98 # v4.32.6
+      uses: github/codeql-action/upload-sarif@b1bff81932f5cdfc8695c7752dcee935dcd061c8 # v4.33.0
       with:
         sarif_file: ${{ env.VALIDATED_WORKING_DIR }}/reports/tflint.sarif
         category: terraform-lint
