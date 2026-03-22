@@ -1,10 +1,2 @@
-# Global owners
-*       @ivuorinen
-
-# Workflow files
-.github/workflows/    @ivuorinen
-
-# Security files
-SECURITY.md          @ivuorinen
-suppressions.xml     @ivuorinen
-.gitleaks.toml      @ivuorinen
+# Default code owner for all files
+* @ivuorinen
