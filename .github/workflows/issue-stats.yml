@@ -29,7 +29,7 @@ jobs:
           echo "last_month=$first_day..$last_day" >> "$GITHUB_ENV"
 
       - name: Run issue-metrics tool
-        uses: github/issue-metrics@6a35322ff89cee3e1a594d282c27eb34bffa9174 # v4.1.1
+        uses: github/issue-metrics@8bd2f25bef9786e3d21ea82f0527ede7ed88e788 # v4.2.0
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SEARCH_QUERY: 'repo:ivuorinen/actions is:issue created:${{ env.last_month }} -reason:"not planned"'
