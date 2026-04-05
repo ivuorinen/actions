@@ -24,9 +24,9 @@
 
 ### Folders
 
-- `.claude/hooks/` – Claude Code hook scripts (auto-format, lint, block rules.yml edits)
-- `.claude/skills/` – Claude Code skills (`/release`, `/test-action`, `/new-action`, `/validate`, `/check-pins`)
-- `.claude/agents/` – Claude Code subagents (action-validator, test-coverage-reviewer)
+- `.claude/hooks/` – Claude Code hook scripts (auto-format, lint, block edits)
+- `.claude/skills/` – Claude Code skills (see Skills & Subagents section below)
+- `.claude/agents/` – Claude Code subagents (see Skills & Subagents section below)
 - `.github/` – Workflows/templates
 - `_tests/` – ShellSpec tests
 - `_tools/` – Helper tools
@@ -35,10 +35,33 @@
 
 ### Claude Code Hooks
 
-**Auto-formatting**: PostToolUse hooks auto-format files on Edit/Write (ruff for .py, shfmt for .sh, prettier for .yml/.yaml/.json/.md, actionlint for action.yml)
-**Blocked edits**: PreToolUse hook blocks direct edits to `rules.yml` (auto-generated, use `make update-validators`)
+**Auto-formatting**: PostToolUse hooks auto-format files on Edit/Write (ruff for .py, shfmt for .sh, prettier for .yml/.yaml/.json/.md, actionlint + action-validator for action.yml)
+**Blocked edits** (PreToolUse):
+
+- `rules.yml` — auto-generated, use `make update-validators`
+- Action `README.md` — auto-generated, use `make docs`
+- `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
+- Bash-isms in .sh/action.yml — must be POSIX sh (`[[ ]]`, `local`, `declare`, `function` keyword)
+
 **Hook schema**: `matcher` is a regex string matching tool names (e.g. `"Edit|Write"`), not an object. File filtering done in hook scripts via stdin JSON (`jq -r '.tool_input.file_path'`)
 **Reference**: `$CLAUDE_PROJECT_DIR` for project-relative paths in hook commands
+
+### Skills & Subagents
+
+**Run proactively** — don't wait to be asked:
+
+| When | Run |
+|------|-----|
+| After modifying an action | `/action-health <name>` |
+| After creating an action modeled on another | `/compare-actions <source> <new>` |
+| Before creating a PR | `/pin-check` and `/security-audit` |
+| When reviewing Renovate PRs | Use `renovate-pr-reviewer` subagent |
+| Before a release | `/changelog` and `/validate` |
+| Periodically or on large changes | Use `action-consistency-auditor` subagent |
+
+**Available skills**: `/action-health`, `/compare-actions`, `/security-audit`, `/pin-check`, `/changelog`, `/release`, `/test-action`, `/new-action`, `/validate`
+
+**Available subagents**: `action-validator`, `test-coverage-reviewer`, `posix-compliance-checker`, `action-consistency-auditor`, `security-surface-reviewer`, `renovate-pr-reviewer`
 
 ### Documentation Locations
 
