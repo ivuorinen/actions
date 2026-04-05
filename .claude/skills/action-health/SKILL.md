@@ -57,7 +57,7 @@ Look for test files in `_tests/unit/<action-name>/` or `_tests/` that reference 
 Scan all `run:` blocks in `<action-name>/action.yml`:
 
 - Verify `set -eu` is present in shell blocks
-- Verify `GITHUB_OUTPUT` writes use `printf '%s\n'` format-string separation (not `echo`)
+- Verify `GITHUB_OUTPUT` writes use `printf 'key=%s\n' "$value"` format (not `echo` or `printf '%s\n' "key=$value"`)
 - Report any violations with line numbers
 
 ### 7. Check action refs are SHA-pinned

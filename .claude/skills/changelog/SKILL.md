@@ -66,10 +66,13 @@ When no action is specified, also show which actions had the most activity:
 
 ```bash
 # Count commits per action directory (top 10)
+# Get the date cutoff from the 50th most recent repo commit
+CUTOFF_DATE=$(git log -n50 --format=%ci | tail -1)
 for dir in */action.yml; do
+  [ -e "$dir" ] || continue
   action=$(dirname "$dir")
-  count=$(git log --oneline -50 -- "$action/" | wc -l)
-  [ "$count" -gt 0 ] && echo "$count $action"
+  count=$(git log --oneline --since="$CUTOFF_DATE" -- "$action/" | wc -l)
+  [ "$count" -gt 0 ] && printf '%s %s\n' "$count" "$action"
 done | sort -rn | head -10
 ```
 

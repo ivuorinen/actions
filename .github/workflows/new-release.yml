@@ -74,6 +74,8 @@ jobs:
       attestations: write
     steps:
       - uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          fetch-depth: 0
       - name: Create source archive
         env:
           TAG: ${{ needs.new-daily-release.outputs.version }}
