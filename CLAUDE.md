@@ -99,9 +99,6 @@ Validation (validate-inputs)
 **Versioning**:
 
 - `make release [VERSION=vYYYY.MM.DD]` - Create release (auto-generates version from date if omitted)
-- `make update-version-refs MAJOR=vYYYY` - Update action refs to version
-- `make bump-major-version OLD=vYYYY NEW=vYYYY` - Annual version bump
-- `make check-version-refs` - Verify current action references
 
 ### Linters
 
@@ -149,9 +146,8 @@ Violations cause runtime failures:
 
 **External users**: Version tags
 
-- ✅ `ivuorinen/actions/action-name@v2025` (CalVer major version)
-
-Check: `make check-version-refs`
+- ✅ `ivuorinen/actions/action-name@<full sha>` (immutable SHA pin)
+- ✅ `ivuorinen/actions/action-name@v2025.04.05` (immutable CalVer tag)
 
 ## Validation System
 
