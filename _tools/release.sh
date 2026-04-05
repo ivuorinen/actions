@@ -96,10 +96,10 @@ if [ "$DRY_RUN" = "true" ]; then
   printf '\n'
 fi
 
-msg_info "Creating release $VERSION"
-printf '  Major: %s\n' "$major"
-printf '  Minor: %s\n' "$minor"
-printf '  Patch: %s\n' "$patch"
+msg_info "Building CalVer components for $VERSION"
+printf '  Year component:  %s\n' "$major"
+printf '  Month component: %s\n' "$minor"
+printf '  Patch tag:       %s (only this becomes a Git tag)\n' "$patch"
 printf '\n'
 
 # Check if git is available (required for all modes)

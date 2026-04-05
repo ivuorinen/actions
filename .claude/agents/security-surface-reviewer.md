@@ -145,7 +145,10 @@ Report each finding with severity, file, line, and remediation:
 
 [HIGH] missing-mask — npm-publish/action.yml:12
   Found: input 'npm-token' used without masking
-  Fix: Add `echo "::add-mask::${{ inputs.npm-token }}"` before first use
+  Fix: Add masking via env + printf:
+    env:
+      NPM_TOKEN: ${{ inputs.npm-token }}
+    run: printf '::add-mask::%s\n' "$NPM_TOKEN"
 
 [MEDIUM] unquoted-var — go-build/action.yml:30
   Found: cd $build_dir
