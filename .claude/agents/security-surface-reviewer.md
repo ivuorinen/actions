@@ -117,6 +117,22 @@ Check workflow files in `.github/workflows/` for overly broad permissions:
 - `contents: write` should only be where needed
 - Flag any workflow without explicit `permissions:` (inherits repo defaults)
 
+### 8. TOCTOU race conditions (MEDIUM)
+
+Check for time-of-check-time-of-use vulnerabilities:
+
+- File existence checks followed by file operations without locking
+- Version checks followed by installs (package could change between check and install)
+- Race conditions in cache key generation vs cache usage
+
+### 9. Dependency confusion risks (MEDIUM)
+
+Check for supply chain risks:
+
+- Private package names that could be typosquatted on public registries
+- Missing registry pinning (no `registry-url` for private packages)
+- npm/pip/gem installs without lockfile enforcement (`--frozen-lockfile`, `npm ci`)
+
 ## Severity levels
 
 - **CRITICAL**: Exploitable injection, hardcoded secrets, direct secret exposure
@@ -127,9 +143,9 @@ Check workflow files in `.github/workflows/` for overly broad permissions:
 ## How to scan
 
 ```bash
-# Find all action.yml and workflow files
-find . -name "action.yml" -not -path "./.git/*"
-find .github/workflows -name "*.yml" 2>/dev/null
+# Find all action.yml/action.yaml and workflow files
+find . \( -name "action.yml" -o -name "action.yaml" \) -not -path "./.git/*"
+find .github/workflows \( -name "*.yml" -o -name "*.yaml" \) 2>/dev/null
 ```
 
 Read each file and check against all rules above.
