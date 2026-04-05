@@ -28,7 +28,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/stale@<sha>
+- uses: ivuorinen/actions/stale@vYYYY.MM.DD
   with:
     token:
     # GitHub token for authentication

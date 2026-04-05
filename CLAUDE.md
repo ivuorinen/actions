@@ -158,7 +158,7 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 **External users**: Version tags
 
-- ✅ `ivuorinen/actions/action-name@<sha>` (immutable SHA pin)
+- ✅ `ivuorinen/actions/action-name@<40-char-sha>` (immutable SHA pin)
 - ✅ `ivuorinen/actions/action-name@v2025.04.05` (immutable CalVer tag)
 
 ## Validation System

@@ -183,46 +183,12 @@ fi
 printf '\n'
 msg_info "Creating tags..."
 
-# Create patch tag
+# Create immutable patch tag only (no mutable minor/major tags)
 if [ "$DRY_RUN" = "true" ]; then
   msg_warn "[DRY RUN] Would create tag: $patch"
 else
   git tag -a "$patch" -m "Release $patch"
   msg_item "Created tag: $patch"
-fi
-
-# Move/create minor tag
-if git rev-parse "$minor" >/dev/null 2>&1; then
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would force-update tag: $minor"
-  else
-    git tag -f -a "$minor" -m "Latest $minor release: $patch"
-    msg_item "Updated tag: $minor (force)"
-  fi
-else
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would create tag: $minor"
-  else
-    git tag -a "$minor" -m "Latest $minor release: $patch"
-    msg_item "Created tag: $minor"
-  fi
-fi
-
-# Move/create major tag
-if git rev-parse "$major" >/dev/null 2>&1; then
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would force-update tag: $major"
-  else
-    git tag -f -a "$major" -m "Latest $major release: $patch"
-    msg_item "Updated tag: $major (force)"
-  fi
-else
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would create tag: $major"
-  else
-    git tag -a "$major" -m "Latest $major release: $patch"
-    msg_item "Created tag: $major"
-  fi
 fi
 
 printf '\n'
@@ -234,22 +200,19 @@ else
   msg_done "Release $VERSION created successfully"
 fi
 printf '\n'
-msg_plain "$YELLOW" "All tags point to: $current_sha"
+msg_plain "$YELLOW" "Tag points to: $current_sha"
 printf '\n'
-msg_info "Tags created:"
+msg_info "Tag created:"
 printf '  %s\n' "$patch"
-printf '  %s\n' "$minor"
-printf '  %s\n' "$major"
 printf '\n'
 
-# Enhanced next steps
+# Next steps
 if [ "$DRY_RUN" = "false" ]; then
   msg_warn "Next steps:"
   printf '  1. Review changes: git show HEAD\n'
   printf '  2. Verify CI status: gh run list --limit 5\n'
-  printf '  3. Push tags: git push origin main --tags --force-with-lease\n'
-  printf '  4. Update README examples if needed\n'
-  printf '  5. Create GitHub release: gh release create %s --generate-notes\n' "$VERSION"
+  printf '  3. Push tag: git push origin %s\n' "$patch"
+  printf '  4. GitHub release is created automatically by release.yml workflow\n'
   printf '\n'
   msg_info "If something went wrong:"
   printf '  Rollback: make release-undo\n'

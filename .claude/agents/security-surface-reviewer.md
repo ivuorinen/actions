@@ -28,14 +28,18 @@ Untrusted inputs (never safe in `run:` blocks without sanitization):
 - `github.head_ref`
 - `github.event.*.label.name`
 
-These must be passed via environment variables, never interpolated directly in shell:
+These must be passed via environment variables, never interpolated directly in shell.
+
+**In composite actions**, also check that action `inputs` are passed via `env:` blocks
+rather than interpolated with `${{ inputs.* }}` in `run:` blocks — callers control
+input values and can inject shell commands.
 
 ```yaml
 # VULNERABLE — attacker controls the string
 - run: echo "${{ github.event.pull_request.title }}"
 
 # SAFE — passed as env var
-- run: echo "$PR_TITLE"
+- run: printf '%s\n' "$PR_TITLE"
   env:
     PR_TITLE: ${{ github.event.pull_request.title }}
 ```
@@ -45,10 +49,15 @@ These must be passed via environment variables, never interpolated directly in s
 All inputs that receive tokens or secrets must be masked immediately:
 
 ```yaml
-- run: echo "::add-mask::${{ inputs.token }}"
+# SAFE — passed via env, masked with printf
+- run: printf '::add-mask::%s\n' "$TOKEN"
+  env:
+    TOKEN: ${{ inputs.token }}
 ```
 
 Check that masking happens before any other step uses the value.
+Never use `echo "::add-mask::${{ inputs.token }}"` — the token is interpolated
+into the shell command before masking occurs.
 
 ### 3. Debug logging leaking secrets (HIGH)
 

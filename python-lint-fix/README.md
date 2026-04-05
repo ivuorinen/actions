@@ -35,7 +35,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/python-lint-fix@<sha>
+- uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
   with:
     python-version:
     # Python version to use

@@ -28,7 +28,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/language-version-detect@<sha>
+- uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
   with:
     language:
     # Language to detect version for (php, python, go, dotnet)
