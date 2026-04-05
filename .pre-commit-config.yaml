@@ -14,7 +14,7 @@ repos:
         types: [markdown, python, yaml]
         files: ^(docs/.*|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|.*\.py|.*\.ya?ml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.2
+    rev: 0.11.3
     hooks:
       - id: uv-lock
       - id: uv-sync
@@ -55,7 +55,7 @@ repos:
       - id: yamllint
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.15.8
+    rev: v0.15.9
     hooks:
       # Run the linter with auto-fix
       - id: ruff-check
@@ -64,39 +64,41 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.12.0-2
+    rev: v3.13.0-1
     hooks:
       - id: shfmt
-        args: ["--apply-ignore"]
+        args: ['--apply-ignore']
         exclude: '^_tests/.*\.sh$'
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
     rev: v0.11.0.1
     hooks:
       - id: shellcheck
-        args: ["-x"]
+        args: ['-x']
         exclude: '^_tests/.*\.sh$'
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.11
+    rev: v1.7.12
     hooks:
       - id: actionlint
-        args: ["-shellcheck="]
+        args: ['-shellcheck=']
 
   - repo: https://github.com/bridgecrewio/checkov.git
-    rev: "3.2.513"
+    rev: '3.2.513'
     hooks:
       - id: checkov
         args:
-          - "--quiet"
+          - '--quiet'
 
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.1
+    rev: v8.30.0
     hooks:
       - id: gitleaks
 
-  - repo: https://github.com/mpalmer/action-validator
-    rev: v0.8.0
+  - repo: local
     hooks:
       - id: action-validator
+        name: action-validator
+        language: system
+        entry: action-validator
         files: '(^\.github/workflows/.*\.ya?ml$|.*/action\.ya?ml$)'

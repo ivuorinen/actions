@@ -85,3 +85,5 @@ tests/reports/**/*.json
 code-scanning-report-*
 *.sarif
 TODO.md
+.claude/settings.local.json
+docs/superpowers/
