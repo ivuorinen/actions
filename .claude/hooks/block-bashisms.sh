@@ -14,7 +14,7 @@ fi
 
 # Only check shell scripts and action.yml
 case "$FILE_PATH" in
-*.sh | */action.yml) ;;
+*.sh | *.bash | */action.yml | */action.yaml) ;;
 *) exit 0 ;;
 esac
 

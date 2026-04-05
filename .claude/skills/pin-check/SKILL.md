@@ -18,7 +18,7 @@ None. This skill always runs across the entire repository.
 Find all `action.yml` files in action directories (exclude `.github/workflows/` and `_tests/`):
 
 ```bash
-find . -maxdepth 2 -name 'action.yml' -not -path './.github/*' -not -path './_tests/*'
+find . -maxdepth 2 \( -name 'action.yml' -o -name 'action.yaml' \) -not -path './.github/*' -not -path './_tests/*'
 ```
 
 ### 2. Check external action references

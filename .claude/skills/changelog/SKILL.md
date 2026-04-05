@@ -22,14 +22,14 @@ Generate a changelog from git history, either for a specific action or across th
 test -d <action-name>
 
 # Get commits touching this action's directory
-git log --oneline --format='%h %as %s' -- <action-name>/
+git log --format='%h %as %s' -- <action-name>/
 ```
 
 **If no argument:**
 
 ```bash
 # Get recent commits across the whole repo (last 50)
-git log --oneline --format='%h %as %s' -50
+git log --format='%h %as %s' -50
 ```
 
 ### 2. Parse and classify commits
@@ -62,9 +62,9 @@ git log --oneline -- <action-name>/ | wc -l               # total commit count
 **For the whole repo** (omit the path filter):
 
 ```bash
-git log --format='%as' | sort | head -1  # earliest
-git log --format='%as' | sort | tail -1  # latest
-git log --oneline | wc -l               # total commit count
+git log -n 50 --format='%as' | sort | head -1  # earliest
+git log -n 50 --format='%as' | sort | tail -1  # latest
+git log -n 50 --oneline | wc -l               # total commit count
 ```
 
 ### 4. For whole-repo mode, show per-action activity

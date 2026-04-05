@@ -166,6 +166,19 @@ fi
 # Skip prep if --tag-only
 if [ "$TAG_ONLY" = "true" ]; then
   msg_info "Skipping preparation (--tag-only mode)"
+  # Verify HEAD matches the SHA from prep phase
+  sha_file=".release-prepared-sha"
+  if [ -f "$sha_file" ]; then
+    prepared_sha=$(cat "$sha_file")
+    if [ "$current_sha" != "$prepared_sha" ]; then
+      msg_error "HEAD ($current_sha) does not match prepared SHA ($prepared_sha)"
+      printf 'The working tree has changed since --prep-only. Aborting.\n'
+      exit 1
+    fi
+    msg_item "SHA verified: HEAD matches prepared SHA"
+  else
+    msg_warn "No $sha_file found - cannot verify HEAD matches prep phase"
+  fi
   printf '\n'
 else
   msg_info "Skipping SHA reference updates (handled by Renovate)"
@@ -173,6 +186,9 @@ fi
 
 # Exit early if --prep-only
 if [ "$PREP_ONLY" = "true" ]; then
+  # Write current SHA so --tag-only can verify it later
+  printf '%s\n' "$current_sha" > ".release-prepared-sha"
+  msg_item "Wrote prepared SHA to .release-prepared-sha"
   printf '\n'
   msg_done "Preparation complete (--prep-only mode)"
   msg_warn "Run with --tag-only to create tags"
@@ -189,6 +205,8 @@ if [ "$DRY_RUN" = "true" ]; then
 else
   git tag -a "$patch" -m "Release $patch"
   msg_item "Created tag: $patch"
+  # Clean up prepared SHA file if it exists
+  rm -f ".release-prepared-sha"
 fi
 
 printf '\n'

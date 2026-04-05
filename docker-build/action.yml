@@ -249,6 +249,8 @@ runs:
         fi
         printf 'args=%s\n' "$args" >> "$GITHUB_OUTPUT"
 
+    # Inputs validated by validate-inputs step above; it fails the workflow
+    # on invalid input before these parsing steps execute.
     - name: Parse Build Contexts
       id: build-contexts
       shell: sh
@@ -603,7 +605,7 @@ runs:
           fi
 
           # Get and verify platform support
-          platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2)
+          platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2 | tr '\n' ',' | sed 's/,$//')
           printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
         else
           # For local builds, just verify it exists

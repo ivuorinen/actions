@@ -15,8 +15,8 @@ Run a security analysis on all actions or a specific action. Dispatches the secu
 
 ### 1. Determine scope
 
-- If `<action-name>` is provided, verify `<action-name>/action.yml` exists. Abort if missing.
-- If no argument, collect all directories containing `action.yml`.
+- If `<action-name>` is provided, verify `<action-name>/action.yml` or `<action-name>/action.yaml` exists. Abort if neither is found.
+- If no argument, collect all directories containing `action.yml` or `action.yaml`.
 
 ### 2. Dispatch security-surface-reviewer subagent
 

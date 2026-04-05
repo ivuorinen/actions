@@ -133,27 +133,41 @@ runs:
         }
 
         # Function to get previous release tag with error handling
+        # Filters by prefix so unrelated releases are ignored
         get_previous_tag() {
+          local prefix="$1"
           local previous_tag
-          previous_tag=$(gh release list --limit 1 2>/dev/null | awk '{ print $1 }') || {
-            echo "::warning::No previous releases found"
-            return 1
-          }
+          if [ -n "$prefix" ]; then
+            previous_tag=$(gh release list --limit 100 2>/dev/null \
+              | awk '{ print $1 }' \
+              | grep "^${prefix}" \
+              | head -1) || {
+              echo "::warning::No previous releases found with prefix $prefix"
+              return 1
+            }
+          else
+            previous_tag=$(gh release list --limit 1 2>/dev/null | awk '{ print $1 }') || {
+              echo "::warning::No previous releases found"
+              return 1
+            }
+          fi
           echo "$previous_tag"
         }
 
-        # Get previous release tag
-        previous_tag=$(get_previous_tag) || previous_tag=""
+        # Get previous release tag (filtered by prefix)
+        previous_tag=$(get_previous_tag "$PREFIX") || previous_tag=""
         printf 'previous_tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
 
         if [ -n "$previous_tag" ]; then
-          previous_major="${previous_tag%%\.*}"
-          previous_minor="${previous_tag#*.}"
+          # Strip prefix before parsing version components
+          previous_version="${previous_tag#$PREFIX}"
+          previous_major="${previous_version%%\.*}"
+          previous_minor="${previous_version#*.}"
           previous_minor="${previous_minor%.*}"
-          previous_patch="${previous_tag##*.}"
+          previous_patch="${previous_version##*.}"
 
-          # Validate previous tag format
-          validate_version "$previous_tag" || {
+          # Validate previous tag format (without prefix)
+          validate_version "$previous_version" || {
             echo "::error::Invalid previous tag format: $previous_tag"
             exit 1
           }
