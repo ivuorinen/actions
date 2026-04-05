@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
       printf '  --dry-run        Show what would happen without making changes\n'
       printf '  --yes            Skip confirmation prompt\n'
       printf '  --no-confirm     Alias for --yes\n'
-      printf '  --prep-only      Only update refs and commit (no tags)\n'
+      printf '  --prep-only      Pre-flight prep only (no tags)\n'
       printf '  --tag-only       Only create tags (assumes prep done)\n'
       printf '  --help, -h       Show this help message\n'
       printf '\n'
@@ -248,9 +248,8 @@ if [ "$DRY_RUN" = "false" ]; then
   printf '  1. Review changes: git show HEAD\n'
   printf '  2. Verify CI status: gh run list --limit 5\n'
   printf '  3. Push tags: git push origin main --tags --force-with-lease\n'
-  printf '  4. Update workflow refs: make update-version-refs MAJOR=%s\n' "$major"
-  printf '  5. Update README examples if needed\n'
-  printf '  6. Create GitHub release: gh release create %s --generate-notes\n' "$VERSION"
+  printf '  4. Update README examples if needed\n'
+  printf '  5. Create GitHub release: gh release create %s --generate-notes\n' "$VERSION"
   printf '\n'
   msg_info "If something went wrong:"
   printf '  Rollback: make release-undo\n'

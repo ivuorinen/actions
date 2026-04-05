@@ -32,8 +32,8 @@ if echo "$NEW_CONTENT" | grep -qE '\[\[.*\]\]'; then
   REASON="Use [ ] instead of [[ ]] for POSIX compliance."
 fi
 
-if echo "$NEW_CONTENT" | grep -qE 'declare |typeset |local '; then
-  REASON="${REASON:+$REASON }Avoid declare/typeset/local — not POSIX. Use plain variable assignment."
+if echo "$NEW_CONTENT" | grep -qE '(^|[[:space:]])(declare|typeset) '; then
+  REASON="${REASON:+$REASON }Avoid declare/typeset — not POSIX. Use plain variable assignment."
 fi
 
 if echo "$NEW_CONTENT" | grep -qE 'function [a-zA-Z_]+[[:space:]]*\{'; then

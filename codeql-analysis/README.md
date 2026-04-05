@@ -42,7 +42,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/codeql-analysis@<full sha>
+- uses: ivuorinen/actions/codeql-analysis@<sha>
   with:
     language:
     # Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.)

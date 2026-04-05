@@ -32,7 +32,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/go-build@<full sha>
+- uses: ivuorinen/actions/go-build@<sha>
   with:
     go-version:
     # Go version to use.

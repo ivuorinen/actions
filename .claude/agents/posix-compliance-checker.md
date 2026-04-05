@@ -15,8 +15,7 @@ or as a periodic audit of the entire repo.
 ### Find all shell code
 
 1. Extract `run:` blocks from all action.yml files
-2. Check all .sh scripts in `_tools/`
-3. Check shell scripts anywhere else in the repo
+2. Check all .sh scripts in the repository
 
 ### Bash-isms to detect
 

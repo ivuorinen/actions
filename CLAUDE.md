@@ -50,14 +50,14 @@
 
 **Run proactively** — don't wait to be asked:
 
-| When | Run |
-|------|-----|
-| After modifying an action | `/action-health <name>` |
-| After creating an action modeled on another | `/compare-actions <source> <new>` |
-| Before creating a PR | `/pin-check` and `/security-audit` |
-| When reviewing Renovate PRs | Use `renovate-pr-reviewer` subagent |
-| Before a release | `/changelog` and `/validate` |
-| Periodically or on large changes | Use `action-consistency-auditor` subagent |
+| When                                        | Run                                       |
+|---------------------------------------------|-------------------------------------------|
+| After modifying an action                   | `/action-health <name>`                   |
+| After creating an action modeled on another | `/compare-actions <source> <new>`         |
+| Before creating a PR                        | `/pin-check` and `/security-audit`        |
+| When reviewing Renovate PRs                 | Use `renovate-pr-reviewer` subagent       |
+| Before a release                            | `/changelog` and `/validate`              |
+| Periodically or on large changes            | Use `action-consistency-auditor` subagent |
 
 **Available skills**: `/action-health`, `/compare-actions`, `/security-audit`, `/pin-check`, `/changelog`, `/release`, `/test-action`, `/new-action`, `/validate`
 
@@ -158,7 +158,7 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 **External users**: Version tags
 
-- ✅ `ivuorinen/actions/action-name@<full sha>` (immutable SHA pin)
+- ✅ `ivuorinen/actions/action-name@<sha>` (immutable SHA pin)
 - ✅ `ivuorinen/actions/action-name@v2025.04.05` (immutable CalVer tag)
 
 ## Validation System

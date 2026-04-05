@@ -14,7 +14,7 @@ fi
 
 # Only check action.yml files
 case "$FILE_PATH" in
-*/action.yml) ;;
+*/action.yml | */.github/workflows/*.yml | */.github/workflows/*.yaml) ;;
 *) exit 0 ;;
 esac
 

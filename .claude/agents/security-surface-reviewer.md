@@ -90,7 +90,7 @@ All `uses:` references to external actions must be SHA-pinned:
 - uses: actions/checkout@abc123def456...
 ```
 
-Check every `uses:` line in every action.yml.
+Check every `uses:` line in every action.yml and in `.github/workflows/*.yml` / `.github/workflows/*.yaml`.
 
 ### 6. Hardcoded secrets (CRITICAL)
 

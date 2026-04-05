@@ -32,7 +32,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/compress-images@<full sha>
+- uses: ivuorinen/actions/compress-images@<sha>
   with:
     token:
     # GitHub token for authentication

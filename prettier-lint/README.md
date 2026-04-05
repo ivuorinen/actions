@@ -42,7 +42,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/prettier-lint@<full sha>
+- uses: ivuorinen/actions/prettier-lint@<sha>
   with:
     mode:
     # Mode to run (check or fix)

@@ -51,13 +51,20 @@ Commits without a conventional prefix go under **other**.
 
 ### 3. Compute date range and stats
 
-```bash
-# First and last commit dates in scope
-git log --format='%as' -- <path>/ | sort | head -1  # earliest
-git log --format='%as' -- <path>/ | sort | tail -1  # latest
+**For a specific action** (replace `<action-name>` with the directory name):
 
-# Total commit count
-git log --oneline -- <path>/ | wc -l
+```bash
+git log --format='%as' -- <action-name>/ | sort | head -1  # earliest
+git log --format='%as' -- <action-name>/ | sort | tail -1  # latest
+git log --oneline -- <action-name>/ | wc -l               # total commit count
+```
+
+**For the whole repo** (omit the path filter):
+
+```bash
+git log --format='%as' | sort | head -1  # earliest
+git log --format='%as' | sort | tail -1  # latest
+git log --oneline | wc -l               # total commit count
 ```
 
 ### 4. For whole-repo mode, show per-action activity

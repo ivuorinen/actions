@@ -413,7 +413,7 @@ runs:
         build_start=$(date +%s)
 
         # Determine platforms to build
-        if [ "$AUTO_DETECT_PLATFORMS" == "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
+        if [ "$AUTO_DETECT_PLATFORMS" = "true" ] && [ -n "$DETECTED_PLATFORMS" ]; then
           platforms="$DETECTED_PLATFORMS"
         else
           platforms="$ARCHITECTURES"
@@ -430,7 +430,7 @@ runs:
         platform_matrix="{}"
 
         # Check for dry run
-        if [ "$DRY_RUN" == "true" ]; then
+        if [ "$DRY_RUN" = "true" ]; then
           echo "[DRY RUN] Would build for platforms: $platforms"
           printf 'digest=%s\n' "dry-run-no-digest" >> "$GITHUB_OUTPUT"
           printf 'platform-matrix=%s\n' "{}" >> "$GITHUB_OUTPUT"
@@ -443,7 +443,7 @@ runs:
 
         # Prepare verbose flag
         verbose_flag=""
-        if [ "$VERBOSE" == "true" ]; then
+        if [ "$VERBOSE" = "true" ]; then
           verbose_flag="--progress=plain"
         fi
 
@@ -457,7 +457,7 @@ runs:
           echo "Build attempt $attempt of $max_attempts"
 
           # Build command with platform restriction for local load
-          if [ "$PUSH" == "true" ]; then
+          if [ "$PUSH" = "true" ]; then
             build_action="--push"
           else
             build_action="--load"
@@ -480,7 +480,7 @@ runs:
             "$CONTEXT"; then
 
             # Get image digest
-            if [ "$PUSH" == "true" ]; then
+            if [ "$PUSH" = "true" ]; then
               digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$TAG" --raw | jq -r '.digest // "unknown"' || echo "unknown")
             else
               digest=$(docker inspect "$IMAGE_NAME:$TAG" --format='{{.Id}}' || echo "unknown")
@@ -506,9 +506,12 @@ runs:
             printf 'build-time=%s\n' "$build_time" >> "$GITHUB_OUTPUT"
 
             # Build platform matrix
-            IFS=',' read -ra PLATFORM_ARRAY <<< "${platforms}"
+            OLD_IFS="$IFS"
+            IFS=','
+            set -- $platforms
+            IFS="$OLD_IFS"
             platform_matrix="{"
-            for p in "${PLATFORM_ARRAY[@]}"; do
+            for p in "$@"; do
               platform_matrix="${platform_matrix}\"${p}\":\"success\","
             done
             platform_matrix="${platform_matrix%,}}"
@@ -593,7 +596,7 @@ runs:
         set -eu
 
         # Verify image exists
-        if [ "$PUSH" == "true" ]; then
+        if [ "$PUSH" = "true" ]; then
           if ! docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
             echo "::error::Built image not found"
             exit 1

@@ -26,7 +26,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/sync-labels@<full sha>
+- uses: ivuorinen/actions/sync-labels@<sha>
   with:
     labels:
     # Path to the labels YAML file

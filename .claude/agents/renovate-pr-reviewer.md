@@ -67,7 +67,7 @@ Check that the PR updates every occurrence:
 
 ```bash
 # Find all uses of the action in the repo
-grep -r "uses:.*{action_name}" --include="*.yml" .
+grep -r "uses:.*{action_name}" --include="*.yml" --include="*.yaml" .
 ```
 
 ### 5. Validate action.yml still passes

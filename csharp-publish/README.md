@@ -30,7 +30,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/csharp-publish@<full sha>
+- uses: ivuorinen/actions/csharp-publish@<sha>
   with:
     dotnet-version:
     # Version of .NET SDK to use.

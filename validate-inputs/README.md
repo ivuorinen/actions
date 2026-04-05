@@ -82,7 +82,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/validate-inputs@<full sha>
+- uses: ivuorinen/actions/validate-inputs@<sha>
   with:
     action:
     # Action name to validate (alias for action-type)

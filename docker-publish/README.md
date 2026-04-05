@@ -38,7 +38,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/docker-publish@<full sha>
+- uses: ivuorinen/actions/docker-publish@<sha>
   with:
     registry:
     # Registry to publish to (dockerhub, github, or both)
