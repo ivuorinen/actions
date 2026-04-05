@@ -59,6 +59,12 @@ runs:
         echo "::add-mask::$NPM_TOKEN"
         echo "::add-mask::$GITHUB_TOKEN"
 
+    - name: Checkout Repository
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        token: ${{ inputs.github_token }}
+        fetch-depth: 0
+
     - name: Validate Inputs
       id: validate
       shell: sh
@@ -81,23 +87,29 @@ runs:
           exit 1
         fi
 
-        # Validate registry URL format
-        if ! echo "$REGISTRY_URL" | grep -Eq '^https?://[a-zA-Z0-9.-]+(/.*)?/?$'; then
-          echo "::error::Invalid registry URL format: '$REGISTRY_URL'. Expected http:// or https:// URL (e.g., 'https://registry.npmjs.org/')"
-          exit 1
-        fi
+        # Validate registry URL format (skip GitHub expressions)
+        case "$REGISTRY_URL" in
+          *'${'*) ;;
+          *)
+            if ! echo "$REGISTRY_URL" | grep -Eq '^https?://[a-zA-Z0-9.-]+(/.*)?/?$'; then
+              echo "::error::Invalid registry URL format: '$REGISTRY_URL'. Expected http:// or https:// URL (e.g., 'https://registry.npmjs.org/')"
+              exit 1
+            fi
+            ;;
+        esac
 
-        # Validate scope format (if provided)
-        if [ -n "$PACKAGE_SCOPE" ] && ! echo "$PACKAGE_SCOPE" | grep -Eq '^@[a-z0-9-~][a-z0-9-._~]*$'; then
-          echo "::error::Invalid NPM scope format: '$PACKAGE_SCOPE'. Expected format: @scope-name (e.g., '@myorg', '@my-org')"
-          exit 1
+        # Validate scope format (skip GitHub expressions)
+        if [ -n "$PACKAGE_SCOPE" ]; then
+          case "$PACKAGE_SCOPE" in
+            *'${'*) ;;
+            *)
+              if ! echo "$PACKAGE_SCOPE" | grep -Eq '^@[a-z0-9-~][a-z0-9-._~]*$'; then
+                echo "::error::Invalid NPM scope format: '$PACKAGE_SCOPE'. Expected format: @scope-name (e.g., '@myorg', '@my-org')"
+                exit 1
+              fi
+              ;;
+          esac
         fi
-
-    - name: Checkout Repository
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
-      with:
-        token: ${{ inputs.github_token }}
-        fetch-depth: 0
 
     - name: Detect Package Manager
       id: detect-pm

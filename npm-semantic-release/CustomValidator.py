@@ -53,7 +53,12 @@ class CustomValidator(BaseValidator):
         return valid
 
     def _validate_npm_token(self, token: str) -> bool:
-        """Validate NPM token format."""
+        """Validate NPM token format.
+
+        Accepts either:
+        - NPM classic tokens (npm_ prefix with 36+ alphanumeric chars)
+        - GitHub tokens (for GitHub Packages publishing)
+        """
         # Check for NPM classic token format first
         if token.startswith("npm_"):
             # NPM classic token format: npm_ followed by 36+ alphanumeric characters
@@ -112,4 +117,4 @@ class CustomValidator(BaseValidator):
 
     def get_validation_rules(self) -> dict:
         """Get validation rules."""
-        return self.load_rules(validate_inputs_path / "rules" / "npm-semantic-release.yml")
+        return self.load_rules(Path(__file__).parent / "rules.yml")
