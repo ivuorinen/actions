@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release release-dry release-prep release-tag release-undo update-version-refs bump-major-version check-version-refs lint-actions
+.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release release-dry release-prep release-tag release-undo lint-actions
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -189,30 +189,6 @@ release-tag: ## Create tags only (assumes prep done) (usage: make release-tag VE
 release-undo: ## Rollback the most recent release (delete tags and reset HEAD)
 	@echo "$(BLUE)🔙 Rolling back release...$(RESET)"; \
 	sh _tools/release-undo.sh
-
-update-version-refs: ## Update all action references to a specific version tag (usage: make update-version-refs MAJOR=v2025)
-	@if [ -z "$(MAJOR)" ]; then \
-		echo "$(RED)❌ Error: MAJOR parameter required$(RESET)"; \
-		echo "Usage: make update-version-refs MAJOR=v2025"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)🔧 Updating action references to $(MAJOR)...$(RESET)"
-	@sh _tools/update-action-refs.sh "$(MAJOR)"
-	@echo "$(GREEN)✅ Action references updated$(RESET)"
-
-bump-major-version: ## Replace one major version with another (usage: make bump-major-version OLD=v2025 NEW=v2026)
-	@if [ -z "$(OLD)" ] || [ -z "$(NEW)" ]; then \
-		echo "$(RED)❌ Error: OLD and NEW parameters required$(RESET)"; \
-		echo "Usage: make bump-major-version OLD=v2025 NEW=v2026"; \
-		exit 1; \
-	fi
-	@echo "$(BLUE)🔄 Bumping version from $(OLD) to $(NEW)...$(RESET)"
-	@sh _tools/bump-major-version.sh "$(OLD)" "$(NEW)"
-	@echo "$(GREEN)✅ Major version bumped$(RESET)"
-
-check-version-refs: ## Verify all action references are SHA-pinned
-	@echo "$(BLUE)🔍 Checking action references...$(RESET)"
-	@sh _tools/check-version-refs.sh
 
 # Formatting targets
 format-markdown: ## Format markdown files
