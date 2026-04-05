@@ -1,0 +1,226 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
+# permissions:
+#   - contents: write      # Required for creating GitHub releases and tags
+#   - issues: write        # Required for commenting on released issues
+#   - pull-requests: write # Required for commenting on released pull requests
+#   - id-token: write      # Required for OIDC npm provenance
+---
+name: NPM Semantic Release
+description: 'Runs semantic-release for automated npm versioning and publishing with OIDC provenance support.'
+author: 'Ismo Vuorinen'
+
+branding:
+  icon: package
+  color: blue
+
+inputs:
+  npm_token:
+    description: 'NPM token for publishing.'
+    required: true
+  github_token:
+    description: 'GitHub token for creating releases, tags, and PR comments.'
+    required: false
+    default: ${{ github.token }}
+  scope:
+    description: 'Package scope to use.'
+    required: false
+    default: '@ivuorinen'
+  registry-url:
+    description: 'Registry URL for publishing.'
+    required: false
+    default: 'https://registry.npmjs.org/'
+  node-version:
+    description: 'Node.js version to use when .nvmrc is not present.'
+    required: false
+    default: '24'
+  extra_plugins:
+    description: 'Extra semantic-release plugins (pipe-separated).'
+    required: false
+    default: 'conventional-changelog-conventionalcommits@^9.3.1'
+
+outputs:
+  new-release-published:
+    description: 'Whether a new release was published.'
+    value: ${{ steps.semantic-release.outputs.new_release_published }}
+  new-release-version:
+    description: 'The new release version, if published.'
+    value: ${{ steps.semantic-release.outputs.new_release_version }}
+
+runs:
+  using: composite
+  steps:
+    - name: Mask Secrets
+      shell: sh
+      env:
+        NPM_TOKEN: ${{ inputs.npm_token }}
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+      run: |
+        set -eu
+        echo "::add-mask::$NPM_TOKEN"
+        echo "::add-mask::$GITHUB_TOKEN"
+
+    - name: Validate Inputs
+      id: validate
+      shell: sh
+      env:
+        REGISTRY_URL: ${{ inputs.registry-url }}
+        PACKAGE_SCOPE: ${{ inputs.scope }}
+        NPM_TOKEN: ${{ inputs.npm_token }}
+      run: |
+        set -eu
+
+        # Validate NPM token is provided
+        if [ -z "$NPM_TOKEN" ]; then
+          echo "::error::NPM token is required for publishing"
+          exit 1
+        fi
+
+        # Validate package.json exists
+        if [ ! -f "package.json" ]; then
+          echo "::error::package.json not found in current directory"
+          exit 1
+        fi
+
+        # Validate registry URL format
+        if ! echo "$REGISTRY_URL" | grep -Eq '^https?://[a-zA-Z0-9.-]+(/.*)?/?$'; then
+          echo "::error::Invalid registry URL format: '$REGISTRY_URL'. Expected http:// or https:// URL (e.g., 'https://registry.npmjs.org/')"
+          exit 1
+        fi
+
+        # Validate scope format (if provided)
+        if [ -n "$PACKAGE_SCOPE" ] && ! echo "$PACKAGE_SCOPE" | grep -Eq '^@[a-z0-9-~][a-z0-9-._~]*$'; then
+          echo "::error::Invalid NPM scope format: '$PACKAGE_SCOPE'. Expected format: @scope-name (e.g., '@myorg', '@my-org')"
+          exit 1
+        fi
+
+    - name: Checkout Repository
+      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      with:
+        token: ${{ inputs.github_token }}
+        fetch-depth: 0
+
+    - name: Detect Package Manager
+      id: detect-pm
+      shell: sh
+      run: |
+        set -eu
+
+        # Detect package manager from lockfiles
+        if [ -f bun.lockb ]; then
+          package_manager="bun"
+        elif [ -f pnpm-lock.yaml ]; then
+          package_manager="pnpm"
+        elif [ -f yarn.lock ]; then
+          package_manager="yarn"
+        else
+          package_manager="npm"
+        fi
+
+        printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
+        echo "Detected package manager: $package_manager"
+
+    - name: Detect .nvmrc
+      id: detect-nvmrc
+      shell: sh
+      run: |
+        set -eu
+
+        if [ -f ".nvmrc" ]; then
+          printf 'has-nvmrc=true\n' >> "$GITHUB_OUTPUT"
+        else
+          printf 'has-nvmrc=false\n' >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Setup Node.js (from .nvmrc)
+      if: steps.detect-nvmrc.outputs.has-nvmrc == 'true'
+      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+      with:
+        node-version-file: '.nvmrc'
+        registry-url: ${{ inputs.registry-url }}
+        scope: ${{ inputs.scope }}
+
+    - name: Setup Node.js (fallback)
+      if: steps.detect-nvmrc.outputs.has-nvmrc != 'true'
+      uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+      with:
+        node-version: ${{ inputs.node-version }}
+        registry-url: ${{ inputs.registry-url }}
+        scope: ${{ inputs.scope }}
+
+    - name: Enable Corepack
+      shell: sh
+      run: |
+        set -eu
+        corepack enable
+
+    - name: Install Package Manager
+      shell: sh
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+      run: |
+        set -eu
+
+        case "$PACKAGE_MANAGER" in
+          pnpm)
+            corepack prepare pnpm@latest --activate
+            ;;
+          yarn)
+            corepack prepare yarn@stable --activate
+            ;;
+          bun|npm)
+            # Bun installed separately, npm built-in
+            ;;
+        esac
+
+    - name: Setup Bun
+      if: steps.detect-pm.outputs.package-manager == 'bun'
+      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      with:
+        bun-version: latest
+
+    - name: Cache Node Dependencies
+      id: cache
+      uses: actions/cache@668228422ae6a00e4ad889ee87cd7109ec5666a7 # v5.0.4
+      with:
+        path: node_modules
+        key: ${{ runner.os }}-npm-semantic-release-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
+        restore-keys: |
+          ${{ runner.os }}-npm-semantic-release-${{ steps.detect-pm.outputs.package-manager }}-
+
+    - name: Install Dependencies
+      if: steps.cache.outputs.cache-hit != 'true'
+      shell: sh
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+      run: |
+        set -eu
+
+        echo "Installing dependencies using $PACKAGE_MANAGER..."
+
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            pnpm install --frozen-lockfile
+            ;;
+          "yarn")
+            if [ -f ".yarnrc.yml" ]; then
+              yarn install --immutable
+            else
+              yarn install --frozen-lockfile
+            fi
+            ;;
+          "bun")
+            bun install --frozen-lockfile
+            ;;
+          "npm"|*)
+            npm ci
+            ;;
+        esac
+
+    - name: Run Semantic Release
+      id: semantic-release
+      uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
+      with:
+        extra_plugins: ${{ inputs.extra_plugins }}
+      env:
+        GITHUB_TOKEN: ${{ inputs.github_token }}
+        NPM_TOKEN: ${{ inputs.npm_token }}

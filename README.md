@@ -24,9 +24,9 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 ## 📚 Action Catalog
 
-This repository contains **26 reusable GitHub Actions** for CI/CD automation.
+This repository contains **27 reusable GitHub Actions** for CI/CD automation.
 
-### Quick Reference (26 Actions)
+### Quick Reference (27 Actions)
 
 | Icon | Action                                               | Category   | Description                                                     | Key Features                                 |
 |:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
@@ -45,6 +45,7 @@ This repository contains **26 reusable GitHub Actions** for CI/CD automation.
 |  📝  | [`go-lint`][go-lint]                                 | Linting    | Run golangci-lint with advanced configuration, caching, and ... | Caching, Token auth, Outputs                 |
 |  📝  | [`language-version-detect`][language-version-detect] | Setup      | DEPRECATED: This action is deprecated. Inline version detect... | Auto-detection, Token auth, Outputs          |
 |  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Caching, Auto-detection, Token auth, Outputs |
+|  📦  | [`npm-semantic-release`][npm-semantic-release]       | Other      | Runs semantic-release for automated npm versioning and publi... | Caching, Auto-detection, Outputs             |
 |  ✅   | [`php-tests`][php-tests]                             | Testing    | Run PHPUnit tests with optional Laravel setup and Composer d... | Caching, Auto-detection, Token auth, Outputs |
 |  ✅   | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests                           | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`pre-commit`][pre-commit]                           | Linting    | Runs pre-commit on the repository and pushes the fixes back ... | Auto-detection, Token auth, Outputs          |
@@ -149,6 +150,7 @@ This repository contains **26 reusable GitHub Actions** for CI/CD automation.
 | [`go-lint`][go-lint]                                 |    ✅    |       -        |     ✅      |    ✅    |
 | [`language-version-detect`][language-version-detect] |    -    |       ✅        |     ✅      |    ✅    |
 | [`npm-publish`][npm-publish]                         |    ✅    |       ✅        |     ✅      |    ✅    |
+| [`npm-semantic-release`][npm-semantic-release]       |    ✅    |       ✅        |     -      |    ✅    |
 | [`php-tests`][php-tests]                             |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`pr-lint`][pr-lint]                                 |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`pre-commit`][pre-commit]                           |    -    |       ✅        |     ✅      |    ✅    |
@@ -228,6 +230,7 @@ All actions can be used independently in your workflows:
 [go-lint]: go-lint/README.md
 [language-version-detect]: language-version-detect/README.md
 [npm-publish]: npm-publish/README.md
+[npm-semantic-release]: npm-semantic-release/README.md
 [php-tests]: php-tests/README.md
 [pr-lint]: pr-lint/README.md
 [pre-commit]: pre-commit/README.md
