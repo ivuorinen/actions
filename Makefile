@@ -57,6 +57,7 @@ docs: ## Generate documentation for all actions
 			$(SED_CMD) "s|\*\*\*PROJECT\*\*\*|$$repo|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
+			$(SED_CMD) "s|@main|@<full sha>|g" "$$dir/README.md"; \
 			[ "$(UNAME_S)" = "Darwin" ] && rm -f "$$dir/README.md.bak"; \
 			echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
 		else \
