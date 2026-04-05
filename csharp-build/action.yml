@@ -170,10 +170,10 @@ runs:
         set -eu
         echo "Building .NET solution..."
         if dotnet build --configuration Release --no-restore --verbosity normal; then
-          echo "status=success" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
           echo "Build completed successfully"
         else
-          echo "status=failure" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           echo "Build failed"
           exit 1
         fi
@@ -189,16 +189,16 @@ runs:
             --collect:"XPlat Code Coverage" \
             --logger "trx;LogFileName=test-results.trx" \
             --verbosity normal; then
-            echo "status=success" >> "$GITHUB_OUTPUT"
+            printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
             echo "Tests completed successfully"
           else
-            echo "status=failure" >> "$GITHUB_OUTPUT"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
             echo "Tests failed"
             exit 1
           fi
         else
           echo "No test projects found, skipping test execution."
-          echo "status=skipped" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "skipped" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Upload Test Results

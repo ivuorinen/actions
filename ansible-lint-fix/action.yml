@@ -61,10 +61,10 @@ runs:
 
         # Check for both .yml and .yaml files
         if find . \( -name "*.yml" -o -name "*.yaml" \) -type f | grep -q .; then
-          echo "files_found=true" >> "$GITHUB_OUTPUT"
+          printf 'files_found=%s\n' "true" >> "$GITHUB_OUTPUT"
           echo "Found Ansible files, proceeding with lint and fix."
         else
-          echo "files_found=false" >> "$GITHUB_OUTPUT"
+          printf 'files_found=%s\n' "false" >> "$GITHUB_OUTPUT"
           echo "No Ansible files found. Skipping lint and fix."
         fi
 

@@ -399,7 +399,7 @@ runs:
               error_count=$(grep -c "level\": \"error\"" "$result_file" || echo 0)
             fi
 
-            echo "error_count=${error_count}" >> $GITHUB_OUTPUT
+            printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
             if [ "$FAIL_ON_ERROR" = "true" ]; then
               echo "::error::golangci-lint found ${error_count} issues"
@@ -409,8 +409,8 @@ runs:
 
         # Count analyzed files
         analyzed_files=$(find . -type f -name "*.go" -not -path "./vendor/*" -not -path "./.git/*" | wc -l)
-        echo "analyzed_files=${analyzed_files}" >> $GITHUB_OUTPUT
-        echo "sarif_file=$result_file" >> $GITHUB_OUTPUT
+        printf 'analyzed_files=%s\n' "$analyzed_files" >> "$GITHUB_OUTPUT"
+        printf 'sarif_file=%s\n' "$result_file" >> "$GITHUB_OUTPUT"
 
     - name: Upload Lint Results
       if: always() && inputs.report-format == 'sarif'

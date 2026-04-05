@@ -198,15 +198,15 @@ runs:
           available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed 's/,$//' || true)
 
           if [ -n "$available_platforms" ]; then
-            echo "platforms=${available_platforms}" >> $GITHUB_OUTPUT
+            printf 'platforms=%s\n' "$available_platforms" >> "$GITHUB_OUTPUT"
             echo "Detected platforms: ${available_platforms}"
           else
-            echo "platforms=$ARCHITECTURES" >> $GITHUB_OUTPUT
+            printf 'platforms=%s\n' "$ARCHITECTURES" >> "$GITHUB_OUTPUT"
             echo "Using default platforms (detection failed): $ARCHITECTURES"
           fi
         else
           # Auto-detect disabled, use configured architectures
-          echo "platforms=$ARCHITECTURES" >> $GITHUB_OUTPUT
+          printf 'platforms=%s\n' "$ARCHITECTURES" >> "$GITHUB_OUTPUT"
           echo "Using configured platforms: $ARCHITECTURES"
         fi
 
@@ -220,9 +220,9 @@ runs:
 
         if [ -z "$IMAGE_NAME" ]; then
           repo_name=$(basename "${GITHUB_REPOSITORY}")
-          echo "name=${repo_name}" >> $GITHUB_OUTPUT
+          printf 'name=%s\n' "$repo_name" >> "$GITHUB_OUTPUT"
         else
-          echo "name=$IMAGE_NAME" >> $GITHUB_OUTPUT
+          printf 'name=%s\n' "$IMAGE_NAME" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Parse Build Arguments
@@ -247,7 +247,7 @@ runs:
             args="$args --build-arg $arg"
           done
         fi
-        echo "args=${args}" >> $GITHUB_OUTPUT
+        printf 'args=%s\n' "$args" >> "$GITHUB_OUTPUT"
 
     - name: Parse Build Contexts
       id: build-contexts
@@ -271,7 +271,7 @@ runs:
             contexts="$contexts --build-context $ctx"
           done
         fi
-        echo "contexts=${contexts}" >> $GITHUB_OUTPUT
+        printf 'contexts=%s\n' "$contexts" >> "$GITHUB_OUTPUT"
 
     - name: Parse Secrets
       id: secrets
@@ -317,7 +317,7 @@ runs:
             esac
           done
         fi
-        echo "secrets=${secrets}" >> $GITHUB_OUTPUT
+        printf 'secrets=%s\n' "$secrets" >> "$GITHUB_OUTPUT"
 
     - name: Login to GitHub Container Registry
       if: ${{ inputs.push == 'true' }}
@@ -382,8 +382,8 @@ runs:
             ;;
         esac
 
-        echo "from=${cache_from}" >> $GITHUB_OUTPUT
-        echo "to=${cache_to}" >> $GITHUB_OUTPUT
+        printf 'from=%s\n' "$cache_from" >> "$GITHUB_OUTPUT"
+        printf 'to=%s\n' "$cache_to" >> "$GITHUB_OUTPUT"
 
     - name: Build Multi-Architecture Docker Image
       id: build
@@ -432,9 +432,9 @@ runs:
         # Check for dry run
         if [ "$DRY_RUN" == "true" ]; then
           echo "[DRY RUN] Would build for platforms: $platforms"
-          echo "digest=dry-run-no-digest" >> $GITHUB_OUTPUT
-          echo "platform-matrix={}" >> $GITHUB_OUTPUT
-          echo "build-time=0" >> $GITHUB_OUTPUT
+          printf 'digest=%s\n' "dry-run-no-digest" >> "$GITHUB_OUTPUT"
+          printf 'platform-matrix=%s\n' "{}" >> "$GITHUB_OUTPUT"
+          printf 'build-time=%s\n' "0" >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
@@ -485,7 +485,7 @@ runs:
             else
               digest=$(docker inspect "$IMAGE_NAME:$TAG" --format='{{.Id}}' || echo "unknown")
             fi
-            echo "digest=${digest}" >> $GITHUB_OUTPUT
+            printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
 
             # Parse metadata
             if [ -f /tmp/build-metadata.json ]; then
@@ -497,13 +497,13 @@ runs:
 
               # Extract SBOM location directly from file
               sbom_location=$(jq -r '.sbom.location // ""' /tmp/build-metadata.json)
-              echo "sbom-location=${sbom_location}" >> "$GITHUB_OUTPUT"
+              printf 'sbom-location=%s\n' "$sbom_location" >> "$GITHUB_OUTPUT"
             fi
 
             # Calculate build time
             build_end=$(date +%s)
             build_time=$((build_end - build_start))
-            echo "build-time=${build_time}" >> $GITHUB_OUTPUT
+            printf 'build-time=%s\n' "$build_time" >> "$GITHUB_OUTPUT"
 
             # Build platform matrix
             IFS=',' read -ra PLATFORM_ARRAY <<< "${platforms}"
@@ -512,7 +512,7 @@ runs:
               platform_matrix="${platform_matrix}\"${p}\":\"success\","
             done
             platform_matrix="${platform_matrix%,}}"
-            echo "platform-matrix=${platform_matrix}" >> $GITHUB_OUTPUT
+            printf 'platform-matrix=%s\n' "$platform_matrix" >> "$GITHUB_OUTPUT"
 
             # Move cache
             if [ -d /tmp/.buildx-cache-new ]; then
@@ -553,7 +553,7 @@ runs:
 
         # Read and format scan results for output
         scan_results=$(cat trivy-results.json | jq -c '.')
-        echo "results=${scan_results}" >> $GITHUB_OUTPUT
+        printf 'results=%s\n' "$scan_results" >> "$GITHUB_OUTPUT"
 
         # Check for critical vulnerabilities
         critical_count=$(cat trivy-results.json | jq '.Results[] | (.Vulnerabilities // [])[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
@@ -579,7 +579,7 @@ runs:
         export COSIGN_EXPERIMENTAL=1
         cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
 
-        echo "signature=signed" >> $GITHUB_OUTPUT
+        printf 'signature=%s\n' "signed" >> "$GITHUB_OUTPUT"
 
     - name: Verify Build
       id: verify
@@ -601,14 +601,14 @@ runs:
 
           # Get and verify platform support
           platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2)
-          echo "built=${platforms}" >> $GITHUB_OUTPUT
+          printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
         else
           # For local builds, just verify it exists
           if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
             echo "::error::Built image not found locally"
             exit 1
           fi
-          echo "built=local" >> $GITHUB_OUTPUT
+          printf 'built=%s\n' "local" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Cleanup

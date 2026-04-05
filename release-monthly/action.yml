@@ -144,7 +144,7 @@ runs:
 
         # Get previous release tag
         previous_tag=$(get_previous_tag) || previous_tag=""
-        echo "previous_tag=${previous_tag}" >> $GITHUB_OUTPUT
+        printf 'previous_tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
 
         if [ -n "$previous_tag" ]; then
           previous_major="${previous_tag%%\.*}"
@@ -182,7 +182,7 @@ runs:
           exit 1
         }
 
-        echo "release_tag=${release_tag}" >> $GITHUB_OUTPUT
+        printf 'release_tag=%s\n' "$release_tag" >> "$GITHUB_OUTPUT"
 
         # Create release if not in dry-run mode
         if [ "$DRY_RUN" = "false" ]; then
@@ -194,11 +194,11 @@ runs:
             echo "::error::Failed to create release"
             exit 1
           }
-          echo "release_url=${release_url}" >> $GITHUB_OUTPUT
+          printf 'release_url=%s\n' "$release_url" >> "$GITHUB_OUTPUT"
           echo "Release created successfully: ${release_url}"
         else
           echo "Dry run mode - would create release: ${release_tag}"
-          echo "release_url=dry-run" >> $GITHUB_OUTPUT
+          printf 'release_url=%s\n' "dry-run" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Verify Release

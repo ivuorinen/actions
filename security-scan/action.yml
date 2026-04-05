@@ -92,7 +92,7 @@ runs:
         # Check Gitleaks configuration and license
         if [ -f "${{ inputs.gitleaks-config }}" ] && [ -n "${{ inputs.gitleaks-license }}" ]; then
           printf 'Gitleaks config and license found\n'
-          printf '%s\n' "run_gitleaks=true" >> "$GITHUB_OUTPUT"
+          printf 'run_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
         else
           printf '::warning::Gitleaks config or license missing - skipping Gitleaks scan\n'
         fi
@@ -135,14 +135,14 @@ runs:
 
         # Initialize outputs
         {
-          printf '%s\n' "has_trivy=false"
-          printf '%s\n' "has_gitleaks=false"
+          printf 'has_trivy=%s\n' "false"
+          printf 'has_gitleaks=%s\n' "false"
         } >> "$GITHUB_OUTPUT"
 
         # Check Trivy results
         if [ -f "trivy-results.sarif" ]; then
           if jq -e . <"trivy-results.sarif" >/dev/null 2>&1; then
-            printf '%s\n' "has_trivy=true" >> "$GITHUB_OUTPUT"
+            printf 'has_trivy=%s\n' "true" >> "$GITHUB_OUTPUT"
           else
             printf '::warning::Trivy SARIF file exists but is not valid JSON\n'
           fi
@@ -152,7 +152,7 @@ runs:
         if [ "${{ steps.check-configs.outputs.run_gitleaks }}" = "true" ]; then
           if [ -f "gitleaks-report.sarif" ]; then
             if jq -e . <"gitleaks-report.sarif" >/dev/null 2>&1; then
-              printf '%s\n' "has_gitleaks=true" >> "$GITHUB_OUTPUT"
+              printf 'has_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
             else
               printf '::warning::Gitleaks SARIF file exists but is not valid JSON\n'
             fi

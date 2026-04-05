@@ -30,11 +30,11 @@ jobs:
           set -eu
 
           VERSION="v$(date '+%Y.%m.%d')"
-          printf '%s\n' "version=$VERSION" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
 
           # Check if release already exists
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
+            printf 'created=%s\n' "false" >> "$GITHUB_OUTPUT"
             printf '%s\n' "Release $VERSION already exists - skipping"
             exit 0
           fi
@@ -46,7 +46,7 @@ jobs:
           if [ -n "$PREVIOUS_TAG" ]; then
             CHANGES=$(git rev-list "$PREVIOUS_TAG"..HEAD --count)
             if [ "$CHANGES" -eq 0 ]; then
-              printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
+              printf 'created=%s\n' "false" >> "$GITHUB_OUTPUT"
               printf '%s\n' "No changes since $PREVIOUS_TAG - skipping release"
               exit 0
             fi
@@ -59,7 +59,7 @@ jobs:
             --generate-notes \
             --target main
 
-          printf '%s\n' "created=true" >> "$GITHUB_OUTPUT"
+          printf 'created=%s\n' "true" >> "$GITHUB_OUTPUT"
           printf '%s\n' "Created release $VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -69,30 +69,30 @@ runs:
         set -eu
 
         if [ -f package.json ]; then
-          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
+          printf 'found=%s\n' "true" >> "$GITHUB_OUTPUT"
 
           # Check if packageManager field is set (for corepack)
           if command -v jq >/dev/null 2>&1; then
             has_package_manager=$(jq -r '.packageManager // empty' package.json 2>/dev/null || printf '')
             if [ -n "$has_package_manager" ]; then
-              printf '%s\n' "has-package-manager=true" >> "$GITHUB_OUTPUT"
+              printf 'has-package-manager=%s\n' "true" >> "$GITHUB_OUTPUT"
               printf 'Found packageManager field: %s\n' "$has_package_manager"
             else
-              printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
+              printf 'has-package-manager=%s\n' "false" >> "$GITHUB_OUTPUT"
             fi
           else
             # Fallback: check with grep if jq not available
             # Use robust pattern to verify non-empty value
             if grep -q '"packageManager"[[:space:]]*:[[:space:]]*"[^"]\+"' package.json 2>/dev/null; then
-              printf '%s\n' "has-package-manager=true" >> "$GITHUB_OUTPUT"
+              printf 'has-package-manager=%s\n' "true" >> "$GITHUB_OUTPUT"
               printf '%s\n' "Found packageManager field in package.json"
             else
-              printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
+              printf 'has-package-manager=%s\n' "false" >> "$GITHUB_OUTPUT"
             fi
           fi
         else
           # Explicitly set has-package-manager to false when package.json doesn't exist
-          printf '%s\n' "has-package-manager=false" >> "$GITHUB_OUTPUT"
+          printf 'has-package-manager=%s\n' "false" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect Package Manager
@@ -214,7 +214,7 @@ runs:
         set -eu
 
         if [ -f composer.json ]; then
-          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
+          printf 'found=%s\n' "true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect PHP Version
@@ -370,7 +370,7 @@ runs:
         set -eu
 
         if [ -f requirements.txt ]; then
-          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
+          printf 'found=%s\n' "true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect Python Version
@@ -507,7 +507,7 @@ runs:
         set -eu
 
         if [ -f go.mod ]; then
-          printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
+          printf 'found=%s\n' "true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Detect Go Version
@@ -639,7 +639,7 @@ runs:
         is_private=$(jq -r '.repository.private' "$GITHUB_EVENT_PATH")
 
         if [ "$is_private" = "false" ]; then
-          printf '%s\n' "is-public=true" >> "$GITHUB_OUTPUT"
+          printf 'is-public=%s\n' "true" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Dependency Review

@@ -120,11 +120,11 @@ runs:
         # Check for Terraform files
         if ! find . -name "*.tf" -o -name "*.tfvars" | grep -q .; then
           echo "No Terraform files found. Skipping lint and fix."
-          printf '%s\n' "found=false" >> "$GITHUB_OUTPUT"
+          printf 'found=%s\n' "false" >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
-        printf '%s\n' "found=true" >> "$GITHUB_OUTPUT"
+        printf 'found=%s\n' "true" >> "$GITHUB_OUTPUT"
 
     - name: Setup Terraform
       if: steps.check-files.outputs.found == 'true'
@@ -211,7 +211,7 @@ runs:
                    --no-color \
                    . > "$tflint_output"; then
           error_count=$(grep -c "level\": \"error\"" "$tflint_output" || echo 0)
-          printf '%s\n' "error_count=$error_count" >> "$GITHUB_OUTPUT"
+          printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
           if [ "$FAIL_ON_ERROR" = "true" ]; then
             echo "::error::Found $error_count linting errors"
@@ -219,7 +219,7 @@ runs:
           fi
         fi
 
-        printf '%s\n' "sarif_file=$tflint_output" >> "$GITHUB_OUTPUT"
+        printf 'sarif_file=%s\n' "$tflint_output" >> "$GITHUB_OUTPUT"
 
     - name: Run Terraform Format
       if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true'
@@ -243,7 +243,7 @@ runs:
           fi
         done
 
-        printf '%s\n' "fixed_count=$fixed_count" >> "$GITHUB_OUTPUT"
+        printf 'fixed_count=%s\n' "$fixed_count" >> "$GITHUB_OUTPUT"
 
     - name: Commit Fixes
       if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true' && fromJSON(steps.fix.outputs.fixed_count) > 0

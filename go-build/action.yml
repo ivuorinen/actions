@@ -205,10 +205,10 @@ runs:
         fi
 
         if [ "$build_success" = true ]; then
-          echo "status=success" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
           echo "Build completed successfully"
         else
-          echo "status=failure" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           echo "Build failed"
           exit 1
         fi
@@ -239,16 +239,16 @@ runs:
           esac
 
           if go test -v ./... $RACE_FLAG -coverprofile=coverage.out; then
-            echo "status=success" >> "$GITHUB_OUTPUT"
+            printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
             echo "Tests completed successfully"
           else
-            echo "status=failure" >> "$GITHUB_OUTPUT"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
             echo "Tests failed"
             exit 1
           fi
         else
           echo "No test files found, skipping test execution."
-          echo "status=skipped" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "skipped" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Upload Build Artifacts
