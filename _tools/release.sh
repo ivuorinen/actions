@@ -168,36 +168,7 @@ if [ "$TAG_ONLY" = "true" ]; then
   msg_info "Skipping preparation (--tag-only mode)"
   printf '\n'
 else
-  # Update all action references to current SHA
-  msg_info "Updating action references to $current_sha..."
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would run: update-action-refs.sh $current_sha direct"
-  else
-    "$SCRIPT_DIR/update-action-refs.sh" "$current_sha" "direct"
-  fi
-fi
-
-# Commit the changes (skip if --tag-only)
-if [ "$TAG_ONLY" = "false" ]; then
-  if ! git diff --quiet; then
-    if [ "$DRY_RUN" = "true" ]; then
-      msg_warn "[DRY RUN] Would add: */action.yml"
-      msg_warn "[DRY RUN] Would commit: update action references for release $VERSION"
-    else
-      git add -- */action.yml
-      git commit -m "chore: update action references for release $VERSION
-
-This commit updates all internal action references to point to the current
-commit SHA in preparation for release $VERSION."
-
-      # Update SHA since we just created a new commit
-      current_sha=$(git rev-parse HEAD)
-      msg_done "Committed updated action references"
-      printf 'New HEAD: %s%s%s\n' "$GREEN" "$current_sha" "$NC"
-    fi
-  else
-    msg_info "No changes to commit"
-  fi
+  msg_info "Skipping SHA reference updates (handled by Renovate)"
 fi
 
 # Exit early if --prep-only
