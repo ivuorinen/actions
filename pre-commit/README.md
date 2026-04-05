@@ -30,7 +30,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/pre-commit@main
+- uses: ivuorinen/actions/pre-commit@<full sha>
   with:
     pre-commit-config:
     # pre-commit configuration file

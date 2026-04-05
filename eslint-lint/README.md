@@ -44,7 +44,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/eslint-lint@main
+- uses: ivuorinen/actions/eslint-lint@<full sha>
   with:
     mode:
     # Mode to run (check or fix)

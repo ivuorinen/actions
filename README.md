@@ -24,13 +24,12 @@ Each action is fully self-contained and can be used independently in any GitHub 
 
 ## 📚 Action Catalog
 
-This repository contains **27 reusable GitHub Actions** for CI/CD automation.
+This repository contains **26 reusable GitHub Actions** for CI/CD automation.
 
-### Quick Reference (27 Actions)
+### Quick Reference (26 Actions)
 
 | Icon | Action                                               | Category   | Description                                                     | Key Features                                 |
 |:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
-|  🔀  | [`action-versioning`][action-versioning]             | Utilities  | Automatically update SHA-pinned action references to match l... | Token auth, Outputs                          |
 |  📦  | [`ansible-lint-fix`][ansible-lint-fix]               | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Caching, Token auth, Outputs                 |
 |  ✅   | [`biome-lint`][biome-lint]                           | Linting    | Run Biome linter in check or fix mode                           | Caching, Auto-detection, Token auth, Outputs |
 | 🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
@@ -65,12 +64,6 @@ This repository contains **27 reusable GitHub Actions** for CI/CD automation.
 | Action                                                  | Description                                           | Languages                      | Features                            |
 |:--------------------------------------------------------|:------------------------------------------------------|:-------------------------------|:------------------------------------|
 | 📝 [`language-version-detect`][language-version-detect] | DEPRECATED: This action is deprecated. Inline vers... | PHP, Python, Go, .NET, Node.js | Auto-detection, Token auth, Outputs |
-
-#### 🛠️ Utilities (1 action)
-
-| Action                                      | Description                                           | Languages      | Features            |
-|:--------------------------------------------|:------------------------------------------------------|:---------------|:--------------------|
-| 🔀 [`action-versioning`][action-versioning] | Automatically update SHA-pinned action references ... | GitHub Actions | Token auth, Outputs |
 
 #### 📝 Linting (10 actions)
 
@@ -135,7 +128,6 @@ This repository contains **27 reusable GitHub Actions** for CI/CD automation.
 
 | Action                                               | Caching | Auto-detection | Token auth | Outputs |
 |:-----------------------------------------------------|:-------:|:--------------:|:----------:|:-------:|
-| [`action-versioning`][action-versioning]             |    -    |       -        |     ✅      |    ✅    |
 | [`ansible-lint-fix`][ansible-lint-fix]               |    ✅    |       -        |     ✅      |    ✅    |
 | [`biome-lint`][biome-lint]                           |    ✅    |       ✅        |     ✅      |    ✅    |
 | [`codeql-analysis`][codeql-analysis]                 |    -    |       ✅        |     ✅      |    ✅    |
@@ -174,7 +166,7 @@ This repository contains **27 reusable GitHub Actions** for CI/CD automation.
 | Conventional Commits | [`pr-lint`][pr-lint]                                                                                                                                               |
 | Docker               | [`docker-build`][docker-build], [`docker-publish`][docker-publish]                                                                                                 |
 | GitHub               | [`sync-labels`][sync-labels]                                                                                                                                       |
-| GitHub Actions       | [`action-versioning`][action-versioning], [`release-monthly`][release-monthly], [`stale`][stale], [`validate-inputs`][validate-inputs]                             |
+| GitHub Actions       | [`release-monthly`][release-monthly], [`stale`][stale], [`validate-inputs`][validate-inputs]                                                                       |
 | Go                   | [`codeql-analysis`][codeql-analysis], [`go-build`][go-build], [`go-lint`][go-lint], [`language-version-detect`][language-version-detect]                           |
 | HCL                  | [`terraform-lint-fix`][terraform-lint-fix]                                                                                                                         |
 | Images               | [`compress-images`][compress-images]                                                                                                                               |
@@ -215,7 +207,6 @@ All actions can be used independently in your workflows:
 
 <!-- Reference Links -->
 
-[action-versioning]: action-versioning/README.md
 [ansible-lint-fix]: ansible-lint-fix/README.md
 [biome-lint]: biome-lint/README.md
 [codeql-analysis]: codeql-analysis/README.md

@@ -28,7 +28,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/pr-lint@main
+- uses: ivuorinen/actions/pr-lint@<full sha>
   with:
     token:
     # GitHub token for authentication

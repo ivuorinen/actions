@@ -31,7 +31,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/npm-publish@main
+- uses: ivuorinen/actions/npm-publish@<full sha>
   with:
     npm_token:
     # NPM token.

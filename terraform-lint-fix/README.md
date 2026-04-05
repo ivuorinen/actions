@@ -37,7 +37,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/terraform-lint-fix@main
+- uses: ivuorinen/actions/terraform-lint-fix@<full sha>
   with:
     terraform-version:
     # Terraform version to use

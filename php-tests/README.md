@@ -39,7 +39,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/php-tests@main
+- uses: ivuorinen/actions/php-tests@<full sha>
   with:
     framework:
     # Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework)

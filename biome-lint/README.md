@@ -33,7 +33,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/biome-lint@main
+- uses: ivuorinen/actions/biome-lint@<full sha>
   with:
     mode:
     # Mode to run (check or fix)

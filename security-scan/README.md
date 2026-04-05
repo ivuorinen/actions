@@ -36,7 +36,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/security-scan@main
+- uses: ivuorinen/actions/security-scan@<full sha>
   with:
     gitleaks-license:
     # Gitleaks license key (required for Gitleaks scanning)

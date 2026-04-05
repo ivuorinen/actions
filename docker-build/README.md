@@ -58,7 +58,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/docker-build@main
+- uses: ivuorinen/actions/docker-build@<full sha>
   with:
     image-name:
     # The name of the Docker image to build. Defaults to the repository name.

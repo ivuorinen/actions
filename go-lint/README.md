@@ -41,7 +41,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/go-lint@main
+- uses: ivuorinen/actions/go-lint@<full sha>
   with:
     working-directory:
     # Directory containing Go files

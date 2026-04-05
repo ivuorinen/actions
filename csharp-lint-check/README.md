@@ -28,7 +28,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/csharp-lint-check@main
+- uses: ivuorinen/actions/csharp-lint-check@<full sha>
   with:
     dotnet-version:
     # Version of .NET SDK to use.
