@@ -26,7 +26,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/sync-labels@main
+- uses: ivuorinen/actions/sync-labels@vYYYY.MM.DD
   with:
     labels:
     # Path to the labels YAML file

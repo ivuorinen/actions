@@ -38,7 +38,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/docker-publish@main
+- uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
   with:
     registry:
     # Registry to publish to (dockerhub, github, or both)

@@ -313,14 +313,14 @@ runs:
         fi
 
         if [ $biome_exit_code -eq 0 ]; then
-          echo "status=success" >> "$GITHUB_OUTPUT"
-          echo "errors=0" >> "$GITHUB_OUTPUT"
-          echo "warnings=0" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
+          printf 'errors=%s\n' "0" >> "$GITHUB_OUTPUT"
+          printf 'warnings=%s\n' "0" >> "$GITHUB_OUTPUT"
           echo "✅ Biome check completed successfully"
         else
-          echo "status=failure" >> "$GITHUB_OUTPUT"
-          echo "errors=$errors" >> "$GITHUB_OUTPUT"
-          echo "warnings=$warnings" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          printf 'errors=%s\n' "$errors" >> "$GITHUB_OUTPUT"
+          printf 'warnings=%s\n' "$warnings" >> "$GITHUB_OUTPUT"
           echo "::error::Biome check found $errors issues"
         fi
 
@@ -360,8 +360,8 @@ runs:
           echo "⚠️ Fixed $files_changed file(s)"
         fi
 
-        printf '%s\n' "files_changed=$files_changed" >> "$GITHUB_OUTPUT"
-        printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
+        printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"
+        printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
 
     - name: Commit and Push Fixes
       if: inputs.mode == 'fix' && success()

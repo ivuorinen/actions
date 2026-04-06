@@ -29,7 +29,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/release-monthly@main
+- uses: ivuorinen/actions/release-monthly@vYYYY.MM.DD
   with:
     token:
     # GitHub token with permission to create releases.

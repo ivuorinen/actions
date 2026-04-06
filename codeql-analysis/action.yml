@@ -159,7 +159,7 @@ runs:
         else
           category="/language:$LANGUAGE"
         fi
-        echo "category=$category" >> "$GITHUB_OUTPUT"
+        printf 'category=%s\n' "$category" >> "$GITHUB_OUTPUT"
         echo "Using analysis category: $category"
 
     - name: Set build mode
@@ -182,7 +182,7 @@ runs:
               ;;
           esac
         fi
-        echo "build-mode=$build_mode" >> "$GITHUB_OUTPUT"
+        printf 'build-mode=%s\n' "$build_mode" >> "$GITHUB_OUTPUT"
         echo "Using build mode: $build_mode"
 
     - name: Initialize CodeQL

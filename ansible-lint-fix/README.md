@@ -30,7 +30,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/ansible-lint-fix@main
+- uses: ivuorinen/actions/ansible-lint-fix@vYYYY.MM.DD
   with:
     token:
     # GitHub token for authentication

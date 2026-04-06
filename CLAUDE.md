@@ -13,7 +13,7 @@
 - Follow conventions, fix all issues, never compromise standards, test thoroughly
 - Prioritize quality over speed, write maintainable/DRY code
 - Document changes, communicate factually, review carefully
-- Update existing memory files rather than create new ones
+- No hardcoded counts in docs/code (action counts, validator counts) — use `make update-catalog` instead
 - Ask when unsure
 
 ### Communication
@@ -24,10 +24,9 @@
 
 ### Folders
 
-- `.serena/` – Internal config (do not edit)
-- `.claude/hooks/` – Claude Code hook scripts (auto-format, lint, block rules.yml edits)
-- `.claude/skills/` – Claude Code skills (`/release`, `/test-action`, `/new-action`, `/validate`, `/check-pins`)
-- `.claude/agents/` – Claude Code subagents (action-validator, test-coverage-reviewer)
+- `.claude/hooks/` – Claude Code hook scripts (auto-format, lint, block edits)
+- `.claude/skills/` – Claude Code skills (see Skills & Subagents section below)
+- `.claude/agents/` – Claude Code subagents (see Skills & Subagents section below)
 - `.github/` – Workflows/templates
 - `_tests/` – ShellSpec tests
 - `_tools/` – Helper tools
@@ -36,36 +35,45 @@
 
 ### Claude Code Hooks
 
-**Auto-formatting**: PostToolUse hooks auto-format files on Edit/Write (ruff for .py, shfmt for .sh, prettier for .yml/.yaml/.json/.md, actionlint for action.yml)
-**Blocked edits**: PreToolUse hook blocks direct edits to `rules.yml` (auto-generated, use `make update-validators`)
-**Hook schema**: `matcher` is a regex string matching tool names (e.g. `"Edit|Write"`), not an object. File filtering done in hook scripts via stdin JSON (`jq -r '.tool_input.file_path'`)
-**Reference**: `$CLAUDE_PROJECT_DIR` for project-relative paths in hook commands
+**Auto-formatting**: PostToolUse hooks auto-format files on
+Edit/Write (ruff for .py, shfmt for .sh, prettier for
+.yml/.yaml/.json/.md, actionlint + action-validator for action.yml)
 
-### Memory System
+**Blocked edits** (PreToolUse):
 
-**Location**: `.serena/memories/` (9 consolidated memories for context)
+- `rules.yml` — auto-generated, use `make update-validators`
+- Action `README.md` — auto-generated, use `make docs`
+- `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
+- Bash-isms in .sh/action.yml — must be POSIX sh (`[[ ]]`, `local`, `declare`, `function` keyword)
 
-**When to Use**: Read memories at session start or when needed for specific context. Be token-efficient - read only relevant memories for the task.
+**Hook schema**: `matcher` is a regex string matching tool names
+(e.g. `"Edit|Write"`), not an object. File filtering done in hook
+scripts via stdin JSON (`jq -r '.tool_input.file_path'`).
 
-**Core Memories** (read first for project understanding):
+**Reference**: `$CLAUDE_PROJECT_DIR` for project-relative paths
+in hook commands
 
-- `repository_overview` – 30 actions, categories, structure, status
-- `validator_system` – Validation architecture, components, usage patterns
-- `development_standards` – Quality rules, workflows, security, completion checklist
+### Skills & Subagents
 
-**Reference Guides** (read when working on specific areas):
+**Run proactively** — don't wait to be asked:
 
-- `code_style_conventions` – EditorConfig, Shell/Python/YAML style, 10 critical prevention rules
-- `suggested_commands` – Make targets, testing commands, tool usage
-- `tech_stack` – Python/Node.js/Shell tools, paths, versions
+| When                                        | Run                                       |
+|---------------------------------------------|-------------------------------------------|
+| After modifying an action                   | `/action-health <name>`                   |
+| After creating an action modeled on another | `/compare-actions <source> <new>`         |
+| Before creating a PR                        | `/pin-check` and `/security-audit`        |
+| When reviewing Renovate PRs                 | Use `renovate-pr-reviewer` subagent       |
+| Before a release                            | `/changelog` and `/validate`              |
+| Periodically or on large changes            | Use `action-consistency-auditor` subagent |
 
-**GitHub Actions Reference** (read when working with workflows):
+**Available skills**: `/action-health`, `/compare-actions`,
+`/security-audit`, `/pin-check`, `/changelog`, `/release`,
+`/test-action`, `/new-action`, `/validate`
 
-- `github-workflow-expressions` – Expression syntax, contexts, operators, common patterns
-- `github-workflow-commands` – Workflow commands (outputs, env, logging, masking)
-- `github-workflow-secure-use` – Security best practices, secrets, injection prevention
-
-**Memory Maintenance**: Update existing memories rather than create new ones. Keep content token-efficient and factual.
+**Available subagents**: `action-validator`,
+`test-coverage-reviewer`, `posix-compliance-checker`,
+`action-consistency-auditor`, `security-surface-reviewer`,
+`renovate-pr-reviewer`
 
 ### Documentation Locations
 
@@ -75,17 +83,17 @@
 
 **Docker Tools**: `_tools/docker-testing-tools/README.md` (CI setup, pre-built testing image)
 
-**See**: `documentation_guide` memory for detailed descriptions and when to read each
+**See**: `_tools/README.md` for helper tool descriptions
 
 ## Repository Structure
 
 Flat structure. Each action self-contained with `action.yml`.
 
-**24 Actions**: Setup (language-version-detect), Utilities (action-versioning, version-file-parser),
+**Actions**: Setup (language-version-detect, setup-test-environment),
 Linting (ansible-lint-fix, biome-lint, csharp-lint-check, eslint-lint, go-lint, pr-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix),
 Testing (php-tests), Build (csharp-build, go-build, docker-build),
-Publishing (npm-publish, docker-publish, csharp-publish),
-Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysis),
+Publishing (npm-publish, npm-semantic-release, docker-publish, csharp-publish),
+Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysis, security-scan),
 Validation (validate-inputs)
 
 ## Commands
@@ -99,9 +107,8 @@ Validation (validate-inputs)
 **Versioning**:
 
 - `make release [VERSION=vYYYY.MM.DD]` - Create release (auto-generates version from date if omitted)
-- `make update-version-refs MAJOR=vYYYY` - Update action refs to version
-- `make bump-major-version OLD=vYYYY NEW=vYYYY` - Annual version bump
-- `make check-version-refs` - Verify current action references
+- Immutable CalVer tags only (v2025.04.05) — no floating major version tags
+- Renovate bot handles internal action SHA pin updates automatically
 
 ### Linters
 
@@ -117,7 +124,7 @@ Violations cause runtime failures:
 
 1. Add `id:` when outputs referenced (`steps.x.outputs.y` requires `id: x`)
 2. Check tool availability: `command -v jq >/dev/null 2>&1` (jq/bc/terraform not on all runners)
-3. Sanitize `$GITHUB_OUTPUT`: use `printf '%s\n' "$val"` not `echo "$val"`
+3. Sanitize `$GITHUB_OUTPUT`: use `printf 'key=%s\n' "$val"` not `echo "key=$val"` (format-string separation)
 4. Pin external actions to SHA commits (not `@main`/`@v1`)
 5. Quote shell vars: `"$var"`, `basename -- "$path"` (handles spaces)
 6. Use SHA-pinned refs for internal actions: `ivuorinen/actions/action-name@<SHA>`
@@ -126,6 +133,20 @@ Violations cause runtime failures:
 8. Use `set -eu` (POSIX) in shell scripts (all scripts are POSIX sh, not bash)
 9. Never nest `${{ }}` in quoted YAML strings (breaks hashFiles)
 10. Provide tool fallbacks (macOS/Windows lack Linux tools)
+
+### GITHUB_OUTPUT Pattern
+
+Always use printf with format-string separation — never echo:
+
+```sh
+# Correct — format string separated from data
+printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
+
+# Wrong — variable interpolated in string
+echo "status=$status" >> "$GITHUB_OUTPUT"
+printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
+```
 
 ### Core Requirements
 
@@ -149,9 +170,8 @@ Violations cause runtime failures:
 
 **External users**: Version tags
 
-- ✅ `ivuorinen/actions/action-name@v2025` (CalVer major version)
-
-Check: `make check-version-refs`
+- ✅ `ivuorinen/actions/action-name@<40-char-sha>` (immutable SHA pin)
+- ✅ `ivuorinen/actions/action-name@v2025.04.05` (immutable CalVer tag)
 
 ## Validation System
 

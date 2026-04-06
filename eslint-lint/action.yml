@@ -438,15 +438,15 @@ runs:
 
         # Set outputs
         if [ $eslint_exit_code -eq 0 ]; then
-          echo "status=success" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
-          echo "status=failure" >> "$GITHUB_OUTPUT"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
         fi
 
-        echo "error_count=$error_count" >> "$GITHUB_OUTPUT"
-        echo "warning_count=$warning_count" >> "$GITHUB_OUTPUT"
-        echo "files_checked=$files_checked" >> "$GITHUB_OUTPUT"
-        echo "sarif_file=$sarif_file" >> "$GITHUB_OUTPUT"
+        printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
+        printf 'warning_count=%s\n' "$warning_count" >> "$GITHUB_OUTPUT"
+        printf 'files_checked=%s\n' "$files_checked" >> "$GITHUB_OUTPUT"
+        printf 'sarif_file=%s\n' "$sarif_file" >> "$GITHUB_OUTPUT"
 
         echo "✅ ESLint check completed: $error_count errors, $warning_count warnings"
 
@@ -500,9 +500,9 @@ runs:
         # Get number of errors fixed (approximate from diff)
         errors_fixed=$(git diff --numstat | wc -l | tr -d ' ')
 
-        printf '%s\n' "files_changed=$files_changed" >> "$GITHUB_OUTPUT"
-        printf '%s\n' "errors_fixed=$errors_fixed" >> "$GITHUB_OUTPUT"
-        printf '%s\n' "status=success" >> "$GITHUB_OUTPUT"
+        printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"
+        printf 'errors_fixed=%s\n' "$errors_fixed" >> "$GITHUB_OUTPUT"
+        printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
 
         echo "✅ ESLint fix completed. Files changed: $files_changed, Errors fixed: $errors_fixed"
 

@@ -31,7 +31,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/npm-semantic-release@main
+- uses: ivuorinen/actions/npm-semantic-release@vYYYY.MM.DD
   with:
     npm_token:
     # NPM token for publishing.

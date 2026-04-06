@@ -31,7 +31,7 @@ This action is a `composite` action.
 ### Usage
 
 ```yaml
-- uses: ivuorinen/actions/csharp-build@main
+- uses: ivuorinen/actions/csharp-build@vYYYY.MM.DD
   with:
     dotnet-version:
     # Version of .NET SDK to use.

@@ -196,13 +196,13 @@ runs:
             fi
           fi
 
-          echo "errors_count=$errors_count" >> $GITHUB_OUTPUT
-          echo "warnings_count=$warnings_count" >> $GITHUB_OUTPUT
+          printf 'errors_count=%s\n' "$errors_count" >> "$GITHUB_OUTPUT"
+          printf 'warnings_count=%s\n' "$warnings_count" >> "$GITHUB_OUTPUT"
           echo "::error::Code formatting issues found. Check the SARIF report for details."
           exit 1
         else
-          echo "errors_count=0" >> $GITHUB_OUTPUT
-          echo "warnings_count=0" >> $GITHUB_OUTPUT
+          printf 'errors_count=%s\n' "0" >> "$GITHUB_OUTPUT"
+          printf 'warnings_count=%s\n' "0" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Upload SARIF Report

@@ -34,7 +34,7 @@ while [ $# -gt 0 ]; do
       printf '  --dry-run        Show what would happen without making changes\n'
       printf '  --yes            Skip confirmation prompt\n'
       printf '  --no-confirm     Alias for --yes\n'
-      printf '  --prep-only      Only update refs and commit (no tags)\n'
+      printf '  --prep-only      Pre-flight prep only (no tags)\n'
       printf '  --tag-only       Only create tags (assumes prep done)\n'
       printf '  --help, -h       Show this help message\n'
       printf '\n'
@@ -96,10 +96,10 @@ if [ "$DRY_RUN" = "true" ]; then
   printf '\n'
 fi
 
-msg_info "Creating release $VERSION"
-printf '  Major: %s\n' "$major"
-printf '  Minor: %s\n' "$minor"
-printf '  Patch: %s\n' "$patch"
+msg_info "Building CalVer components for $VERSION"
+printf '  Year component:  %s\n' "$major"
+printf '  Month component: %s\n' "$minor"
+printf '  Patch tag:       %s (only this becomes a Git tag)\n' "$patch"
 printf '\n'
 
 # Check if git is available (required for all modes)
@@ -166,42 +166,29 @@ fi
 # Skip prep if --tag-only
 if [ "$TAG_ONLY" = "true" ]; then
   msg_info "Skipping preparation (--tag-only mode)"
+  # Verify HEAD matches the SHA from prep phase
+  sha_file=".release-prepared-sha"
+  if [ -f "$sha_file" ]; then
+    prepared_sha=$(cat "$sha_file")
+    if [ "$current_sha" != "$prepared_sha" ]; then
+      msg_error "HEAD ($current_sha) does not match prepared SHA ($prepared_sha)"
+      printf 'The working tree has changed since --prep-only. Aborting.\n'
+      exit 1
+    fi
+    msg_item "SHA verified: HEAD matches prepared SHA"
+  else
+    msg_warn "No $sha_file found - cannot verify HEAD matches prep phase"
+  fi
   printf '\n'
 else
-  # Update all action references to current SHA
-  msg_info "Updating action references to $current_sha..."
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would run: update-action-refs.sh $current_sha direct"
-  else
-    "$SCRIPT_DIR/update-action-refs.sh" "$current_sha" "direct"
-  fi
-fi
-
-# Commit the changes (skip if --tag-only)
-if [ "$TAG_ONLY" = "false" ]; then
-  if ! git diff --quiet; then
-    if [ "$DRY_RUN" = "true" ]; then
-      msg_warn "[DRY RUN] Would add: */action.yml"
-      msg_warn "[DRY RUN] Would commit: update action references for release $VERSION"
-    else
-      git add -- */action.yml
-      git commit -m "chore: update action references for release $VERSION
-
-This commit updates all internal action references to point to the current
-commit SHA in preparation for release $VERSION."
-
-      # Update SHA since we just created a new commit
-      current_sha=$(git rev-parse HEAD)
-      msg_done "Committed updated action references"
-      printf 'New HEAD: %s%s%s\n' "$GREEN" "$current_sha" "$NC"
-    fi
-  else
-    msg_info "No changes to commit"
-  fi
+  msg_info "Skipping SHA reference updates (handled by Renovate)"
 fi
 
 # Exit early if --prep-only
 if [ "$PREP_ONLY" = "true" ]; then
+  # Write current SHA so --tag-only can verify it later
+  printf '%s\n' "$current_sha" > ".release-prepared-sha"
+  msg_item "Wrote prepared SHA to .release-prepared-sha"
   printf '\n'
   msg_done "Preparation complete (--prep-only mode)"
   msg_warn "Run with --tag-only to create tags"
@@ -212,46 +199,14 @@ fi
 printf '\n'
 msg_info "Creating tags..."
 
-# Create patch tag
+# Create immutable patch tag only (no mutable minor/major tags)
 if [ "$DRY_RUN" = "true" ]; then
   msg_warn "[DRY RUN] Would create tag: $patch"
 else
   git tag -a "$patch" -m "Release $patch"
   msg_item "Created tag: $patch"
-fi
-
-# Move/create minor tag
-if git rev-parse "$minor" >/dev/null 2>&1; then
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would force-update tag: $minor"
-  else
-    git tag -f -a "$minor" -m "Latest $minor release: $patch"
-    msg_item "Updated tag: $minor (force)"
-  fi
-else
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would create tag: $minor"
-  else
-    git tag -a "$minor" -m "Latest $minor release: $patch"
-    msg_item "Created tag: $minor"
-  fi
-fi
-
-# Move/create major tag
-if git rev-parse "$major" >/dev/null 2>&1; then
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would force-update tag: $major"
-  else
-    git tag -f -a "$major" -m "Latest $major release: $patch"
-    msg_item "Updated tag: $major (force)"
-  fi
-else
-  if [ "$DRY_RUN" = "true" ]; then
-    msg_warn "[DRY RUN] Would create tag: $major"
-  else
-    git tag -a "$major" -m "Latest $major release: $patch"
-    msg_item "Created tag: $major"
-  fi
+  # Clean up prepared SHA file if it exists
+  rm -f ".release-prepared-sha"
 fi
 
 printf '\n'
@@ -263,23 +218,19 @@ else
   msg_done "Release $VERSION created successfully"
 fi
 printf '\n'
-msg_plain "$YELLOW" "All tags point to: $current_sha"
+msg_plain "$YELLOW" "Tag points to: $current_sha"
 printf '\n'
-msg_info "Tags created:"
+msg_info "Tag created:"
 printf '  %s\n' "$patch"
-printf '  %s\n' "$minor"
-printf '  %s\n' "$major"
 printf '\n'
 
-# Enhanced next steps
+# Next steps
 if [ "$DRY_RUN" = "false" ]; then
   msg_warn "Next steps:"
   printf '  1. Review changes: git show HEAD\n'
   printf '  2. Verify CI status: gh run list --limit 5\n'
-  printf '  3. Push tags: git push origin main --tags --force-with-lease\n'
-  printf '  4. Update workflow refs: make update-version-refs MAJOR=%s\n' "$major"
-  printf '  5. Update README examples if needed\n'
-  printf '  6. Create GitHub release: gh release create %s --generate-notes\n' "$VERSION"
+  printf '  3. Push tag: git push origin %s\n' "$patch"
+  printf '  4. GitHub release is created automatically by release.yml workflow\n'
   printf '\n'
   msg_info "If something went wrong:"
   printf '  Rollback: make release-undo\n'

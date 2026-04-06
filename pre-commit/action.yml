@@ -67,10 +67,10 @@ runs:
         set -eu
 
         if [ -z "$BASE_BRANCH" ]; then
-          printf '%s\n' "option=--all-files" >> "$GITHUB_OUTPUT"
+          printf 'option=%s\n' "--all-files" >> "$GITHUB_OUTPUT"
           exit 0
         fi
-        printf '%s\n' "option=--from-ref $BASE_BRANCH --to-ref HEAD" >> "$GITHUB_OUTPUT"
+        printf 'option=%s\n' "--from-ref $BASE_BRANCH --to-ref HEAD" >> "$GITHUB_OUTPUT"
 
     - name: Run pre-commit
       id: pre-commit

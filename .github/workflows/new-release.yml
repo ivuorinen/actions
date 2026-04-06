@@ -30,12 +30,23 @@ jobs:
           set -eu
 
           VERSION="v$(date '+%Y.%m.%d')"
-          printf '%s\n' "version=$VERSION" >> "$GITHUB_OUTPUT"
+          printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
 
           # Check if release already exists
           if gh release view "$VERSION" >/dev/null 2>&1; then
-            printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
-            printf '%s\n' "Release $VERSION already exists - skipping"
+            # Check if all expected assets exist
+            assets=$(gh release view "$VERSION" --json assets --jq '.assets[].name' 2>/dev/null || true)
+            has_tarball=$(printf '%s' "$assets" | grep -c "${VERSION}-source.tar.gz$" || true)
+            has_sha256=$(printf '%s' "$assets" | grep -c "${VERSION}-source.tar.gz.sha256$" || true)
+            has_sbom=$(printf '%s' "$assets" | grep -c "sbom.cdx.json$" || true)
+
+            if [ "$has_tarball" -gt 0 ] && [ "$has_sha256" -gt 0 ] && [ "$has_sbom" -gt 0 ]; then
+              printf 'created=%s\n' "false" >> "$GITHUB_OUTPUT"
+              printf '%s\n' "Release $VERSION exists with all assets - skipping"
+              exit 0
+            fi
+            printf '%s\n' "Release $VERSION exists but missing assets - will upload"
+            printf 'created=%s\n' "true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -46,7 +57,7 @@ jobs:
           if [ -n "$PREVIOUS_TAG" ]; then
             CHANGES=$(git rev-list "$PREVIOUS_TAG"..HEAD --count)
             if [ "$CHANGES" -eq 0 ]; then
-              printf '%s\n' "created=false" >> "$GITHUB_OUTPUT"
+              printf 'created=%s\n' "false" >> "$GITHUB_OUTPUT"
               printf '%s\n' "No changes since $PREVIOUS_TAG - skipping release"
               exit 0
             fi
@@ -59,7 +70,60 @@ jobs:
             --generate-notes \
             --target main
 
-          printf '%s\n' "created=true" >> "$GITHUB_OUTPUT"
+          printf 'created=%s\n' "true" >> "$GITHUB_OUTPUT"
           printf '%s\n' "Created release $VERSION"
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  provenance:
+    needs: new-daily-release
+    if: needs.new-daily-release.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+    steps:
+      - uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          fetch-depth: 0
+          ref: ${{ needs.new-daily-release.outputs.version }}
+      - name: Create source archive
+        env:
+          TAG: ${{ needs.new-daily-release.outputs.version }}
+        run: |
+          set -eu
+          git archive --format=tar.gz --prefix="${TAG}/" HEAD > "${TAG}-source.tar.gz"
+          sha256sum "${TAG}-source.tar.gz" > "${TAG}-source.tar.gz.sha256"
+      - uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: '${{ needs.new-daily-release.outputs.version }}-source.tar.gz'
+      - name: Upload release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.new-daily-release.outputs.version }}
+        run: |
+          set -eu
+          gh release upload "$TAG" "${TAG}-source.tar.gz" "${TAG}-source.tar.gz.sha256" --clobber
+
+  sbom:
+    needs: new-daily-release
+    if: needs.new-daily-release.outputs.created == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          ref: ${{ needs.new-daily-release.outputs.version }}
+      - uses: anchore/sbom-action@e22c389904149dbc22b58101806040fa8d37a610 # v0.24.0
+        with:
+          format: cyclonedx-json
+          output-file: sbom.cdx.json
+      - name: Upload SBOM to release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.new-daily-release.outputs.version }}
+        run: |
+          set -eu
+          gh release upload "$TAG" sbom.cdx.json --clobber
