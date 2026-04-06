@@ -66,9 +66,14 @@ in hook commands
 | Before a release                            | `/changelog` and `/validate`              |
 | Periodically or on large changes            | Use `action-consistency-auditor` subagent |
 
-**Available skills**: `/action-health`, `/compare-actions`, `/security-audit`, `/pin-check`, `/changelog`, `/release`, `/test-action`, `/new-action`, `/validate`
+**Available skills**: `/action-health`, `/compare-actions`,
+`/security-audit`, `/pin-check`, `/changelog`, `/release`,
+`/test-action`, `/new-action`, `/validate`
 
-**Available subagents**: `action-validator`, `test-coverage-reviewer`, `posix-compliance-checker`, `action-consistency-auditor`, `security-surface-reviewer`, `renovate-pr-reviewer`
+**Available subagents**: `action-validator`,
+`test-coverage-reviewer`, `posix-compliance-checker`,
+`action-consistency-auditor`, `security-surface-reviewer`,
+`renovate-pr-reviewer`
 
 ### Documentation Locations
 
