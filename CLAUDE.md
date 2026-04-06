@@ -35,7 +35,10 @@
 
 ### Claude Code Hooks
 
-**Auto-formatting**: PostToolUse hooks auto-format files on Edit/Write (ruff for .py, shfmt for .sh, prettier for .yml/.yaml/.json/.md, actionlint + action-validator for action.yml)
+**Auto-formatting**: PostToolUse hooks auto-format files on
+Edit/Write (ruff for .py, shfmt for .sh, prettier for
+.yml/.yaml/.json/.md, actionlint + action-validator for action.yml)
+
 **Blocked edits** (PreToolUse):
 
 - `rules.yml` — auto-generated, use `make update-validators`
@@ -43,8 +46,12 @@
 - `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
 - Bash-isms in .sh/action.yml — must be POSIX sh (`[[ ]]`, `local`, `declare`, `function` keyword)
 
-**Hook schema**: `matcher` is a regex string matching tool names (e.g. `"Edit|Write"`), not an object. File filtering done in hook scripts via stdin JSON (`jq -r '.tool_input.file_path'`)
-**Reference**: `$CLAUDE_PROJECT_DIR` for project-relative paths in hook commands
+**Hook schema**: `matcher` is a regex string matching tool names
+(e.g. `"Edit|Write"`), not an object. File filtering done in hook
+scripts via stdin JSON (`jq -r '.tool_input.file_path'`).
+
+**Reference**: `$CLAUDE_PROJECT_DIR` for project-relative paths
+in hook commands
 
 ### Skills & Subagents
 

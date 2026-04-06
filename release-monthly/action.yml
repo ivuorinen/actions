@@ -135,8 +135,8 @@ runs:
         # Function to get previous release tag with error handling
         # Filters by prefix so unrelated releases are ignored
         get_previous_tag() {
-          local prefix="$1"
-          local previous_tag
+          prefix="$1"
+          previous_tag=""
           if [ -n "$prefix" ]; then
             previous_tag=$(gh release list --limit 100 2>/dev/null \
               | awk '{ print $1 }' \

@@ -43,7 +43,7 @@ For each `action.yml` found, extract `uses:` lines referencing `ivuorinen/action
 Find all workflow files in `.github/workflows/`:
 
 ```bash
-find .github/workflows -name '*.yml' -o -name '*.yaml'
+find .github/workflows \( -name '*.yml' -o -name '*.yaml' \)
 ```
 
 For internal action references in test workflows:

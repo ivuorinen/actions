@@ -120,7 +120,7 @@ outputs:
     value: ${{ steps.build.outputs.metadata }}
   platforms:
     description: 'Successfully built platforms'
-    value: ${{ steps.detect-platforms.outputs.platforms }}
+    value: ${{ steps.verify.outputs.built }}
   platform-matrix:
     description: 'Build status per platform in JSON format'
     value: ${{ steps.build.outputs.platform-matrix }}
@@ -347,6 +347,7 @@ runs:
 
         cache_from=""
         cache_to=""
+        cache_mode="${CACHE_MODE:-min}"
 
         # Handle cache import
         if [ -n "$CACHE_IMPORT" ]; then
@@ -366,8 +367,6 @@ runs:
           registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
           cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
 
-          # Set cache mode
-          cache_mode="$CACHE_MODE"
           if [ -z "$cache_to" ]; then
             cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=${cache_mode}"
           fi
@@ -584,7 +583,8 @@ runs:
         export COSIGN_EXPERIMENTAL=1
         cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
 
-        printf 'signature=%s\n' "signed" >> "$GITHUB_OUTPUT"
+        # Emit the signed image reference so callers know what was signed
+        printf 'signature=%s\n' "${IMAGE_NAME}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
     - name: Verify Build
       id: verify
@@ -608,12 +608,13 @@ runs:
           platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2 | tr '\n' ',' | sed 's/,$//')
           printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
         else
-          # For local builds, just verify it exists
+          # For local builds, verify it exists and extract platform
           if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
             echo "::error::Built image not found locally"
             exit 1
           fi
-          printf 'built=%s\n' "local" >> "$GITHUB_OUTPUT"
+          platforms=$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${IMAGE_NAME}:${IMAGE_TAG}")
+          printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
         fi
 
     - name: Cleanup

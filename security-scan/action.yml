@@ -79,18 +79,22 @@ runs:
     - name: Check Required Configurations
       id: check-configs
       shell: sh
+      env:
+        ACTIONLINT_ENABLED: ${{ inputs.actionlint-enabled }}
+        GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
+        GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
       run: |
         set -eu
 
         # Initialize all flags as false
         {
-          printf '%s\n' "run_gitleaks=false"
-          printf '%s\n' "run_trivy=true"
-          printf '%s\n' "run_actionlint=${{ inputs.actionlint-enabled }}"
+          printf 'run_gitleaks=%s\n' "false"
+          printf 'run_trivy=%s\n' "true"
+          printf 'run_actionlint=%s\n' "$ACTIONLINT_ENABLED"
         } >> "$GITHUB_OUTPUT"
 
         # Check Gitleaks configuration and license
-        if [ -f "${{ inputs.gitleaks-config }}" ] && [ -n "${{ inputs.gitleaks-license }}" ]; then
+        if [ -f "$GITLEAKS_CONFIG" ] && [ -n "$GITLEAKS_LICENSE" ]; then
           printf 'Gitleaks config and license found\n'
           printf 'run_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
         else
