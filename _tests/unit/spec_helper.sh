@@ -15,16 +15,30 @@ MOCKS_DIR="${FRAMEWORK_DIR}/mocks"
 
 # Export directories for use by test cases
 export FIXTURES_DIR MOCKS_DIR
-# Only create TEMP_DIR if not already set (framework setup.sh will create it)
+# Only create TEMP_DIR if not already set (framework setup.sh will create it).
+# Track ownership so the EXIT trap only deletes what this script created.
+# A caller-provided TEMP_DIR (e.g. an inherited env var pointing to scratch
+# space) MUST NOT be rm -rf'd.
 if [ -z "${TEMP_DIR:-}" ]; then
   TEMP_DIR=$(mktemp -d) || exit 1
+  _SPEC_HELPER_OWNS_TEMP_DIR=1
 fi
+
+# Clean TEMP_DIR on shell exit ONLY if we created it ourselves.
+_spec_helper_cleanup_tempdir() {
+  if [[ "${_SPEC_HELPER_OWNS_TEMP_DIR:-}" == "1" && -n "${TEMP_DIR:-}" && -d "${TEMP_DIR}" ]]; then
+    rm -rf "${TEMP_DIR}"
+  fi
+}
+trap _spec_helper_cleanup_tempdir EXIT
 
 # Load framework utilities
 # shellcheck source=_tests/framework/setup.sh
 source "${FRAMEWORK_DIR}/setup.sh"
 # shellcheck source=_tests/framework/utils.sh
 source "${FRAMEWORK_DIR}/utils.sh"
+# shellcheck source=_tests/framework/harness_wrapper.sh
+source "${FRAMEWORK_DIR}/harness_wrapper.sh"
 
 # Initialize testing framework
 init_testing_framework
@@ -190,7 +204,9 @@ shellspec_validate_action_output() {
     return 1
   fi
 
-  if grep -Fq "${expected_key}=${expected_value}" "$output_file"; then
+  # Whole-line match (-x) so a prefix like "status=success" doesn't
+  # falsely match "status=successfully-failed".
+  if grep -Fxq "${expected_key}=${expected_value}" "$output_file"; then
     return 0
   else
     echo "Expected output not found: $expected_key=$expected_value" >&2
@@ -233,10 +249,9 @@ shellspec_mock_action_run() {
   "common-file-check")
     echo "found=true" >>"$GITHUB_OUTPUT"
     ;;
-  "compress-images")
-    echo "images_compressed=true" >>"$GITHUB_OUTPUT"
-    printf "compression_report=## Compression Results\n- 3 images compressed\n- 25%% size reduction\n" >>"$GITHUB_OUTPUT"
-    ;;
+  # compress-images mock removed: the former `printf` wrote literal
+  # newlines into $GITHUB_OUTPUT, violating the key=value format. Use
+  # the harness (_tests/framework/harness_wrapper.sh) for new specs.
   "csharp-build")
     echo "build_status=success" >>"$GITHUB_OUTPUT"
     echo "test_status=success" >>"$GITHUB_OUTPUT"
@@ -378,9 +393,10 @@ shellspec_test_input_validation() {
   export "$input_var_name"="$test_value"
   export GITHUB_OUTPUT="$temp_output_file"
 
-  # Run the Python validation script and capture exit code
+  # Run the Python validation script and capture exit code. Use uv when
+  # available so PyYAML resolves consistently across both helpers.
   local exit_code
-  if python3 "${PROJECT_ROOT}/validate-inputs/validator.py" >/dev/null 2>&1; then
+  if _harness_python "${PROJECT_ROOT}/validate-inputs/validator.py" >/dev/null 2>&1; then
     exit_code=0
   else
     exit_code=1
@@ -487,13 +503,28 @@ validate_input_python() {
   local input_name="$2"
   local input_value="$3"
 
-  # Set up environment variables for Python validator
-  export INPUT_ACTION_TYPE="$action_type"
+  # When the `action` input itself is being tested, don't pre-set
+  # INPUT_ACTION_TYPE — the test is simulating a caller that passes only
+  # `action:` and expects its value to flow through validator.py's
+  # action_type fallback (where format validation kicks in).
+  if [[ "$input_name" != "action" ]]; then
+    export INPUT_ACTION_TYPE="$action_type"
+  fi
   export VALIDATOR_QUIET="1" # Suppress success messages for tests
 
   # Set default values for commonly required inputs to avoid validation failures
   # when testing only one input at a time
   setup_default_inputs "$action_type" "$input_name"
+
+  # When testing the `action` input with a value that names a real action,
+  # also apply that action's default inputs so downstream validation has
+  # the required fields populated (e.g. INPUT_IMAGE_NAME for docker-build).
+  # Normalize underscores → dashes so e.g. npm_publish resolves to the
+  # npm-publish case branch in setup_default_inputs.
+  if [[ "$input_name" == "action" && -n "$input_value" ]]; then
+    local normalized_action="${input_value//_/-}"
+    setup_default_inputs "$normalized_action" "_action_test_sentinel"
+  fi
 
   # Set the target input
   local input_var_name="INPUT_${input_name//-/_}"
