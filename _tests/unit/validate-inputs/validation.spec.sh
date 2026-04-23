@@ -126,9 +126,12 @@ End
 End
 
 Context "when testing input requirements"
-It "requires action input"
+# Both `action` and `action-type` are declared optional in action.yml —
+# one of the two must be provided at runtime, but the schema accepts
+# either. validator.py enforces the "one must be set" rule.
+It "has action as optional input"
 When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "action" "required"
-The output should equal "required"
+The output should equal "optional"
 End
 
 It "has rules-file as optional input"

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -71,6 +72,9 @@ def write_output(status: str, action_type: str, **kwargs) -> None:
         sys.exit(1)
 
 
+_ACTION_TYPE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
+
+
 def main() -> None:
     """Main validation entry point."""
     # Get the action type from environment (check both INPUT_ACTION_TYPE and INPUT_ACTION)
@@ -80,6 +84,13 @@ def main() -> None:
     )
     if not action_type:
         logger.error("::error::No action type provided")
+        sys.exit(1)
+
+    # Reject action names with shell metacharacters, path separators, or
+    # other unsafe characters. Valid action names are lowercase alphanumeric
+    # with underscores and dashes.
+    if not _ACTION_TYPE_RE.match(action_type):
+        logger.error("::error::Invalid action name format: %r", action_type)
         sys.exit(1)
 
     # Convert to standard format (replace dashes with underscores)
