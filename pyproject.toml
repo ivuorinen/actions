@@ -178,6 +178,14 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "ANN",     # No annotations required in tests
     "D",       # No docstrings required in tests
 ]
+
+# Harness is internal test infrastructure; exception-message style nits
+# aren't worth the churn for diagnostic-only errors.
+"_tests/framework/harness/**" = [
+    "EM101",   # f-string/literal in exception
+    "EM102",   # f-string in exception
+    "TRY003",  # long messages outside exception class
+]
 "**/tests/**" = [
     "S101",    # Allow assert statements in tests
     "PLR2004", # Allow magic values in tests
