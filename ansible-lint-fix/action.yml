@@ -53,6 +53,11 @@ runs:
         username: ${{ inputs.username }}
         max-retries: ${{ inputs.max-retries }}
 
+    - name: Checkout Repository
+      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      with:
+        token: ${{ inputs.token || github.token }}
+
     - name: Check for Ansible Files
       id: check-files
       shell: sh
@@ -67,11 +72,6 @@ runs:
           printf 'files_found=%s\n' "false" >> "$GITHUB_OUTPUT"
           echo "No Ansible files found. Skipping lint and fix."
         fi
-
-    - name: Checkout Repository
-      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
-      with:
-        token: ${{ inputs.token || github.token }}
 
     - name: Setup Python
       if: steps.check-files.outputs.files_found == 'true'
