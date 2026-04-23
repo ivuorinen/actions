@@ -235,12 +235,15 @@ runs:
 
         args=""
         if [ -n "$BUILD_ARGS_INPUT" ]; then
-          # Save IFS and use comma as delimiter
+          # Save IFS and disable pathname expansion so glob chars (`*`, `?`,
+          # `[...]`) in build-arg values aren't expanded against the runner's
+          # working directory.
           old_ifs="$IFS"
+          set -f
           IFS=','
-          # Use set -- to load comma-separated values into positional parameters
           set -- $BUILD_ARGS_INPUT
           IFS="$old_ifs"
+          set +f
 
           # Iterate through positional parameters
           for arg; do
@@ -261,12 +264,13 @@ runs:
 
         contexts=""
         if [ -n "$BUILD_CONTEXTS" ]; then
-          # Save IFS and use comma as delimiter
+          # Save IFS and disable globbing (see Parse Build Arguments).
           old_ifs="$IFS"
+          set -f
           IFS=','
-          # Use set -- to load comma-separated values into positional parameters
           set -- $BUILD_CONTEXTS
           IFS="$old_ifs"
+          set +f
 
           # Iterate through positional parameters
           for ctx; do
@@ -285,12 +289,13 @@ runs:
 
         secrets=""
         if [ -n "$INPUT_SECRETS" ]; then
-          # Save IFS and use comma as delimiter
+          # Save IFS and disable globbing (see Parse Build Arguments).
           old_ifs="$IFS"
+          set -f
           IFS=','
-          # Use set -- to load comma-separated values into positional parameters
           set -- $INPUT_SECRETS
           IFS="$old_ifs"
+          set +f
 
           # Iterate through positional parameters
           for secret; do
