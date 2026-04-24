@@ -142,8 +142,7 @@ runs:
           previous_tag=""
           if [ -n "$prefix" ]; then
             previous_tag=$(gh release list --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null \
-              | grep "^${prefix}" \
-              | head -1) || {
+              | awk -v prefix="$prefix" 'index($0, prefix) == 1 { print; exit }') || {
               echo "::warning::No previous releases found with prefix $prefix"
               return 1
             }

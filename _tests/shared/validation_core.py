@@ -805,6 +805,7 @@ def _handle_legacy_interface() -> bool:
         sys.exit(0)
     print(f"Expected {expected_result}, got {actual_result}: {error_msg}", file=sys.stderr)
     sys.exit(1)
+    return True  # unreachable; satisfies explicit-return requirement
 
 
 def _create_argument_parser():

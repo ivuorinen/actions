@@ -127,9 +127,17 @@ class ExpressionResolver:
         tokens = self._tokenize(expr)
         if not tokens:
             raise UnsupportedExpressionError(f"empty expression: {expr!r}")
+        if len(tokens) % 2 == 0:
+            raise UnsupportedExpressionError(
+                f"malformed expression (even token count): {expr!r}"
+            )
         result = self._reduce_value(tokens[0])
         i = 1
         while i < len(tokens):
+            if i + 1 >= len(tokens):
+                raise UnsupportedExpressionError(
+                    f"malformed expression (trailing operator): {expr!r}"
+                )
             op_kind, op = tokens[i]
             if op_kind != "op":
                 raise UnsupportedExpressionError(f"expected operator, got {tokens[i]}")
@@ -300,11 +308,25 @@ def _run_owned(
             if not ExpressionResolver(context).is_truthy(if_text):
                 continue
 
+        github_output_offset = github_output.stat().st_size if github_output.exists() else 0
+
         rc = _execute_step(step, context, session, github_output, github_env)
         if rc != 0:
             return rc
 
-        outputs = _parse_github_output(github_output)
+        appended_output = b""
+        if github_output.exists():
+            with github_output.open("rb") as handle:
+                current_size = github_output.stat().st_size
+                if current_size < github_output_offset:
+                    handle.seek(0)
+                else:
+                    handle.seek(github_output_offset)
+                appended_output = handle.read()
+
+        step_output_path = session / f".github_output_{len(steps_ctx)}"
+        step_output_path.write_bytes(appended_output)
+        outputs = _parse_github_output(step_output_path)
         steps_ctx[step_id] = {"outputs": outputs}
 
     return 0
