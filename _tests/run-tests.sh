@@ -245,15 +245,12 @@ install_shellspec() {
     exit 1
   fi
 
-  # Add to PATH if not already there
+  # Add to PATH for this process only. A test runner must never mutate
+  # the user's shell profile — print a suggestion instead.
   if [[ ":$PATH:" != *":${install_dir}/bin:"* ]]; then
     export PATH="${install_dir}/bin:$PATH"
-    # Append to shell rc only in non-CI environments
-    if [[ -z "${CI:-}" ]]; then
-      if ! grep -qxF "export PATH=\"${install_dir}/bin:\$PATH\"" ~/.bashrc 2>/dev/null; then
-        echo "export PATH=\"${install_dir}/bin:\$PATH\"" >>~/.bashrc
-      fi
-    fi
+    log_warning "ShellSpec installed to ${install_dir}/bin"
+    log_warning "To persist, add to your shell profile: export PATH=\"${install_dir}/bin:\$PATH\""
   fi
 
   if command -v shellspec >/dev/null 2>&1; then
@@ -293,31 +290,23 @@ run_unit_tests() {
       # We need to check the actual output to determine if tests failed
       # Pass action name relative to --default-path (_tests/unit) for proper spec_helper loading
       (cd "$TEST_ROOT/.." && shellspec \
+        --no-banner --no-warning-as-failure \
         --format documentation \
         "$action") >"$output_file" 2>&1 || true
 
-      # Parse the output to determine if tests actually failed
-      # Look for the summary line which shows "X examples, Y failures"
-      if grep -qE "[0-9]+ examples?, 0 failures?" "$output_file" && ! grep -q "Fatal error occurred" "$output_file"; then
+      # Parse the output to determine if tests passed.
+      # Strip ANSI color codes first (shellspec forces color when output is
+      # piped through --format documentation in some versions). Single
+      # predicate: exactly "N examples, 0 failures" on a line.
+      # Missing summary line (spec crash, empty output) is treated as FAIL.
+      if sed $'s/\x1b\\[[0-9;]*m//g' "$output_file" \
+           | grep -qE '^[0-9]+ examples?, 0 failures?$'; then
         log_success "Unit tests passed: $action"
         passed_tests+=("$action")
       else
-        # Check if there were actual failures (not just warnings)
-        if grep -qE "[0-9]+ examples?, [1-9][0-9]* failures?" "$output_file"; then
-          log_error "Unit tests failed: $action"
-          failed_tests+=("$action")
-          test_result=1
-        else
-          # No summary line found, treat as passed if no fatal errors
-          if ! grep -q "Fatal error occurred" "$output_file"; then
-            log_success "Unit tests passed: $action"
-            passed_tests+=("$action")
-          else
-            log_error "Unit tests failed: $action"
-            failed_tests+=("$action")
-            test_result=1
-          fi
-        fi
+        log_error "Unit tests failed: $action"
+        failed_tests+=("$action")
+        test_result=1
       fi
 
       # Show summary if verbose or on failure
@@ -413,13 +402,13 @@ generate_coverage_report() {
     return 0
   fi
 
-  log_info "Generating coverage report..."
+  log_info "Generating spec-presence report..."
 
   local coverage_dir="${TEST_ROOT}/coverage"
   mkdir -p "$coverage_dir"
 
-  # This is a simplified coverage implementation
-  # In practice, you'd integrate with kcov or similar tools
+  # This metric measures PRESENCE of a validation.spec.sh per action, not
+  # executed line coverage. For real coverage, integrate kcov (out of scope).
 
   # Count tested vs total actions (count directories with action.yml files, excluding hidden/internal dirs and node_modules)
   local project_root
@@ -431,23 +420,23 @@ generate_coverage_report() {
   local tested_actions
   tested_actions=$(find "${TEST_ROOT}/unit" -mindepth 2 -maxdepth 2 -type f -name "validation.spec.sh" 2>/dev/null | wc -l | tr -d ' ')
 
-  local coverage_percent
+  local spec_presence_percent
   if [[ $total_actions -gt 0 ]]; then
-    coverage_percent=$(((tested_actions * 100) / total_actions))
+    spec_presence_percent=$(((tested_actions * 100) / total_actions))
   else
-    coverage_percent=0
+    spec_presence_percent=0
   fi
 
   cat >"${coverage_dir}/summary.json" <<EOF
 {
   "total_actions": $total_actions,
   "tested_actions": $tested_actions,
-  "coverage_percent": $coverage_percent,
+  "spec_presence_percent": $spec_presence_percent,
   "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF
 
-  log_success "Coverage report generated: ${coverage_percent}% ($tested_actions/$total_actions actions)"
+  log_success "Spec-presence report generated: ${spec_presence_percent}% ($tested_actions/$total_actions actions)"
 }
 
 # Generate test report
@@ -668,12 +657,12 @@ generate_console_report() {
   fi
 
   if [[ -f "${TEST_ROOT}/coverage/summary.json" ]]; then
-    local coverage
-    coverage=$(jq -r '.coverage_percent' "${TEST_ROOT}/coverage/summary.json" 2>/dev/null || echo "N/A")
-    if [[ "$coverage" =~ ^[0-9]+$ ]]; then
-      printf "%-25s %4s%%\n" "Test Coverage:" "$coverage"
+    local spec_presence
+    spec_presence=$(jq -r '.spec_presence_percent' "${TEST_ROOT}/coverage/summary.json" 2>/dev/null || echo "N/A")
+    if [[ "$spec_presence" =~ ^[0-9]+$ ]]; then
+      printf "%-25s %4s%%\n" "Action Spec Presence:" "$spec_presence"
     else
-      printf "%-25s %s\n" "Test Coverage:" "$coverage"
+      printf "%-25s %s\n" "Action Spec Presence:" "$spec_presence"
     fi
   fi
 

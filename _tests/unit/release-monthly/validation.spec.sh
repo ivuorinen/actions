@@ -57,16 +57,9 @@ It "accepts alphanumeric prefix"
 When call validate_input_python "release-monthly" "prefix" "release-v1.0-"
 The status should be success
 End
-# NOTE: Test framework uses default validation for 'prefix'
-# Default validation only checks injection patterns, not character restrictions
-It "accepts special characters in prefix (framework default validation)"
-When call validate_input_python "release-monthly" "prefix" "invalid@prefix"
-The status should be success
-End
-It "accepts spaces in prefix (framework default validation)"
-When call validate_input_python "release-monthly" "prefix" "invalid prefix"
-The status should be success
-End
+# NOTE: validator now rejects inputs that the action's `case` pattern
+# would reject at runtime. Tautological "accepts special chars" tests
+# removed — behavior.spec.sh exercises the real action.
 It "rejects injection in prefix"
 When call validate_input_python "release-monthly" "prefix" "prefix; rm -rf /"
 The status should be failure
@@ -114,12 +107,6 @@ The status should be failure
 End
 End
 
-Context "when testing outputs"
-It "produces all expected outputs"
-When call test_action_outputs "$ACTION_DIR" "token" "ghp_test" "dry-run" "true" "prefix" "v"
-The status should be success
-The stderr should include "Testing action outputs for: release-monthly"
-The stderr should include "Output test passed for: release-monthly"
-End
-End
+# Note: output assertions moved to behavior.spec.sh — real action
+# execution via the harness, not tautological mock data.
 End

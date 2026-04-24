@@ -1,0 +1,23 @@
+---
+name: Echo Inputs Fixture
+description: 'Fixture: writes INPUT_FOO to $GITHUB_OUTPUT for harness integration tests.'
+inputs:
+  foo:
+    description: 'test input'
+    required: false
+    default: ''
+
+outputs:
+  echoed:
+    description: 'the value of foo'
+    value: ${{ steps.emit.outputs.echoed }}
+
+runs:
+  using: composite
+  steps:
+    - id: emit
+      shell: sh
+      env:
+        FOO: ${{ inputs.foo }}
+      run: |
+        printf 'echoed=%s\n' "$FOO" >> "$GITHUB_OUTPUT"
