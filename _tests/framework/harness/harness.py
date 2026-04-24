@@ -318,6 +318,9 @@ def _run_owned(
         if github_output.exists():
             with github_output.open("rb") as handle:
                 current_size = github_output.stat().st_size
+                # Guard against file truncation between steps (e.g. a step
+                # that clears the output file); in that case read from the
+                # beginning so we don't miss any new output.
                 if current_size < github_output_offset:
                     handle.seek(0)
                 else:

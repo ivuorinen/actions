@@ -802,10 +802,9 @@ def _handle_legacy_interface() -> bool:
     is_valid, error_msg = validate_input(action_dir, input_name, input_value)
     actual_result = "success" if is_valid else "failure"
     if actual_result == expected_result:
-        sys.exit(0)
+        raise SystemExit(0)
     print(f"Expected {expected_result}, got {actual_result}: {error_msg}", file=sys.stderr)
-    sys.exit(1)
-    return True  # unreachable; satisfies explicit-return requirement
+    raise SystemExit(1)
 
 
 def _create_argument_parser():
