@@ -437,7 +437,7 @@ test-actions: ## Run GitHub Actions tests (unit + integration)
 test-python: ## Run Python validation tests
 	@echo "$(BLUE)🐍 Running Python tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uv run pytest -v --tb=short; then \
+		if uv run --directory validate-inputs pytest -v --tb=short; then \
 			echo "$(GREEN)✅ Python tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Python tests failed$(RESET)"; \
@@ -450,7 +450,7 @@ test-python: ## Run Python validation tests
 test-python-coverage: ## Run Python tests with coverage
 	@echo "$(BLUE)📊 Running Python tests with coverage...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run pytest --cov=validate-inputs --cov-report=term-missing; \
+		uv run --directory validate-inputs pytest --cov=. --cov-report=term-missing; \
 	else \
 		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
 	fi
@@ -458,7 +458,7 @@ test-python-coverage: ## Run Python tests with coverage
 test-update-validators: ## Run tests for update-validators.py script
 	@echo "$(BLUE)🔧 Running update-validators.py tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uv run pytest validate-inputs/tests/test_update_validators.py -v --tb=short; then \
+		if uv run --directory validate-inputs pytest tests/test_update_validators.py -v --tb=short; then \
 			echo "$(GREEN)✅ Update-validators tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Update-validators tests failed$(RESET)"; \
@@ -515,7 +515,7 @@ generate-tests-dry: ## Preview what tests would be generated without creating fi
 test-generate-tests: ## Test the test generation system itself
 	@echo "$(BLUE)🔬 Testing test generation system...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uv run pytest validate-inputs/tests/test_generate_tests.py -v; then \
+		if uv run --directory validate-inputs pytest tests/test_generate_tests.py -v; then \
 			echo "$(GREEN)✅ Test generation tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Test generation tests failed$(RESET)"; \
