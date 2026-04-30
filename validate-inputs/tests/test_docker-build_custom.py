@@ -28,7 +28,7 @@ class TestCustomDockerBuildValidator:
 
     def test_validate_inputs_valid(self):
         """Test validation with valid inputs."""
-        # TODO: Add specific valid inputs for docker-build
+        # CUSTOMIZE: Add specific valid inputs for docker-build
         inputs = {}
         result = self.validator.validate_inputs(inputs)
         # Adjust assertion based on required inputs
@@ -36,7 +36,7 @@ class TestCustomDockerBuildValidator:
 
     def test_validate_inputs_invalid(self):
         """Test validation with invalid inputs."""
-        # TODO: Add specific invalid inputs for docker-build
+        # CUSTOMIZE: Add specific invalid inputs for docker-build
         inputs = {"invalid_key": "invalid_value"}
         result = self.validator.validate_inputs(inputs)
         # Custom validators may have specific validation rules
@@ -46,13 +46,13 @@ class TestCustomDockerBuildValidator:
         """Test required inputs detection."""
         required = self.validator.get_required_inputs()
         assert isinstance(required, list)
-        # TODO: Assert specific required inputs for docker-build
+        # CUSTOMIZE: Assert specific required inputs for docker-build
 
     def test_validation_rules(self):
         """Test validation rules."""
         rules = self.validator.get_validation_rules()
         assert isinstance(rules, dict)
-        # TODO: Assert specific validation rules for docker-build
+        # CUSTOMIZE: Assert specific validation rules for docker-build
 
     def test_github_expressions(self):
         """Test GitHub expression handling."""
