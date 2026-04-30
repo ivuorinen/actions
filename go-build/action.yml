@@ -187,6 +187,8 @@ runs:
         mkdir -p "$DESTINATION"
 
         build_success=true
+        # Temp file to propagate failure flag out of the pipeline subshell
+        _build_failed=$(mktemp)
         # Check if there are any main packages
         if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
           # Build all main packages
@@ -194,15 +196,19 @@ runs:
             echo "Building package in $main_dir..."
             output_name=$(basename -- "$main_dir")
             if ! go build -ldflags="-s -w" -o "$DESTINATION/$output_name" "$main_dir"; then
-              build_success=false
+              printf 'failed\n' > "$_build_failed"
             fi
           done
         else
           echo "No main packages found, building library..."
           if ! go build ./...; then
-            build_success=false
+            printf 'failed\n' > "$_build_failed"
           fi
         fi
+        if [ -s "$_build_failed" ]; then
+          build_success=false
+        fi
+        rm -f "$_build_failed"
 
         if [ "$build_success" = true ]; then
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"

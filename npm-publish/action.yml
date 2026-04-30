@@ -237,5 +237,4 @@ runs:
         npm publish \
           --registry "$REGISTRY_URL" \
           --verbose \
-          --scope "$PACKAGE_SCOPE" \
-          --tag "$PACKAGE_VERSION"
+          --scope "$PACKAGE_SCOPE"

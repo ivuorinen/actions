@@ -398,16 +398,16 @@ runs:
         echo "Running Prettier check mode..."
 
         # Build Prettier command
-        prettier_cmd="npx prettier --check \"$FILE_PATTERN\""
+        set -- npx prettier --check "$FILE_PATTERN"
 
         # Add config file if specified and exists
         if [ "$CONFIG_FILE" != ".prettierrc" ] && [ -f "$CONFIG_FILE" ]; then
-          prettier_cmd="$prettier_cmd --config $CONFIG_FILE"
+          set -- "$@" --config "$CONFIG_FILE"
         fi
 
         # Add cache option
         if [ "$CACHE" = "true" ]; then
-          prettier_cmd="$prettier_cmd --cache"
+          set -- "$@" --cache
         fi
 
         # Run Prettier and capture results
@@ -415,7 +415,7 @@ runs:
         files_checked=0
         unformatted_files=0
 
-        if eval "$prettier_cmd" > prettier-output.txt 2>&1; then
+        if "$@" > prettier-output.txt 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
@@ -425,7 +425,7 @@ runs:
         fi
 
         # Count total files checked
-        files_checked=$(eval "npx prettier --list-different \"$FILE_PATTERN\"" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+        files_checked=$(npx prettier --list-different "$FILE_PATTERN" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
 
         printf 'files_checked=%s\n' "$files_checked" >> "$GITHUB_OUTPUT"
         printf 'unformatted_files=%s\n' "$unformatted_files" >> "$GITHUB_OUTPUT"

@@ -470,21 +470,41 @@ runs:
             build_action="--load"
           fi
 
-          if docker buildx build \
-            --platform=${platforms} \
-            --tag "$IMAGE_NAME:$TAG" \
-            $BUILD_ARGS \
-            $BUILD_CONTEXTS \
-            $SECRETS \
-            $CACHE_FROM \
-            $CACHE_TO \
+          # Build argument list safely using positional parameters (POSIX, no arrays)
+          set -- docker buildx build \
+            --platform="${platforms}" \
+            --tag "$IMAGE_NAME:$TAG"
+
+          # Append pre-assembled flag groups token by token
+          for _arg in $BUILD_ARGS; do
+            set -- "$@" "$_arg"
+          done
+          for _arg in $BUILD_CONTEXTS; do
+            set -- "$@" "$_arg"
+          done
+          for _arg in $SECRETS; do
+            set -- "$@" "$_arg"
+          done
+          for _arg in $CACHE_FROM; do
+            set -- "$@" "$_arg"
+          done
+          for _arg in $CACHE_TO; do
+            set -- "$@" "$_arg"
+          done
+
+          set -- "$@" \
             --file "$DOCKERFILE" \
-            ${build_action} \
-            --provenance=true \
-            ${sbom_flag} \
-            ${verbose_flag} \
-            --metadata-file=/tmp/build-metadata.json \
-            "$CONTEXT"; then
+            "${build_action}" \
+            --provenance=true
+
+          # Append optional flags (non-empty only)
+          for _flag in $sbom_flag $verbose_flag; do
+            set -- "$@" "$_flag"
+          done
+
+          set -- "$@" --metadata-file=/tmp/build-metadata.json "$CONTEXT"
+
+          if "$@"; then
 
             # Get image digest
             if [ "$PUSH" = "true" ]; then
@@ -496,10 +516,12 @@ runs:
 
             # Parse metadata
             if [ -f /tmp/build-metadata.json ]; then
+              # Use a random delimiter to avoid collision if JSON contains a line equal to the delimiter
+              _delim="$(head -c 16 /dev/urandom | base64 | tr -d '=+/\n')"
               {
-                echo "metadata<<EOF"
+                printf 'metadata<<%s\n' "$_delim"
                 cat /tmp/build-metadata.json
-                echo "EOF"
+                printf '%s\n' "$_delim"
               } >> "$GITHUB_OUTPUT"
 
               # Extract SBOM location directly from file

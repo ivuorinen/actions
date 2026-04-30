@@ -253,8 +253,7 @@ runs:
               esac
             fi
 
-            if curl -sSfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | \
-              sh -s -- -b "$(go env GOPATH)/bin" "$install_version"; then
+            if go install "github.com/golangci/golangci-lint/cmd/golangci-lint@${install_version}"; then
               return 0
             fi
 
@@ -375,6 +374,7 @@ runs:
         echo "Running golangci-lint..."
 
         result_file="reports/golangci-lint.$REPORT_FORMAT"
+        error_count=0
 
         GOLANGCI_LINT_CACHE="$HOME/.cache/golangci-lint" \
         golangci-lint run \
@@ -399,13 +399,14 @@ runs:
               error_count=$(grep -c "level\": \"error\"" "$result_file" || echo 0)
             fi
 
-            printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
-
             if [ "$FAIL_ON_ERROR" = "true" ]; then
+              printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
               echo "::error::golangci-lint found ${error_count} issues"
               exit $exit_code
             fi
           }
+
+        printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
         # Count analyzed files
         analyzed_files=$(find . -type f -name "*.go" -not -path "./vendor/*" -not -path "./.git/*" | wc -l)
