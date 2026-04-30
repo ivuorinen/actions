@@ -3,7 +3,7 @@ name = "github-actions-validate-inputs"
 version = "1.0.0"
 description = "Modular input validation system for GitHub Actions with automatic convention-based detection"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 authors = [
   {name = "Ismo Vuorinen", email = "ismo@ivuorinen.net"}
 ]
@@ -21,7 +21,6 @@ classifiers = [
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -36,7 +35,7 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
-    "pytest>=7.0.0",
+    "pytest>=8.4.0",
     "pytest-cov>=4.0.0",
     "ruff>=0.1.0",
 ]
@@ -92,7 +91,7 @@ show_missing = true
 precision = 2
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 100
 
 [tool.ruff.lint]
