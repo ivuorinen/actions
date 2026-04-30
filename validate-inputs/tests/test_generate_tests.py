@@ -272,7 +272,7 @@ class TestTestGenerator:
         # Generic validator
         content = self.generator._generate_pytest_content("unknown_validator")
         assert "test_validate_inputs" in content
-        assert "TODO: Add specific test cases" in content
+        assert "CUSTOMIZE: Add specific test cases" in content
 
     def test_skip_special_directories(self):
         """Test that special directories are skipped."""

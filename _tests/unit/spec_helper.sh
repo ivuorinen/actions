@@ -89,7 +89,7 @@ setup_default_inputs() {
     [[ "$input_name" != "tag" ]] && export INPUT_TAG="latest"
     [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && export INPUT_REGISTRY="dockerhub"
     ;;
-  "npm-publish")
+  "npm-publish" | "npm-semantic-release")
     [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
     ;;
   "csharp-publish")
@@ -148,7 +148,7 @@ cleanup_default_inputs() {
     [[ "$input_name" != "tag" ]] && unset INPUT_TAG
     [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && unset INPUT_REGISTRY
     ;;
-  "npm-publish")
+  "npm-publish" | "npm-semantic-release")
     [[ "$input_name" != "npm_token" ]] && unset INPUT_NPM_TOKEN
     ;;
   "csharp-publish")

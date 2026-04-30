@@ -58,6 +58,7 @@ class TestActionParser:
         assert isinstance(step, Step)
         assert step.id == "only"
         assert step.shell == "sh"
+        assert step.run is not None
         assert step.run.strip() == "echo hello"
         assert step.env == {"FOO": "bar"}
         assert step.if_expr is None

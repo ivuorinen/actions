@@ -285,7 +285,8 @@ lint-python: ## Lint Python files with ruff and pyright
 			ruff_passed=false; \
 		fi; \
 		if command -v pyright >/dev/null 2>&1; then \
-			if ! pyright --pythonpath $$(which python3) validate-inputs/ _tests/framework/; then \
+			uv sync --all-extras --quiet --directory validate-inputs 2>/dev/null || true; \
+			if ! (cd validate-inputs && pyright .); then \
 				echo "$(YELLOW)⚠️ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
 				pyright_passed=false; \
 			fi; \

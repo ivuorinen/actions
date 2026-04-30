@@ -71,16 +71,14 @@ runs:
         fi
 
         # Write validated values to GITHUB_ENV for use in subsequent steps
-        {
-          echo "VALIDATED_TOKEN=$INPUT_TOKEN"
-          echo "VALIDATED_DRY_RUN=$INPUT_DRY_RUN"
-          echo "VALIDATED_PREFIX=$INPUT_PREFIX"
-        } >> "$GITHUB_ENV"
+        printf 'VALIDATED_TOKEN=%s\n' "$INPUT_TOKEN" >> "$GITHUB_ENV"
+        printf 'VALIDATED_DRY_RUN=%s\n' "$INPUT_DRY_RUN" >> "$GITHUB_ENV"
+        printf 'VALIDATED_PREFIX=%s\n' "$INPUT_PREFIX" >> "$GITHUB_ENV"
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
-        token: ${{ env.VALIDATED_TOKEN }}
+        token: ${{ inputs.token }}
         fetch-depth: 0 # Fetch all history for tag comparison
 
     - name: Create Release

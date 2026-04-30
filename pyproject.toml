@@ -292,9 +292,13 @@ exclude_lines = [
 ]
 
 [tool.pyright]
-# Pyright configuration for static type checking
 typeCheckingMode = "basic"
 venv = ".venv"
-venvPath = "."
-extraPaths = ["./validate-inputs"]
+venvPath = "./validate-inputs"
+extraPaths = [
+  "./validate-inputs",
+  "./validate-inputs/tests",
+  "./_tests/framework",
+  "./_tests/shared",
+]
 reportMissingTypeStubs = true

@@ -163,6 +163,7 @@ runs:
       env:
         DOCKERFILE: ${{ inputs.dockerfile }}
       run: |
+        set -eu
         if [ ! -f "$DOCKERFILE" ]; then
           echo "::error::Dockerfile not found at $DOCKERFILE"
           exit 1

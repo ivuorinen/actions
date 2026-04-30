@@ -46,6 +46,7 @@ runs:
       env:
         API_KEY: ${{ inputs.token || github.token }}
       run: |
+        set -eu
         echo "::add-mask::$API_KEY"
 
     - name: Checkout Repository
@@ -244,5 +245,6 @@ runs:
       shell: sh
       env:
         PUBLISH_STATUS: ${{ steps.publish-package.outcome == 'success' && 'success' || 'failure' }}
-      run: |-
+      run: |
+        set -eu
         printf 'status=%s\n' "$PUBLISH_STATUS" >> "$GITHUB_OUTPUT"

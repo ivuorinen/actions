@@ -1,0 +1,9 @@
+{
+  "venvPath": ".",
+  "venv": ".venv",
+  "pythonVersion": "3.12",
+  "pythonPlatform": "Linux",
+  "extraPaths": [".", "tests", "../_tests/framework", "../_tests/shared"],
+  "include": ["."],
+  "exclude": [".venv"]
+}
