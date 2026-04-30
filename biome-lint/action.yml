@@ -367,6 +367,8 @@ runs:
         printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"
         printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
 
+        [ "$status" != "failure" ] || exit "$biome_exit_code"
+
     - name: Commit and Push Fixes
       if: inputs.mode == 'fix' && success()
       uses: stefanzweifel/git-auto-commit-action@04702edda442b2e678b25b537cec683a1493fcb9 # v7.1.0

@@ -110,6 +110,9 @@ setup_default_inputs() {
   "release-monthly")
     [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     ;;
+  "language-version-detect")
+    [ "$input_name" != "language" ] && export INPUT_LANGUAGE="php"
+    ;;
   esac
 }
 
@@ -147,6 +150,9 @@ cleanup_default_inputs() {
     ;;
   "release-monthly")
     [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    ;;
+  "language-version-detect")
+    [ "$input_name" != "language" ] && unset INPUT_LANGUAGE
     ;;
   esac
 }

@@ -26,21 +26,25 @@ End
 It "rejects action with command injection"
 When call validate_input_python "validate-inputs" "action" "github-release; rm -rf /"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "rejects action with shell operators"
 When call validate_input_python "validate-inputs" "action" "github-release && malicious"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "rejects action with pipe"
 When call validate_input_python "validate-inputs" "action" "github-release | cat /etc/passwd"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "rejects empty action"
 When call validate_input_python "validate-inputs" "action" ""
 The status should be failure
+The stdout should include "No action type provided"
 End
 End
 
@@ -154,6 +158,7 @@ End
 It "validates against command injection in action name"
 When call validate_input_python "validate-inputs" "action" "test\`whoami\`"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "validates against shell metacharacters in rules file"
@@ -166,6 +171,7 @@ Context "when testing validation-specific functionality"
 It "validates action name format restrictions"
 When call validate_input_python "validate-inputs" "action" "invalid/action/name"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "validates rules file extension requirements"

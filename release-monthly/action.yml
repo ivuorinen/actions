@@ -181,7 +181,7 @@ runs:
         fi
 
         # Determine next release tag
-        next_major_minor="$(date +'%Y').$(date +'%-m')"
+        next_major_minor="$(date -u +'%Y').$(date -u +'%-m')"
 
         if [ -n "$previous_tag" ] && [ "${previous_major}.${previous_minor}" = "${next_major_minor}" ]; then
           echo "Month release already exists for year, incrementing patch number by 1"

@@ -33,7 +33,7 @@ conventions:
   cache: boolean
   config-file: file_path
   email: email
-  eslint-version: strict_semantic_version
+  eslint-version: semantic_version
   fail-on-error: boolean
   file-extensions: file_extensions
   ignore-file: file_path

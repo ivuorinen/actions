@@ -189,6 +189,7 @@ runs:
         build_success=true
         # Temp file to propagate failure flag out of the pipeline subshell
         _build_failed=$(mktemp)
+        trap 'rm -f "$_build_failed"' EXIT
         # Check if there are any main packages
         if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
           # Build all main packages

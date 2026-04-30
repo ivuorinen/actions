@@ -160,6 +160,9 @@ class ValidationCore:
         if convention is not None:
             if convention in self._CONVENTION_ALLOWS_SHELL_METACHARS:
                 return True, ""
+            # ${{ ... }} expressions are evaluated server-side by GitHub Actions; not a shell risk.
+            if re.fullmatch(r"\$\{\{[^}]+\}\}", input_value.strip()):
+                return True, ""
             if self._TYPED_DENY_PATTERN.search(input_value):
                 return (
                     False,
@@ -683,11 +686,46 @@ def _apply_validation_by_type(
     }
 
     # Handle version formats
-    if validation_type in ["semantic_version", "calver_version", "flexible_version"]:
+    if validation_type in [
+        "semantic_version",
+        "calver_version",
+        "flexible_version",
+        "strict_semantic_version",
+    ]:
+        return validator.validate_version_format(input_value)
+
+    if validation_type == "no_prefix_version":
+        if not input_value or input_value.strip() == "":
+            return True, ""
+        if input_value.strip().lower().startswith("v"):
+            return False, f'Version must not have a "v" prefix: "{input_value}"'
         return validator.validate_version_format(input_value)
 
     if validation_type == "terraform_version":
         return validator.validate_version_format(input_value, allow_v_prefix=True)
+
+    # Handle positive/non-negative integers
+    if validation_type == "positive_integer":
+        if not input_value or input_value.strip() == "":
+            return True, ""
+        try:
+            num = int(input_value.strip())
+            if num > 0:
+                return True, ""
+            return False, f"Value must be positive, got {num}"
+        except ValueError:
+            return False, f"Invalid integer: {input_value!r}"
+
+    if validation_type == "non_negative_integer":
+        if not input_value or input_value.strip() == "":
+            return True, ""
+        try:
+            num = int(input_value.strip())
+            if num >= 0:
+                return True, ""
+            return False, f"Value must be non-negative, got {num}"
+        except ValueError:
+            return False, f"Invalid integer: {input_value!r}"
 
     # Use validation map for other types
     if validation_type in validation_map:

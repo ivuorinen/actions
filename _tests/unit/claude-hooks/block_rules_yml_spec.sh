@@ -5,11 +5,11 @@
 HOOK=".claude/hooks/block-rules-yml.sh"
 
 make_input() {
-  local file_path="$1"
-  local content="$2"
+  _mi_file_path="$1"
+  _mi_content="$2"
   printf '{"tool_input":{"file_path":"%s","new_string":%s}}' \
-    "$file_path" \
-    "$(printf '%s' "$content" | jq -Rs .)"
+    "$_mi_file_path" \
+    "$(printf '%s' "$_mi_content" | jq -Rs .)"
 }
 
 Describe ".claude/hooks/block-rules-yml.sh"
