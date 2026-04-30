@@ -53,7 +53,7 @@ docs: ## Generate documentation for all actions
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		repo="ivuorinen/actions/$$dir"; \
 		printf "# %s\n\n" "$$repo" > "$$dir/README.md"; \
-		if npx --yes action-docs -n -s "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
+		if npx --yes action-docs -a "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
 			$(SED_CMD) "s|\*\*\*PROJECT\*\*\*|$$repo|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
@@ -347,7 +347,7 @@ check-syntax: ## Check syntax of shell scripts and YAML files
 install-tools: ## Install/update required tools
 	@echo "$(BLUE)📦 Installing/updating tools...$(RESET)"
 	@echo "$(YELLOW)Installing NPM tools...$(RESET)"
-	@npx --yes action-docs@latest --version >/dev/null
+	@npx --yes action-docs --version >/dev/null
 	@npx --yes markdownlint-cli2 --version >/dev/null
 	@npx --yes prettier --version >/dev/null
 	@npx --yes markdown-table-formatter --version >/dev/null

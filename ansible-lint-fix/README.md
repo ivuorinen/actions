@@ -1,58 +1,26 @@
 # ivuorinen/actions/ansible-lint-fix
 
-## Ansible Lint and Fix
-
-### Description
+## Description
 
 Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report.
 
-### Inputs
+## Inputs
 
-| name          | description                                                        | required | default                     |
-|---------------|--------------------------------------------------------------------|----------|-----------------------------|
-| `token`       | <p>GitHub token for authentication</p>                             | `false`  | `""`                        |
-| `username`    | <p>GitHub username for commits</p>                                 | `false`  | `github-actions`            |
-| `email`       | <p>GitHub email for commits</p>                                    | `false`  | `github-actions@github.com` |
-| `max-retries` | <p>Maximum number of retry attempts for pip install operations</p> | `false`  | `3`                         |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| token | GitHub token for authentication | `false` |  |
+| username | GitHub username for commits | `false` | github-actions |
+| email | GitHub email for commits | `false` | <github-actions@github.com> |
+| max-retries | Maximum number of retry attempts for pip install operations | `false` | 3 |
 
-### Outputs
+## Outputs
 
-| name            | description                               |
-|-----------------|-------------------------------------------|
-| `files_changed` | <p>Number of files changed by linting</p> |
-| `lint_status`   | <p>Linting status (success/failure)</p>   |
-| `sarif_path`    | <p>Path to SARIF report file</p>          |
+| parameter | description |
+| --- | --- |
+| files_changed | Number of files changed by linting |
+| lint_status | Linting status (success/failure) |
+| sarif_path | Path to SARIF report file |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/ansible-lint-fix@vYYYY.MM.DD
-  with:
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-
-    username:
-    # GitHub username for commits
-    #
-    # Required: false
-    # Default: github-actions
-
-    email:
-    # GitHub email for commits
-    #
-    # Required: false
-    # Default: github-actions@github.com
-
-    max-retries:
-    # Maximum number of retry attempts for pip install operations
-    #
-    # Required: false
-    # Default: 3
-```

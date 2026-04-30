@@ -1,53 +1,27 @@
 # ivuorinen/actions/csharp-build
 
-## C# Build
-
-### Description
+## Description
 
 Builds and tests C# projects.
 
-### Inputs
+## Inputs
 
-| name             | description                                                           | required | default |
-|------------------|-----------------------------------------------------------------------|----------|---------|
-| `dotnet-version` | <p>Version of .NET SDK to use.</p>                                    | `false`  | `""`    |
-| `max-retries`    | <p>Maximum number of retry attempts for dotnet restore operations</p> | `false`  | `3`     |
-| `token`          | <p>GitHub token for authentication</p>                                | `false`  | `""`    |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| dotnet-version | Version of .NET SDK to use. | `false` |  |
+| max-retries | Maximum number of retry attempts for dotnet restore operations | `false` | 3 |
+| token | GitHub token for authentication | `false` |  |
 
-### Outputs
+## Outputs
 
-| name                | description                                            |
-|---------------------|--------------------------------------------------------|
-| `build_status`      | <p>Build completion status (success/failure)</p>       |
-| `test_status`       | <p>Test execution status (success/failure/skipped)</p> |
-| `dotnet_version`    | <p>Version of .NET SDK used</p>                        |
-| `artifacts_path`    | <p>Path to build artifacts</p>                         |
-| `test_results_path` | <p>Path to test results</p>                            |
+| parameter | description |
+| --- | --- |
+| build_status | Build completion status (success/failure) |
+| test_status | Test execution status (success/failure/skipped) |
+| dotnet_version | Version of .NET SDK used |
+| artifacts_path | Path to build artifacts |
+| test_results_path | Path to test results |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/csharp-build@vYYYY.MM.DD
-  with:
-    dotnet-version:
-    # Version of .NET SDK to use.
-    #
-    # Required: false
-    # Default: ""
-
-    max-retries:
-    # Maximum number of retry attempts for dotnet restore operations
-    #
-    # Required: false
-    # Default: 3
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-```

@@ -1,60 +1,28 @@
 # ivuorinen/actions/go-build
 
-## Go Build
-
-### Description
+## Description
 
 Builds the Go project.
 
-### Inputs
+## Inputs
 
-| name          | description                                                            | required | default |
-|---------------|------------------------------------------------------------------------|----------|---------|
-| `go-version`  | <p>Go version to use.</p>                                              | `false`  | `""`    |
-| `destination` | <p>Build destination directory.</p>                                    | `false`  | `./bin` |
-| `max-retries` | <p>Maximum number of retry attempts for go mod download operations</p> | `false`  | `3`     |
-| `token`       | <p>GitHub token for authentication</p>                                 | `false`  | `""`    |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| go-version | Go version to use. | `false` |  |
+| destination | Build destination directory. | `false` | ./bin |
+| max-retries | Maximum number of retry attempts for go mod download operations | `false` | 3 |
+| token | GitHub token for authentication | `false` |  |
 
-### Outputs
+## Outputs
 
-| name            | description                                            |
-|-----------------|--------------------------------------------------------|
-| `build_status`  | <p>Build completion status (success/failure)</p>       |
-| `test_status`   | <p>Test execution status (success/failure/skipped)</p> |
-| `go_version`    | <p>Version of Go used</p>                              |
-| `binary_path`   | <p>Path to built binaries</p>                          |
-| `coverage_path` | <p>Path to coverage report</p>                         |
+| parameter | description |
+| --- | --- |
+| build_status | Build completion status (success/failure) |
+| test_status | Test execution status (success/failure/skipped) |
+| go_version | Version of Go used |
+| binary_path | Path to built binaries |
+| coverage_path | Path to coverage report |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/go-build@vYYYY.MM.DD
-  with:
-    go-version:
-    # Go version to use.
-    #
-    # Required: false
-    # Default: ""
-
-    destination:
-    # Build destination directory.
-    #
-    # Required: false
-    # Default: ./bin
-
-    max-retries:
-    # Maximum number of retry attempts for go mod download operations
-    #
-    # Required: false
-    # Default: 3
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-```

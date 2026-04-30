@@ -1,93 +1,31 @@
 # ivuorinen/actions/python-lint-fix
 
-## Python Lint and Fix
-
-### Description
+## Description
 
 Lints and fixes Python files, commits changes, and uploads SARIF report.
 
-### Inputs
+## Inputs
 
-| name                | description                                                           | required | default                     |
-|---------------------|-----------------------------------------------------------------------|----------|-----------------------------|
-| `python-version`    | <p>Python version to use</p>                                          | `false`  | `3.11`                      |
-| `flake8-version`    | <p>Flake8 version to use</p>                                          | `false`  | `7.0.0`                     |
-| `autopep8-version`  | <p>Autopep8 version to use</p>                                        | `false`  | `2.0.4`                     |
-| `max-retries`       | <p>Maximum number of retry attempts for installations and linting</p> | `false`  | `3`                         |
-| `working-directory` | <p>Directory containing Python files to lint</p>                      | `false`  | `.`                         |
-| `fail-on-error`     | <p>Whether to fail the action if linting errors are found</p>         | `false`  | `true`                      |
-| `token`             | <p>GitHub token for authentication</p>                                | `false`  | `""`                        |
-| `username`          | <p>GitHub username for commits</p>                                    | `false`  | `github-actions`            |
-| `email`             | <p>GitHub email for commits</p>                                       | `false`  | `github-actions@github.com` |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| python-version | Python version to use | `false` | 3.11 |
+| flake8-version | Flake8 version to use | `false` | 7.0.0 |
+| autopep8-version | Autopep8 version to use | `false` | 2.0.4 |
+| max-retries | Maximum number of retry attempts for installations and linting | `false` | 3 |
+| working-directory | Directory containing Python files to lint | `false` | . |
+| fail-on-error | Whether to fail the action if linting errors are found | `false` | true |
+| token | GitHub token for authentication | `false` |  |
+| username | GitHub username for commits | `false` | github-actions |
+| email | GitHub email for commits | `false` | <github-actions@github.com> |
 
-### Outputs
+## Outputs
 
-| name          | description                                            |
-|---------------|--------------------------------------------------------|
-| `lint-result` | <p>Result of the linting process (success/failure)</p> |
-| `fixed-files` | <p>Number of files that were fixed</p>                 |
-| `error-count` | <p>Number of errors found</p>                          |
+| parameter | description |
+| --- | --- |
+| lint-result | Result of the linting process (success/failure) |
+| fixed-files | Number of files that were fixed |
+| error-count | Number of errors found |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
-  with:
-    python-version:
-    # Python version to use
-    #
-    # Required: false
-    # Default: 3.11
-
-    flake8-version:
-    # Flake8 version to use
-    #
-    # Required: false
-    # Default: 7.0.0
-
-    autopep8-version:
-    # Autopep8 version to use
-    #
-    # Required: false
-    # Default: 2.0.4
-
-    max-retries:
-    # Maximum number of retry attempts for installations and linting
-    #
-    # Required: false
-    # Default: 3
-
-    working-directory:
-    # Directory containing Python files to lint
-    #
-    # Required: false
-    # Default: .
-
-    fail-on-error:
-    # Whether to fail the action if linting errors are found
-    #
-    # Required: false
-    # Default: true
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-
-    username:
-    # GitHub username for commits
-    #
-    # Required: false
-    # Default: github-actions
-
-    email:
-    # GitHub email for commits
-    #
-    # Required: false
-    # Default: github-actions@github.com
-```

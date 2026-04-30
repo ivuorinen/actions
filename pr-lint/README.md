@@ -1,50 +1,24 @@
 # ivuorinen/actions/pr-lint
 
-## PR Lint
-
-### Description
+## Description
 
 Runs MegaLinter against pull requests
 
-### Inputs
+## Inputs
 
-| name       | description                            | required | default                     |
-|------------|----------------------------------------|----------|-----------------------------|
-| `token`    | <p>GitHub token for authentication</p> | `false`  | `""`                        |
-| `username` | <p>GitHub username for commits</p>     | `false`  | `github-actions`            |
-| `email`    | <p>GitHub email for commits</p>        | `false`  | `github-actions@github.com` |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| token | GitHub token for authentication | `false` |  |
+| username | GitHub username for commits | `false` | github-actions |
+| email | GitHub email for commits | `false` | <github-actions@github.com> |
 
-### Outputs
+## Outputs
 
-| name                | description                                        |
-|---------------------|----------------------------------------------------|
-| `validation_status` | <p>Overall validation status (success/failure)</p> |
-| `errors_found`      | <p>Number of linting errors found</p>              |
+| parameter | description |
+| --- | --- |
+| validation_status | Overall validation status (success/failure) |
+| errors_found | Number of linting errors found |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
-  with:
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-
-    username:
-    # GitHub username for commits
-    #
-    # Required: false
-    # Default: github-actions
-
-    email:
-    # GitHub email for commits
-    #
-    # Required: false
-    # Default: github-actions@github.com
-```
