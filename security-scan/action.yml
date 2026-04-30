@@ -195,6 +195,7 @@ runs:
         HAS_TRIVY: ${{ steps.verify-sarif.outputs.has_trivy }}
         HAS_GITLEAKS: ${{ steps.verify-sarif.outputs.has_gitleaks }}
         RUN_ACTIONLINT: ${{ steps.check-configs.outputs.run_actionlint }}
+        RUN_TRIVY: ${{ steps.check-configs.outputs.run_trivy }}
         RUN_GITLEAKS: ${{ steps.check-configs.outputs.run_gitleaks }}
       run: |
         const fs = require('fs');
@@ -265,7 +266,7 @@ runs:
 
           ### Tools Run Status
           - Actionlint: ${process.env.RUN_ACTIONLINT}
-          - Trivy: ${process.env.HAS_TRIVY}
+          - Trivy: ${process.env.RUN_TRIVY}
           - Gitleaks: ${process.env.RUN_GITLEAKS}
           `;
 

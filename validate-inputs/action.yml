@@ -218,7 +218,9 @@ runs:
 
     - name: Install Python dependencies
       shell: sh
-      run: uv sync --directory "${{ github.action_path }}"
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: uv sync --directory "$ACTION_PATH"
 
     - name: Validate Action Inputs with Python
       id: validate

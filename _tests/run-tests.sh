@@ -297,10 +297,10 @@ run_unit_tests() {
       # Parse the output to determine if tests passed.
       # Strip ANSI color codes first (shellspec forces color when output is
       # piped through --format documentation in some versions). Single
-      # predicate: exactly "N examples, 0 failures" on a line.
+      # intermediate counts (e.g. "5 examples, 2 skipped, 0 failures").
       # Missing summary line (spec crash, empty output) is treated as FAIL.
       if sed $'s/\x1b\\[[0-9;]*m//g' "$output_file" \
-           | grep -qE '^[0-9]+ examples?, 0 failures?$'; then
+           | grep -qE '^[0-9]+ examples?.*0 failures?$'; then
         log_success "Unit tests passed: $action"
         passed_tests+=("$action")
       else
