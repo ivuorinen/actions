@@ -151,7 +151,7 @@ class ValidationRuleGenerator:
             "force-version": "semantic_version",
             "golangci-lint-version": "semantic_version",
             "prettier-version": "semantic_version",
-            "eslint-version": "strict_semantic_version",
+            "eslint-version": "semantic_version",
             "flake8-version": "semantic_version",
             "autopep8-version": "semantic_version",
             "composer-version": "semantic_version",
@@ -351,6 +351,7 @@ class ValidationRuleGenerator:
             },
             "prettier-lint": {
                 "mode": "mode_enum",
+                "plugins": "plugin_list",
             },
             "security-scan": {
                 "gitleaks-config": "file_path",
@@ -359,6 +360,9 @@ class ValidationRuleGenerator:
                 "trivy-timeout": "timeout_with_unit",
                 "actionlint-enabled": "boolean",
                 "token": "github_token",
+            },
+            "language-version-detect": {
+                "default-version": "no_prefix_version",
             },
         }
 

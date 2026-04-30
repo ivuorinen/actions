@@ -13,8 +13,8 @@ branding:
 inputs:
   labels:
     description: 'Path to the labels YAML file'
-    required: true
-    default: 'labels.yml'
+    required: false
+    default: ''
   token:
     description: 'GitHub token for authentication'
     required: false
@@ -66,4 +66,4 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       with:
-        manifest: ${{ github.action_path }}/labels.yml
+        manifest: ${{ inputs.labels || format('{0}/labels.yml', github.action_path) }}
