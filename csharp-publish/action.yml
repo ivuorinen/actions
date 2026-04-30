@@ -199,7 +199,14 @@ runs:
         set -eu
 
         # Find the newest .nupkg file by modification time and extract version
-        PACKAGE_FILE=$(find ./artifacts -name "*.nupkg" -type f -printf '%T@ %p\n' | sort -rn | head -n 1 | cut -d' ' -f2-)
+        # Uses POSIX -nt test instead of GNU find -printf (macOS/BSD compatible)
+        PACKAGE_FILE=""
+        for _f in ./artifacts/*.nupkg; do
+          [ -f "$_f" ] || continue
+          if [ -z "$PACKAGE_FILE" ] || [ "$_f" -nt "$PACKAGE_FILE" ]; then
+            PACKAGE_FILE="$_f"
+          fi
+        done
         if [ -n "$PACKAGE_FILE" ]; then
           # Extract version from filename (assumes standard naming: PackageName.Version.nupkg)
           VERSION=$(basename "$PACKAGE_FILE" .nupkg | sed 's/.*\.\([0-9]\+\.[0-9]\+\.[0-9]\+.*\)$/\1/')
@@ -221,6 +228,12 @@ runs:
 
         PACKAGE_URL="https://github.com/$NAMESPACE/packages/nuget"
         printf 'package_url=%s\n' "$PACKAGE_URL" >> "$GITHUB_OUTPUT"
+
+        _nupkg_count=$(find ./artifacts -name "*.nupkg" -type f 2>/dev/null | wc -l)
+        if [ "$_nupkg_count" -eq 0 ]; then
+          echo "::error::No .nupkg files found in ./artifacts — pack step may have failed"
+          exit 1
+        fi
 
         # First attempt
         if ! dotnet nuget push ./artifacts/*.nupkg \

@@ -351,13 +351,17 @@ runs:
         # Count changed files using git diff
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')
 
-        # Set status based on biome check result and changes
-        if [ $biome_exit_code -eq 0 ] && [ "$files_changed" -eq 0 ]; then
+        # In fix mode, success means biome exited 0 (fixed everything), regardless of files changed
+        if [ $biome_exit_code -eq 0 ]; then
           status="success"
-          echo "✅ No changes needed"
+          if [ "$files_changed" -eq 0 ]; then
+            echo "✅ No changes needed"
+          else
+            echo "✅ Fixed $files_changed file(s)"
+          fi
         else
           status="failure"
-          echo "⚠️ Fixed $files_changed file(s)"
+          echo "❌ Biome fix failed with exit code $biome_exit_code"
         fi
 
         printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"
