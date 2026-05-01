@@ -8,7 +8,7 @@ Sync labels from a YAML file to a GitHub repository
 
 | parameter | description | required | default |
 | --- | --- | --- | --- |
-| labels | Path to the labels YAML file | `true` | labels.yml |
+| labels | Path to the labels YAML file | `false` |  |
 | token | GitHub token for authentication | `false` | ${{ github.token }} |
 
 ## Outputs

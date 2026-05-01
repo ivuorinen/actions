@@ -175,7 +175,7 @@ class ValidationRuleGenerator:
             "stability": None,  # Composer stability
             "registry-url": "url",  # URL format
             "scope": "scope",  # NPM scope
-            "plugins": "linter_list",  # Prettier plugins - same pattern as linters
+            "plugins": "plugin_list",  # Prettier plugins accept scoped packages (@scope/name)
             "file-extensions": "file_extensions",  # File extension list
             "file-pattern": "path_list",  # Glob pattern for file paths
             "enable-linters": "linter_list",  # Linter list
@@ -436,7 +436,8 @@ class ValidationRuleGenerator:
 
         # Use a custom yaml dumper to ensure proper indentation
         class CustomYamlDumper(yaml.SafeDumper):
-            def increase_indent(self, flow: bool = False, *, indentless: bool = False) -> None:  # noqa: FBT001, FBT002, ARG002  # type: ignore[override]
+            def increase_indent(self, flow: bool = False, *, indentless: bool = False) -> None:  # noqa: FBT001, FBT002  # type: ignore[override]
+                del indentless  # always use indented sequences regardless of caller preference
                 return super().increase_indent(flow, False)
 
             def choose_scalar_style(self):

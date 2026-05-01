@@ -424,8 +424,15 @@ runs:
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
         fi
 
-        # Count files using same options as check run
-        files_checked=$(npx prettier --list-different "$@" 2>/dev/null | wc -l | tr -d ' ' || echo "0")
+        # Count all files matching the pattern (total checked, not just unformatted)
+        _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*{\([^}]*\)}.*/\1/' | tr ',' '\n')
+        if [ -n "$_pattern_exts" ]; then
+          files_checked=$(printf '%s\n' "$_pattern_exts" | while IFS= read -r _ext; do
+            [ -n "$_ext" ] && find . -not -path '*/.git/*' -not -path '*/node_modules/*' -name "*.$_ext" -type f 2>/dev/null
+          done | wc -l | tr -d ' ' || echo "0")
+        else
+          files_checked="0"
+        fi
 
         printf 'files_checked=%s\n' "$files_checked" >> "$GITHUB_OUTPUT"
         printf 'unformatted_files=%s\n' "$unformatted_files" >> "$GITHUB_OUTPUT"

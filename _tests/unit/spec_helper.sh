@@ -381,6 +381,11 @@ validate_input_python() {
 
   # Clean up default inputs
   cleanup_default_inputs "$action_type" "$input_name"
+  if [ "$input_name" = "action" ] && [ -n "$input_value" ]; then
+    local normalized_action
+    normalized_action=$(echo "$input_value" | tr '_' '-')
+    cleanup_default_inputs "$normalized_action" "_action_test_sentinel"
+  fi
 
   # Return the exit code for ShellSpec to check
   return $exit_code

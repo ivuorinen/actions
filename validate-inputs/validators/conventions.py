@@ -1250,8 +1250,13 @@ class ConventionBasedValidator(BaseValidator):
                 )
                 return False
 
-            # Note: Value can be empty (KEY=) - this is valid for some use cases
-            # Value validation is optional and handled by the check_injection flag above
+            # Validate value does not contain spaces (breaks shell word-splitting in loops)
+            if len(parts) > 1 and " " in parts[1]:
+                self.add_error(
+                    f"Invalid value in '{pair}' in {input_name}. "
+                    f"Values must not contain spaces (breaks shell word-splitting)"
+                )
+                return False
 
         return True
 

@@ -106,7 +106,7 @@ class ValidationCore:
             return True, ""
 
         # Check against standardized token patterns
-        for _token_type, pattern in self.TOKEN_PATTERNS.items():
+        for pattern in self.TOKEN_PATTERNS.values():
             if re.match(pattern, token):
                 return True, ""
 
@@ -656,6 +656,27 @@ def resolve_action_file_path(action_dir: str) -> str:
     return f"{action_dir}/action.yml"
 
 
+def _validate_no_prefix_version(validator: ValidationCore, input_value: str) -> tuple[bool, str]:
+    if not input_value or input_value.strip() == "":
+        return True, ""
+    if input_value.strip().lower().startswith("v"):
+        return False, f'Version must not have a "v" prefix: "{input_value}"'
+    return validator.validate_version_format(input_value)
+
+
+def _validate_integer(input_value: str, *, non_negative: bool = False) -> tuple[bool, str]:
+    if not input_value or input_value.strip() == "":
+        return True, ""
+    try:
+        num = int(input_value.strip())
+        if num >= 0 if non_negative else num > 0:
+            return True, ""
+        label = "non-negative" if non_negative else "positive"
+        return False, f"Value must be {label}, got {num}"
+    except ValueError:
+        return False, f"Invalid integer: {input_value!r}"
+
+
 def _apply_validation_by_type(
     validator: ValidationCore,
     validation_type: str,
@@ -664,12 +685,19 @@ def _apply_validation_by_type(
     required_inputs: list,
 ) -> tuple[bool, str]:
     """Apply validation based on the validation type."""
+    version_types = {
+        "semantic_version",
+        "calver_version",
+        "flexible_version",
+        "strict_semantic_version",
+    }
+
     validation_map = {
         "github_token": lambda: validator.validate_github_token(
             input_value, required=input_name in required_inputs
         ),
         "namespace_with_lookahead": lambda: validator.validate_namespace_with_lookahead(
-            input_value,
+            input_value
         ),
         "boolean": lambda: validator.validate_boolean(input_value, input_name),
         "file_path": lambda: validator.validate_file_path(input_value),
@@ -683,51 +711,17 @@ def _apply_validation_by_type(
         "cache_directories": lambda: validator.validate_cache_directories(input_value),
         "tools": lambda: validator.validate_tools(input_value),
         "numeric_range_1_10": lambda: validator.validate_numeric_range_1_10(input_value),
+        "no_prefix_version": lambda: _validate_no_prefix_version(validator, input_value),
+        "terraform_version": lambda: validator.validate_version_format(
+            input_value, allow_v_prefix=True
+        ),
+        "positive_integer": lambda: _validate_integer(input_value),
+        "non_negative_integer": lambda: _validate_integer(input_value, non_negative=True),
     }
 
-    # Handle version formats
-    if validation_type in [
-        "semantic_version",
-        "calver_version",
-        "flexible_version",
-        "strict_semantic_version",
-    ]:
+    if validation_type in version_types:
         return validator.validate_version_format(input_value)
 
-    if validation_type == "no_prefix_version":
-        if not input_value or input_value.strip() == "":
-            return True, ""
-        if input_value.strip().lower().startswith("v"):
-            return False, f'Version must not have a "v" prefix: "{input_value}"'
-        return validator.validate_version_format(input_value)
-
-    if validation_type == "terraform_version":
-        return validator.validate_version_format(input_value, allow_v_prefix=True)
-
-    # Handle positive/non-negative integers
-    if validation_type == "positive_integer":
-        if not input_value or input_value.strip() == "":
-            return True, ""
-        try:
-            num = int(input_value.strip())
-            if num > 0:
-                return True, ""
-            return False, f"Value must be positive, got {num}"
-        except ValueError:
-            return False, f"Invalid integer: {input_value!r}"
-
-    if validation_type == "non_negative_integer":
-        if not input_value or input_value.strip() == "":
-            return True, ""
-        try:
-            num = int(input_value.strip())
-            if num >= 0:
-                return True, ""
-            return False, f"Value must be non-negative, got {num}"
-        except ValueError:
-            return False, f"Invalid integer: {input_value!r}"
-
-    # Use validation map for other types
     if validation_type in validation_map:
         return validation_map[validation_type]()
 
@@ -775,7 +769,7 @@ def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[
     resolved_convention: str | None = None
     required_inputs: list = []
     if rules_file.exists():
-        resolved_convention, _rules_data, required_inputs = _load_and_validate_rules(
+        resolved_convention, _, required_inputs = _load_and_validate_rules(
             rules_file,
             input_name,
             input_value,

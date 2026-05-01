@@ -116,12 +116,12 @@ The output should include "npm_token"
 End
 
 It "has registry-url as optional with default"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "registry-url" "default"
+When call _harness_python "_tests/shared/validation_core.py" --property "$ACTION_FILE" "registry-url" "default"
 The output should include "registry.npmjs.org"
 End
 
 It "has scope with default @ivuorinen"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "scope" "default"
+When call _harness_python "_tests/shared/validation_core.py" --property "$ACTION_FILE" "scope" "default"
 The output should include "@ivuorinen"
 End
 End

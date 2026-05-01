@@ -117,6 +117,9 @@ inputs:
   is-fiximus:
     description: 'Use Fiximus bot'
     required: false
+  is_fiximus:
+    description: 'Deprecated alias for is-fiximus (backward compatibility)'
+    required: false
 
   # Release inputs
   prefix:
@@ -258,7 +261,7 @@ runs:
         INPUT_PRE_COMMIT_CONFIG: ${{ inputs.pre-commit-config }}
         INPUT_BASE_BRANCH: ${{ inputs.base-branch }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
-        INPUT_IS_FIXIMUS: ${{ inputs.is-fiximus }}
+        INPUT_IS_FIXIMUS: ${{ inputs.is-fiximus || inputs.is_fiximus }}
         INPUT_PREFIX: ${{ inputs.prefix }}
         INPUT_LANGUAGE: ${{ inputs.language }}
         INPUT_QUERIES: ${{ inputs.queries }}
