@@ -39,6 +39,7 @@ Centralized Python-based input validation for GitHub Actions with PCRE regex sup
 | base-branch | Base branch name | `false` |  |
 | dry-run | Dry run mode | `false` |  |
 | is-fiximus | Use Fiximus bot | `false` |  |
+| is_fiximus | Deprecated alias for is-fiximus (backward compatibility) | `false` |  |
 | prefix | Release tag prefix | `false` |  |
 | language | Language to analyze (for CodeQL) | `false` |  |
 | queries | CodeQL queries to run | `false` |  |

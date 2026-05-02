@@ -160,8 +160,9 @@ class ValidationCore:
         if convention is not None:
             if convention in self._CONVENTION_ALLOWS_SHELL_METACHARS:
                 return True, ""
-            # ${{ ... }} expressions are evaluated server-side by GitHub Actions; not a shell risk.
-            if re.fullmatch(r"\$\{\{[^}]+\}\}", input_value.strip()):
+            # ${{ ... }} expressions are evaluated server-side; not a shell risk.
+            # Non-greedy .+? accepts internal '}' chars like ${{ a || '' }}.
+            if re.fullmatch(r"\$\{\{.+?\}\}", input_value.strip()):
                 return True, ""
             if self._TYPED_DENY_PATTERN.search(input_value):
                 return (
@@ -742,9 +743,9 @@ def _load_and_validate_rules(
         overrides = rules_data.get("overrides", {})
         required_inputs = rules_data.get("required_inputs", [])
 
-        # Check if input is required and empty
+        # Check if input is required and empty; preserve required_inputs so caller can detect it
         if input_name in required_inputs and (not input_value or input_value.strip() == ""):
-            return None, {}, []  # Will cause error in caller
+            return None, {}, required_inputs
 
         # Get validation type
         validation_type = overrides.get(input_name, conventions.get(input_name))

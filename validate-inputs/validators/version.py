@@ -112,9 +112,11 @@ class VersionValidator(BaseValidator):
         if not version or version.strip() == "":
             return True  # Version is often optional
 
-        if version.strip().lower().startswith("v"):
+        clean_version = version.strip()
+
+        if clean_version.lower().startswith("v"):
             self.add_error(
-                f'Version must not have a "v" prefix: "{version}" in {name}. '
+                f'Version must not have a "v" prefix: "{clean_version}" in {name}. '
                 "Expected format: MAJOR.MINOR or MAJOR.MINOR.PATCH (e.g., 3.12, 8.3.1)",
             )
             return False
@@ -129,14 +131,14 @@ class VersionValidator(BaseValidator):
         single_digit_pattern = r"^(0|[1-9]\d*)$"
 
         if (
-            re.match(semver_pattern, version)
-            or re.match(simple_pattern, version)
-            or re.match(single_digit_pattern, version)
+            re.match(semver_pattern, clean_version)
+            or re.match(simple_pattern, clean_version)
+            or re.match(single_digit_pattern, clean_version)
         ):
             return True
 
         self.add_error(
-            f'Invalid version: "{version}" in {name}. '
+            f'Invalid version: "{clean_version}" in {name}. '
             "Expected format: MAJOR.MINOR or MAJOR.MINOR.PATCH (e.g., 3.12, 8.3.1)",
         )
         return False

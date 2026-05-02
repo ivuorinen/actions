@@ -424,8 +424,16 @@ runs:
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
         fi
 
-        # Count all files matching the pattern (total checked, not just unformatted)
-        _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*{\([^}]*\)}.*/\1/' | tr ',' '\n')
+        # Count all files matching the pattern (total checked, not just unformatted).
+        # Handles both brace globs (**/*.{js,ts}) and plain globs (**/*.js).
+        case "$FILE_PATTERN" in
+          *\{*\}*)
+            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*{\([^}]*\)}.*/\1/' | tr ',' '\n')
+            ;;
+          *)
+            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*\*\.\([a-zA-Z0-9]*\).*/\1/')
+            ;;
+        esac
         if [ -n "$_pattern_exts" ]; then
           files_checked=$(printf '%s\n' "$_pattern_exts" | while IFS= read -r _ext; do
             [ -n "$_ext" ] && find . -not -path '*/.git/*' -not -path '*/node_modules/*' -name "*.$_ext" -type f 2>/dev/null
