@@ -386,42 +386,42 @@ runs:
         # Build ESLint command based on package manager
         case "$PACKAGE_MANAGER" in
           "pnpm")
-            eslint_cmd="pnpm exec eslint . --ext $FILE_EXTENSIONS"
+            set -- pnpm exec eslint . --ext "$FILE_EXTENSIONS"
             ;;
           "yarn")
-            eslint_cmd="yarn eslint . --ext $FILE_EXTENSIONS"
+            set -- yarn eslint . --ext "$FILE_EXTENSIONS"
             ;;
           "bun")
-            eslint_cmd="bunx eslint . --ext $FILE_EXTENSIONS"
+            set -- bunx eslint . --ext "$FILE_EXTENSIONS"
             ;;
           "npm"|*)
-            eslint_cmd="npx eslint . --ext $FILE_EXTENSIONS"
+            set -- npx eslint . --ext "$FILE_EXTENSIONS"
             ;;
         esac
 
         # Add config file if specified
         if [ "$CONFIG_FILE" != ".eslintrc" ] && [ -f "$CONFIG_FILE" ]; then
-          eslint_cmd="$eslint_cmd --config $CONFIG_FILE"
+          set -- "$@" --config "$CONFIG_FILE"
         fi
 
         # Add cache option
         if [ "$CACHE" = "true" ]; then
-          eslint_cmd="$eslint_cmd --cache"
+          set -- "$@" --cache
         fi
 
         # Add max warnings
-        eslint_cmd="$eslint_cmd --max-warnings $MAX_WARNINGS"
+        set -- "$@" --max-warnings "$MAX_WARNINGS"
 
         # Add format
         if [ "$REPORT_FORMAT" = "sarif" ]; then
-          eslint_cmd="$eslint_cmd --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif"
+          set -- "$@" --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif
         else
-          eslint_cmd="$eslint_cmd --format $REPORT_FORMAT"
+          set -- "$@" --format "$REPORT_FORMAT"
         fi
 
         # Run ESLint and capture exit code
         eslint_exit_code=0
-        eval "$eslint_cmd" || eslint_exit_code=$?
+        "$@" || eslint_exit_code=$?
 
         # Parse results
         if [ "$REPORT_FORMAT" = "sarif" ] && [ -f eslint-results.sarif ]; then

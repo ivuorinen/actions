@@ -13,9 +13,9 @@ schema_version: '1.0'
 action: sync-labels
 description: Sync labels from a YAML file to a GitHub repository
 generator_version: 1.0.0
-required_inputs:
-  - labels
+required_inputs: []
 optional_inputs:
+  - labels
   - token
 conventions:
   labels: file_path
@@ -30,7 +30,7 @@ validation_coverage: 100
 auto_detected: true
 manual_review_required: false
 quality_indicators:
-  has_required_inputs: true
+  has_required_inputs: false
   has_token_validation: true
   has_version_validation: false
   has_file_validation: true

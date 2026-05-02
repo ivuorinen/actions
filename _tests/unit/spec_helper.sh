@@ -15,16 +15,30 @@ MOCKS_DIR="${FRAMEWORK_DIR}/mocks"
 
 # Export directories for use by test cases
 export FIXTURES_DIR MOCKS_DIR
-# Only create TEMP_DIR if not already set (framework setup.sh will create it)
+# Only create TEMP_DIR if not already set (framework setup.sh will create it).
+# Track ownership so the EXIT trap only deletes what this script created.
+# A caller-provided TEMP_DIR (e.g. an inherited env var pointing to scratch
+# space) MUST NOT be rm -rf'd.
 if [ -z "${TEMP_DIR:-}" ]; then
   TEMP_DIR=$(mktemp -d) || exit 1
+  _SPEC_HELPER_OWNS_TEMP_DIR=1
 fi
+
+# Clean TEMP_DIR on shell exit ONLY if we created it ourselves.
+_spec_helper_cleanup_tempdir() {
+  if [[ "${_SPEC_HELPER_OWNS_TEMP_DIR:-}" == "1" && -n "${TEMP_DIR:-}" && -d "${TEMP_DIR}" ]]; then
+    rm -rf "${TEMP_DIR}"
+  fi
+}
+trap _spec_helper_cleanup_tempdir EXIT
 
 # Load framework utilities
 # shellcheck source=_tests/framework/setup.sh
 source "${FRAMEWORK_DIR}/setup.sh"
 # shellcheck source=_tests/framework/utils.sh
 source "${FRAMEWORK_DIR}/utils.sh"
+# shellcheck source=_tests/framework/harness_wrapper.sh
+source "${FRAMEWORK_DIR}/harness_wrapper.sh"
 
 # Initialize testing framework
 init_testing_framework
@@ -67,15 +81,12 @@ setup_default_inputs() {
   local input_name="$2"
 
   case "$action_name" in
-  "github-release")
-    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
-    ;;
-  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+  "docker-build" | "docker-publish")
     [[ "$input_name" != "image-name" ]] && export INPUT_IMAGE_NAME="test-image"
     [[ "$input_name" != "tag" ]] && export INPUT_TAG="latest"
     [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && export INPUT_REGISTRY="dockerhub"
     ;;
-  "npm-publish")
+  "npm-publish" | "npm-semantic-release")
     [[ "$input_name" != "npm_token" ]] && export INPUT_NPM_TOKEN="ghp_123456789012345678901234567890123456"
     ;;
   "csharp-publish")
@@ -83,26 +94,11 @@ setup_default_inputs() {
     [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
     [[ "$input_name" != "namespace" ]] && export INPUT_NAMESPACE="test-namespace"
     ;;
-  "php-composer")
-    [[ "$input_name" != "php" ]] && export INPUT_PHP="8.1"
-    ;;
-  "php-tests" | "php-laravel-phpunit")
+  "php-tests")
     [[ "$input_name" != "php-version" ]] && export INPUT_PHP_VERSION="8.1"
     ;;
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
-    ;;
-  "dotnet-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.0"
-    ;;
-  "python-version-detect" | "python-version-detect-v2")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="3.11"
-    ;;
-  "php-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="8.1"
-    ;;
-  "go-version-detect")
-    [[ "$input_name" != "default-version" ]] && export INPUT_DEFAULT_VERSION="1.22"
     ;;
   "validate-inputs")
     [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
@@ -111,11 +107,11 @@ setup_default_inputs() {
     [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
     [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
     ;;
-  "version-validator")
-    [[ "$input_name" != "version" ]] && export INPUT_VERSION="1.0.0"
-    ;;
   "release-monthly")
     [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    ;;
+  "language-version-detect")
+    [ "$input_name" != "language" ] && export INPUT_LANGUAGE="php"
     ;;
   esac
 }
@@ -126,15 +122,12 @@ cleanup_default_inputs() {
   local input_name="$2"
 
   case "$action_name" in
-  "github-release")
-    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
-    ;;
-  "docker-build" | "docker-publish" | "docker-publish-gh" | "docker-publish-hub")
+  "docker-build" | "docker-publish")
     [[ "$input_name" != "image-name" ]] && unset INPUT_IMAGE_NAME
     [[ "$input_name" != "tag" ]] && unset INPUT_TAG
     [[ "$action_name" == "docker-publish" && "$input_name" != "registry" ]] && unset INPUT_REGISTRY
     ;;
-  "npm-publish")
+  "npm-publish" | "npm-semantic-release")
     [[ "$input_name" != "npm_token" ]] && unset INPUT_NPM_TOKEN
     ;;
   "csharp-publish")
@@ -142,26 +135,11 @@ cleanup_default_inputs() {
     [[ "$input_name" != "version" ]] && unset INPUT_VERSION
     [[ "$input_name" != "namespace" ]] && unset INPUT_NAMESPACE
     ;;
-  "php-composer")
-    [[ "$input_name" != "php" ]] && unset INPUT_PHP
-    ;;
-  "php-tests" | "php-laravel-phpunit")
+  "php-tests")
     [[ "$input_name" != "php-version" ]] && unset INPUT_PHP_VERSION
     ;;
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
-    ;;
-  "dotnet-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "python-version-detect" | "python-version-detect-v2")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "php-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
-    ;;
-  "go-version-detect")
-    [[ "$input_name" != "default-version" ]] && unset INPUT_DEFAULT_VERSION
     ;;
   "validate-inputs")
     [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
@@ -170,11 +148,11 @@ cleanup_default_inputs() {
     [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
     [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
     ;;
-  "version-validator")
-    [[ "$input_name" != "version" ]] && unset INPUT_VERSION
-    ;;
   "release-monthly")
     [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
+    ;;
+  "language-version-detect")
+    [ "$input_name" != "language" ] && unset INPUT_LANGUAGE
     ;;
   esac
 }
@@ -190,7 +168,9 @@ shellspec_validate_action_output() {
     return 1
   fi
 
-  if grep -Fq "${expected_key}=${expected_value}" "$output_file"; then
+  # Whole-line match (-x) so a prefix like "status=success" doesn't
+  # falsely match "status=successfully-failed".
+  if grep -Fxq "${expected_key}=${expected_value}" "$output_file"; then
     return 0
   else
     echo "Expected output not found: $expected_key=$expected_value" >&2
@@ -198,144 +178,6 @@ shellspec_validate_action_output() {
     cat "$output_file" >&2
     return 1
   fi
-}
-
-# Mock action execution for ShellSpec tests
-shellspec_mock_action_run() {
-  local action_dir="$1"
-  shift
-
-  # Set up inputs as environment variables
-  while [[ $# -gt 1 ]]; do
-    local key="$1"
-    local value="$2"
-    # Convert dashes to underscores for environment variable names
-    local env_key="${key//-/_}"
-    export "INPUT_$(echo "$env_key" | tr '[:lower:]' '[:upper:]')"="$value"
-    shift 2
-  done
-
-  # For testing, we'll simulate action outputs based on the action type
-  local action_name
-  action_name=$(basename "$action_dir")
-
-  case "$action_name" in
-  "node-setup")
-    echo "node-version=18.0.0" >>"$GITHUB_OUTPUT"
-    echo "package-manager=npm" >>"$GITHUB_OUTPUT"
-    echo "cache-hit=false" >>"$GITHUB_OUTPUT"
-    ;;
-  "docker-build")
-    echo "image-digest=sha256:abc123" >>"$GITHUB_OUTPUT"
-    echo "build-time=45" >>"$GITHUB_OUTPUT"
-    echo "platforms=linux/amd64" >>"$GITHUB_OUTPUT"
-    ;;
-  "common-file-check")
-    echo "found=true" >>"$GITHUB_OUTPUT"
-    ;;
-  "compress-images")
-    echo "images_compressed=true" >>"$GITHUB_OUTPUT"
-    printf "compression_report=## Compression Results\n- 3 images compressed\n- 25%% size reduction\n" >>"$GITHUB_OUTPUT"
-    ;;
-  "csharp-build")
-    echo "build_status=success" >>"$GITHUB_OUTPUT"
-    echo "test_status=success" >>"$GITHUB_OUTPUT"
-    echo "dotnet_version=7.0" >>"$GITHUB_OUTPUT"
-    echo "artifacts_path=**/bin/Release/**/*" >>"$GITHUB_OUTPUT"
-    echo "test_results_path=**/*.trx" >>"$GITHUB_OUTPUT"
-    ;;
-  "csharp-lint-check")
-    echo "lint_status=success" >>"$GITHUB_OUTPUT"
-    echo "errors_count=0" >>"$GITHUB_OUTPUT"
-    echo "warnings_count=0" >>"$GITHUB_OUTPUT"
-    ;;
-  "csharp-publish")
-    echo "publish_status=success" >>"$GITHUB_OUTPUT"
-    echo "package_version=1.2.3" >>"$GITHUB_OUTPUT"
-    echo "package_url=https://github.com/ivuorinen/packages/nuget" >>"$GITHUB_OUTPUT"
-    ;;
-  "docker-publish")
-    echo "registry=github,dockerhub" >>"$GITHUB_OUTPUT"
-    echo "tags=latest,v1.2.3" >>"$GITHUB_OUTPUT"
-    echo "build-time=120" >>"$GITHUB_OUTPUT"
-    echo 'platform-matrix={"linux/amd64":"success","linux/arm64":"success"}' >>"$GITHUB_OUTPUT"
-    echo 'scan-results={"vulnerabilities":0}' >>"$GITHUB_OUTPUT"
-    ;;
-  "docker-publish-gh")
-    echo "image-name=ghcr.io/ivuorinen/test" >>"$GITHUB_OUTPUT"
-    echo "digest=sha256:abc123def456" >>"$GITHUB_OUTPUT"
-    echo "tags=ghcr.io/ivuorinen/test:latest,ghcr.io/ivuorinen/test:v1.2.3" >>"$GITHUB_OUTPUT"
-    echo "provenance=true" >>"$GITHUB_OUTPUT"
-    echo "sbom=ghcr.io/ivuorinen/test.sbom" >>"$GITHUB_OUTPUT"
-    echo 'scan-results={"vulnerabilities":0,"critical":0}' >>"$GITHUB_OUTPUT"
-    echo 'platform-matrix={"linux/amd64":"success","linux/arm64":"success"}' >>"$GITHUB_OUTPUT"
-    echo "build-time=180" >>"$GITHUB_OUTPUT"
-    ;;
-  "docker-publish-hub")
-    echo "image-name=ivuorinen/test-app" >>"$GITHUB_OUTPUT"
-    echo "digest=sha256:hub123def456" >>"$GITHUB_OUTPUT"
-    echo "tags=ivuorinen/test-app:latest,ivuorinen/test-app:v1.2.3" >>"$GITHUB_OUTPUT"
-    echo "repo-url=https://hub.docker.com/r/ivuorinen/test-app" >>"$GITHUB_OUTPUT"
-    echo 'scan-results={"vulnerabilities":2,"critical":0}' >>"$GITHUB_OUTPUT"
-    echo 'platform-matrix={"linux/amd64":"success","linux/arm64":"success"}' >>"$GITHUB_OUTPUT"
-    echo "build-time=240" >>"$GITHUB_OUTPUT"
-    echo "signature=signed" >>"$GITHUB_OUTPUT"
-    ;;
-  "dotnet-version-detect")
-    echo "dotnet-version=7.0.403" >>"$GITHUB_OUTPUT"
-    ;;
-  "eslint-check")
-    echo "error-count=0" >>"$GITHUB_OUTPUT"
-    echo "warning-count=3" >>"$GITHUB_OUTPUT"
-    echo "sarif-file=reports/eslint.sarif" >>"$GITHUB_OUTPUT"
-    echo "files-checked=15" >>"$GITHUB_OUTPUT"
-    ;;
-  "eslint-fix")
-    echo "fixed-count=5" >>"$GITHUB_OUTPUT"
-    echo "files-fixed=3" >>"$GITHUB_OUTPUT"
-    echo "error-count=0" >>"$GITHUB_OUTPUT"
-    echo "warning-count=0" >>"$GITHUB_OUTPUT"
-    ;;
-  "github-release")
-    echo "release-id=123456789" >>"$GITHUB_OUTPUT"
-    echo "release-url=https://github.com/ivuorinen/test/releases/tag/v1.2.3" >>"$GITHUB_OUTPUT"
-    echo "asset-urls=https://github.com/ivuorinen/test/releases/download/v1.2.3/app.tar.gz" >>"$GITHUB_OUTPUT"
-    echo "tag-name=v1.2.3" >>"$GITHUB_OUTPUT"
-    ;;
-  "go-build")
-    echo "build_status=success" >>"$GITHUB_OUTPUT"
-    echo "test_status=success" >>"$GITHUB_OUTPUT"
-    echo "go_version=1.21.5" >>"$GITHUB_OUTPUT"
-    echo "binary_path=./bin" >>"$GITHUB_OUTPUT"
-    echo "coverage_path=coverage.out" >>"$GITHUB_OUTPUT"
-    ;;
-  "go-lint")
-    echo "lint_status=success" >>"$GITHUB_OUTPUT"
-    echo "issues_count=0" >>"$GITHUB_OUTPUT"
-    echo "files_checked=25" >>"$GITHUB_OUTPUT"
-    echo "golangci_version=1.55.2" >>"$GITHUB_OUTPUT"
-    ;;
-  "go-version-detect")
-    echo "go-version=1.21" >>"$GITHUB_OUTPUT"
-    ;;
-  "npm-publish")
-    echo "publish-status=success" >>"$GITHUB_OUTPUT"
-    echo "package-version=1.2.3" >>"$GITHUB_OUTPUT"
-    echo "registry-url=https://registry.npmjs.org" >>"$GITHUB_OUTPUT"
-    echo "package-url=https://www.npmjs.com/package/test-package" >>"$GITHUB_OUTPUT"
-    ;;
-  "php-composer")
-    echo "composer-version=2.6.5" >>"$GITHUB_OUTPUT"
-    echo "install-status=success" >>"$GITHUB_OUTPUT"
-    echo "dependencies-count=15" >>"$GITHUB_OUTPUT"
-    echo "php-version=8.2.0" >>"$GITHUB_OUTPUT"
-    echo "lock-file-updated=false" >>"$GITHUB_OUTPUT"
-    ;;
-  *)
-    # Generic mock outputs
-    echo "status=success" >>"$GITHUB_OUTPUT"
-    ;;
-  esac
 }
 
 # Use centralized Python validation system for input validation testing
@@ -378,9 +220,10 @@ shellspec_test_input_validation() {
   export "$input_var_name"="$test_value"
   export GITHUB_OUTPUT="$temp_output_file"
 
-  # Run the Python validation script and capture exit code
+  # Run the Python validation script and capture exit code. Use uv when
+  # available so PyYAML resolves consistently across both helpers.
   local exit_code
-  if python3 "${PROJECT_ROOT}/validate-inputs/validator.py" >/dev/null 2>&1; then
+  if _harness_python "${PROJECT_ROOT}/validate-inputs/validator.py" >/dev/null 2>&1; then
     exit_code=0
   else
     exit_code=1
@@ -454,7 +297,7 @@ shellspec_cleanup_test_env() {
 }
 
 # Export functions for use in specs
-export -f shellspec_validate_action_output shellspec_mock_action_run
+export -f shellspec_validate_action_output
 export -f shellspec_setup_test_env shellspec_cleanup_test_env shellspec_test_input_validation
 
 # Create alias for backward compatibility (override framework version)
@@ -487,13 +330,28 @@ validate_input_python() {
   local input_name="$2"
   local input_value="$3"
 
-  # Set up environment variables for Python validator
-  export INPUT_ACTION_TYPE="$action_type"
+  # When the `action` input itself is being tested, don't pre-set
+  # INPUT_ACTION_TYPE — the test is simulating a caller that passes only
+  # `action:` and expects its value to flow through validator.py's
+  # action_type fallback (where format validation kicks in).
+  if [[ "$input_name" != "action" ]]; then
+    export INPUT_ACTION_TYPE="$action_type"
+  fi
   export VALIDATOR_QUIET="1" # Suppress success messages for tests
 
   # Set default values for commonly required inputs to avoid validation failures
   # when testing only one input at a time
   setup_default_inputs "$action_type" "$input_name"
+
+  # When testing the `action` input with a value that names a real action,
+  # also apply that action's default inputs so downstream validation has
+  # the required fields populated (e.g. INPUT_IMAGE_NAME for docker-build).
+  # Normalize underscores → dashes so e.g. npm_publish resolves to the
+  # npm-publish case branch in setup_default_inputs.
+  if [[ "$input_name" == "action" && -n "$input_value" ]]; then
+    local normalized_action="${input_value//_/-}"
+    setup_default_inputs "$normalized_action" "_action_test_sentinel"
+  fi
 
   # Set the target input
   local input_var_name="INPUT_${input_name//-/_}"
@@ -523,6 +381,11 @@ validate_input_python() {
 
   # Clean up default inputs
   cleanup_default_inputs "$action_type" "$input_name"
+  if [ "$input_name" = "action" ] && [ -n "$input_value" ]; then
+    local normalized_action
+    normalized_action=$(echo "$input_value" | tr '_' '-')
+    cleanup_default_inputs "$normalized_action" "_action_test_sentinel"
+  fi
 
   # Return the exit code for ShellSpec to check
   return $exit_code

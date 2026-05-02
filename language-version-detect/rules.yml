@@ -20,10 +20,11 @@ optional_inputs:
   - default-version
   - token
 conventions:
-  default-version: semantic_version
+  default-version: no_prefix_version
   language: language_enum
   token: github_token
-overrides: {}
+overrides:
+  default-version: no_prefix_version
 statistics:
   total_inputs: 3
   validated_inputs: 3

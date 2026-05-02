@@ -678,7 +678,7 @@ class Test{class_name}:
         return f'''
     def test_validate_inputs(self):
         """Test validate_inputs method."""
-        # TODO: Add specific test cases for {validator_name}
+        # CUSTOMIZE: Add specific test cases for {validator_name}
         inputs = {{"test_input": "test_value"}}
         result = self.validator.validate_inputs(inputs)
         assert isinstance(result, bool)
@@ -778,7 +778,7 @@ class TestCustom{class_name}Validator:
 
     def test_validate_inputs_valid(self):
         """Test validation with valid inputs."""
-        # TODO: Add specific valid inputs for {action_name}
+        # CUSTOMIZE: Add specific valid inputs for {action_name}
         inputs = {{}}
         result = self.validator.validate_inputs(inputs)
         # Adjust assertion based on required inputs
@@ -786,7 +786,7 @@ class TestCustom{class_name}Validator:
 
     def test_validate_inputs_invalid(self):
         """Test validation with invalid inputs."""
-        # TODO: Add specific invalid inputs for {action_name}
+        # CUSTOMIZE: Add specific invalid inputs for {action_name}
         inputs = {{"invalid_key": "invalid_value"}}
         result = self.validator.validate_inputs(inputs)
         # Custom validators may have specific validation rules
@@ -796,13 +796,13 @@ class TestCustom{class_name}Validator:
         """Test required inputs detection."""
         required = self.validator.get_required_inputs()
         assert isinstance(required, list)
-        # TODO: Assert specific required inputs for {action_name}
+        # CUSTOMIZE: Assert specific required inputs for {action_name}
 
     def test_validation_rules(self):
         """Test validation rules."""
         rules = self.validator.get_validation_rules()
         assert isinstance(rules, dict)
-        # TODO: Assert specific validation rules for {action_name}
+        # CUSTOMIZE: Assert specific validation rules for {action_name}
 
     def test_github_expressions(self):
         """Test GitHub expression handling."""

@@ -1,65 +1,27 @@
 # ivuorinen/actions/npm-publish
 
-## Publish to NPM
-
-### Description
+## Description
 
 Publishes the package to the NPM registry with configurable scope and registry URL.
 
-### Inputs
+## Inputs
 
-| name              | description                            | required | default                                |
-|-------------------|----------------------------------------|----------|----------------------------------------|
-| `npm_token`       | <p>NPM token.</p>                      | `true`   | `""`                                   |
-| `registry-url`    | <p>Registry URL for publishing.</p>    | `false`  | `https://registry.npmjs.org/`          |
-| `scope`           | <p>Package scope to use.</p>           | `false`  | `@ivuorinen`                           |
-| `package-version` | <p>The version to publish.</p>         | `false`  | `${{ github.event.release.tag_name }}` |
-| `token`           | <p>GitHub token for authentication</p> | `false`  | `""`                                   |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| npm_token | NPM token. | `true` |  |
+| registry-url | Registry URL for publishing. | `false` | <https://registry.npmjs.org/> |
+| scope | Package scope to use. | `false` | @ivuorinen |
+| package-version | The version to publish. | `false` | ${{ github.event.release.tag_name }} |
+| token | GitHub token for authentication | `false` |  |
 
-### Outputs
+## Outputs
 
-| name              | description                         |
-|-------------------|-------------------------------------|
-| `registry-url`    | <p>Registry URL for publishing.</p> |
-| `scope`           | <p>Package scope to use.</p>        |
-| `package-version` | <p>The version to publish.</p>      |
+| parameter | description |
+| --- | --- |
+| registry-url | Registry URL for publishing. |
+| scope | Package scope to use. |
+| package-version | The version to publish. |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/npm-publish@vYYYY.MM.DD
-  with:
-    npm_token:
-    # NPM token.
-    #
-    # Required: true
-    # Default: ""
-
-    registry-url:
-    # Registry URL for publishing.
-    #
-    # Required: false
-    # Default: https://registry.npmjs.org/
-
-    scope:
-    # Package scope to use.
-    #
-    # Required: false
-    # Default: @ivuorinen
-
-    package-version:
-    # The version to publish.
-    #
-    # Required: false
-    # Default: ${{ github.event.release.tag_name }}
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-```

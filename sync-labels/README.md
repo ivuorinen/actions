@@ -1,42 +1,22 @@
 # ivuorinen/actions/sync-labels
 
-## Sync labels
-
-### Description
+## Description
 
 Sync labels from a YAML file to a GitHub repository
 
-### Inputs
+## Inputs
 
-| name     | description                            | required | default               |
-|----------|----------------------------------------|----------|-----------------------|
-| `labels` | <p>Path to the labels YAML file</p>    | `true`   | `labels.yml`          |
-| `token`  | <p>GitHub token for authentication</p> | `false`  | `${{ github.token }}` |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| labels | Path to the labels YAML file | `false` |  |
+| token | GitHub token for authentication | `false` | ${{ github.token }} |
 
-### Outputs
+## Outputs
 
-| name     | description                         |
-|----------|-------------------------------------|
-| `labels` | <p>Path to the labels YAML file</p> |
+| parameter | description |
+| --- | --- |
+| labels | Path to the labels YAML file |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/sync-labels@vYYYY.MM.DD
-  with:
-    labels:
-    # Path to the labels YAML file
-    #
-    # Required: true
-    # Default: labels.yml
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ${{ github.token }}
-```

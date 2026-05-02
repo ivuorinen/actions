@@ -99,13 +99,11 @@ runs:
       run: |
         set -eu
         # Write validated inputs to GITHUB_ENV for safe use in shell contexts
-        {
-          echo "VALIDATED_WORKING_DIR=$INPUT_WORKING_DIR"
-          echo "VALIDATED_CONFIG=$INPUT_CONFIG"
-          echo "VALIDATED_FORMAT=$INPUT_FORMAT"
-          echo "VALIDATED_FAIL=$INPUT_FAIL"
-          echo "VALIDATED_RETRIES=$INPUT_RETRIES"
-        } >> "$GITHUB_ENV"
+        printf 'VALIDATED_WORKING_DIR=%s\n' "$INPUT_WORKING_DIR" >> "$GITHUB_ENV"
+        printf 'VALIDATED_CONFIG=%s\n' "$INPUT_CONFIG" >> "$GITHUB_ENV"
+        printf 'VALIDATED_FORMAT=%s\n' "$INPUT_FORMAT" >> "$GITHUB_ENV"
+        printf 'VALIDATED_FAIL=%s\n' "$INPUT_FAIL" >> "$GITHUB_ENV"
+        printf 'VALIDATED_RETRIES=%s\n' "$INPUT_RETRIES" >> "$GITHUB_ENV"
 
     - name: Check for Terraform Files
       id: check-files
@@ -258,7 +256,7 @@ runs:
       if: steps.check-files.outputs.found == 'true' && inputs.format == 'sarif'
       uses: github/codeql-action/upload-sarif@95e58e9a2cdfd71adc6e0353d5c52f41a045d225 # v4.35.2
       with:
-        sarif_file: ${{ env.VALIDATED_WORKING_DIR }}/reports/tflint.sarif
+        sarif_file: ${{ inputs.working-directory }}/reports/tflint.sarif
         category: terraform-lint
 
     - name: Cleanup

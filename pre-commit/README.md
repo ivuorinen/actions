@@ -1,64 +1,26 @@
 # ivuorinen/actions/pre-commit
 
-## pre-commit
-
-### Description
+## Description
 
 Runs pre-commit on the repository and pushes the fixes back to the repository
 
-### Inputs
+## Inputs
 
-| name                | description                            | required | default                     |
-|---------------------|----------------------------------------|----------|-----------------------------|
-| `pre-commit-config` | <p>pre-commit configuration file</p>   | `false`  | `.pre-commit-config.yaml`   |
-| `base-branch`       | <p>Base branch to compare against</p>  | `false`  | `""`                        |
-| `token`             | <p>GitHub token for authentication</p> | `false`  | `""`                        |
-| `commit_user`       | <p>Commit user</p>                     | `false`  | `GitHub Actions`            |
-| `commit_email`      | <p>Commit email</p>                    | `false`  | `github-actions@github.com` |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| pre-commit-config | pre-commit configuration file | `false` | .pre-commit-config.yaml |
+| base-branch | Base branch to compare against | `false` |  |
+| token | GitHub token for authentication | `false` |  |
+| commit_user | Commit user | `false` | GitHub Actions |
+| commit_email | Commit email | `false` | <github-actions@github.com> |
 
-### Outputs
+## Outputs
 
-| name            | description                                               |
-|-----------------|-----------------------------------------------------------|
-| `hooks_passed`  | <p>Whether all pre-commit hooks passed (true/false)</p>   |
-| `files_changed` | <p>Whether any files were changed by pre-commit hooks</p> |
+| parameter | description |
+| --- | --- |
+| hooks_passed | Whether all pre-commit hooks passed (true/false) |
+| files_changed | Whether any files were changed by pre-commit hooks |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/pre-commit@vYYYY.MM.DD
-  with:
-    pre-commit-config:
-    # pre-commit configuration file
-    #
-    # Required: false
-    # Default: .pre-commit-config.yaml
-
-    base-branch:
-    # Base branch to compare against
-    #
-    # Required: false
-    # Default: ""
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-
-    commit_user:
-    # Commit user
-    #
-    # Required: false
-    # Default: GitHub Actions
-
-    commit_email:
-    # Commit email
-    #
-    # Required: false
-    # Default: github-actions@github.com
-```

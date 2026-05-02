@@ -1,0 +1,23 @@
+---
+name: If Conditional Fixture
+description: 'Fixture: two run steps, second gated on first output.'
+outputs:
+  first_out:
+    description: 'output of first step'
+    value: ${{ steps.first.outputs.flag }}
+  second_out:
+    description: 'output of second step (if it ran)'
+    value: ${{ steps.second.outputs.ran }}
+
+runs:
+  using: composite
+  steps:
+    - id: first
+      shell: sh
+      run: |
+        printf 'flag=yes\n' >> "$GITHUB_OUTPUT"
+    - id: second
+      if: ${{ steps.first.outputs.flag == 'yes' }}
+      shell: sh
+      run: |
+        printf 'ran=true\n' >> "$GITHUB_OUTPUT"

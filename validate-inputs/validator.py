@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -22,6 +23,11 @@ logging.basicConfig(
     level=logging.INFO,
 )
 logger = logging.getLogger(__name__)
+
+
+def _sanitize(value: object) -> str:
+    """Strip CR/LF from output values to prevent GITHUB_OUTPUT injection."""
+    return str(value).replace("\r", "").replace("\n", " ")
 
 
 def collect_inputs() -> dict[str, str]:
@@ -61,14 +67,17 @@ def write_output(status: str, action_type: str, **kwargs) -> None:
 
         with output_path.open("a", encoding="utf-8") as f:
             lines = [
-                f"status={status}\n",
-                f"action={action_type}\n",
+                f"status={_sanitize(status)}\n",
+                f"action={_sanitize(action_type)}\n",
             ]
-            lines.extend(f"{key}={value}\n" for key, value in kwargs.items())
+            lines.extend(f"{key}={_sanitize(value)}\n" for key, value in kwargs.items())
             f.writelines(lines)
     except OSError:
         logger.exception("::error::Validation script error: Could not write to output file")
         sys.exit(1)
+
+
+_ACTION_TYPE_RE = re.compile(r"^[a-z0-9][a-z0-9_-]*$")
 
 
 def main() -> None:
@@ -82,12 +91,27 @@ def main() -> None:
         logger.error("::error::No action type provided")
         sys.exit(1)
 
+    # Reject action names with shell metacharacters, path separators, or
+    # other unsafe characters. Valid action names are lowercase alphanumeric
+    # with underscores and dashes.
+    if not _ACTION_TYPE_RE.match(action_type):
+        logger.error("::error::Invalid action name format: %r", action_type)
+        sys.exit(1)
+
     # Convert to standard format (replace dashes with underscores)
     action_type = action_type.replace("-", "_")
+
+    # Respect fail-on-error setting
+    fail_on_error = os.environ.get("INPUT_FAIL_ON_ERROR", "true").lower() != "false"
 
     # Get validator from registry
     # This will either load custom validator or fall back to convention-based
     validator = get_validator(action_type)
+
+    # Override rules file if caller specified one
+    rules_file = os.environ.get("INPUT_RULES_FILE", "").strip()
+    if rules_file:
+        validator.load_rules(Path(rules_file))
 
     # Collect all inputs
     inputs = collect_inputs()
@@ -99,7 +123,13 @@ def main() -> None:
         # Only show success message if not in quiet mode (for tests)
         if not os.environ.get("VALIDATOR_QUIET"):
             logger.info("✓ All input validation checks passed for %s", action_type)
-        write_output("success", action_type, inputs_validated=len(inputs))
+        write_output(
+            "success",
+            action_type,
+            inputs_validated=len(inputs),
+            result="passed",
+            rules=sum(1 for k in inputs if "_" not in k),
+        )
     else:
         # Report errors (suppress if in quiet mode for tests)
         if not os.environ.get("VALIDATOR_QUIET"):
@@ -112,8 +142,11 @@ def main() -> None:
             action_type,
             error="; ".join(validator.errors),
             errors=len(validator.errors),
+            result=f"failed with {len(validator.errors)} error(s)",
+            rules=sum(1 for k in inputs if "_" not in k),
         )
-        sys.exit(1)
+        if fail_on_error:
+            sys.exit(1)
 
 
 if __name__ == "__main__":

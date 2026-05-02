@@ -531,6 +531,9 @@ class ConventionBasedValidator(BaseValidator):
             "retries",
             "timeout",
             "threads",
+            "positive_integer",
+            "non_negative_integer",
+            "integer",
         ]:
             if "numeric" not in self._validator_modules:
                 from . import numeric
@@ -570,6 +573,7 @@ class ConventionBasedValidator(BaseValidator):
             "report_format",
             "format_enum",
             "linter_list",
+            "plugin_list",
             "timeout_with_unit",
             "severity_enum",
             "scanner_list",
@@ -1015,6 +1019,24 @@ class ConventionBasedValidator(BaseValidator):
             item_name="linter",
         )
 
+    def _validate_plugin_list(self, value: str, input_name: str) -> bool:
+        """Validate comma-separated list of npm plugin names (including scoped packages).
+
+        Accepts bare names like `prettier-plugin-tailwindcss` and scoped packages
+        like `@trivago/prettier-plugin-sort-imports`.
+
+        Examples:
+            Valid: "prettier-plugin-tailwindcss", "@trivago/prettier-plugin-sort-imports"
+            Invalid: "plugin; rm -rf /", "plugin|echo"
+        """
+        return self._validate_comma_separated_list(
+            value,
+            input_name,
+            item_pattern=r"^(@[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_.-]+$",
+            check_injection=True,
+            item_name="plugin",
+        )
+
     def _validate_timeout_with_unit(self, value: str, input_name: str) -> bool:
         """Validate timeout duration with unit (Go duration format).
 
@@ -1228,8 +1250,13 @@ class ConventionBasedValidator(BaseValidator):
                 )
                 return False
 
-            # Note: Value can be empty (KEY=) - this is valid for some use cases
-            # Value validation is optional and handled by the check_injection flag above
+            # Validate value does not contain spaces (breaks shell word-splitting in loops)
+            if len(parts) > 1 and " " in parts[1]:
+                self.add_error(
+                    f"Invalid value in '{pair}' in {input_name}. "
+                    f"Values must not contain spaces (breaks shell word-splitting)"
+                )
+                return False
 
         return True
 

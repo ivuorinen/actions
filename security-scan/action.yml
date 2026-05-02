@@ -191,6 +191,12 @@ runs:
       id: analyze
       if: always()
       shell: node {0}
+      env:
+        HAS_TRIVY: ${{ steps.verify-sarif.outputs.has_trivy }}
+        HAS_GITLEAKS: ${{ steps.verify-sarif.outputs.has_gitleaks }}
+        RUN_ACTIONLINT: ${{ steps.check-configs.outputs.run_actionlint }}
+        RUN_TRIVY: ${{ steps.check-configs.outputs.run_trivy }}
+        RUN_GITLEAKS: ${{ steps.check-configs.outputs.run_gitleaks }}
       run: |
         const fs = require('fs');
 
@@ -226,11 +232,13 @@ runs:
             }
           };
 
-          // Only analyze results from tools that ran successfully
+          // Only analyze results from tools that ran successfully.
+          // Read step outputs via env so apostrophes/backticks in values
+          // cannot break the JS literal.
           const results = {
-            trivy: '${{ steps.verify-sarif.outputs.has_trivy }}' === 'true' ?
+            trivy: process.env.HAS_TRIVY === 'true' ?
               analyzeSarif('trivy-results.sarif', 'trivy') : null,
-            gitleaks: '${{ steps.verify-sarif.outputs.has_gitleaks }}' === 'true' ?
+            gitleaks: process.env.HAS_GITLEAKS === 'true' ?
               analyzeSarif('gitleaks-report.sarif', 'gitleaks') : null
           };
 
@@ -257,9 +265,9 @@ runs:
             ).join('\n')}
 
           ### Tools Run Status
-          - Actionlint: ${{ steps.check-configs.outputs.run_actionlint }}
-          - Trivy: ${{ steps.verify-sarif.outputs.has_trivy }}
-          - Gitleaks: ${{ steps.check-configs.outputs.run_gitleaks }}
+          - Actionlint: ${process.env.RUN_ACTIONLINT}
+          - Trivy: ${process.env.RUN_TRIVY}
+          - Gitleaks: ${process.env.RUN_GITLEAKS}
           `;
 
           // Set outputs using GITHUB_OUTPUT

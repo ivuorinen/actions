@@ -5,7 +5,6 @@ on:
   push:
     paths:
       - 'npm-publish/**'
-      - 'node-setup/**'
       - '_tests/integration/workflows/npm-publish-test.yml'
 
 jobs:
@@ -14,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
 
       - name: Create test package.json
         run: |
@@ -132,7 +131,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
 
       - name: Test missing package.json
         id: missing-package
@@ -189,7 +188,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
 
       - name: Test SemVer with v prefix
         run: |
@@ -239,7 +238,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
 
       - name: Create test package
         run: |
@@ -298,7 +297,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
 
       - name: Create test package
         run: |
