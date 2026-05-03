@@ -117,7 +117,7 @@ class VersionValidator(BaseValidator):
         if clean_version.lower().startswith("v"):
             self.add_error(
                 f'Version must not have a "v" prefix: "{clean_version}" in {name}. '
-                "Expected format: MAJOR.MINOR or MAJOR.MINOR.PATCH (e.g., 3.12, 8.3.1)",
+                "Expected format: MAJOR, MAJOR.MINOR, or MAJOR.MINOR.PATCH (e.g., 3, 3.12, 8.3.1)",
             )
             return False
 
@@ -139,7 +139,7 @@ class VersionValidator(BaseValidator):
 
         self.add_error(
             f'Invalid version: "{clean_version}" in {name}. '
-            "Expected format: MAJOR.MINOR or MAJOR.MINOR.PATCH (e.g., 3.12, 8.3.1)",
+            "Expected format: MAJOR, MAJOR.MINOR, or MAJOR.MINOR.PATCH (e.g., 3, 3.12, 8.3.1)",
         )
         return False
 
