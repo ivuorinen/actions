@@ -12,7 +12,7 @@ make test
 make test-unit
 
 # Run tests for specific action
-make test-action ACTION=node-setup
+make test-action ACTION=go-build
 
 # Run with coverage reporting
 make test-coverage
@@ -38,12 +38,12 @@ The testing framework uses a **multi-level testing strategy**:
 
 1. **Unit Tests** - Fast validation of action logic, inputs, and outputs using Python validation
 2. **Integration Tests** - Test actions in realistic workflow environments
-3. **External Usage Tests** - Validate actions work as `ivuorinen/actions/action-name@main`
+3. **External Usage Tests** - Validate actions work via pinned refs (e.g. `ivuorinen/actions/action-name@<sha>`)
 
 ### Technology Stack
 
-- **Primary Framework**: [ShellSpec](https://shellspec.info/) - BDD testing for shell scripts
-- **Validation**: Python-based input validation via `validate-inputs/validator.py`
+- **Unit Testing**: [ShellSpec](https://shellspec.info/) specs + Python-based harness (`_tests/framework/harness/`)
+- **Validation**: Centralized Python input validation via `validate-inputs/validator.py`
 - **Local Execution**: [nektos/act](https://github.com/nektos/act) - Run GitHub Actions locally
 - **CI Integration**: GitHub Actions workflows
 
@@ -53,22 +53,18 @@ The testing framework uses a **multi-level testing strategy**:
 _tests/
 ├── README.md                    # This documentation
 ├── run-tests.sh                 # Main test runner script
-├── unit/                       # Unit tests by action
-│   ├── spec_helper.sh          # ShellSpec helper with validation functions
-│   ├── version-file-parser/    # Example unit tests
-│   ├── node-setup/            # Example unit tests
-│   └── ...                    # One directory per action
+├── unit/                        # Unit tests by action
+│   ├── spec_helper.sh           # ShellSpec helper with validation functions
+│   ├── _harness/                # Internal harness support
+│   └── <action-name>/           # One directory per action
 ├── framework/                   # Core testing utilities
-│   ├── setup.sh                # Test environment setup
-│   ├── utils.sh                # Common testing functions
-│   ├── validation.py           # Python validation utilities
-│   └── fixtures/               # Test fixtures
-├── integration/               # Integration tests
-│   ├── workflows/             # Test workflows for nektos/act
-│   ├── external-usage/        # External reference tests
-│   └── action-chains/         # Multi-action workflow tests
-├── coverage/                  # Coverage reports
-└── reports/                   # Test execution reports
+│   └── harness/                 # Python-based test harness
+├── fixtures/                    # Shared test fixtures
+├── shared/                      # Shared utilities
+├── integration/                 # Integration tests
+│   └── workflows/               # Test workflows for nektos/act
+├── coverage/                    # Coverage reports
+└── reports/                     # Test execution reports
 ```
 
 ## ✍️ Writing Tests
@@ -139,7 +135,7 @@ jobs:
           [[ -n "${{ steps.test-local.outputs.result }}" ]] || exit 1
 
       - name: Test external reference
-        uses: ivuorinen/actions/my-action@main
+        uses: ivuorinen/actions/my-action@<40-char-sha> # must be pinned SHA or CalVer tag
         with:
           required-input: 'test-value'
 ```
@@ -167,9 +163,9 @@ validate_input_python "pre-commit" "dry-run" "false"      # success
 validate_input_python "pre-commit" "dry-run" "maybe"      # failure
 
 # Version validation
-validate_input_python "node-setup" "node-version" "18.0.0"       # success
-validate_input_python "node-setup" "node-version" "v1.2.3"       # success
-validate_input_python "node-setup" "node-version" "invalid"      # failure
+validate_input_python "language-version-detect" "default-version" "18.0.0"  # success
+validate_input_python "language-version-detect" "default-version" "v1.2.3"  # success
+validate_input_python "language-version-detect" "default-version" "invalid" # failure
 
 # Token validation
 validate_input_python "npm-publish" "npm-token" "ghp_123..."    # success
@@ -260,19 +256,19 @@ End
 
 ## 🎯 Testing Patterns by Action Type
 
-### Setup Actions (node-setup, php-version-detect, etc.)
+### Setup Actions (language-version-detect, etc.)
 
 Focus on version detection and environment setup:
 
 ```bash
 Context "when detecting versions"
   It "detects version from config files"
-    When call validate_input_python "node-setup" "node-version" "18.0.0"
+    When call validate_input_python "language-version-detect" "default-version" "18.0.0"
     The status should be success
   End
 
   It "accepts default version"
-    When call validate_input_python "python-version-detect" "default-version" "3.11"
+    When call validate_input_python "language-version-detect" "default-version" "3.11"
     The status should be success
   End
 End
@@ -358,7 +354,7 @@ End
 # Examples
 ./_tests/run-tests.sh                           # All tests, all actions
 ./_tests/run-tests.sh -t unit                   # Unit tests only
-./_tests/run-tests.sh -a node-setup             # Specific action
+./_tests/run-tests.sh -a go-build               # Specific action
 ./_tests/run-tests.sh -t integration docker-build  # Integration tests for docker-build
 ./_tests/run-tests.sh --format json --coverage  # JSON output with coverage
 ```
@@ -366,7 +362,7 @@ End
 ### Options
 
 | Option                | Description                                    |
-|-----------------------|------------------------------------------------|
+| --------------------- | ---------------------------------------------- |
 | `-t, --type TYPE`     | Test type: `unit`, `integration`, `e2e`, `all` |
 | `-a, --action ACTION` | Filter by action name pattern                  |
 | `-j, --jobs JOBS`     | Number of parallel jobs (default: 4)           |
@@ -526,7 +522,7 @@ The framework automatically sets up test environments via `spec_helper.sh`:
 $PROJECT_ROOT        # Repository root
 $TEST_ROOT          # _tests/ directory
 $FRAMEWORK_DIR      # _tests/framework/
-$FIXTURES_DIR       # _tests/framework/fixtures/
+$FIXTURES_DIR       # _tests/fixtures/
 $TEMP_DIR           # Temporary test directory
 $GITHUB_OUTPUT      # Mock outputs file
 $GITHUB_ENV         # Mock environment file
@@ -620,16 +616,15 @@ find _tests/ -name "*.sh" -exec chmod +x {} \;
 ```text
 _tests/
 ├── unit/
-│   └── spec_helper.sh          # ShellSpec configuration and helpers
+│   ├── spec_helper.sh           # ShellSpec configuration and helpers
+│   ├── _harness/                # Internal harness support
+│   └── <action-name>/           # One directory per action
 ├── framework/
-│   ├── setup.sh                # Test environment initialization
-│   ├── utils.sh                # Common utility functions
-│   ├── validation.py           # Python validation helpers
-│   └── fixtures/               # Test fixtures
+│   └── harness/                 # Python-based test harness
+├── fixtures/                    # Shared test fixtures
+├── shared/                      # Shared utilities
 └── integration/
-    ├── workflows/              # Integration test workflows
-    ├── external-usage/         # External reference tests
-    └── action-chains/          # Multi-action tests
+    └── workflows/               # Integration test workflows
 ```
 
 ### Available Functions
@@ -644,14 +639,11 @@ _tests/
 - `shellspec_mock_action_run(action_dir, ...)` - Mock action execution
 - `shellspec_validate_action_output(key, value)` - Validate outputs
 
-**From utils.sh (\_tests/framework/utils.sh):**
+**From harness (\_tests/framework/harness/):**
 
 - `validate_action_yml(file)` - Validate action YAML
 - `get_action_inputs(file)` - Extract action inputs
 - `get_action_outputs(file)` - Extract action outputs
 - `get_action_name(file)` - Get action name
-- `test_input_validation(dir, name, value, expected)` - Test input
-- `test_action_outputs(dir)` - Test action outputs
-- `test_external_usage(dir)` - Test external usage
 
 **Last Updated:** October 15, 2025

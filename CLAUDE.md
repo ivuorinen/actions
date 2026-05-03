@@ -58,7 +58,7 @@ in hook commands
 **Run proactively** — don't wait to be asked:
 
 | When                                        | Run                                       |
-|---------------------------------------------|-------------------------------------------|
+| ------------------------------------------- | ----------------------------------------- |
 | After modifying an action                   | `/action-health <name>`                   |
 | After creating an action modeled on another | `/compare-actions <source> <new>`         |
 | Before creating a PR                        | `/pin-check` and `/security-audit`        |
@@ -83,13 +83,13 @@ in hook commands
 
 **Docker Tools**: `_tools/docker-testing-tools/README.md` (CI setup, pre-built testing image)
 
-**See**: `_tools/README.md` for helper tool descriptions
+**See**: `_tools/` for helper scripts (`fix-local-action-refs.py`, `release.sh`, `release-undo.sh`, `shared.sh`)
 
 ## Repository Structure
 
 Flat structure. Each action self-contained with `action.yml`.
 
-**Actions**: Setup (language-version-detect, setup-test-environment),
+**Actions**: Setup (language-version-detect),
 Linting (ansible-lint-fix, biome-lint, csharp-lint-check, eslint-lint, go-lint, pr-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix),
 Testing (php-tests), Build (csharp-build, go-build, docker-build),
 Publishing (npm-publish, npm-semantic-release, docker-publish, csharp-publish),
@@ -98,7 +98,7 @@ Validation (validate-inputs)
 
 ## Commands
 
-**Main**: `make all` (docs+format+lint+test), `make dev` (format+lint), `make lint`, `make format`, `make docs`, `make test`
+**Main**: `make all` (install-tools+update-validators+docs+update-catalog+format+lint+precommit), `make dev` (format+lint), `make lint`, `make format`, `make docs`, `make test`
 
 **Testing**: `make test-python`, `make test-python-coverage`, `make test-actions`, `make test-update-validators`, `make test-coverage`
 
@@ -259,7 +259,7 @@ You do NOT need to manually instruct subagents about context-mode.
 ### ctx commands
 
 | Command       | Action                                                                                |
-|---------------|---------------------------------------------------------------------------------------|
+| ------------- | ------------------------------------------------------------------------------------- |
 | `ctx stats`   | Call the `ctx_stats` MCP tool and display the full output verbatim                    |
 | `ctx doctor`  | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist  |
 | `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |

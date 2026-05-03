@@ -53,7 +53,7 @@ docs: ## Generate documentation for all actions
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		repo="ivuorinen/actions/$$dir"; \
 		printf "# %s\n\n" "$$repo" > "$$dir/README.md"; \
-		if npx --yes action-docs -n -s "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
+		if npx --yes action-docs -a "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
 			$(SED_CMD) "s|\*\*\*PROJECT\*\*\*|$$repo|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
@@ -285,7 +285,8 @@ lint-python: ## Lint Python files with ruff and pyright
 			ruff_passed=false; \
 		fi; \
 		if command -v pyright >/dev/null 2>&1; then \
-			if ! pyright --pythonpath $$(which python3) validate-inputs/ _tests/framework/; then \
+			uv sync --all-extras --quiet --directory validate-inputs 2>/dev/null || true; \
+			if ! (cd validate-inputs && pyright .); then \
 				echo "$(YELLOW)⚠️ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
 				pyright_passed=false; \
 			fi; \
@@ -346,7 +347,7 @@ check-syntax: ## Check syntax of shell scripts and YAML files
 install-tools: ## Install/update required tools
 	@echo "$(BLUE)📦 Installing/updating tools...$(RESET)"
 	@echo "$(YELLOW)Installing NPM tools...$(RESET)"
-	@npx --yes action-docs@latest --version >/dev/null
+	@npx --yes action-docs --version >/dev/null
 	@npx --yes markdownlint-cli2 --version >/dev/null
 	@npx --yes prettier --version >/dev/null
 	@npx --yes markdown-table-formatter --version >/dev/null
@@ -436,7 +437,7 @@ test-actions: ## Run GitHub Actions tests (unit + integration)
 test-python: ## Run Python validation tests
 	@echo "$(BLUE)🐍 Running Python tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uv run pytest -v --tb=short; then \
+		if uv run --directory validate-inputs pytest -v --tb=short; then \
 			echo "$(GREEN)✅ Python tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Python tests failed$(RESET)"; \
@@ -449,7 +450,7 @@ test-python: ## Run Python validation tests
 test-python-coverage: ## Run Python tests with coverage
 	@echo "$(BLUE)📊 Running Python tests with coverage...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run pytest --cov=validate-inputs --cov-report=term-missing; \
+		uv run --directory validate-inputs pytest --cov=. --cov-report=term-missing; \
 	else \
 		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
 	fi
@@ -457,7 +458,7 @@ test-python-coverage: ## Run Python tests with coverage
 test-update-validators: ## Run tests for update-validators.py script
 	@echo "$(BLUE)🔧 Running update-validators.py tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uv run pytest validate-inputs/tests/test_update_validators.py -v --tb=short; then \
+		if uv run --directory validate-inputs pytest tests/test_update_validators.py -v --tb=short; then \
 			echo "$(GREEN)✅ Update-validators tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Update-validators tests failed$(RESET)"; \
@@ -514,7 +515,7 @@ generate-tests-dry: ## Preview what tests would be generated without creating fi
 test-generate-tests: ## Test the test generation system itself
 	@echo "$(BLUE)🔬 Testing test generation system...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uv run pytest validate-inputs/tests/test_generate_tests.py -v; then \
+		if uv run --directory validate-inputs pytest tests/test_generate_tests.py -v; then \
 			echo "$(GREEN)✅ Test generation tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Test generation tests failed$(RESET)"; \

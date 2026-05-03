@@ -68,6 +68,9 @@ class VersionValidator(BaseValidator):
         if not version or version.strip() == "":
             return True  # Version is often optional
 
+        if version.strip().lower() == "latest":
+            return True
+
         # Remove 'v' or 'V' prefix if present (case-insensitive)
         clean_version = version
         if clean_version.lower().startswith("v"):
@@ -97,6 +100,46 @@ class VersionValidator(BaseValidator):
         self.add_error(
             f'Invalid semantic version: "{version}" in {name}. '
             "Expected format: MAJOR.MINOR.PATCH (e.g., 1.2.3, 2.0.0-beta)",
+        )
+        return False
+
+    def validate_no_prefix_version(self, version: str, name: str = "version") -> bool:
+        """Validate version without v-prefix (X, X.Y, or X.Y.Z numeric only).
+
+        Like semantic_version but rejects v-prefix and keyword aliases like "latest".
+        Use for inputs that are passed directly to tooling expecting bare version numbers.
+        """
+        if not version or version.strip() == "":
+            return True  # Version is often optional
+
+        clean_version = version.strip()
+
+        if clean_version.lower().startswith("v"):
+            self.add_error(
+                f'Version must not have a "v" prefix: "{clean_version}" in {name}. '
+                "Expected format: MAJOR, MAJOR.MINOR, or MAJOR.MINOR.PATCH (e.g., 3, 3.12, 8.3.1)",
+            )
+            return False
+
+        semver_pattern = (
+            r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
+            r"(?:-((?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*)"
+            r"(?:\.(?:0|[1-9]\d*|\d*[a-zA-Z-][0-9a-zA-Z-]*))*))?"
+            r"(?:\+([0-9a-zA-Z-]+(?:\.[0-9a-zA-Z-]+)*))?$"
+        )
+        simple_pattern = r"^(0|[1-9]\d*)\.(0|[1-9]\d*)$"
+        single_digit_pattern = r"^(0|[1-9]\d*)$"
+
+        if (
+            re.match(semver_pattern, clean_version)
+            or re.match(simple_pattern, clean_version)
+            or re.match(single_digit_pattern, clean_version)
+        ):
+            return True
+
+        self.add_error(
+            f'Invalid version: "{clean_version}" in {name}. '
+            "Expected format: MAJOR, MAJOR.MINOR, or MAJOR.MINOR.PATCH (e.g., 3, 3.12, 8.3.1)",
         )
         return False
 

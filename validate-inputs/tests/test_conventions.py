@@ -1055,6 +1055,22 @@ optional_inputs:
         result = self.validator._validate_key_value_list("KEY=(echo test)", "build-args")
         assert result is False, "Should reject parentheses"
 
+    def test_validate_key_value_list_no_spaces_in_values(self):
+        """Test that spaces in values are rejected (breaks shell word-splitting)."""
+        self.validator.clear_errors()
+        result = self.validator._validate_key_value_list("KEY=hello world", "build-args")
+        assert result is False, "Should reject space-containing value"
+
+        self.validator.clear_errors()
+        result = self.validator._validate_key_value_list(
+            "KEY1=value1,KEY2=hello world", "build-args"
+        )
+        assert result is False, "Should reject space in second pair value"
+
+        self.validator.clear_errors()
+        result = self.validator._validate_key_value_list("DESCRIPTION=my app name", "build-args")
+        assert result is False, "Should reject multi-word value with spaces"
+
     def test_validate_path_list_valid(self):
         """Test valid path lists."""
         # Single file path

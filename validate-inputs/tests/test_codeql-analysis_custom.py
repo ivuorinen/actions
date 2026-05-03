@@ -28,7 +28,7 @@ class TestCustomCodeqlAnalysisValidator:
 
     def test_validate_inputs_valid(self):
         """Test validation with valid inputs."""
-        # TODO: Add specific valid inputs for codeql-analysis
+        # CUSTOMIZE: Add specific valid inputs for codeql-analysis
         inputs = {}
         result = self.validator.validate_inputs(inputs)
         # Adjust assertion based on required inputs
@@ -36,7 +36,7 @@ class TestCustomCodeqlAnalysisValidator:
 
     def test_validate_inputs_invalid(self):
         """Test validation with invalid inputs."""
-        # TODO: Add specific invalid inputs for codeql-analysis
+        # CUSTOMIZE: Add specific invalid inputs for codeql-analysis
         inputs = {"invalid_key": "invalid_value"}
         result = self.validator.validate_inputs(inputs)
         # Custom validators may have specific validation rules
@@ -46,13 +46,13 @@ class TestCustomCodeqlAnalysisValidator:
         """Test required inputs detection."""
         required = self.validator.get_required_inputs()
         assert isinstance(required, list)
-        # TODO: Assert specific required inputs for codeql-analysis
+        # CUSTOMIZE: Assert specific required inputs for codeql-analysis
 
     def test_validation_rules(self):
         """Test validation rules."""
         rules = self.validator.get_validation_rules()
         assert isinstance(rules, dict)
-        # TODO: Assert specific validation rules for codeql-analysis
+        # CUSTOMIZE: Assert specific validation rules for codeql-analysis
 
     def test_github_expressions(self):
         """Test GitHub expression handling."""

@@ -341,23 +341,23 @@ runs:
         cd "$WORKING_DIRECTORY"
 
         # Create temporary file for tracking changes
-        touch /tmp/changed_files
+        _changed_files=$(mktemp)
 
         # Run autopep8 with change detection
         find . -name "*.py" -type f -not -path "*/\.*" | while read -r file; do
           if autopep8 --diff "$file" | grep -q '^[+-]'; then
             autopep8 --in-place "$file"
-            echo "$file" >> /tmp/changed_files
+            echo "$file" >> "$_changed_files"
           fi
         done
 
         # Count fixed files
-        fixed_count=$(wc -l < /tmp/changed_files || echo 0)
+        fixed_count=$(wc -l < "$_changed_files" || echo 0)
         echo "Fixed $fixed_count files"
         printf 'fixed_count=%s\n' "$fixed_count" >> "$GITHUB_OUTPUT"
 
         # Cleanup
-        rm /tmp/changed_files
+        rm -f "$_changed_files"
 
     - name: Commit Fixes
       if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}

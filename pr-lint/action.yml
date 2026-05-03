@@ -716,5 +716,6 @@ runs:
       if: steps.dependency-review.outcome == 'failure'
       shell: sh
       run: |
+        set -eu
         printf '%s\n' "Dependency review found critical issues" >&2
         exit 1

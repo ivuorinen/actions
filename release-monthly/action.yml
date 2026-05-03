@@ -70,17 +70,18 @@ runs:
           esac
         fi
 
+        # Mask token before writing to env to prevent exposure in logs
+        echo "::add-mask::$INPUT_TOKEN"
+
         # Write validated values to GITHUB_ENV for use in subsequent steps
-        {
-          echo "VALIDATED_TOKEN=$INPUT_TOKEN"
-          echo "VALIDATED_DRY_RUN=$INPUT_DRY_RUN"
-          echo "VALIDATED_PREFIX=$INPUT_PREFIX"
-        } >> "$GITHUB_ENV"
+        printf 'VALIDATED_TOKEN=%s\n' "$INPUT_TOKEN" >> "$GITHUB_ENV"
+        printf 'VALIDATED_DRY_RUN=%s\n' "$INPUT_DRY_RUN" >> "$GITHUB_ENV"
+        printf 'VALIDATED_PREFIX=%s\n' "$INPUT_PREFIX" >> "$GITHUB_ENV"
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
-        token: ${{ env.VALIDATED_TOKEN }}
+        token: ${{ inputs.token }}
         fetch-depth: 0 # Fetch all history for tag comparison
 
     - name: Create Release
@@ -132,24 +133,29 @@ runs:
           esac
         }
 
-        # Function to get previous release tag with error handling
-        # Filters by prefix so unrelated releases are ignored
+        # Function to get previous release tag with error handling.
+        # Filters by prefix so unrelated releases are ignored.
+        # Uses gh's structured JSON output so release titles with spaces
+        # don't corrupt the parse (awk '{print $1}' would return the first
+        # word of TITLE, not TAG).
         get_previous_tag() {
           prefix="$1"
           previous_tag=""
           if [ -n "$prefix" ]; then
-            previous_tag=$(gh release list --limit 100 2>/dev/null \
-              | awk '{ print $1 }' \
-              | grep "^${prefix}" \
-              | head -1) || {
+            _tag_list=$(gh release list --limit 100 --json tagName --jq '.[].tagName' 2>/dev/null) || {
               echo "::warning::No previous releases found with prefix $prefix"
               return 1
             }
+            previous_tag=$(printf '%s\n' "$_tag_list" | awk -v prefix="$prefix" 'index($0, prefix) == 1 { print; exit }')
           else
-            previous_tag=$(gh release list --limit 1 2>/dev/null | awk '{ print $1 }') || {
+            previous_tag=$(gh release list --limit 1 --json tagName --jq '.[0].tagName // empty' 2>/dev/null) || {
               echo "::warning::No previous releases found"
               return 1
             }
+          fi
+          if [ -z "$previous_tag" ]; then
+            echo "::warning::No previous releases found"
+            return 1
           fi
           echo "$previous_tag"
         }
@@ -159,8 +165,9 @@ runs:
         printf 'previous_tag=%s\n' "$previous_tag" >> "$GITHUB_OUTPUT"
 
         if [ -n "$previous_tag" ]; then
-          # Strip prefix before parsing version components
-          previous_version="${previous_tag#$PREFIX}"
+          # Strip PREFIX before decomposition; validate_version only accepts
+          # the non-prefix form (YYYY.M.N).
+          previous_version="${previous_tag#"$PREFIX"}"
           previous_major="${previous_version%%\.*}"
           previous_minor="${previous_version#*.}"
           previous_minor="${previous_minor%.*}"
@@ -174,7 +181,7 @@ runs:
         fi
 
         # Determine next release tag
-        next_major_minor="$(date +'%Y').$(date +'%-m')"
+        next_major_minor="$(date -u +'%Y').$(date -u +'%m' | sed 's/^0//')"
 
         if [ -n "$previous_tag" ] && [ "${previous_major}.${previous_minor}" = "${next_major_minor}" ]; then
           echo "Month release already exists for year, incrementing patch number by 1"

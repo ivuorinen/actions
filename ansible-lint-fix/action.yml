@@ -53,25 +53,42 @@ runs:
         username: ${{ inputs.username }}
         max-retries: ${{ inputs.max-retries }}
 
+    - name: Checkout Repository
+      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      with:
+        token: ${{ inputs.token || github.token }}
+
     - name: Check for Ansible Files
       id: check-files
       shell: sh
       run: |
         set -eu
 
-        # Check for both .yml and .yaml files
-        if find . \( -name "*.yml" -o -name "*.yaml" \) -type f | grep -q .; then
+        # Detect Ansible-specific indicators rather than any YAML file
+        _has_ansible=false
+
+        # Check for Ansible config or canonical entry-point files
+        if find . \( -name "ansible.cfg" -o -name "site.yml" -o -name "playbook.yml" \) -type f | grep -q .; then
+          _has_ansible=true
+        fi
+
+        # Check for Ansible-specific directories
+        if [ "$_has_ansible" = "false" ] && find . \( -name "roles" -o -name "playbooks" -o -name "tasks" -o -name "handlers" \) -type d | grep -q .; then
+          _has_ansible=true
+        fi
+
+        # Check YAML content for Ansible play syntax
+        if [ "$_has_ansible" = "false" ] && find . \( -name "*.yml" -o -name "*.yaml" \) -type f | xargs grep -l "^- hosts:\|^  hosts:" 2>/dev/null | grep -q .; then
+          _has_ansible=true
+        fi
+
+        if [ "$_has_ansible" = "true" ]; then
           printf 'files_found=%s\n' "true" >> "$GITHUB_OUTPUT"
           echo "Found Ansible files, proceeding with lint and fix."
         else
           printf 'files_found=%s\n' "false" >> "$GITHUB_OUTPUT"
-          echo "No Ansible files found. Skipping lint and fix."
+          echo "No Ansible files detected. Skipping lint and fix."
         fi
-
-    - name: Checkout Repository
-      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
-      with:
-        token: ${{ inputs.token || github.token }}
 
     - name: Setup Python
       if: steps.check-files.outputs.files_found == 'true'

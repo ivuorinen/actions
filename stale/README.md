@@ -1,50 +1,24 @@
 # ivuorinen/actions/stale
 
-## Stale
-
-### Description
+## Description
 
 A GitHub Action to close stale issues and pull requests.
 
-### Inputs
+## Inputs
 
-| name                | description                                                            | required | default |
-|---------------------|------------------------------------------------------------------------|----------|---------|
-| `token`             | <p>GitHub token for authentication</p>                                 | `false`  | `""`    |
-| `days-before-stale` | <p>Number of days of inactivity before an issue is marked as stale</p> | `false`  | `30`    |
-| `days-before-close` | <p>Number of days of inactivity before a stale issue is closed</p>     | `false`  | `7`     |
+| parameter | description | required | default |
+| --- | --- | --- | --- |
+| token | GitHub token for authentication | `false` |  |
+| days-before-stale | Number of days of inactivity before an issue is marked as stale | `false` | 30 |
+| days-before-close | Number of days of inactivity before a stale issue is closed | `false` | 7 |
 
-### Outputs
+## Outputs
 
-| name                  | description                             |
-|-----------------------|-----------------------------------------|
-| `staled_issues_count` | <p>Number of issues marked as stale</p> |
-| `closed_issues_count` | <p>Number of issues closed</p>          |
+| parameter | description |
+| --- | --- |
+| staled_issues_count | Number of issues marked as stale |
+| closed_issues_count | Number of issues closed |
 
-### Runs
+## Runs
 
 This action is a `composite` action.
-
-### Usage
-
-```yaml
-- uses: ivuorinen/actions/stale@vYYYY.MM.DD
-  with:
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-
-    days-before-stale:
-    # Number of days of inactivity before an issue is marked as stale
-    #
-    # Required: false
-    # Default: 30
-
-    days-before-close:
-    # Number of days of inactivity before a stale issue is closed
-    #
-    # Required: false
-    # Default: 7
-```

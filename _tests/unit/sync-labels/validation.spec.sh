@@ -19,7 +19,7 @@ The status should be success
 End
 
 It "accepts fine-grained GitHub token"
-When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "token" "github_pat_11ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "token" "github_pat_1234567890123456789012345678901234567890123456789012345678901234567890a"
 The status should be success
 End
 
@@ -86,9 +86,9 @@ When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "t
 The output should equal "optional"
 End
 
-It "labels input is required"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "labels" "required"
-The output should equal "required"
+It "labels input is optional"
+When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "labels" "optional"
+The output should equal "optional"
 End
 End
 

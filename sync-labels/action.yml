@@ -13,8 +13,7 @@ branding:
 inputs:
   labels:
     description: 'Path to the labels YAML file'
-    required: true
-    default: 'labels.yml'
+    required: false
   token:
     description: 'GitHub token for authentication'
     required: false
@@ -61,20 +60,9 @@ runs:
           exit 1
         fi
 
-    - name: ⤵️ Download latest labels definitions
-      shell: sh
-      env:
-        LABELS_FILE: ${{ inputs.labels }}
-      run: |
-        set -eu
-
-        curl -s --retry 5 \
-          "https://raw.githubusercontent.com/ivuorinen/actions/main/sync-labels/labels.yml" \
-          > "$LABELS_FILE"
-
-    - name: 🚀 Run Label Syncer
+    - name: Run Label Syncer
       uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       with:
-        manifest: ${{ inputs.labels }}
+        manifest: ${{ inputs.labels || format('{0}/labels.yml', github.action_path) }}

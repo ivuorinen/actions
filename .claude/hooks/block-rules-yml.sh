@@ -8,7 +8,8 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 
 INPUT=$(cat)
-FILE_PATH=$(echo "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
+CLEAN_INPUT=$(printf '%s' "$INPUT" | LC_ALL=C tr -d '\000-\010\013\014\016-\037')
+FILE_PATH=$(printf '%s' "$CLEAN_INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty' 2>/dev/null || true)
 
 if [ -z "$FILE_PATH" ]; then
   exit 0

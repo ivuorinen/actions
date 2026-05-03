@@ -44,17 +44,39 @@ class ValidationCore:
     # Injection detection pattern - characters commonly used in command injection
     INJECTION_CHARS_PATTERN = r"[;&|`$()]"
 
-    # Security injection patterns
-    SECURITY_PATTERNS = [
+    # Metacharacters that are NEVER legitimate in a typed input.
+    _TYPED_DENY_PATTERN = re.compile(
+        r"""
+        ;                    # command separator
+        | &&                 # logical AND
+        | \|\|               # logical OR
+        | `                  # backtick command substitution
+        | \$\(               # $() command substitution
+        | \$\{               # ${} parameter expansion reaching shell
+        | \|\s*[A-Za-z]      # pipe into a command
+        | >\s*[/A-Za-z]      # redirect out
+        | <\s*[/A-Za-z]      # redirect in
+        """,
+        re.VERBOSE,
+    )
+
+    # Inputs whose declared convention legitimately allows shell metachars.
+    # Kept empty on purpose — update only when a real input needs it.
+    _CONVENTION_ALLOWS_SHELL_METACHARS: set[str] = set()
+
+    # Legacy allowlist, kept as a fallback ONLY for inputs with no convention.
+    _LEGACY_INJECTION_PATTERNS = [
         r";\s*(rm|del|format|shutdown|reboot)",
         r"&&\s*(rm|del|format|shutdown|reboot)",
         r"\|\s*(rm|del|format|shutdown|reboot)",
-        r"`[^`]*`",  # Command substitution
-        r"\$\([^)]*\)",  # Command substitution
-        # Path traversal only dangerous when combined with commands
+        r"`[^`]*`",
+        r"\$\([^)]*\)",
         r"\.\./.*;\s*(rm|del|format|shutdown|reboot)",
-        r"\.\.\\+.*;\s*(rm|del|format|shutdown|reboot)",  # Windows: ..\ or ..\\ patterns
+        r"\.\.\\+.*;\s*(rm|del|format|shutdown|reboot)",
     ]
+
+    # Back-compat alias: existing callers import this name.
+    SECURITY_PATTERNS = _LEGACY_INJECTION_PATTERNS
 
     def __init__(self):
         """Initialize the validation core."""
@@ -84,7 +106,7 @@ class ValidationCore:
             return True, ""
 
         # Check against standardized token patterns
-        for _token_type, pattern in self.TOKEN_PATTERNS.items():
+        for pattern in self.TOKEN_PATTERNS.values():
             if re.match(pattern, token):
                 return True, ""
 
@@ -122,28 +144,48 @@ class ValidationCore:
         self,
         input_value: str,
         input_name: str = "",
+        *,
+        convention: str | None = None,
     ) -> tuple[bool, str]:
-        """
-        Check for common security injection patterns.
+        """Reject shell metacharacters in typed inputs.
 
-        Args:
-            input_value: The value to validate
-            input_name: Name of the input (for context)
-
-        Returns:
-            Tuple of (is_valid, error_message)
+        If ``convention`` is a known type (anything not in the allow-set),
+        any shell metacharacter rejects. If ``convention`` is None, fall
+        back to the legacy allowlist-of-dangerous-commands and log a warning
+        so the gap is visible in CI logs.
         """
-        # Allow empty values for most inputs (they're often optional)
         if not input_value or input_value.strip() == "":
             return True, ""
 
-        for pattern in self.SECURITY_PATTERNS:
+        if convention is not None:
+            if convention in self._CONVENTION_ALLOWS_SHELL_METACHARS:
+                return True, ""
+            # ${{ ... }} expressions are evaluated server-side; not a shell risk.
+            # Non-greedy .+? accepts internal '}' chars like ${{ a || '' }}.
+            if re.fullmatch(r"\$\{\{.+?\}\}", input_value.strip()):
+                return True, ""
+            if self._TYPED_DENY_PATTERN.search(input_value):
+                return (
+                    False,
+                    f"Shell metacharacter detected in {input_name or 'input'} "
+                    f"(convention={convention})",
+                )
+            return True, ""
+
+        # No convention: legacy behavior + warning.
+        import logging
+
+        logging.getLogger(__name__).warning(
+            "validate_security_patterns called without a convention for "
+            "input=%r; falling back to legacy allowlist (incomplete)",
+            input_name,
+        )
+        for pattern in self._LEGACY_INJECTION_PATTERNS:
             if re.search(pattern, input_value, re.IGNORECASE):
                 return (
                     False,
                     f"Potential security injection pattern detected in {input_name or 'input'}",
                 )
-
         return True, ""
 
     def validate_boolean(self, value: str, input_name: str) -> tuple[bool, str]:
@@ -615,6 +657,27 @@ def resolve_action_file_path(action_dir: str) -> str:
     return f"{action_dir}/action.yml"
 
 
+def _validate_no_prefix_version(validator: ValidationCore, input_value: str) -> tuple[bool, str]:
+    if not input_value or input_value.strip() == "":
+        return True, ""
+    if input_value.strip().lower().startswith("v"):
+        return False, f'Version must not have a "v" prefix: "{input_value}"'
+    return validator.validate_version_format(input_value)
+
+
+def _validate_integer(input_value: str, *, non_negative: bool = False) -> tuple[bool, str]:
+    if not input_value or input_value.strip() == "":
+        return True, ""
+    try:
+        num = int(input_value.strip())
+        if num >= 0 if non_negative else num > 0:
+            return True, ""
+        label = "non-negative" if non_negative else "positive"
+        return False, f"Value must be {label}, got {num}"
+    except ValueError:
+        return False, f"Invalid integer: {input_value!r}"
+
+
 def _apply_validation_by_type(
     validator: ValidationCore,
     validation_type: str,
@@ -623,12 +686,19 @@ def _apply_validation_by_type(
     required_inputs: list,
 ) -> tuple[bool, str]:
     """Apply validation based on the validation type."""
+    version_types = {
+        "semantic_version",
+        "calver_version",
+        "flexible_version",
+        "strict_semantic_version",
+    }
+
     validation_map = {
         "github_token": lambda: validator.validate_github_token(
             input_value, required=input_name in required_inputs
         ),
         "namespace_with_lookahead": lambda: validator.validate_namespace_with_lookahead(
-            input_value,
+            input_value
         ),
         "boolean": lambda: validator.validate_boolean(input_value, input_name),
         "file_path": lambda: validator.validate_file_path(input_value),
@@ -642,16 +712,17 @@ def _apply_validation_by_type(
         "cache_directories": lambda: validator.validate_cache_directories(input_value),
         "tools": lambda: validator.validate_tools(input_value),
         "numeric_range_1_10": lambda: validator.validate_numeric_range_1_10(input_value),
+        "no_prefix_version": lambda: _validate_no_prefix_version(validator, input_value),
+        "terraform_version": lambda: validator.validate_version_format(
+            input_value, allow_v_prefix=True
+        ),
+        "positive_integer": lambda: _validate_integer(input_value),
+        "non_negative_integer": lambda: _validate_integer(input_value, non_negative=True),
     }
 
-    # Handle version formats
-    if validation_type in ["semantic_version", "calver_version", "flexible_version"]:
+    if validation_type in version_types:
         return validator.validate_version_format(input_value)
 
-    if validation_type == "terraform_version":
-        return validator.validate_version_format(input_value, allow_v_prefix=True)
-
-    # Use validation map for other types
     if validation_type in validation_map:
         return validation_map[validation_type]()
 
@@ -672,9 +743,9 @@ def _load_and_validate_rules(
         overrides = rules_data.get("overrides", {})
         required_inputs = rules_data.get("required_inputs", [])
 
-        # Check if input is required and empty
+        # Check if input is required and empty; preserve required_inputs so caller can detect it
         if input_name in required_inputs and (not input_value or input_value.strip() == ""):
-            return None, {}, []  # Will cause error in caller
+            return None, {}, required_inputs
 
         # Get validation type
         validation_type = overrides.get(input_name, conventions.get(input_name))
@@ -685,21 +756,32 @@ def _load_and_validate_rules(
 
 
 def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[bool | None, str]:
-    """
-    Validate an input value for a specific action.
-
-    This is the main validation entry point that replaces the complex
-    validation logic in the original framework.
-    """
+    """Validate an input value for a specific action."""
     validator = ValidationCore()
-
-    # Always perform security validation first
-    security_valid, security_error = validator.validate_security_patterns(input_value, input_name)
-    if not security_valid:
-        return False, security_error
 
     # Get action name for business logic and rules
     action_name = Path(action_dir).name
+
+    # Load validation rules from action folder so security can type-check.
+    script_dir = Path(__file__).resolve().parent
+    project_root = script_dir.parent.parent
+    rules_file = project_root / action_name / "rules.yml"
+
+    resolved_convention: str | None = None
+    required_inputs: list = []
+    if rules_file.exists():
+        resolved_convention, _, required_inputs = _load_and_validate_rules(
+            rules_file,
+            input_name,
+            input_value,
+        )
+
+    # Always perform security validation first (convention-aware)
+    security_valid, security_error = validator.validate_security_patterns(
+        input_value, input_name, convention=resolved_convention
+    )
+    if not security_valid:
+        return False, security_error
 
     # Check enhanced business logic first (takes precedence over general rules)
     enhanced_validation = validator.validate_enhanced_business_logic(
@@ -710,27 +792,16 @@ def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[
     if enhanced_validation[0] is not None:  # If enhanced validation has an opinion
         return enhanced_validation
 
-    # Load validation rules from action folder
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent.parent
-    rules_file = project_root / action_name / "rules.yml"
-
     if rules_file.exists():
-        validation_type, _rules_data, required_inputs = _load_and_validate_rules(
-            rules_file,
-            input_name,
-            input_value,
-        )
-
         # Check for required input error
         if input_name in required_inputs and (not input_value or input_value.strip() == ""):
             return False, f"Required input '{input_name}' cannot be empty"
 
-        if validation_type:
+        if resolved_convention:
             try:
                 return _apply_validation_by_type(
                     validator,
-                    validation_type,
+                    resolved_convention,
                     input_value,
                     input_name,
                     required_inputs,
@@ -745,19 +816,28 @@ def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[
     return True, ""
 
 
-def _handle_legacy_interface():
-    """Handle legacy CLI interface for backward compatibility."""
-    if len(sys.argv) == 5 and all(not arg.startswith("-") for arg in sys.argv[1:]):
-        action_dir, input_name, input_value, expected_result = sys.argv[1:5]
-        is_valid, error_msg = validate_input(action_dir, input_name, input_value)
+def _handle_legacy_interface() -> bool:
+    """Handle legacy 4-positional-arg CLI: (action_dir input_name value expected).
 
-        actual_result = "success" if is_valid else "failure"
-        if actual_result == expected_result:
-            sys.exit(0)
-        else:
-            print(f"Expected {expected_result}, got {actual_result}: {error_msg}", file=sys.stderr)
-            sys.exit(1)
-    return False  # Not legacy interface
+    Detects the legacy form by argument count only, so values beginning with
+    '-' (valid semver prereleases, negative numbers) are not mistaken for
+    argparse flags. Returns False (and lets argparse take over) for any
+    other form, including --help explicitly.
+    """
+    if len(sys.argv) != 5:
+        return False
+    # Only sys.argv[1] (the action_dir) must not look like a flag. Later
+    # positionals — especially input_value at sys.argv[3] — MAY start with
+    # `-` (valid semver prereleases, negative numbers).
+    if sys.argv[1].startswith("-"):
+        return False
+    action_dir, input_name, input_value, expected_result = sys.argv[1:5]
+    is_valid, error_msg = validate_input(action_dir, input_name, input_value)
+    actual_result = "success" if is_valid else "failure"
+    if actual_result == expected_result:
+        raise SystemExit(0)
+    print(f"Expected {expected_result}, got {actual_result}: {error_msg}", file=sys.stderr)
+    raise SystemExit(1)
 
 
 def _create_argument_parser():

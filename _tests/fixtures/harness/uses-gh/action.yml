@@ -1,0 +1,17 @@
+---
+name: Uses gh Fixture
+description: 'Fixture: calls gh and writes the result to $GITHUB_OUTPUT.'
+outputs:
+  tag:
+    description: 'the latest tag'
+    value: ${{ steps.fetch.outputs.tag }}
+
+runs:
+  using: composite
+  steps:
+    - id: fetch
+      shell: sh
+      run: |
+        set -eu
+        tag=$(gh release list --limit 1)
+        printf 'tag=%s\n' "$tag" >> "$GITHUB_OUTPUT"

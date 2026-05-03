@@ -114,8 +114,11 @@ inputs:
   dry-run:
     description: 'Dry run mode'
     required: false
-  is_fiximus:
+  is-fiximus:
     description: 'Use Fiximus bot'
+    required: false
+  is_fiximus:
+    description: 'Deprecated alias for is-fiximus (backward compatibility)'
     required: false
 
   # Release inputs
@@ -213,15 +216,20 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Set up uv
+      uses: astral-sh/setup-uv@08807647e7069bb48b6ef5acd8ec9567f424441b # v8.1.0
+
     - name: Install Python dependencies
-      shell: bash
-      run: pip install pyyaml==6.0.3
+      shell: sh
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+      run: uv sync --directory "$ACTION_PATH"
 
     - name: Validate Action Inputs with Python
       id: validate
-      shell: bash
+      shell: sh
       working-directory: ${{ github.action_path }}
-      run: python3 validator.py
+      run: uv run validator.py
       env:
         INPUT_ACTION: ${{ inputs.action }}
         INPUT_ACTION_TYPE: ${{ inputs.action-type }}
@@ -253,7 +261,7 @@ runs:
         INPUT_PRE_COMMIT_CONFIG: ${{ inputs.pre-commit-config }}
         INPUT_BASE_BRANCH: ${{ inputs.base-branch }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
-        INPUT_IS_FIXIMUS: ${{ inputs.is_fiximus }}
+        INPUT_IS_FIXIMUS: ${{ inputs.is-fiximus || inputs.is_fiximus }}
         INPUT_PREFIX: ${{ inputs.prefix }}
         INPUT_LANGUAGE: ${{ inputs.language }}
         INPUT_QUERIES: ${{ inputs.queries }}
@@ -271,3 +279,9 @@ runs:
         INPUT_OUTPUT: ${{ inputs.output }}
         INPUT_SKIP_QUERIES: ${{ inputs.skip-queries }}
         INPUT_ADD_SNIPPETS: ${{ inputs.add-snippets }}
+        INPUT_GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
+        INPUT_GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
+        INPUT_TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+        INPUT_TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
+        INPUT_TRIVY_TIMEOUT: ${{ inputs.trivy-timeout }}
+        INPUT_ACTIONLINT_ENABLED: ${{ inputs.actionlint-enabled }}

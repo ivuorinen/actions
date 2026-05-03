@@ -228,14 +228,23 @@ runs:
           exit 1
         fi
 
+        # Determine dist-tag: use prerelease label (e.g. "beta" from "1.0.0-beta.1") or "latest"
+        prerelease_label=$(printf '%s' "$sanitized_version" | sed 's/^[^-]*-\([^.]*\).*/\1/')
+        if [ "$prerelease_label" != "$sanitized_version" ] && [ -n "$prerelease_label" ]; then
+          dist_tag="$prerelease_label"
+        else
+          dist_tag="latest"
+        fi
+
         # Dry run first
         npm publish \
           --registry "$REGISTRY_URL" \
           --dry-run \
+          --tag "$dist_tag" \
           --scope "$PACKAGE_SCOPE"
 
         npm publish \
           --registry "$REGISTRY_URL" \
           --verbose \
-          --scope "$PACKAGE_SCOPE" \
-          --tag "$PACKAGE_VERSION"
+          --tag "$dist_tag" \
+          --scope "$PACKAGE_SCOPE"

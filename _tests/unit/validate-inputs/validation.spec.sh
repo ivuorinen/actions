@@ -26,21 +26,25 @@ End
 It "rejects action with command injection"
 When call validate_input_python "validate-inputs" "action" "github-release; rm -rf /"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "rejects action with shell operators"
 When call validate_input_python "validate-inputs" "action" "github-release && malicious"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "rejects action with pipe"
 When call validate_input_python "validate-inputs" "action" "github-release | cat /etc/passwd"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "rejects empty action"
 When call validate_input_python "validate-inputs" "action" ""
 The status should be failure
+The stdout should include "No action type provided"
 End
 End
 
@@ -126,9 +130,12 @@ End
 End
 
 Context "when testing input requirements"
-It "requires action input"
+# Both `action` and `action-type` are declared optional in action.yml —
+# one of the two must be provided at runtime, but the schema accepts
+# either. validator.py enforces the "one must be set" rule.
+It "has action as optional input"
 When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "action" "required"
-The output should equal "required"
+The output should equal "optional"
 End
 
 It "has rules-file as optional input"
@@ -151,6 +158,7 @@ End
 It "validates against command injection in action name"
 When call validate_input_python "validate-inputs" "action" "test\`whoami\`"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "validates against shell metacharacters in rules file"
@@ -163,6 +171,7 @@ Context "when testing validation-specific functionality"
 It "validates action name format restrictions"
 When call validate_input_python "validate-inputs" "action" "invalid/action/name"
 The status should be failure
+The stdout should include "Invalid action name format"
 End
 
 It "validates rules file extension requirements"

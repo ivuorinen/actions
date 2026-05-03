@@ -27,8 +27,10 @@ runs:
         python-version-file: pyproject.toml
 
     - name: Install Python dependencies
-      shell: bash
-      run: uv sync --frozen
+      shell: sh
+      run: |
+        set -eu
+        uv sync --frozen
 
     - name: Setup Node.js
       uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -37,19 +39,23 @@ runs:
         cache: npm
 
     - name: Install Node dependencies
-      shell: bash
-      run: npm ci
+      shell: sh
+      run: |
+        set -eu
+        npm ci
 
     - name: Install system tools
-      shell: bash
+      shell: sh
       run: |
+        set -eu
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends jq shellcheck
 
     - name: Install kcov from source
       if: inputs.install-kcov == 'true'
-      shell: bash
+      shell: sh
       run: |
+        set -eu
         echo "Installing kcov build dependencies..."
         sudo apt-get install -y --no-install-recommends \
           cmake \
@@ -76,9 +82,9 @@ runs:
         kcov --version
 
     - name: Install ShellSpec
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Pin to specific version to avoid supply-chain risks
         SHELLSPEC_VERSION="0.28.1"
@@ -92,7 +98,7 @@ runs:
 
         echo "Verifying checksum..."
         ACTUAL_CHECKSUM="$(sha256sum /tmp/shellspec.tar.gz | awk '{print $1}')"
-        if [[ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]]; then
+        if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
           echo "Error: Checksum mismatch for ShellSpec ${SHELLSPEC_VERSION}" >&2
           echo "Expected: ${EXPECTED_CHECKSUM}" >&2
           echo "Got:      ${ACTUAL_CHECKSUM}" >&2
@@ -111,9 +117,9 @@ runs:
 
     - name: Install act
       if: inputs.install-act == 'true'
-      shell: bash
+      shell: sh
       run: |
-        set -euo pipefail
+        set -eu
 
         # Pin to specific version to avoid supply-chain risks
         ACT_VERSION="0.2.82"
@@ -149,8 +155,9 @@ runs:
 
     - name: Setup Docker and act configuration
       if: inputs.install-act == 'true'
-      shell: bash
+      shell: sh
       run: |
+        set -eu
         # Ensure Docker is running
         docker ps > /dev/null 2>&1 || (echo "Docker is not running" && exit 1)
 
@@ -158,12 +165,13 @@ runs:
         docker pull catthehacker/ubuntu:act-latest
 
     - name: Verify tools
-      shell: bash
+      shell: sh
       run: |
+        set -eu
         shellspec --version
         jq --version
         uv --version
-        if [[ "${{ inputs.install-act }}" == "true" ]]; then
+        if [ "${{ inputs.install-act }}" = "true" ]; then
           act --version
           docker --version
         fi
