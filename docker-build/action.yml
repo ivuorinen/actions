@@ -246,7 +246,7 @@ runs:
           IFS="$old_ifs"
           set +f
 
-          # Iterate through positional parameters
+          # Append each arg as " --build-arg VALUE" (space-separated, leading space)
           for arg; do
             args="$args --build-arg $arg"
           done
@@ -475,22 +475,43 @@ runs:
             --platform="${platforms}" \
             --tag "$IMAGE_NAME:$TAG"
 
-          # Append pre-assembled flag groups token by token
-          for _arg in $BUILD_ARGS; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $BUILD_CONTEXTS; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $SECRETS; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $CACHE_FROM; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $CACHE_TO; do
-            set -- "$@" "$_arg"
-          done
+          # Append space-separated flag groups; set -f prevents glob expansion of
+          # values like "*.go" that appear in build-arg strings.
+          if [ -n "$BUILD_ARGS" ]; then
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $BUILD_ARGS; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
+          fi
+          if [ -n "$BUILD_CONTEXTS" ]; then
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $BUILD_CONTEXTS; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
+          fi
+          if [ -n "$SECRETS" ]; then
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $SECRETS; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
+          fi
+          if [ -n "$CACHE_FROM" ]; then
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $CACHE_FROM; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
+          fi
+          if [ -n "$CACHE_TO" ]; then
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $CACHE_TO; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
+          fi
 
           set -- "$@" \
             --file "$DOCKERFILE" \

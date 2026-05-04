@@ -9,17 +9,12 @@
 #
 # $GITHUB_OUTPUT and $GITHUB_ENV must be set by the spec (shellspec_setup_test_env).
 
-# shellcheck disable=SC2155
 _harness_py() {
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  echo "${script_dir}/harness/harness.py"
+  echo "${FRAMEWORK_DIR:?FRAMEWORK_DIR not set by spec_helper}/harness/harness.py"
 }
 
 _harness_project_root() {
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  (cd "${script_dir}/.." && pwd)
+  echo "${PROJECT_ROOT:?PROJECT_ROOT not set by spec_helper}"
 }
 
 # Invoke Python via uv so PyYAML resolves. Falls back to plain python3 if uv
@@ -40,15 +35,15 @@ _harness_python() {
 # Ensures $HARNESS_SESSION is set and exported. Creates a fresh tempdir on
 # first call in the current shell scope. Idempotent within a test.
 _harness_ensure_session() {
-  if [[ -z "${HARNESS_SESSION:-}" ]]; then
+  if [ -z "${HARNESS_SESSION:-}" ]; then
     HARNESS_SESSION="$(mktemp -d "${TEMP_DIR:-/tmp}/harness.XXXXXXXX")"
     export HARNESS_SESSION
-    echo "[]" > "${HARNESS_SESSION}/mocks.json"
+    printf '[]' >"${HARNESS_SESSION}/mocks.json"
   fi
 }
 
 harness_reset() {
-  if [[ -n "${HARNESS_SESSION:-}" && -d "${HARNESS_SESSION}" ]]; then
+  if [ -n "${HARNESS_SESSION:-}" ] && [ -d "${HARNESS_SESSION}" ]; then
     rm -rf "${HARNESS_SESSION}"
   fi
   unset HARNESS_SESSION
@@ -104,10 +99,10 @@ expect_output() {
   local value="$2"
   local file="${3:-$GITHUB_OUTPUT}"
   if ! grep -Fxq "${key}=${value}" "$file"; then
-    echo "expect_output: missing '${key}=${value}' in ${file}" >&2
-    echo "--- actual ---" >&2
+    printf 'expect_output: missing '"'"'%s=%s'"'"' in %s\n' "$key" "$value" "$file" >&2
+    printf '%s\n' '--- actual ---' >&2
     cat "$file" >&2
-    echo "--- end ---" >&2
+    printf '%s\n' '--- end ---' >&2
     return 1
   fi
   return 0

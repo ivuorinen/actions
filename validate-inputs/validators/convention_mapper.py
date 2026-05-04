@@ -14,8 +14,8 @@ if TYPE_CHECKING:
 class ConventionMapper:
     """Maps input names to validators based on naming conventions."""
 
-    # Priority-ordered convention patterns
-    CONVENTION_PATTERNS: ClassVar[list[dict[str, Any]]] = [
+    # Default priority-ordered convention patterns (class-level, never mutated)
+    _DEFAULT_PATTERNS: ClassVar[list[dict[str, Any]]] = [
         # High priority - exact matches
         {
             "priority": 100,
@@ -45,7 +45,7 @@ class ConventionMapper:
         },
         {
             "priority": 95,  # Higher priority for specific versions
-            "type": "contains",
+            "type": "exact",
             "patterns": {
                 "python-version": "python_version",
                 "node-version": "node_version",
@@ -221,12 +221,12 @@ class ConventionMapper:
 
     def __init__(self) -> None:
         """Initialize the convention mapper."""
-        self._cache = {}
+        self._cache: dict[str, str | None] = {}
+        self.CONVENTION_PATTERNS: list[dict[str, Any]] = list(self.__class__._DEFAULT_PATTERNS)
         self._compile_patterns()
 
     def _compile_patterns(self) -> None:
         """Compile patterns for efficient matching."""
-        # Sort patterns by priority
         self.CONVENTION_PATTERNS.sort(key=lambda x: x["priority"], reverse=True)
 
     def _normalize_pattern(
@@ -326,8 +326,7 @@ class ConventionMapper:
         Args:
             pattern: Pattern dictionary with priority, type, and patterns
         """
-        # Note: Modifying ClassVar directly is not ideal, but needed for dynamic configuration
-        ConventionMapper.CONVENTION_PATTERNS.append(pattern)
+        self.CONVENTION_PATTERNS.append(pattern)
         self._compile_patterns()
         self.clear_cache()
 
@@ -337,9 +336,6 @@ class ConventionMapper:
         Args:
             pattern_filter: Function that returns True for patterns to remove
         """
-        # Note: Modifying ClassVar directly is not ideal, but needed for dynamic configuration
-        ConventionMapper.CONVENTION_PATTERNS = [
-            p for p in ConventionMapper.CONVENTION_PATTERNS if not pattern_filter(p)
-        ]
+        self.CONVENTION_PATTERNS = [p for p in self.CONVENTION_PATTERNS if not pattern_filter(p)]
         self._compile_patterns()
         self.clear_cache()

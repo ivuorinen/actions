@@ -19,6 +19,7 @@ on:
       - '_tests/**'
       - 'Makefile'
       - '.github/workflows/test-actions.yml'
+  # checkov:skip=CKV_GHA_7:Test-only workflow; inputs passed through env: blocks, never interpolated directly into shell
   workflow_dispatch:
     inputs:
       test-type:
@@ -56,15 +57,22 @@ jobs:
 
       - name: Run unit tests
         shell: sh
+        env:
+          TEST_TYPE: ${{ github.event.inputs.test-type }}
+          ACTION_FILTER: ${{ github.event.inputs.action-filter }}
         run: |
-          if [ "${{ github.event.inputs.test-type }}" = "unit" ] || [ "${{ github.event.inputs.test-type }}" = "all" ] || [ -z "${{ github.event.inputs.test-type }}" ]; then
-            if [ -n "${{ github.event.inputs.action-filter }}" ]; then
-              make test-action ACTION="${{ github.event.inputs.action-filter }}"
+          # Validate ACTION_FILTER contains only safe characters
+          case "$ACTION_FILTER" in
+            *[!a-zA-Z0-9_-]*) echo "::error::Invalid action-filter value"; exit 1 ;;
+          esac
+          if [ "$TEST_TYPE" = "unit" ] || [ "$TEST_TYPE" = "all" ] || [ -z "$TEST_TYPE" ]; then
+            if [ -n "$ACTION_FILTER" ]; then
+              make test-action ACTION="$ACTION_FILTER"
             else
               make test-unit
             fi
           else
-            echo "Skipping unit tests (test-type: ${{ github.event.inputs.test-type }})"
+            echo "Skipping unit tests (test-type: $TEST_TYPE)"
           fi
 
       - name: Generate SARIF report
@@ -108,15 +116,22 @@ jobs:
 
       - name: Run integration tests
         shell: sh
+        env:
+          TEST_TYPE: ${{ github.event.inputs.test-type }}
+          ACTION_FILTER: ${{ github.event.inputs.action-filter }}
         run: |
-          if [ "${{ github.event.inputs.test-type }}" = "integration" ] || [ "${{ github.event.inputs.test-type }}" = "all" ] || [ -z "${{ github.event.inputs.test-type }}" ]; then
-            if [ -n "${{ github.event.inputs.action-filter }}" ]; then
-              ./_tests/run-tests.sh --type integration --action "${{ github.event.inputs.action-filter }}"
+          # Validate ACTION_FILTER contains only safe characters
+          case "$ACTION_FILTER" in
+            *[!a-zA-Z0-9_-]*) echo "::error::Invalid action-filter value"; exit 1 ;;
+          esac
+          if [ "$TEST_TYPE" = "integration" ] || [ "$TEST_TYPE" = "all" ] || [ -z "$TEST_TYPE" ]; then
+            if [ -n "$ACTION_FILTER" ]; then
+              ./_tests/run-tests.sh --type integration --action "$ACTION_FILTER"
             else
               make test-integration
             fi
           else
-            echo "Skipping integration tests (test-type: ${{ github.event.inputs.test-type }})"
+            echo "Skipping integration tests (test-type: $TEST_TYPE)"
           fi
 
       - name: Check for integration test reports
@@ -271,6 +286,9 @@ jobs:
 
       - name: Generate test summary
         shell: sh
+        env:
+          UNIT_RESULT: ${{ needs.unit-tests.result }}
+          INTEGRATION_RESULT: ${{ needs.integration-tests.result }}
         run: |
           {
             echo "## 🧪 Test Results Summary"
@@ -289,9 +307,7 @@ jobs:
             fi
 
             echo ""
-            unit_success="${{ needs.unit-tests.result == 'success' }}"
-            integration_ok="${{ needs.integration-tests.result == 'success' || needs.integration-tests.result == 'skipped' }}"
-            if [ "$unit_success" = "true" ] && [ "$integration_ok" = "true" ]; then
+            if [ "$UNIT_RESULT" = "success" ] && { [ "$INTEGRATION_RESULT" = "success" ] || [ "$INTEGRATION_RESULT" = "skipped" ]; }; then
               status="✅ All tests passed"
             else
               status="❌ Some tests failed"
@@ -301,8 +317,8 @@ jobs:
             # Job status details
             echo ""
             echo "### Job Details"
-            echo "- Unit Tests: ${{ needs.unit-tests.result }}"
-            echo "- Integration Tests: ${{ needs.integration-tests.result }}"
+            echo "- Unit Tests: $UNIT_RESULT"
+            echo "- Integration Tests: $INTEGRATION_RESULT"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if tests failed

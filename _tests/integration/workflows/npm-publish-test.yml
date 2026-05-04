@@ -37,6 +37,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org/'
           scope: '@test'
           package-version: '1.0.0'
+          # checkov:skip=CKV_SECRET_6:test fixture value, not a real token
           npm_token: 'test-token-12345678'
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}/test-package
@@ -318,6 +319,7 @@ jobs:
           registry-url: 'https://registry.npmjs.org/'
           scope: '@test'
           package-version: '1.0.0'
+          # checkov:skip=CKV_SECRET_6:test fixture value, not a real token
           npm_token: 'super-secret-token-12345'
         env:
           GITHUB_WORKSPACE: ${{ github.workspace }}/test-secrets

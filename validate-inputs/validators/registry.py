@@ -108,21 +108,20 @@ class ValidatorRegistry:
                 return None
 
             module = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = module
-            spec.loader.exec_module(module)
+            try:
+                sys.modules[spec.name] = module
+                spec.loader.exec_module(module)
+            except Exception:
+                sys.modules.pop(spec.name, None)
+                raise
 
             # Get the CustomValidator class
             if hasattr(module, "CustomValidator"):
                 validator_class = module.CustomValidator
                 return validator_class(action_type)
 
-        except (ImportError, AttributeError, TypeError, ValueError) as e:
-            # Log at debug level - custom validators are optional
-            # Catch common errors during dynamic module loading:
-            # - ImportError: Module dependencies not found
-            # - AttributeError: Module doesn't have CustomValidator
-            # - TypeError: Validator instantiation failed
-            # - ValueError: Invalid validator configuration
+        except Exception as e:
+            # Log at debug level - custom validators are optional and may raise anything
             logger = logging.getLogger(__name__)
             logger.debug("Could not load custom validator for %s: %s", action_type, e)
 
@@ -141,6 +140,11 @@ class ValidatorRegistry:
 
     def clear_cache(self) -> None:
         """Clear the validator instance cache."""
+        self._validator_instances.clear()
+
+    def reset(self) -> None:
+        """Clear all registered validators and cached instances. For test isolation only."""
+        self._validators.clear()
         self._validator_instances.clear()
 
     def list_registered(self) -> list[str]:
@@ -232,3 +236,8 @@ def register_validator(action_type: str, validator_class: type[BaseValidator]) -
 def clear_cache() -> None:
     """Clear the global validator cache."""
     _registry.clear_cache()
+
+
+def reset() -> None:
+    """Clear all registered validators and cached instances. For test isolation only."""
+    _registry.reset()

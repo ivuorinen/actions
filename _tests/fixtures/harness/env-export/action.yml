@@ -1,0 +1,15 @@
+---
+name: Env Export Fixture
+description: 'Fixture: step 1 exports EXPORTED_VAR via GITHUB_ENV; step 2 echoes it.'
+
+runs:
+  using: composite
+  steps:
+    - id: export-step
+      shell: sh
+      run: |
+        printf 'EXPORTED_VAR=hello_world\n' >> "$GITHUB_ENV"
+    - id: read-step
+      shell: sh
+      run: |
+        printf '%s\n' "$EXPORTED_VAR"

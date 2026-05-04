@@ -126,7 +126,7 @@ class DockerValidator(BaseValidator):
         # Very permissive Docker tag pattern
         # Docker tags can contain letters, digits, periods, dashes, underscores, colons, and slashes
         pattern = r"^[a-zA-Z0-9][-a-zA-Z0-9._:/@]*[a-zA-Z0-9]$"
-        if re.match(pattern, tag) or tag in ["latest"]:
+        if re.match(pattern, tag) or tag in ["latest"] or re.match(r"^[a-zA-Z0-9]$", tag):
             return True
 
         self.add_error(f'Invalid {name}: "{tag}". Must be a valid Docker tag')

@@ -117,6 +117,32 @@ class TestBaseValidator(unittest.TestCase):  # pylint: disable=too-many-public-m
             )
             assert self.validator.has_errors()
 
+        # Expression prefix does not bypass path traversal (N-081 regression)
+        self.validator.clear_errors()
+        assert not self.validator.validate_security_patterns(
+            "${{ inputs.x }}/../../../etc/passwd", "path"
+        ), "expression prefix with ../ must be rejected"
+
+    def test_is_github_expression(self):
+        """Test is_github_expression classification."""
+        # Plain expressions are accepted
+        assert self.validator.is_github_expression("${{ inputs.file }}")
+        assert self.validator.is_github_expression("${{ github.token }}")
+        assert self.validator.is_github_expression("${{ env.WORKSPACE }}/path/to/file.txt")
+        assert self.validator.is_github_expression("${{ inputs.tag }}/ghcr.io/owner/repo")
+
+        # Traversal suffix is rejected (N-081 guard)
+        assert not self.validator.is_github_expression("${{ inputs.x }}/../../../etc/passwd")
+        assert not self.validator.is_github_expression("${{ inputs.x }}/..")
+
+        # Whitespace in suffix is rejected (N-090 guard)
+        assert not self.validator.is_github_expression("${{ inputs.file }} /etc/passwd")
+        assert not self.validator.is_github_expression("${{ inputs.cmd }} && rm -rf /")
+
+        # Non-expressions are rejected
+        assert not self.validator.is_github_expression("plain_value")
+        assert not self.validator.is_github_expression("../../../etc/passwd")
+
     def test_validate_path_security(self):
         """Test path security validation."""
         # Valid paths
@@ -141,6 +167,8 @@ class TestBaseValidator(unittest.TestCase):  # pylint: disable=too-many-public-m
             "../parent/directory",
             "path/../../../etc",
             "..\\..\\windows",
+            "%2Fetc/passwd",  # URL-encoded absolute path bypass
+            "%2F%2Fetc%2Fpasswd",  # Fully URL-encoded absolute path
         ]
 
         for path in invalid_paths:

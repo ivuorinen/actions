@@ -94,6 +94,7 @@ runs:
         MAX_RETRIES: ${{ inputs.max-retries }}
         EMAIL: ${{ inputs.email }}
         USERNAME: ${{ inputs.username }}
+        COMPOSER_ARGS: ${{ inputs.composer-args }}
       run: |
         set -eu
 
@@ -167,6 +168,16 @@ runs:
         if [ ${#USERNAME} -gt 39 ]; then
           echo "::error::Username too long: ${#USERNAME} characters. GitHub usernames are max 39 characters"
           exit 1
+        fi
+
+        # Validate composer-args (only safe flag characters allowed)
+        if [ -n "$COMPOSER_ARGS" ]; then
+          case "$COMPOSER_ARGS" in
+            *[!a-zA-Z0-9\ _=./-]*)
+              echo "::error::Invalid composer-args: '$COMPOSER_ARGS'. Only alphanumeric characters, spaces, and -_=./ are allowed"
+              exit 1
+              ;;
+          esac
         fi
 
         echo "Input validation completed successfully"
@@ -377,11 +388,13 @@ runs:
 
     - name: Install Composer Dependencies
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      env:
+        COMPOSER_ARGS: ${{ inputs.composer-args }}
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
         retry_wait_seconds: 30
-        command: composer install ${{ inputs.composer-args }}
+        command: composer install $COMPOSER_ARGS
 
     - name: Verify Composer Installation
       shell: sh

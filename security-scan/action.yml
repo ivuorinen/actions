@@ -63,6 +63,11 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Checkout repository
+      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      with:
+        fetch-depth: 0
+
     - name: Validate Inputs
       id: validate
       uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
@@ -134,6 +139,8 @@ runs:
     - name: Verify SARIF files
       id: verify-sarif
       shell: sh
+      env:
+        RUN_GITLEAKS: ${{ steps.check-configs.outputs.run_gitleaks }}
       run: |
         set -eu
 
@@ -153,7 +160,7 @@ runs:
         fi
 
         # Check Gitleaks results if it ran
-        if [ "${{ steps.check-configs.outputs.run_gitleaks }}" = "true" ]; then
+        if [ "$RUN_GITLEAKS" = "true" ]; then
           if [ -f "gitleaks-report.sarif" ]; then
             if jq -e . <"gitleaks-report.sarif" >/dev/null 2>&1; then
               printf 'has_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
@@ -177,14 +184,20 @@ runs:
         sarif_file: 'gitleaks-report.sarif'
         category: 'gitleaks'
 
-    - name: Archive security reports
-      if: always()
+    - name: Archive Trivy results
+      if: always() && steps.verify-sarif.outputs.has_trivy == 'true'
       uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
       with:
-        name: security-reports-${{ github.run_id }}
-        path: |
-          ${{ steps.verify-sarif.outputs.has_trivy == 'true' && 'trivy-results.sarif' || '' }}
-          ${{ steps.verify-sarif.outputs.has_gitleaks == 'true' && 'gitleaks-report.sarif' || '' }}
+        name: security-reports-trivy-${{ github.run_id }}
+        path: trivy-results.sarif
+        retention-days: 30
+
+    - name: Archive Gitleaks results
+      if: always() && steps.verify-sarif.outputs.has_gitleaks == 'true'
+      uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      with:
+        name: security-reports-gitleaks-${{ github.run_id }}
+        path: gitleaks-report.sarif
         retention-days: 30
 
     - name: Analyze Results

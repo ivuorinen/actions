@@ -13,8 +13,8 @@ FRAMEWORK_DIR="${TEST_ROOT}/framework"
 FIXTURES_DIR="${FRAMEWORK_DIR}/fixtures"
 MOCKS_DIR="${FRAMEWORK_DIR}/mocks"
 
-# Export directories for use by test cases
-export FIXTURES_DIR MOCKS_DIR
+# Export directories for use by test cases and harness_wrapper functions
+export PROJECT_ROOT TEST_ROOT FRAMEWORK_DIR FIXTURES_DIR MOCKS_DIR
 # Only create TEMP_DIR if not already set (framework setup.sh will create it).
 # Track ownership so the EXIT trap only deletes what this script created.
 # A caller-provided TEMP_DIR (e.g. an inherited env var pointing to scratch
@@ -330,6 +330,14 @@ validate_input_python() {
   local input_name="$2"
   local input_value="$3"
 
+  # Save INPUT_ACTION_TYPE set-vs-unset state so we can restore it exactly.
+  local _saved_action_type_set=false
+  local _saved_action_type=""
+  if [ -n "${INPUT_ACTION_TYPE+x}" ]; then
+    _saved_action_type_set=true
+    _saved_action_type="$INPUT_ACTION_TYPE"
+  fi
+
   # When the `action` input itself is being tested, don't pre-set
   # INPUT_ACTION_TYPE — the test is simulating a caller that passes only
   # `action:` and expects its value to flow through validator.py's
@@ -358,6 +366,14 @@ validate_input_python() {
   input_var_name="$(echo "$input_var_name" | tr '[:lower:]' '[:upper:]')"
   export "$input_var_name"="$input_value"
 
+  # T-M3: save caller's GITHUB_OUTPUT (set vs unset) so we can restore it exactly.
+  local _saved_github_output_set=false
+  local _saved_github_output=""
+  if [ -n "${GITHUB_OUTPUT+x}" ]; then
+    _saved_github_output_set=true
+    _saved_github_output="$GITHUB_OUTPUT"
+  fi
+
   # Set up GitHub output file
   local temp_output
   temp_output=$(mktemp)
@@ -372,12 +388,27 @@ validate_input_python() {
   fi
 
   # Run validator and output everything to stdout for ShellSpec
-  uv run "${PROJECT_ROOT}/validate-inputs/validator.py" 2>&1
-  local exit_code=$?
+  # Use || to capture non-zero exit without triggering set -e, ensuring cleanup runs
+  local exit_code=0
+  _harness_python "${PROJECT_ROOT}/validate-inputs/validator.py" 2>&1 || exit_code=$?
 
   # Clean up target input
-  unset INPUT_ACTION_TYPE "$input_var_name" GITHUB_OUTPUT VALIDATOR_QUIET
+  unset "$input_var_name" VALIDATOR_QUIET
   rm -f "$temp_output" 2>/dev/null || true
+
+  # T-M3: restore GITHUB_OUTPUT exactly (handles set-to-empty vs unset)
+  if [ "$_saved_github_output_set" = "true" ]; then
+    export GITHUB_OUTPUT="$_saved_github_output"
+  else
+    unset GITHUB_OUTPUT
+  fi
+
+  # Restore INPUT_ACTION_TYPE exactly (handles set-to-empty vs unset)
+  if [ "$_saved_action_type_set" = "true" ]; then
+    export INPUT_ACTION_TYPE="$_saved_action_type"
+  else
+    unset INPUT_ACTION_TYPE
+  fi
 
   # Clean up default inputs
   cleanup_default_inputs "$action_type" "$input_name"

@@ -26,7 +26,7 @@ case "$FILE_PATH" in
   ;;
 *.sh)
   shfmt -w "$FILE_PATH" 2>/dev/null || true
-  shellcheck "$FILE_PATH" 2>&1 || true
+  shellcheck "$FILE_PATH" 2>&1
   ;;
 *.yml | *.yaml | *.json)
   npx prettier --write "$FILE_PATH" 2>/dev/null || true
@@ -40,10 +40,10 @@ esac
 case "$FILE_PATH" in
 */action.yml)
   if command -v actionlint >/dev/null 2>&1; then
-    actionlint "$FILE_PATH" 2>&1 || true
+    actionlint "$FILE_PATH" 2>&1
   fi
   if command -v action-validator >/dev/null 2>&1; then
-    action-validator "$FILE_PATH" 2>&1 || true
+    action-validator "$FILE_PATH" 2>&1
   fi
   ;;
 esac

@@ -474,28 +474,24 @@ runs:
 
         echo "Running ESLint fix mode..."
 
-        # Count files before fix
-        files_before=$(git status --porcelain | wc -l | tr -d ' ')
-
         # Run ESLint fix based on package manager
         case "$PACKAGE_MANAGER" in
           "pnpm")
-            pnpm exec eslint . --ext $FILE_EXTENSIONS --fix || true
+            pnpm exec eslint . --ext "$FILE_EXTENSIONS" --fix || true
             ;;
           "yarn")
-            yarn eslint . --ext $FILE_EXTENSIONS --fix || true
+            yarn eslint . --ext "$FILE_EXTENSIONS" --fix || true
             ;;
           "bun")
-            bunx eslint . --ext $FILE_EXTENSIONS --fix || true
+            bunx eslint . --ext "$FILE_EXTENSIONS" --fix || true
             ;;
           "npm"|*)
-            npx eslint . --ext $FILE_EXTENSIONS --fix || true
+            npx eslint . --ext "$FILE_EXTENSIONS" --fix || true
             ;;
         esac
 
-        # Count files after fix
-        files_after=$(git status --porcelain | wc -l | tr -d ' ')
-        files_changed=$((files_after - files_before))
+        # Count only files actually modified by ESLint
+        files_changed=$(git diff --name-only | wc -l | tr -d ' ')
 
         # Get number of errors fixed (approximate from diff)
         errors_fixed=$(git diff --numstat | wc -l | tr -d ' ')

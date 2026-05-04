@@ -114,7 +114,7 @@ runs:
         set -eu
 
         # Run ansible-lint and capture exit code
-        if ansible-lint --write --parseable-severity --format sarif > ansible-lint.sarif; then
+        if ansible-lint --write --format sarif > ansible-lint.sarif; then
           lint_exit_code=0
         else
           lint_exit_code=$?

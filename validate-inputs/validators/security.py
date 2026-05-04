@@ -11,6 +11,23 @@ from .base import BaseValidator
 class SecurityValidator(BaseValidator):
     """Validator for security-related checks across all inputs."""
 
+    # Environment variable names that can hijack process execution
+    _DANGEROUS_ENV_VARS: ClassVar[frozenset[str]] = frozenset(
+        {
+            "LD_PRELOAD",
+            "LD_LIBRARY_PATH",
+            "DYLD_INSERT_LIBRARIES",
+            "DYLD_LIBRARY_PATH",
+            "BASH_ENV",
+            "ENV",
+            "CDPATH",
+            "PYTHONPATH",
+            "RUBYLIB",
+            "NODE_PATH",
+            "PERL5LIB",
+        }
+    )
+
     # Common injection patterns to detect
     INJECTION_PATTERNS: ClassVar[list[tuple[str, str]]] = [
         (r";\s*rm\s+-rf", "rm -rf command"),
@@ -138,7 +155,6 @@ class SecurityValidator(BaseValidator):
             ":(){:|:&};:",  # Fork bomb
             "dd if=/dev/zero",
             "dd if=/dev/random",  # Also dangerous
-            "mkfs",
             "chmod -R 777",  # Dangerous permission change
             "chmod 777",
             "chown -R",  # Dangerous ownership change
@@ -241,10 +257,16 @@ class SecurityValidator(BaseValidator):
         if not self.validate_security_patterns(value, name):
             return False
 
-        # Check for single & (background execution)
-        if re.search(r"(?<!&)&(?!&)", value):
-            self.add_error(f"Background execution pattern '&' detected in {name}")
-            return False
+        # Detect shell backgrounding &
+        # Reject any & unless every & is a URL query-string separator (key=val&key=val).
+        # Empty parts (from leading/trailing & or &&) are not filtered — they fail fullmatch
+        # so that "a=1&&b=2" (POSIX AND operator) is correctly rejected.
+        if "&" in value:
+            parts = value.split("&")
+            _url_part = re.compile(r"[\w%+.\-/:?@]*=[\w%+.\-/:]*")
+            if not all(_url_part.fullmatch(p) for p in parts):
+                self.add_error(f"Background execution pattern '&' detected in {name}")
+                return False
 
         # Check for advanced injection patterns
         if not self.validate_injection_patterns(value, name):
@@ -304,15 +326,17 @@ class SecurityValidator(BaseValidator):
 
         # Additional checks for safe commands
         # Block shell metacharacters that could be dangerous
-        dangerous_chars = ["&", "|", ";", "$", "`", "\\", "!", "{", "}", "[", "]", "(", ")"]
+        dangerous_chars = ["|", ";", "$", "`", "\\", "!", "{", "}", "[", "]", "(", ")"]
         for char in dangerous_chars:
             if char in command:
-                # Allow some safe uses
-                if char == "&" and "&&" not in command and "&>" not in command:
-                    continue
-
                 self.add_error(f"Potentially dangerous character '{char}' in {name}")
                 return False
+
+        # Reject & unconditionally in commands — shell commands have no URL query strings,
+        # so any & is a backgrounding or AND operator.
+        if "&" in command:
+            self.add_error(f"Background execution operator '&' detected in {name}")
+            return False
 
         return True
 
@@ -328,6 +352,14 @@ class SecurityValidator(BaseValidator):
         """
         if not value or value.strip() == "":
             return True
+
+        # Check if the variable name itself is dangerous (hijacks process execution)
+        var_name = value.split("=", 1)[0].strip() if "=" in value else name
+        if var_name.upper() in self._DANGEROUS_ENV_VARS:
+            self.add_error(
+                f"Dangerous environment variable '{var_name}': can hijack process execution"
+            )
+            return False
 
         # Check for command substitution in env vars
         if "$(" in value or "`" in value or "${" in value:
@@ -345,11 +377,7 @@ class SecurityValidator(BaseValidator):
             return False
 
         # Check for shell special chars that might cause issues
-        if re.search(r"[;&|]", value) and re.search(
-            r";\s*(rm|del|format|shutdown|reboot)",
-            value,
-            re.IGNORECASE,
-        ):
+        if re.search(r"[;&|]\s*(rm|del|format|shutdown|reboot)\b", value, re.IGNORECASE):
             self.add_error(f"Dangerous command pattern in environment variable {name}")
             return False
 
@@ -465,9 +493,8 @@ class SecurityValidator(BaseValidator):
         """
         # Look for long base64 strings that might be credentials
         # and if it contains words like secret, key, token, password
-        if re.search(r"[A-Za-z0-9+/]{40,}={0,2}", value) or (
-            re.search(r"[A-Za-z0-9+/]{40,}={0,2}", value)
-            and re.search(r"(secret|key|token|password|credential)", value, re.IGNORECASE)
+        if re.search(r"[A-Za-z0-9+/]{40,}={0,2}", value) and re.search(
+            r"(secret|key|token|password|credential)", value, re.IGNORECASE
         ):
             self.add_error(f"Potential encoded secret detected in {name}")
             return False

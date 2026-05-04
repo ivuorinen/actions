@@ -243,3 +243,32 @@ class TestValidatorIntegration:
         result = validator.validate_inputs(test_inputs)
         # The result depends on the specific validation logic
         assert isinstance(result, bool)
+
+
+class TestSanitize:
+    """Tests for _sanitize — GITHUB_OUTPUT injection prevention (N-094 regression)."""
+
+    def test_sanitize_safe_value(self):
+        from validator import _sanitize
+
+        assert _sanitize("safe") == "safe"
+        assert _sanitize("success") == "success"
+
+    def test_sanitize_strips_newlines(self):
+        """Newlines in a value must not inject extra keys into GITHUB_OUTPUT."""
+        from validator import _sanitize
+
+        assert _sanitize("line1\nline2") == "line1 line2"
+        assert _sanitize("line1\r\nline2") == "line1 line2"
+        assert _sanitize("key=val\nINJECTED=evil") == "key=val INJECTED=evil"
+
+    def test_sanitize_strips_carriage_returns(self):
+        from validator import _sanitize
+
+        assert _sanitize("value\rmore") == "valuemore"
+
+    def test_sanitize_non_string_input(self):
+        from validator import _sanitize
+
+        assert _sanitize(42) == "42"
+        assert _sanitize(None) == "None"

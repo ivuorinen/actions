@@ -18,6 +18,11 @@ case "$FILE_PATH" in
 *) exit 0 ;;
 esac
 
+# _tests/ helpers are intentionally bash (ShellSpec, export -f, local, etc.)
+case "$FILE_PATH" in
+_tests/framework/* | _tests/unit/* | */_tests/framework/* | */_tests/unit/*) exit 0 ;;
+esac
+
 NEW_CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.new_string // .tool_input.content // empty')
 
 if [ -z "$NEW_CONTENT" ]; then
@@ -36,7 +41,7 @@ fi
 REASON=""
 
 # --- Conditionals & operators ---
-if printf '%s\n' "$CHECKABLE" | grep -qE '\[\['; then
+if printf '%s\n' "$CHECKABLE" | grep -qE '\[{2}([^:]|$)'; then
   REASON="${REASON}[[ ]] is not POSIX. Use [ ] or case/test instead. "
 fi
 
@@ -51,6 +56,11 @@ fi
 
 if printf '%s\n' "$CHECKABLE" | grep -qE '(^|[[:space:]])function[[:space:]]+[a-zA-Z_]'; then
   REASON="${REASON}function keyword is not POSIX. Use name() { ... } syntax. "
+fi
+
+# --- local keyword ---
+if printf '%s\n' "$CHECKABLE" | grep -qE '(^|;) *local '; then
+  REASON="${REASON}local builtin is not POSIX. Use plain assignment at function-level scope. "
 fi
 
 # --- echo flags ---

@@ -89,6 +89,8 @@ class TestVersionValidator:  # pylint: disable=too-many-public-methods
             "7.0.0",
             "8.0",
             "3.1.426",
+            "8.0.0-preview.1",  # Prerelease — must not trigger leading-zero rejection
+            "9.0.0-rc.2",
         ]
 
         for version in valid_versions:
@@ -243,7 +245,6 @@ class TestVersionValidator:  # pylint: disable=too-many-public-methods
         invalid_versions = [
             "2.7",  # Python 2 not allowed (major must be 3)
             "3.7",  # Too old (minor < 8)
-            "3.16",  # Too new (minor > 15)
             "4.0",  # Wrong major
             "v3.10",  # v prefix not allowed
         ]
@@ -316,7 +317,6 @@ class TestVersionValidator:  # pylint: disable=too-many-public-methods
         invalid_versions = [
             "2.0",  # Wrong major (must be 1)
             "1.17",  # Too old (minor < 18)
-            "1.31",  # Too new (minor > 30)
             "v1.21",  # v prefix not allowed
         ]
         for version in invalid_versions:

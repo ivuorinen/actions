@@ -58,12 +58,15 @@ class FileValidator(BaseValidator):
 
         try:
             safe_path = p.resolve(strict=True)
-        except FileNotFoundError:
-            self.add_error(f'Invalid {name}: "{path}". Path does not exist')
+            safe_path.relative_to(Path.cwd().resolve())
+        except OSError:
+            self.add_error(f'Invalid {name}: "{path}". Path does not exist or is inaccessible')
+            return False
+        except ValueError:
+            self.add_error(f'Invalid {name}: "{path}". Path must be within the workspace')
             return False
 
-        # Use base class security validation
-        return self.validate_path_security(str(safe_path.absolute()), name)
+        return self.validate_path_security(path, name)
 
     def validate_file_path(self, path: str, name: str = "path") -> bool:
         """Validate file paths for security.
@@ -88,7 +91,7 @@ class FileValidator(BaseValidator):
 
         # Additional file path validation
         # Check for valid characters
-        if not re.match(r"^[a-zA-Z0-9._/\- ]+$", path):
+        if not re.match(r"^[a-zA-Z0-9._/\-@+~!#=:]+$", path):
             self.add_error(f'Invalid {name}: "{path}". Contains invalid characters')
             return False
 

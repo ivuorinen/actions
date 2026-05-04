@@ -70,6 +70,7 @@ class TestSecurityValidator:
 
     def test_validate_no_injection_sql_injection(self):
         """Test that SQL injection attempts are detected."""
+        # All these contain command separators (;) or dangerous SQL patterns
         sql_injection_attempts = [
             "'; DROP TABLE users; --",
             "' OR '1'='1",
@@ -84,42 +85,56 @@ class TestSecurityValidator:
         for value in sql_injection_attempts:
             self.validator.errors = []
             result = self.validator.validate_no_injection(value)
-            # SQL injection might be blocked depending on implementation
-            assert isinstance(result, bool)
-            if not result:
-                assert len(self.validator.errors) > 0
+            assert result is False, f"Should block SQL injection input: {value}"
+            assert len(self.validator.errors) > 0
 
     def test_validate_no_injection_path_traversal(self):
         """Test that path traversal attempts are blocked."""
-        path_traversal_attempts = [
+        # Inputs that contain literal ../ or ..\ are caught by validate_security_patterns
+        caught_traversals = [
             "../../../etc/passwd",
             "..\\..\\..\\windows\\system32",
-            "....//....//....//etc/passwd",
-            "%2e%2e%2f%2e%2e%2f",  # URL encoded
             "..;/..;/",
         ]
-
-        for value in path_traversal_attempts:
+        for value in caught_traversals:
             self.validator.errors = []
             result = self.validator.validate_no_injection(value)
-            # Path traversal might be blocked depending on implementation
+            assert result is False, f"Should block path traversal input: {value}"
+            assert len(self.validator.errors) > 0
+
+        # URL-encoded or obfuscated traversals may not be caught at this layer
+        uncaught_traversals = [
+            "....//....//....//etc/passwd",
+            "%2e%2e%2f%2e%2e%2f",  # URL encoded
+        ]
+        for value in uncaught_traversals:
+            self.validator.errors = []
+            result = self.validator.validate_no_injection(value)
             assert isinstance(result, bool)
 
     def test_validate_no_injection_script_injection(self):
         """Test that script injection attempts are blocked."""
-        script_injection_attempts = [
+        # These are definitively caught by validate_content_security
+        caught_script_injections = [
             "<script>alert('XSS')</script>",
-            "javascript:alert(1)",
             "<img src=x onerror=alert(1)>",
             "<iframe src='evil.com'>",
             "onclick=alert(1)",
             "<svg onload=alert(1)>",
         ]
-
-        for value in script_injection_attempts:
+        for value in caught_script_injections:
             self.validator.errors = []
             result = self.validator.validate_no_injection(value)
-            # Script injection might be blocked depending on implementation
+            assert result is False, f"Should block script injection input: {value}"
+            assert len(self.validator.errors) > 0
+
+        # javascript: URI is not caught at the validate_no_injection layer
+        uncaught_script_injections = [
+            "javascript:alert(1)",
+        ]
+        for value in uncaught_script_injections:
+            self.validator.errors = []
+            result = self.validator.validate_no_injection(value)
             assert isinstance(result, bool)
 
     def test_validate_safe_command(self):
@@ -176,19 +191,24 @@ class TestSecurityValidator:
 
     def test_validate_safe_environment_variable_dangerous(self):
         """Test that dangerous environment variables are blocked."""
-        dangerous_env_vars = [
+        # These are in _DANGEROUS_ENV_VARS and must be rejected
+        blocked_by_name = [
             "LD_PRELOAD=/tmp/evil.so",
             "LD_LIBRARY_PATH=/tmp/evil",
-            "PATH=/tmp/evil:$PATH",
             "BASH_ENV=/tmp/evil.sh",
             "ENV=/tmp/evil.sh",
         ]
-
-        for env_var in dangerous_env_vars:
+        for env_var in blocked_by_name:
             self.validator.errors = []
             result = self.validator.validate_safe_env_var(env_var)
-            # These might be blocked depending on implementation
-            assert isinstance(result, bool)
+            assert result is False, f"Should block dangerous env var: {env_var}"
+            assert len(self.validator.errors) > 0
+
+        # PATH is not in _DANGEROUS_ENV_VARS; plain $VAR (no braces/parens) is not
+        # caught by the ${} or $() checks — just verify it returns a bool
+        self.validator.errors = []
+        result = self.validator.validate_safe_env_var("PATH=/tmp/evil:$PATH")
+        assert isinstance(result, bool)
 
     def test_empty_input_handling(self):
         """Test that empty inputs are handled correctly."""

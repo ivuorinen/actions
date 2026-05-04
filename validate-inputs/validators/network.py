@@ -114,9 +114,8 @@ class NetworkValidator(BaseValidator):
         Returns:
             True if valid, False otherwise
         """
-        if not value or value.strip() == "":
-            self.add_error(f"{name} cannot be empty")
-            return False
+        if not value or not value.strip():
+            return True
 
         # Allow GitHub Actions expressions
         if self.is_github_expression(value):
@@ -128,14 +127,15 @@ class NetworkValidator(BaseValidator):
             return False
 
         # Check for obvious injection and traversal patterns
-        injection_patterns = [";", "&", "|", "`", "$(", "${", "../", "..\\"]
+        injection_patterns = [";", "|", "`", "$(", "${", "../", "..\\"]
         for pattern in injection_patterns:
             if pattern in value:
                 self.add_error(f'Potential security injection in {name}: contains "{pattern}"')
                 return False
 
         # Basic URL validation (with optional port)
-        url_pattern = r"^https?://[\w.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s]*)?$"
+        # Hostname labels allow only letters, digits, hyphens (no underscore per RFC 952/1123)
+        url_pattern = r"^https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s<>]*)?$"
         if not re.match(url_pattern, value):
             self.add_error(f'Invalid {name}: "{value}". Invalid URL format')
             return False

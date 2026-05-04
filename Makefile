@@ -12,8 +12,8 @@ BLUE := $(shell printf '\033[34m')
 RESET := $(shell printf '\033[0m')
 
 # Configuration
-SHELL := /bin/bash
-.SHELLFLAGS := -euo pipefail -c
+SHELL := /bin/sh
+.SHELLFLAGS := -eu -c
 
 # Log file with timestamp
 LOG_FILE := update_$(shell date +%Y%m%d_%H%M%S).log
@@ -331,17 +331,16 @@ check-tools: ## Check if required tools are available
 
 check-syntax: ## Check syntax of shell scripts and YAML files
 	@echo "$(BLUE)🔍 Checking syntax...$(RESET)"
-	@failed=0; \
-	find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" -print0 | while IFS= read -r -d '' file; do \
-		if ! bash -n "$$file" 2>&1; then \
-			echo "$(RED)❌ Syntax error in $$file$(RESET)" >&2; \
-			failed=1; \
-		fi; \
-	done; \
-	if [ "$$failed" -eq 1 ]; then \
+	@# T-H2: use -exec directly to avoid pipe subshell where failed=1 never propagates
+	@_syntax_fail=$$(mktemp "$${TMPDIR:-/tmp}/syntax.XXXXXX"); \
+	find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" \
+		-exec sh -c 'if ! sh -n "$$1" 2>&1; then echo "$(RED)❌ Syntax error in $$1$(RESET)" >&2; printf "1\n" >> "$$2"; fi' _ {} "$$_syntax_fail" \; ; \
+	if [ -s "$$_syntax_fail" ]; then \
+		rm -f "$$_syntax_fail"; \
 		echo "$(RED)❌ Shell script syntax errors found$(RESET)"; \
 		exit 1; \
-	fi
+	fi; \
+	rm -f "$$_syntax_fail"
 	@echo "$(GREEN)✅ Syntax checks passed$(RESET)"
 
 install-tools: ## Install/update required tools

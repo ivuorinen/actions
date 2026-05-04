@@ -345,7 +345,7 @@ runs:
 
         # Run autopep8 with change detection
         find . -name "*.py" -type f -not -path "*/\.*" | while read -r file; do
-          if autopep8 --diff "$file" | grep -q '^[+-]'; then
+          if autopep8 --diff "$file" | grep -q '^[+\-][^+\-]'; then
             autopep8 --in-place "$file"
             echo "$file" >> "$_changed_files"
           fi

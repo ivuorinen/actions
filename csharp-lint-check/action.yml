@@ -170,13 +170,6 @@ runs:
         cache: true
         cache-dependency-path: '**/packages.lock.json'
 
-    - name: Install dotnet-format
-      shell: sh
-      run: |
-        set -eu
-
-        dotnet tool install --global dotnet-format --version 7.0.1
-
     - name: Run dotnet-format
       id: dotnet-format
       shell: sh

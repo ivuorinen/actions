@@ -407,7 +407,7 @@ class VersionValidator(BaseValidator):
             {
                 "name": ".NET",
                 "major_range": (3, 20),
-                "pattern": r"^\d+(\.\d+(\.\d+)?)?(-[\dA-Za-z-]+(\.\dA-Za-z-]+)*)?$",
+                "pattern": r"^\d+(\.\d+(\.\d+)?)?(-[\dA-Za-z-]+(\.[\dA-Za-z-]+)*)?$",
                 "check_leading_zeros": True,
             },
         )
@@ -454,14 +454,14 @@ class VersionValidator(BaseValidator):
         return False
 
     def validate_python_version(self, value: str, name: str = "python-version") -> bool:
-        """Validate Python version format (3.8-3.15)."""
+        """Validate Python version format (3.8+)."""
         return self._validate_language_version(
             value,
             name,
             {
                 "name": "Python",
                 "major_range": 3,
-                "minor_range": (8, 15),
+                "minor_range": (8, 30),
                 "pattern": self.VERSION_X_Y_Z_PATTERN,
             },
         )
@@ -516,14 +516,14 @@ class VersionValidator(BaseValidator):
         return True
 
     def validate_go_version(self, value: str, name: str = "go-version") -> bool:
-        """Validate Go version format (1.18-1.30)."""
+        """Validate Go version format (1.18+)."""
         return self._validate_language_version(
             value,
             name,
             {
                 "name": "Go",
                 "major_range": 1,
-                "minor_range": (18, 30),
+                "minor_range": (18, 60),
                 "pattern": self.VERSION_X_Y_Z_PATTERN,
             },
         )
@@ -625,8 +625,11 @@ class VersionValidator(BaseValidator):
         if not self._check_version_format(value, clean_value, name, config):
             return False
 
-        # Parse version components
-        parts = clean_value.split(".")
+        # Strip prerelease/build metadata before splitting into numeric parts
+        # so that e.g. "8.0.0-preview.1" doesn't produce "0-preview" as a part
+        # that breaks int() conversion in leading-zero and range checks.
+        numeric_clean = clean_value.split("-", 1)[0].split("+", 1)[0]
+        parts = numeric_clean.split(".")
         major = int(parts[0])
         minor = int(parts[1]) if len(parts) > 1 else 0
 

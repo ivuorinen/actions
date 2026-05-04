@@ -69,6 +69,7 @@ runs:
         echo "Building kcov from source..."
         cd /tmp
         git clone --depth 1 --branch v42 https://github.com/SimonKagstrom/kcov.git
+        git -C kcov checkout 3a8c5464be2dd781988dca7ec30db679493ed9a8
         cd kcov
         mkdir build
         cd build
@@ -166,12 +167,14 @@ runs:
 
     - name: Verify tools
       shell: sh
+      env:
+        INSTALL_ACT: ${{ inputs.install-act }}
       run: |
         set -eu
         shellspec --version
         jq --version
         uv --version
-        if [ "${{ inputs.install-act }}" = "true" ]; then
+        if [ "$INSTALL_ACT" = "true" ]; then
           act --version
           docker --version
         fi

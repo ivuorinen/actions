@@ -68,6 +68,8 @@ runs:
 
         if [ -z "$BASE_BRANCH" ]; then
           printf 'option=%s\n' "--all-files" >> "$GITHUB_OUTPUT"
+          printf 'from-ref=%s\n' "" >> "$GITHUB_OUTPUT"
+          printf 'to-ref=%s\n' "" >> "$GITHUB_OUTPUT"
           exit 0
         fi
 
@@ -79,7 +81,9 @@ runs:
             ;;
         esac
 
-        printf 'option=%s\n' "--from-ref $BASE_BRANCH --to-ref HEAD" >> "$GITHUB_OUTPUT"
+        printf 'option=%s\n' "diff" >> "$GITHUB_OUTPUT"
+        printf 'from-ref=%s\n' "$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+        printf 'to-ref=%s\n' "HEAD" >> "$GITHUB_OUTPUT"
 
     - name: Run pre-commit
       id: pre-commit
@@ -87,7 +91,11 @@ runs:
       env:
         PRE_COMMIT_USE_UV: '1'
       with:
-        extra_args: --config ${{ inputs.pre-commit-config }} ${{ steps.set-option.outputs.option }}
+        extra_args: >-
+          --config ${{ inputs.pre-commit-config }}
+          ${{ steps.set-option.outputs.option == 'diff'
+            && format('--from-ref {0} --to-ref {1}', steps.set-option.outputs.from-ref, steps.set-option.outputs.to-ref)
+            || '--all-files' }}
 
     - name: Push pre-commit fixes
       id: push-fixes

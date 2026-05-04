@@ -74,7 +74,6 @@ runs:
         echo "::add-mask::$INPUT_TOKEN"
 
         # Write validated values to GITHUB_ENV for use in subsequent steps
-        printf 'VALIDATED_TOKEN=%s\n' "$INPUT_TOKEN" >> "$GITHUB_ENV"
         printf 'VALIDATED_DRY_RUN=%s\n' "$INPUT_DRY_RUN" >> "$GITHUB_ENV"
         printf 'VALIDATED_PREFIX=%s\n' "$INPUT_PREFIX" >> "$GITHUB_ENV"
 
@@ -84,13 +83,16 @@ runs:
         token: ${{ inputs.token }}
         fetch-depth: 0 # Fetch all history for tag comparison
 
+    # timeout-minutes is set at the calling workflow level
     - name: Create Release
       id: create-release
       shell: sh
+      env:
+        INPUT_TOKEN: ${{ inputs.token }}
       run: |
         set -eu
-        # Use validated environment variables from GITHUB_ENV
-        GITHUB_TOKEN="$VALIDATED_TOKEN"
+        # Use input token directly and validated environment variables from GITHUB_ENV
+        GITHUB_TOKEN="$INPUT_TOKEN"
         PREFIX="$VALIDATED_PREFIX"
         DRY_RUN="$VALIDATED_DRY_RUN"
 
@@ -180,8 +182,8 @@ runs:
           }
         fi
 
-        # Determine next release tag
-        next_major_minor="$(date -u +'%Y').$(date -u +'%m' | sed 's/^0//')"
+        # Determine next release tag (printf '%d' strips leading zeros for POSIX-safe arithmetic)
+        next_major_minor="$(date -u +'%Y').$(printf '%d' "$(date -u +'%m')")"
 
         if [ -n "$previous_tag" ] && [ "${previous_major}.${previous_minor}" = "${next_major_minor}" ]; then
           echo "Month release already exists for year, incrementing patch number by 1"
@@ -227,10 +229,11 @@ runs:
       shell: sh
       env:
         RELEASE_TAG: ${{ steps.create-release.outputs.release_tag }}
+        INPUT_TOKEN: ${{ inputs.token }}
       run: |-
         set -eu
-        # Use validated environment variables from GITHUB_ENV
-        GITHUB_TOKEN="$VALIDATED_TOKEN"
+        # Use input token directly
+        GITHUB_TOKEN="$INPUT_TOKEN"
 
         # Verify the release was created
         if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then

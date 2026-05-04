@@ -245,7 +245,7 @@ runs:
               ;;
           esac
 
-          if go test -v ./... $RACE_FLAG -coverprofile=coverage.out; then
+          if go test -v ./... ${RACE_FLAG:+"$RACE_FLAG"} -coverprofile=coverage.out; then
             printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
             echo "Tests completed successfully"
           else
