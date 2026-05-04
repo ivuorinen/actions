@@ -551,8 +551,11 @@ generate_sarif_report() {
   _sarif_results_file=$(mktemp)
   _sarif_rules_file=$(mktemp)
   temp_file=
-  # N-046: clean up temp files on all exit paths (including jq failure)
-  trap 'rm -f "$_sarif_results_file" "$_sarif_rules_file" "${temp_file:-}"' RETURN
+  # N-046: clean up temp files on all exit paths (including jq failure).
+  # .tmp variants guard against jq failing after creating but before mv-ing the atomic file.
+  trap 'rm -f "$_sarif_results_file" "$_sarif_rules_file" \
+             "${_sarif_results_file}.tmp" "${_sarif_rules_file}.tmp" \
+             "${temp_file:-}"' RETURN
   printf '[]' >"$_sarif_results_file"
   printf '[]' >"$_sarif_rules_file"
   _sarif_need_unit_rule=1

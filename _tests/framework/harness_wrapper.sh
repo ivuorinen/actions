@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Public POSIX sh API for the composite-step harness.
+# Public bash API for the composite-step harness.
 #
 # Functions:
 #   run_step <action-dir> <step-id>    -- execute one run: step

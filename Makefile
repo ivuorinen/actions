@@ -332,7 +332,7 @@ check-tools: ## Check if required tools are available
 check-syntax: ## Check syntax of shell scripts and YAML files
 	@echo "$(BLUE)🔍 Checking syntax...$(RESET)"
 	@# T-H2: use -exec directly to avoid pipe subshell where failed=1 never propagates
-	@_syntax_fail=$$(mktemp); \
+	@_syntax_fail=$$(mktemp "$${TMPDIR:-/tmp}/syntax.XXXXXX"); \
 	find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" \
 		-exec sh -c 'if ! sh -n "$$1" 2>&1; then echo "$(RED)❌ Syntax error in $$1$(RESET)" >&2; printf "1\n" >> "$$2"; fi' _ {} "$$_syntax_fail" \; ; \
 	if [ -s "$$_syntax_fail" ]; then \
