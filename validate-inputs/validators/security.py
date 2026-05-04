@@ -257,10 +257,14 @@ class SecurityValidator(BaseValidator):
         if not self.validate_security_patterns(value, name):
             return False
 
-        # Detect shell backgrounding & — but not URL query-string & (surrounded by word chars)
-        if re.search(r"(?<![A-Za-z0-9=])&(?![A-Za-z0-9=])", value):
-            self.add_error(f"Background execution pattern '&' detected in {name}")
-            return False
+        # Detect shell backgrounding &
+        # Reject any & unless every & is a URL query-string separator (key=val&key=val)
+        if "&" in value:
+            parts = value.split("&")
+            _url_part = re.compile(r"[\w%+.\-/:]*=[\w%+.\-/:%]*")
+            if not all(_url_part.fullmatch(p) for p in parts if p):
+                self.add_error(f"Background execution pattern '&' detected in {name}")
+                return False
 
         # Check for advanced injection patterns
         if not self.validate_injection_patterns(value, name):
@@ -326,10 +330,14 @@ class SecurityValidator(BaseValidator):
                 self.add_error(f"Potentially dangerous character '{char}' in {name}")
                 return False
 
-        # Detect shell backgrounding & — but not URL query-string & (surrounded by word chars)
-        if re.search(r"(?<![A-Za-z0-9=])&(?![A-Za-z0-9=])", command):
-            self.add_error(f"Potentially dangerous character '&' in {name}")
-            return False
+        # Detect shell backgrounding &
+        # Reject any & unless every & is a URL query-string separator (key=val&key=val)
+        if "&" in command:
+            parts = command.split("&")
+            _url_part = re.compile(r"[\w%+.\-/:]*=[\w%+.\-/:%]*")
+            if not all(_url_part.fullmatch(p) for p in parts if p):
+                self.add_error(f"Potentially dangerous character '&' in {name}")
+                return False
 
         return True
 

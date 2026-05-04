@@ -185,8 +185,6 @@ def _resolve_python_exe() -> str:
     system Python, and avoids PATH lookups that fail under the harness's
     restricted child-process PATH.
     """
-    import sys
-
     return sys.executable
 
 

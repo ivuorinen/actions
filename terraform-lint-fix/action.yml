@@ -98,12 +98,13 @@ runs:
         INPUT_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -eu
-        # Write validated inputs to GITHUB_ENV using heredoc format to prevent newline injection
-        printf 'VALIDATED_WORKING_DIR<<EOF\n%s\nEOF\n' "$INPUT_WORKING_DIR" >> "$GITHUB_ENV"
-        printf 'VALIDATED_CONFIG<<EOF\n%s\nEOF\n' "$INPUT_CONFIG" >> "$GITHUB_ENV"
-        printf 'VALIDATED_FORMAT<<EOF\n%s\nEOF\n' "$INPUT_FORMAT" >> "$GITHUB_ENV"
-        printf 'VALIDATED_FAIL<<EOF\n%s\nEOF\n' "$INPUT_FAIL" >> "$GITHUB_ENV"
-        printf 'VALIDATED_RETRIES<<EOF\n%s\nEOF\n' "$INPUT_RETRIES" >> "$GITHUB_ENV"
+        # Write validated inputs to GITHUB_ENV with a random delimiter to prevent heredoc injection
+        _dl=$(od -vAn -N8 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' || printf 'EOF%s' "$$")
+        printf 'VALIDATED_WORKING_DIR<<%s\n%s\n%s\n' "$_dl" "$INPUT_WORKING_DIR" "$_dl" >> "$GITHUB_ENV"
+        printf 'VALIDATED_CONFIG<<%s\n%s\n%s\n' "$_dl" "$INPUT_CONFIG" "$_dl" >> "$GITHUB_ENV"
+        printf 'VALIDATED_FORMAT<<%s\n%s\n%s\n' "$_dl" "$INPUT_FORMAT" "$_dl" >> "$GITHUB_ENV"
+        printf 'VALIDATED_FAIL<<%s\n%s\n%s\n' "$_dl" "$INPUT_FAIL" "$_dl" >> "$GITHUB_ENV"
+        printf 'VALIDATED_RETRIES<<%s\n%s\n%s\n' "$_dl" "$INPUT_RETRIES" "$_dl" >> "$GITHUB_ENV"
 
     - name: Check for Terraform Files
       id: check-files

@@ -394,7 +394,7 @@ runs:
               error_count=$(grep -c '"level": "error"' "$result_file" 2>/dev/null || echo 0)
             fi
           else
-            error_count=$(grep -c "level\": \"error\"" "$result_file" || echo 0)
+            error_count=$(grep -c '"level": "error"' "$result_file" || echo 0)
           fi
         fi
 

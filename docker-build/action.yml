@@ -490,7 +490,7 @@ runs:
           fi
           if [ -n "$BUILD_CONTEXTS" ]; then
             _bc_tmp=$(mktemp)
-            printf '%s\n' $BUILD_CONTEXTS > "$_bc_tmp"
+            printf '%s\n' "$BUILD_CONTEXTS" > "$_bc_tmp"
             while IFS= read -r _arg; do
               [ -n "$_arg" ] && set -- "$@" "$_arg"
             done < "$_bc_tmp"
@@ -498,7 +498,7 @@ runs:
           fi
           if [ -n "$SECRETS" ]; then
             _sec_tmp=$(mktemp)
-            printf '%s\n' $SECRETS > "$_sec_tmp"
+            printf '%s\n' "$SECRETS" > "$_sec_tmp"
             while IFS= read -r _arg; do
               [ -n "$_arg" ] && set -- "$@" "$_arg"
             done < "$_sec_tmp"
@@ -506,7 +506,7 @@ runs:
           fi
           if [ -n "$CACHE_FROM" ]; then
             _cf_tmp=$(mktemp)
-            printf '%s\n' $CACHE_FROM > "$_cf_tmp"
+            printf '%s\n' "$CACHE_FROM" > "$_cf_tmp"
             while IFS= read -r _arg; do
               [ -n "$_arg" ] && set -- "$@" "$_arg"
             done < "$_cf_tmp"
@@ -514,7 +514,7 @@ runs:
           fi
           if [ -n "$CACHE_TO" ]; then
             _ct_tmp=$(mktemp)
-            printf '%s\n' $CACHE_TO > "$_ct_tmp"
+            printf '%s\n' "$CACHE_TO" > "$_ct_tmp"
             while IFS= read -r _arg; do
               [ -n "$_arg" ] && set -- "$@" "$_arg"
             done < "$_ct_tmp"

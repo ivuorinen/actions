@@ -334,7 +334,7 @@ check-syntax: ## Check syntax of shell scripts and YAML files
 	@# T-H2: use -exec directly to avoid pipe subshell where failed=1 never propagates
 	@_syntax_fail=$$(mktemp); \
 	find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" \
-		-exec sh -c 'if ! sh -n "$$1" 2>&1; then echo "$(RED)❌ Syntax error in $$1$(RESET)" >&2; touch "$$2"; fi' _ {} "$$_syntax_fail" \; ; \
+		-exec sh -c 'if ! sh -n "$$1" 2>&1; then echo "$(RED)❌ Syntax error in $$1$(RESET)" >&2; printf "1\n" >> "$$2"; fi' _ {} "$$_syntax_fail" \; ; \
 	if [ -s "$$_syntax_fail" ]; then \
 		rm -f "$$_syntax_fail"; \
 		echo "$(RED)❌ Shell script syntax errors found$(RESET)"; \
