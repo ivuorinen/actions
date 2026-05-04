@@ -36,6 +36,10 @@ runs:
       run: |
         set -eu
 
+        if [ -z "${LABELS_FILE:-}" ]; then
+          exit 0
+        fi
+
         # Validate labels file path format
         case "$LABELS_FILE" in
           *".."*|"/"*)

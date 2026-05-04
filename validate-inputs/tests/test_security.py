@@ -43,3 +43,9 @@ class TestSecurityValidator:
         """Test GitHub expression handling."""
         assert self.validator.validate_no_injection("${{ inputs.message }}") is True
         assert self.validator.validate_safe_command("${{ inputs.command }}") is True
+
+    def test_validate_no_injection_preserves_prior_errors(self):
+        """validate_no_injection must not wipe errors accumulated before it is called (N-082 regression)."""
+        self.validator.add_error("prior error from earlier check")
+        self.validator.validate_no_injection("safe value")
+        assert "prior error from earlier check" in self.validator.errors

@@ -407,7 +407,7 @@ class VersionValidator(BaseValidator):
             {
                 "name": ".NET",
                 "major_range": (3, 20),
-                "pattern": r"^\d+(\.\d+(\.\d+)?)?(-[\dA-Za-z-]+(\.\dA-Za-z-]+)*)?$",
+                "pattern": r"^\d+(\.\d+(\.\d+)?)?(-[\dA-Za-z-]+(\.[\dA-Za-z-]+)*)?$",
                 "check_leading_zeros": True,
             },
         )
@@ -454,14 +454,14 @@ class VersionValidator(BaseValidator):
         return False
 
     def validate_python_version(self, value: str, name: str = "python-version") -> bool:
-        """Validate Python version format (3.8-3.15)."""
+        """Validate Python version format (3.8+)."""
         return self._validate_language_version(
             value,
             name,
             {
                 "name": "Python",
                 "major_range": 3,
-                "minor_range": (8, 15),
+                "minor_range": (8, 30),
                 "pattern": self.VERSION_X_Y_Z_PATTERN,
             },
         )
@@ -516,14 +516,14 @@ class VersionValidator(BaseValidator):
         return True
 
     def validate_go_version(self, value: str, name: str = "go-version") -> bool:
-        """Validate Go version format (1.18-1.30)."""
+        """Validate Go version format (1.18+)."""
         return self._validate_language_version(
             value,
             name,
             {
                 "name": "Go",
                 "major_range": 1,
-                "minor_range": (18, 30),
+                "minor_range": (18, 60),
                 "pattern": self.VERSION_X_Y_Z_PATTERN,
             },
         )

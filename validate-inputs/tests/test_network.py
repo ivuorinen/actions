@@ -114,11 +114,11 @@ class TestNetworkValidator:
         assert self.validator.validate_url("ftp://example.com") is False
         assert "http://" in " ".join(self.validator.errors)
 
-    def test_url_empty_not_allowed(self):
-        """Test URL rejects empty (not optional)."""
+    def test_url_empty_allowed(self):
+        """Test URL allows empty (optional input)."""
         self.validator.clear_errors()
-        assert self.validator.validate_url("") is False
-        assert "cannot be empty" in " ".join(self.validator.errors)
+        assert self.validator.validate_url("") is True
+        assert len(self.validator.errors) == 0
 
     def test_url_injection_patterns(self):
         """Test URL rejects injection patterns."""
@@ -355,6 +355,6 @@ class TestNetworkValidator:
         assert "test-email" in self.validator.errors[0]
 
         self.validator.clear_errors()
-        self.validator.validate_url("", "my-url")
+        self.validator.validate_url("not-a-url", "my-url")
         assert len(self.validator.errors) == 1
         assert "my-url" in self.validator.errors[0]

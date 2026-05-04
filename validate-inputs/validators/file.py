@@ -88,7 +88,7 @@ class FileValidator(BaseValidator):
 
         # Additional file path validation
         # Check for valid characters
-        if not re.match(r"^[a-zA-Z0-9._/\- ]+$", path):
+        if not re.match(r"^[a-zA-Z0-9._/\-@+~!#=:]+$", path):
             self.add_error(f'Invalid {name}: "{path}". Contains invalid characters')
             return False
 

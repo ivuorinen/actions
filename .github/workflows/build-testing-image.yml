@@ -15,6 +15,7 @@ on:
     paths:
       - '_tools/docker-testing-tools/**'
       - '.github/workflows/build-testing-image.yml'
+  # checkov:skip=CKV_GHA_7:tag input feeds docker/metadata-action only, never interpolated into shell
   workflow_dispatch:
     inputs:
       tag:

@@ -246,12 +246,16 @@ runs:
           IFS="$old_ifs"
           set +f
 
-          # Iterate through positional parameters
+          # Iterate through positional parameters — one entry per line
           for arg; do
-            args="$args --build-arg $arg"
+            if [ -n "$args" ]; then
+              args="$(printf '%s\n--build-arg %s' "$args" "$arg")"
+            else
+              args="--build-arg $arg"
+            fi
           done
         fi
-        printf 'args=%s\n' "$args" >> "$GITHUB_OUTPUT"
+        { printf 'args<<EOF\n%s\nEOF\n' "$args"; } >> "$GITHUB_OUTPUT"
 
     # Inputs validated by validate-inputs step above; it fails the workflow
     # on invalid input before these parsing steps execute.
@@ -475,22 +479,47 @@ runs:
             --platform="${platforms}" \
             --tag "$IMAGE_NAME:$TAG"
 
-          # Append pre-assembled flag groups token by token
-          for _arg in $BUILD_ARGS; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $BUILD_CONTEXTS; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $SECRETS; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $CACHE_FROM; do
-            set -- "$@" "$_arg"
-          done
-          for _arg in $CACHE_TO; do
-            set -- "$@" "$_arg"
-          done
+          # Append build args — use temp file to preserve values with whitespace
+          if [ -n "$BUILD_ARGS" ]; then
+            _ba_tmp=$(mktemp)
+            printf '%s\n' "$BUILD_ARGS" > "$_ba_tmp"
+            while IFS= read -r _arg; do
+              [ -n "$_arg" ] && set -- "$@" "$_arg"
+            done < "$_ba_tmp"
+            rm -f "$_ba_tmp"
+          fi
+          if [ -n "$BUILD_CONTEXTS" ]; then
+            _bc_tmp=$(mktemp)
+            printf '%s\n' $BUILD_CONTEXTS > "$_bc_tmp"
+            while IFS= read -r _arg; do
+              [ -n "$_arg" ] && set -- "$@" "$_arg"
+            done < "$_bc_tmp"
+            rm -f "$_bc_tmp"
+          fi
+          if [ -n "$SECRETS" ]; then
+            _sec_tmp=$(mktemp)
+            printf '%s\n' $SECRETS > "$_sec_tmp"
+            while IFS= read -r _arg; do
+              [ -n "$_arg" ] && set -- "$@" "$_arg"
+            done < "$_sec_tmp"
+            rm -f "$_sec_tmp"
+          fi
+          if [ -n "$CACHE_FROM" ]; then
+            _cf_tmp=$(mktemp)
+            printf '%s\n' $CACHE_FROM > "$_cf_tmp"
+            while IFS= read -r _arg; do
+              [ -n "$_arg" ] && set -- "$@" "$_arg"
+            done < "$_cf_tmp"
+            rm -f "$_cf_tmp"
+          fi
+          if [ -n "$CACHE_TO" ]; then
+            _ct_tmp=$(mktemp)
+            printf '%s\n' $CACHE_TO > "$_ct_tmp"
+            while IFS= read -r _arg; do
+              [ -n "$_arg" ] && set -- "$@" "$_arg"
+            done < "$_ct_tmp"
+            rm -f "$_ct_tmp"
+          fi
 
           set -- "$@" \
             --file "$DOCKERFILE" \

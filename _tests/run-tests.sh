@@ -207,10 +207,9 @@ install_shellspec() {
 
   # Ensure cleanup of the downloaded file
   # Use ${tarball:-} to handle unbound variable when trap fires after function returns
-  cleanup() {
-    rm -f "${tarball:-}"
-  }
-  trap cleanup EXIT
+  # T-H1: save and restore the outer EXIT trap so we don't clobber it
+  _old_trap=$(trap -p EXIT)
+  trap 'rm -f "${tarball:-}"; eval "${_old_trap:-:}"' EXIT
 
   log_info "Downloading ShellSpec ${shellspec_version} to ${tarball}..."
   if ! curl -fsSL -o "$tarball" "https://github.com/shellspec/shellspec/archive/refs/tags/${shellspec_version}.tar.gz"; then
@@ -255,9 +254,6 @@ install_shellspec() {
 
   if command -v shellspec >/dev/null 2>&1; then
     log_success "ShellSpec installed successfully"
-    # Clear the trap now that we've succeeded to prevent unbound variable error on script exit
-    trap - EXIT
-    rm -f "$tarball"
   else
     log_error "Failed to install ShellSpec"
     exit 1
@@ -289,18 +285,22 @@ run_unit_tests() {
       # Note: ShellSpec returns non-zero exit codes for warnings (101) and other conditions
       # We need to check the actual output to determine if tests failed
       # Pass action name relative to --default-path (_tests/unit) for proper spec_helper loading
+      # T-C2: capture exit code separately; || true discards crash exit codes silently
       (cd "$TEST_ROOT/.." && shellspec \
         --no-banner --no-warning-as-failure \
         --format documentation \
-        "$action") >"$output_file" 2>&1 || true
+        "$action") >"$output_file" 2>&1
+      shellspec_exit=$?
 
       # Parse the output to determine if tests passed.
-      # Strip ANSI color codes first (shellspec forces color when output is
-      # piped through --format documentation in some versions). Single
-      # intermediate counts (e.g. "5 examples, 2 skipped, 0 failures").
+      # Strip ANSI escape sequences then grep for summary line.
       # Missing summary line (spec crash, empty output) is treated as FAIL.
-      if sed $'s/\x1b\\[[0-9;]*m//g' "$output_file" \
-           | grep -qE '^[0-9]+ examples?.*0 failures?$'; then
+      # T-C2: non-zero shellspec exit is treated as failure regardless of output.
+      # T-M2: require at least 1 example; '^[1-9]' prevents 0-example false passes.
+      # Use col -b (strip backspace-based formatting) as a portable ANSI stripper
+      # that avoids embedding literal ESC+bracket sequences in source.
+      _summary_line=$(col -b <"$output_file" | grep -E '^[1-9][0-9]* examples?.*0 failures?$' || true)
+      if [ "$shellspec_exit" -eq 0 ] && [ -n "$_summary_line" ]; then
         log_success "Unit tests passed: $action"
         passed_tests+=("$action")
       else
@@ -420,23 +420,24 @@ generate_coverage_report() {
   local tested_actions
   tested_actions=$(find "${TEST_ROOT}/unit" -mindepth 2 -maxdepth 2 -type f -name "validation.spec.sh" 2>/dev/null | wc -l | tr -d ' ')
 
-  local spec_presence_percent
+  # T-H3: renamed from spec_presence_percent to coverage_percent (workflow reads .coverage_percent)
+  local coverage_percent
   if [[ $total_actions -gt 0 ]]; then
-    spec_presence_percent=$(((tested_actions * 100) / total_actions))
+    coverage_percent=$(((tested_actions * 100) / total_actions))
   else
-    spec_presence_percent=0
+    coverage_percent=0
   fi
 
   cat >"${coverage_dir}/summary.json" <<EOF
 {
   "total_actions": $total_actions,
   "tested_actions": $tested_actions,
-  "spec_presence_percent": $spec_presence_percent,
+  "coverage_percent": $coverage_percent,
   "generated_at": "$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 }
 EOF
 
-  log_success "Spec-presence report generated: ${spec_presence_percent}% ($tested_actions/$total_actions actions)"
+  log_success "Spec-presence report generated: ${coverage_percent}% ($tested_actions/$total_actions actions)"
 }
 
 # Generate test report
@@ -533,9 +534,16 @@ generate_sarif_report() {
       ]
     }' >"$report_file"
 
-  # Parse test results and add SARIF findings
-  local results_array="[]"
-  local rules_array="[]"
+  # T-M4: accumulate results/rules into temp files; single jq pass at end avoids O(n^2).
+  local _sarif_results_file _sarif_rules_file _sarif_need_unit_rule _sarif_need_int_rule
+  _sarif_results_file=$(mktemp)
+  _sarif_rules_file=$(mktemp)
+  # N-046: clean up temp files on all exit paths (including jq failure)
+  trap 'rm -f "$_sarif_results_file" "$_sarif_rules_file"' RETURN
+  printf '[]' >"$_sarif_results_file"
+  printf '[]' >"$_sarif_rules_file"
+  _sarif_need_unit_rule=1
+  _sarif_need_int_rule=1
 
   # Process unit test failures
   if [[ -d "${TEST_ROOT}/reports/unit" ]]; then
@@ -546,36 +554,18 @@ generate_sarif_report() {
 
         # Check if test failed by looking for actual failures in the summary line
         if grep -qE "[0-9]+ examples?, [1-9][0-9]* failures?" "$test_file" || grep -q "Fatal error occurred" "$test_file"; then
-          # Extract failure details
           local failure_message
           failure_message=$(grep -E "(Fatal error|failure|FAILED)" "$test_file" | head -1 || echo "Test failed")
 
-          # Add rule if not exists
-          if ! echo "$rules_array" | jq -e '.[] | select(.id == "test-failure")' >/dev/null 2>&1; then
-            rules_array=$(echo "$rules_array" | jq '. + [{
-              "id": "test-failure",
-              "name": "TestFailure",
-              "shortDescription": {"text": "Test execution failed"},
-              "fullDescription": {"text": "A unit or integration test failed during execution"},
-              "defaultConfiguration": {"level": "error"}
-            }]')
+          # T-M4: append to temp file; single jq pass at end
+          if [ "$_sarif_need_unit_rule" -eq 1 ]; then
+            jq '. + [{"id":"test-failure","name":"TestFailure","shortDescription":{"text":"Test execution failed"},"fullDescription":{"text":"A unit or integration test failed during execution"},"defaultConfiguration":{"level":"error"}}]' \
+              "$_sarif_rules_file" >"${_sarif_rules_file}.tmp" && mv "${_sarif_rules_file}.tmp" "$_sarif_rules_file"
+            _sarif_need_unit_rule=0
           fi
-
-          # Add result using jq --arg to safely escape dynamic strings
-          results_array=$(echo "$results_array" | jq \
-            --arg failure_msg "$failure_message" \
-            --arg action_name "$action_name" \
-            '. + [{
-              "ruleId": "test-failure",
-              "level": "error",
-              "message": {"text": $failure_msg},
-              "locations": [{
-                "physicalLocation": {
-                  "artifactLocation": {"uri": ($action_name + "/action.yml")},
-                  "region": {"startLine": 1, "startColumn": 1}
-                }
-              }]
-            }]')
+          jq --arg msg "$failure_message" --arg act "$action_name" \
+            '. + [{"ruleId":"test-failure","level":"error","message":{"text":$msg},"locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},"region":{"startLine":1,"startColumn":1}}}]}]' \
+            "$_sarif_results_file" >"${_sarif_results_file}.tmp" && mv "${_sarif_results_file}.tmp" "$_sarif_results_file"
         fi
       fi
     done
@@ -592,43 +582,27 @@ generate_sarif_report() {
           local failure_message
           failure_message=$(grep -E "(FAILED|ERROR|error:)" "$test_file" | head -1 || echo "Integration test failed")
 
-          # Add integration rule if not exists
-          if ! echo "$rules_array" | jq -e '.[] | select(.id == "integration-failure")' >/dev/null 2>&1; then
-            rules_array=$(echo "$rules_array" | jq '. + [{
-              "id": "integration-failure",
-              "name": "IntegrationFailure",
-              "shortDescription": {"text": "Integration test failed"},
-              "fullDescription": {"text": "An integration test failed during workflow execution"},
-              "defaultConfiguration": {"level": "warning"}
-            }]')
+          # T-M4: append to temp file; single jq pass at end
+          if [ "$_sarif_need_int_rule" -eq 1 ]; then
+            jq '. + [{"id":"integration-failure","name":"IntegrationFailure","shortDescription":{"text":"Integration test failed"},"fullDescription":{"text":"An integration test failed during workflow execution"},"defaultConfiguration":{"level":"warning"}}]' \
+              "$_sarif_rules_file" >"${_sarif_rules_file}.tmp" && mv "${_sarif_rules_file}.tmp" "$_sarif_rules_file"
+            _sarif_need_int_rule=0
           fi
-
-          # Add result using jq --arg to safely escape dynamic strings
-          results_array=$(echo "$results_array" | jq \
-            --arg failure_msg "$failure_message" \
-            --arg action_name "$action_name" \
-            '. + [{
-              "ruleId": "integration-failure",
-              "level": "warning",
-              "message": {"text": $failure_msg},
-              "locations": [{
-                "physicalLocation": {
-                  "artifactLocation": {"uri": ($action_name + "/action.yml")},
-                  "region": {"startLine": 1, "startColumn": 1}
-                }
-              }]
-            }]')
+          jq --arg msg "$failure_message" --arg act "$action_name" \
+            '. + [{"ruleId":"integration-failure","level":"warning","message":{"text":$msg},"locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},"region":{"startLine":1,"startColumn":1}}}]}]' \
+            "$_sarif_results_file" >"${_sarif_results_file}.tmp" && mv "${_sarif_results_file}.tmp" "$_sarif_results_file"
         fi
       fi
     done
   fi
 
-  # Update SARIF file with results and rules
+  # T-M4: single jq pass merges accumulated results and rules into SARIF file
   local temp_file
   temp_file=$(mktemp)
-  jq --argjson rules "$rules_array" --argjson results "$results_array" \
-    '.runs[0].tool.driver.rules = $rules | .runs[0].results = $results' \
+  jq --slurpfile rules "$_sarif_rules_file" --slurpfile results "$_sarif_results_file" \
+    '.runs[0].tool.driver.rules = $rules[0] | .runs[0].results = $results[0]' \
     "$report_file" >"$temp_file" && mv "$temp_file" "$report_file"
+  rm -f "$_sarif_results_file" "$_sarif_rules_file"
 
   log_success "SARIF report generated: $report_file"
 }
@@ -658,7 +632,7 @@ generate_console_report() {
 
   if [[ -f "${TEST_ROOT}/coverage/summary.json" ]]; then
     local spec_presence
-    spec_presence=$(jq -r '.spec_presence_percent' "${TEST_ROOT}/coverage/summary.json" 2>/dev/null || echo "N/A")
+    spec_presence=$(jq -r '.coverage_percent' "${TEST_ROOT}/coverage/summary.json" 2>/dev/null || echo "N/A")
     if [[ "$spec_presence" =~ ^[0-9]+$ ]]; then
       printf "%-25s %4s%%\n" "Action Spec Presence:" "$spec_presence"
     else

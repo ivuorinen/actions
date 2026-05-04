@@ -15,7 +15,7 @@ from pathlib import Path
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from validators.registry import get_validator  # pylint: disable=wrong-import-position
+from validators.registry import _registry, get_validator  # pylint: disable=wrong-import-position
 
 # Configure logging for GitHub Actions
 logging.basicConfig(
@@ -104,12 +104,17 @@ def main() -> None:
     # Respect fail-on-error setting
     fail_on_error = os.environ.get("INPUT_FAIL_ON_ERROR", "true").lower() != "false"
 
+    # Override rules file if caller specified one
+    rules_file = os.environ.get("INPUT_RULES_FILE", "").strip()
+    if rules_file:
+        # Clear cache so load_rules on the new instance uses the custom file,
+        # not a previously cached instance that already loaded different rules.
+        _registry.clear_cache()
+
     # Get validator from registry
     # This will either load custom validator or fall back to convention-based
     validator = get_validator(action_type)
 
-    # Override rules file if caller specified one
-    rules_file = os.environ.get("INPUT_RULES_FILE", "").strip()
     if rules_file:
         validator.load_rules(Path(rules_file))
 
@@ -118,6 +123,9 @@ def main() -> None:
 
     # Validate inputs
     logger.debug("::debug::Validating %d inputs for %s", len(inputs), action_type)
+
+    # Count rules from the validator's internal rules dict when available
+    rules_count = len(validator._rules) if validator._rules else len(inputs)
 
     if validator.validate_inputs(inputs):
         # Only show success message if not in quiet mode (for tests)
@@ -128,7 +136,7 @@ def main() -> None:
             action_type,
             inputs_validated=len(inputs),
             result="passed",
-            rules=sum(1 for k in inputs if "_" not in k),
+            rules=rules_count,
         )
     else:
         # Report errors (suppress if in quiet mode for tests)
@@ -143,7 +151,7 @@ def main() -> None:
             error="; ".join(validator.errors),
             errors=len(validator.errors),
             result=f"failed with {len(validator.errors)} error(s)",
-            rules=sum(1 for k in inputs if "_" not in k),
+            rules=rules_count,
         )
         if fail_on_error:
             sys.exit(1)

@@ -74,26 +74,20 @@ year=$(echo "$version_no_v" | cut -d'.' -f1)
 month=$(echo "$version_no_v" | cut -d'.' -f2)
 day=$(echo "$version_no_v" | cut -d'.' -f3)
 
-major="v$year"
-minor="v$year.$month"
 patch="v$year.$month.$day"
 
 printf '\n'
 msg_info "Most recent release:"
-printf '  Patch: %s\n' "$patch"
-printf '  Minor: %s\n' "$minor"
-printf '  Major: %s\n' "$major"
+printf '  Tag: %s\n' "$patch"
 printf '\n'
 
 # Show which tags exist
 msg_info "Tags that will be deleted:"
-for tag in "$patch" "$minor" "$major"; do
-  if check_tag_exists "$tag"; then
-    tag_sha=$(git rev-list -n 1 "$tag")
-    tag_sha_short=$(echo "$tag_sha" | cut -c1-7)
-    printf '  %s (points to %s)\n' "$tag" "$tag_sha_short"
-  fi
-done
+if check_tag_exists "$patch"; then
+  tag_sha=$(git rev-list -n 1 "$patch")
+  tag_sha_short=$(echo "$tag_sha" | cut -c1-7)
+  printf '  %s (points to %s)\n' "$patch" "$tag_sha_short"
+fi
 printf '\n'
 
 # Check if HEAD commit is a release commit
@@ -109,7 +103,7 @@ fi
 
 # Confirm deletion
 msg_warn "This will:"
-printf '  1. Delete tags: %s, %s, %s\n' "$patch" "$minor" "$major"
+printf '  1. Delete tag: %s\n' "$patch"
 if [ "$reset_head" = "true" ]; then
   printf '  2. Reset HEAD to previous commit (undo release prep)\n'
 fi
@@ -123,19 +117,22 @@ printf '\n'
 
 # Delete tags
 msg_info "Deleting tags..."
-for tag in "$patch" "$minor" "$major"; do
-  if check_tag_exists "$tag"; then
-    git tag -d "$tag"
-    msg_item "Deleted tag: $tag"
-  else
-    msg_notice "Tag not found: $tag (skipping)"
-  fi
-done
+if check_tag_exists "$patch"; then
+  git tag -d "$patch"
+  msg_item "Deleted tag: $patch"
+else
+  msg_notice "Tag not found: $patch (skipping)"
+fi
 
 # Reset HEAD if needed
 if [ "$reset_head" = "true" ]; then
   printf '\n'
   msg_info "Resetting HEAD to previous commit..."
+  if ! git rev-parse HEAD~1 >/dev/null 2>&1; then
+    printf 'Error: No parent commit — this is the initial commit. Rollback aborted.\n' >&2
+    printf 'Tags may have been deleted. Please re-create them manually.\n' >&2
+    exit 1
+  fi
   git reset --hard HEAD~1
   msg_item "Reset complete"
   new_head=$(git rev-parse HEAD)
@@ -149,4 +146,4 @@ printf '\n'
 msg_warn "Note:"
 printf '  Tags were deleted locally only\n'
 printf '  If you had pushed the tags, delete them from remote:\n'
-printf '    git push origin --delete %s %s %s\n' "$patch" "$minor" "$major"
+printf '    git push origin --delete %s\n' "$patch"

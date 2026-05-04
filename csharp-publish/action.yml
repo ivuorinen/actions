@@ -235,22 +235,24 @@ runs:
           exit 1
         fi
 
-        # First attempt
-        if ! dotnet nuget push ./artifacts/*.nupkg \
-          --api-key "$API_KEY" \
-          --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
-          --skip-duplicate \
-          --no-symbols; then
-
-          echo "::warning::First publish attempt failed, retrying after 5 seconds..."
-          sleep 5
-
-          dotnet nuget push ./artifacts/*.nupkg \
+        for _pkg in ./artifacts/*.nupkg; do
+          # First attempt
+          if ! dotnet nuget push "$_pkg" \
             --api-key "$API_KEY" \
             --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
             --skip-duplicate \
-            --no-symbols
-        fi
+            --no-symbols; then
+
+            echo "::warning::First publish attempt failed for $_pkg, retrying after 5 seconds..."
+            sleep 5
+
+            dotnet nuget push "$_pkg" \
+              --api-key "$API_KEY" \
+              --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
+              --skip-duplicate \
+              --no-symbols
+          fi
+        done
 
     - name: Set publish status output
       if: always()

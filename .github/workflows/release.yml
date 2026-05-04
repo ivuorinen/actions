@@ -12,6 +12,7 @@ permissions: {}
 jobs:
   release:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:
@@ -23,6 +24,7 @@ jobs:
   provenance:
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       id-token: write
       contents: write
@@ -50,6 +52,7 @@ jobs:
   sbom:
     needs: release
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     permissions:
       contents: write
     steps:

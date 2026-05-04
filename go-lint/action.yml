@@ -344,74 +344,72 @@ runs:
         # Create reports directory
         mkdir -p reports
 
-        # Prepare linter configuration
-        linter_args=""
-        if [ "$DISABLE_ALL" = "true" ]; then
-          linter_args="--disable-all"
-        fi
-
-        if [ -n "$ENABLE_LINTERS" ]; then
-          linter_args="$linter_args --enable=$ENABLE_LINTERS"
-        fi
-
-        if [ -n "$DISABLE_LINTERS" ]; then
-          linter_args="$linter_args --disable=$DISABLE_LINTERS"
-        fi
+        # Build golangci-lint args as positional parameters
+        set -- --config "$CONFIG_FILE" --timeout "$TIMEOUT"
 
         # Prepare cache flag
-        cache_flag="--no-cache"
         if [ "$CACHE" = "true" ]; then
-          cache_flag="--cache"
+          set -- "$@" --cache
+        else
+          set -- "$@" --no-cache
         fi
 
         # Prepare new issues flag
-        new_flag=""
         if [ "$ONLY_NEW_ISSUES" = "true" ]; then
-          new_flag="--new"
+          set -- "$@" --new
         fi
+
+        # Prepare linter configuration
+        if [ "$DISABLE_ALL" = "true" ]; then
+          set -- "$@" --disable-all
+        fi
+
+        if [ -n "$ENABLE_LINTERS" ]; then
+          set -- "$@" "--enable=$ENABLE_LINTERS"
+        fi
+
+        if [ -n "$DISABLE_LINTERS" ]; then
+          set -- "$@" "--disable=$DISABLE_LINTERS"
+        fi
+
+        set -- "$@" --out-format "$REPORT_FORMAT" ./...
 
         # Run golangci-lint
         echo "Running golangci-lint..."
 
         result_file="reports/golangci-lint.$REPORT_FORMAT"
         error_count=0
+        exit_code=0
 
         GOLANGCI_LINT_CACHE="$HOME/.cache/golangci-lint" \
-        golangci-lint run \
-          --config "$CONFIG_FILE" \
-          --timeout "$TIMEOUT" \
-          $cache_flag \
-          $new_flag \
-          --out-format "$REPORT_FORMAT" \
-          $linter_args \
-          ./... > "$result_file" || {
-            exit_code=$?
+        golangci-lint run "$@" > "$result_file" || exit_code=$?
 
-            # Count errors
-            if [ "$REPORT_FORMAT" = "json" ]; then
-              if command -v jq >/dev/null 2>&1; then
-                error_count=$(jq '.Issues | length' "$result_file" 2>/dev/null || echo 0)
-              else
-                echo "::warning::jq not found - falling back to grep for error counting"
-                error_count=$(grep -c '"level": "error"' "$result_file" 2>/dev/null || echo 0)
-              fi
+        # Count errors regardless of exit code or fail-on-error setting
+        if [ "$exit_code" -ne 0 ]; then
+          if [ "$REPORT_FORMAT" = "json" ]; then
+            if command -v jq >/dev/null 2>&1; then
+              error_count=$(jq '.Issues | length' "$result_file" 2>/dev/null || echo 0)
             else
-              error_count=$(grep -c "level\": \"error\"" "$result_file" || echo 0)
+              echo "::warning::jq not found - falling back to grep for error counting"
+              error_count=$(grep -c '"level": "error"' "$result_file" 2>/dev/null || echo 0)
             fi
+          else
+            error_count=$(grep -c "level\": \"error\"" "$result_file" || echo 0)
+          fi
+        fi
 
-            if [ "$FAIL_ON_ERROR" = "true" ]; then
-              printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
-              echo "::error::golangci-lint found ${error_count} issues"
-              exit $exit_code
-            fi
-          }
-
+        # Always write outputs before any conditional exit
         printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
         # Count analyzed files
         analyzed_files=$(find . -type f -name "*.go" -not -path "./vendor/*" -not -path "./.git/*" | wc -l)
         printf 'analyzed_files=%s\n' "$analyzed_files" >> "$GITHUB_OUTPUT"
         printf 'sarif_file=%s\n' "$result_file" >> "$GITHUB_OUTPUT"
+
+        if [ "$FAIL_ON_ERROR" = "true" ] && [ "$exit_code" -ne 0 ]; then
+          echo "::error::golangci-lint found ${error_count} issues"
+          exit $exit_code
+        fi
 
     - name: Upload Lint Results
       if: always() && inputs.report-format == 'sarif'

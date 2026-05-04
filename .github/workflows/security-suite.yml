@@ -38,19 +38,23 @@ jobs:
           ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Fetch PR Base
+        env:
+          GH_TOKEN: ${{ github.token }}
+          PR_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
+          PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
         run: |
           set -eu
           # Fetch the base ref from base repository with authentication (works for private repos and forked PRs)
           # Using ref instead of SHA because git fetch requires ref names, not raw commit IDs
           # Use authenticated URL to avoid 403/404 on private repositories
           git fetch --no-tags --depth=1 \
-            "https://x-access-token:${{ github.token }}@github.com/${{ github.event.pull_request.base.repo.full_name }}" \
-            ${{ github.event.pull_request.base.ref }}:refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}
+            "https://x-access-token:${GH_TOKEN}@github.com/${PR_BASE_REPO}" \
+            "${PR_BASE_REF}:refs/remotes/origin-base/${PR_BASE_REF}"
           # Record the base commit for diffing without checking it out
           # Keep PR head checked out so scanners analyze the new changes
-          BASE_REF="refs/remotes/origin-base/${{ github.event.pull_request.base.ref }}"
-          echo "BASE_REF=${BASE_REF}" >> "$GITHUB_ENV"
-          echo "Base ref: ${BASE_REF}"
+          BASE_REF="refs/remotes/origin-base/${PR_BASE_REF}"
+          printf 'BASE_REF=%s\n' "${BASE_REF}" >> "$GITHUB_ENV"
+          printf 'Base ref: %s\n' "${BASE_REF}"
           git log -1 --oneline "${BASE_REF}"
 
       - name: OWASP Dependency Check

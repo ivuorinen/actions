@@ -5,6 +5,8 @@ Provides the foundation for all validators with common functionality.
 
 from __future__ import annotations
 
+import re
+import urllib.parse
 from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
@@ -105,6 +107,10 @@ class BaseValidator(ABC):
         if not value or value.strip() == "":
             return True
 
+        # GitHub Actions expressions (${{ ... }}) are safe — skip pattern checks
+        if self.is_github_expression(value):
+            return True
+
         # Common injection patterns to check
         dangerous_patterns = [
             (";", "command separator"),
@@ -145,8 +151,9 @@ class BaseValidator(ABC):
             self.add_error(f"Invalid {name}: '{path}'. Absolute path not allowed")
             return False
 
-        # Check for path traversal
-        if ".." in path:
+        # Check for path traversal (including URL-encoded variants)
+        decoded_path = urllib.parse.unquote(path)
+        if ".." in decoded_path:
             self.add_error(f"Invalid {name}: '{path}'. Path traversal detected")
             return False
 
@@ -186,11 +193,6 @@ class BaseValidator(ABC):
             action_dir = Path(__file__).parent.parent.parent / self.action_type.replace("_", "-")
             rules_path = action_dir / "rules.yml"
 
-        # Ensure rules_path is a Path object
-        if not isinstance(rules_path, Path):
-            msg = f"rules_path must be a Path object, got {type(rules_path)}"
-            raise TypeError(msg)
-
         if not rules_path.exists():
             return {}
 
@@ -221,12 +223,13 @@ class BaseValidator(ABC):
         }
 
     def is_github_expression(self, value: str) -> bool:
-        """Check if the value is a GitHub expression."""
-        return (
-            value.lower() == "${{ github.token }}"
-            or ("${{" in value and "}}" in value)
-            or (value.strip().startswith("${{") and value.strip().endswith("}}"))
-        )
+        """Check if the value is a GitHub expression or expression-prefixed path."""
+        if not value.startswith("${{"):
+            return False
+        cleaned = re.sub(r"\$\{\{[^}]*\}\}", "", value)
+        if ".." in cleaned:
+            return False
+        return bool(re.fullmatch(r"[\w/.-]*", cleaned))
 
     def propagate_errors(self, validator: BaseValidator, result: bool) -> bool:
         """Copy errors from another validator and return result.

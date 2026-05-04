@@ -98,12 +98,12 @@ runs:
         INPUT_RETRIES: ${{ inputs.max-retries }}
       run: |
         set -eu
-        # Write validated inputs to GITHUB_ENV for safe use in shell contexts
-        printf 'VALIDATED_WORKING_DIR=%s\n' "$INPUT_WORKING_DIR" >> "$GITHUB_ENV"
-        printf 'VALIDATED_CONFIG=%s\n' "$INPUT_CONFIG" >> "$GITHUB_ENV"
-        printf 'VALIDATED_FORMAT=%s\n' "$INPUT_FORMAT" >> "$GITHUB_ENV"
-        printf 'VALIDATED_FAIL=%s\n' "$INPUT_FAIL" >> "$GITHUB_ENV"
-        printf 'VALIDATED_RETRIES=%s\n' "$INPUT_RETRIES" >> "$GITHUB_ENV"
+        # Write validated inputs to GITHUB_ENV using heredoc format to prevent newline injection
+        printf 'VALIDATED_WORKING_DIR<<EOF\n%s\nEOF\n' "$INPUT_WORKING_DIR" >> "$GITHUB_ENV"
+        printf 'VALIDATED_CONFIG<<EOF\n%s\nEOF\n' "$INPUT_CONFIG" >> "$GITHUB_ENV"
+        printf 'VALIDATED_FORMAT<<EOF\n%s\nEOF\n' "$INPUT_FORMAT" >> "$GITHUB_ENV"
+        printf 'VALIDATED_FAIL<<EOF\n%s\nEOF\n' "$INPUT_FAIL" >> "$GITHUB_ENV"
+        printf 'VALIDATED_RETRIES<<EOF\n%s\nEOF\n' "$INPUT_RETRIES" >> "$GITHUB_ENV"
 
     - name: Check for Terraform Files
       id: check-files
@@ -116,7 +116,7 @@ runs:
         cd "$WORKING_DIRECTORY"
 
         # Check for Terraform files
-        if ! find . -name "*.tf" -o -name "*.tfvars" | grep -q .; then
+        if ! find . \( -name "*.tf" -o -name "*.tfvars" \) | grep -q .; then
           echo "No Terraform files found. Skipping lint and fix."
           printf 'found=%s\n' "false" >> "$GITHUB_OUTPUT"
           exit 0
@@ -137,11 +137,12 @@ runs:
       run: |
         set -eu
         echo "Validating Terraform file syntax..."
-        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
+        find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
+          file="$1"
           if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
             echo "::warning::Invalid Terraform syntax in $file"
           fi
-        done
+        ' _ {} \;
 
     - name: Setup TFLint
       if: steps.check-files.outputs.found == 'true'
@@ -232,14 +233,20 @@ runs:
 
         # Track fixed files
         fixed_count=0
+        _fixed_list=$(mktemp)
 
         # Format Terraform files
-        for file in $(find . -name "*.tf" -o -name "*.tfvars"); do
+        find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
+          file="$1"
+          fixed_list="$2"
           if ! terraform fmt -check "$file" >/dev/null 2>&1; then
             terraform fmt "$file"
-            fixed_count=$((fixed_count + 1))
+            printf "%s\n" "$file" >> "$fixed_list"
           fi
-        done
+        ' _ {} "$_fixed_list" \;
+
+        fixed_count=$(wc -l < "$_fixed_list" | tr -d ' ')
+        rm -f "$_fixed_list"
 
         printf 'fixed_count=%s\n' "$fixed_count" >> "$GITHUB_OUTPUT"
 

@@ -440,10 +440,13 @@ class TestCLIFunctionality:
         """Test main function with --dry-run flag."""
         test_args = ["update-validators.py", "--dry-run"]
 
-        with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator,
-            "generate_rules",
-        ) as mock_generate:
+        with (
+            patch("sys.argv", test_args),
+            patch.object(
+                ValidationRuleGenerator,
+                "generate_rules",
+            ) as mock_generate,
+        ):
             main()
             mock_generate.assert_called_once()
 
@@ -451,10 +454,13 @@ class TestCLIFunctionality:
         """Test main function with --action flag."""
         test_args = ["update-validators.py", "--action", "test-action"]
 
-        with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator,
-            "generate_rules",
-        ) as mock_generate:
+        with (
+            patch("sys.argv", test_args),
+            patch.object(
+                ValidationRuleGenerator,
+                "generate_rules",
+            ) as mock_generate,
+        ):
             main()
             mock_generate.assert_called_once()
 
@@ -462,11 +468,15 @@ class TestCLIFunctionality:
         """Test main function with --validate flag (success case)."""
         test_args = ["update-validators.py", "--validate"]
 
-        with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator,
-            "validate_rules_files",
-            return_value=True,
-        ), patch("sys.exit") as mock_exit:
+        with (
+            patch("sys.argv", test_args),
+            patch.object(
+                ValidationRuleGenerator,
+                "validate_rules_files",
+                return_value=True,
+            ),
+            patch("sys.exit") as mock_exit,
+        ):
             main()
             mock_exit.assert_called_once_with(0)
 
@@ -474,11 +484,15 @@ class TestCLIFunctionality:
         """Test main function with --validate flag (failure case)."""
         test_args = ["update-validators.py", "--validate"]
 
-        with patch("sys.argv", test_args), patch.object(
-            ValidationRuleGenerator,
-            "validate_rules_files",
-            return_value=False,
-        ), patch("sys.exit") as mock_exit:
+        with (
+            patch("sys.argv", test_args),
+            patch.object(
+                ValidationRuleGenerator,
+                "validate_rules_files",
+                return_value=False,
+            ),
+            patch("sys.exit") as mock_exit,
+        ):
             main()
             mock_exit.assert_called_once_with(1)
 

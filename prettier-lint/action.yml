@@ -246,6 +246,20 @@ runs:
           esac
         fi
 
+        # Validate plugins format if provided
+        if [ -n "$PLUGINS" ]; then
+          case "$PLUGINS" in
+            *[!a-zA-Z0-9@/._,-]*)
+              echo "::error::Invalid plugins value: '$PLUGINS'. Only package names with optional scopes allowed"
+              exit 1
+              ;;
+          esac
+          if ! echo "$PLUGINS" | grep -Eq '^(@[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_.-]+(,(@[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_.-]+)*$'; then
+            echo "::error::Invalid plugins format: '$PLUGINS'. Expected comma-separated package names (e.g., 'prettier-plugin-foo,@org/prettier-plugin-bar')"
+            exit 1
+          fi
+        fi
+
         echo "Input validation completed successfully"
 
     - name: Checkout Repository
@@ -420,7 +434,7 @@ runs:
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
           prettier_exit_code=$?
-          unformatted_files=$(grep -c "^" prettier-output.txt 2>/dev/null || echo "0")
+          unformatted_files=$(grep -c "^\[warn\]" prettier-output.txt || true)
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
         fi
 

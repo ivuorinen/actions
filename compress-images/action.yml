@@ -69,12 +69,6 @@ runs:
       run: |
         set -eu
 
-        # Validate working directory
-        if [ ! -d "$WORKING_DIRECTORY" ]; then
-          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Directory does not exist"
-          exit 1
-        fi
-
         # Validate path security (prevent absolute paths and path traversal)
         case "$WORKING_DIRECTORY" in
           /*|~*|[A-Za-z]:*|*..*)
@@ -137,7 +131,7 @@ runs:
         # Validate token format if provided (basic GitHub token pattern)
         if [ -n "$GITHUB_TOKEN" ]; then
           case "$GITHUB_TOKEN" in
-            gh[efpousr]_?????????????????????????????????????)
+            gh[efpours]_?????????????????????????????????????)
               ;;
             *)
               echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
@@ -149,6 +143,19 @@ runs:
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token }}
+
+    - name: Verify Working Directory
+      shell: sh
+      env:
+        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set -eu
+
+        # Validate working directory exists after checkout
+        if [ ! -d "$WORKING_DIRECTORY" ]; then
+          echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Directory does not exist"
+          exit 1
+        fi
 
     - name: Compress Images
       id: calibre

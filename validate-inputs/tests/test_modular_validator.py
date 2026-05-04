@@ -24,11 +24,14 @@ class TestModularValidator:
         output_file = tmp_path / "github_output"
         output_file.touch()
 
-        with patch.dict(
-            os.environ,
-            {"GITHUB_OUTPUT": str(output_file)},
-            clear=True,
-        ), pytest.raises(SystemExit) as exc_info:
+        with (
+            patch.dict(
+                os.environ,
+                {"GITHUB_OUTPUT": str(output_file)},
+                clear=True,
+            ),
+            pytest.raises(SystemExit) as exc_info,
+        ):
             main()
 
         assert exc_info.value.code == 1
@@ -42,16 +45,19 @@ class TestModularValidator:
         output_file.touch()
 
         # docker-build is a known action with a validator
-        with patch.dict(
-            os.environ,
-            {
-                "GITHUB_OUTPUT": str(output_file),
-                "INPUT_ACTION_TYPE": "docker-build",
-                "INPUT_TAG": "v1.0.0",
-                "INPUT_IMAGE_NAME": "myapp",
-            },
-            clear=True,
-        ), patch("modular_validator.logger") as mock_logger:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GITHUB_OUTPUT": str(output_file),
+                    "INPUT_ACTION_TYPE": "docker-build",
+                    "INPUT_TAG": "v1.0.0",
+                    "INPUT_IMAGE_NAME": "myapp",
+                },
+                clear=True,
+            ),
+            patch("modular_validator.logger") as mock_logger,
+        ):
             main()
 
         content = output_file.read_text()
@@ -91,18 +97,21 @@ class TestModularValidator:
         mock_validator.validate_inputs.return_value = True
         mock_validator.errors = []
 
-        with patch.dict(
-            os.environ,
-            {
-                "GITHUB_OUTPUT": str(output_file),
-                "INPUT_ACTION_TYPE": "docker-build",
-                "INPUT_TAG": "v1.0.0",
-                "INPUT_IMAGE_NAME": "myapp",
-                "INPUT_BUILD_ARGS": "NODE_ENV=prod",
-                "NOT_AN_INPUT": "should_be_ignored",
-            },
-            clear=True,
-        ), patch("modular_validator.get_validator", return_value=mock_validator):
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GITHUB_OUTPUT": str(output_file),
+                    "INPUT_ACTION_TYPE": "docker-build",
+                    "INPUT_TAG": "v1.0.0",
+                    "INPUT_IMAGE_NAME": "myapp",
+                    "INPUT_BUILD_ARGS": "NODE_ENV=prod",
+                    "NOT_AN_INPUT": "should_be_ignored",
+                },
+                clear=True,
+            ),
+            patch("modular_validator.get_validator", return_value=mock_validator),
+        ):
             main()
 
         # Check that validate_inputs was called with correct inputs
@@ -122,15 +131,18 @@ class TestModularValidator:
         mock_validator.validate_inputs.return_value = True
         mock_validator.errors = []
 
-        with patch.dict(
-            os.environ,
-            {
-                "GITHUB_OUTPUT": str(output_file),
-                "INPUT_ACTION_TYPE": "docker-build",
-                "INPUT_BUILD_ARGS": "test=value",
-            },
-            clear=True,
-        ), patch("modular_validator.get_validator", return_value=mock_validator):
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GITHUB_OUTPUT": str(output_file),
+                    "INPUT_ACTION_TYPE": "docker-build",
+                    "INPUT_BUILD_ARGS": "test=value",
+                },
+                clear=True,
+            ),
+            patch("modular_validator.get_validator", return_value=mock_validator),
+        ):
             main()
 
         # Check that both underscore and dash versions are present
@@ -146,14 +158,17 @@ class TestModularValidator:
         mock_validator.validate_inputs.return_value = True
         mock_validator.errors = []
 
-        with patch.dict(
-            os.environ,
-            {
-                "GITHUB_OUTPUT": str(output_file),
-                "INPUT_ACTION_TYPE": "docker-build",
-            },
-            clear=True,
-        ), patch("modular_validator.get_validator", return_value=mock_validator) as mock_get:
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GITHUB_OUTPUT": str(output_file),
+                    "INPUT_ACTION_TYPE": "docker-build",
+                },
+                clear=True,
+            ),
+            patch("modular_validator.get_validator", return_value=mock_validator) as mock_get,
+        ):
             main()
 
         # get_validator should be called with underscore version
@@ -164,14 +179,17 @@ class TestModularValidator:
         output_file = tmp_path / "github_output"
         output_file.touch()
 
-        with patch.dict(
-            os.environ,
-            {
-                "GITHUB_OUTPUT": str(output_file),
-                "INPUT_ACTION_TYPE": "docker-build",
-            },
-            clear=True,
-        ), patch("modular_validator.get_validator", side_effect=ValueError("Test error")):
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GITHUB_OUTPUT": str(output_file),
+                    "INPUT_ACTION_TYPE": "docker-build",
+                },
+                clear=True,
+            ),
+            patch("modular_validator.get_validator", side_effect=ValueError("Test error")),
+        ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 
@@ -213,14 +231,17 @@ class TestModularValidator:
         mock_validator.validate_inputs.return_value = False
         mock_validator.errors = ["Error 1", "Error 2"]
 
-        with patch.dict(
-            os.environ,
-            {
-                "GITHUB_OUTPUT": str(output_file),
-                "INPUT_ACTION_TYPE": "docker-build",
-            },
-            clear=True,
-        ), patch("modular_validator.get_validator", return_value=mock_validator):
+        with (
+            patch.dict(
+                os.environ,
+                {
+                    "GITHUB_OUTPUT": str(output_file),
+                    "INPUT_ACTION_TYPE": "docker-build",
+                },
+                clear=True,
+            ),
+            patch("modular_validator.get_validator", return_value=mock_validator),
+        ):
             with pytest.raises(SystemExit) as exc_info:
                 main()
 

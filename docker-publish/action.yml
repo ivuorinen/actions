@@ -173,8 +173,8 @@ runs:
         INPUT_DOCKERFILE="${INPUT_DOCKERFILE:-Dockerfile}"
 
         case "$INPUT_DOCKERFILE" in
-          Dockerfile|*/Dockerfile|*.dockerfile|*/*.dockerfile)
-            # Common dockerfile patterns are allowed
+          Dockerfile|./Dockerfile|*/Dockerfile|*.dockerfile|*.Dockerfile|*/*.dockerfile|*/*.Dockerfile)
+            # Common dockerfile patterns are allowed (including ./ prefix)
             # Check for path traversal attempts
             case "$INPUT_DOCKERFILE" in
               */../*|../*|*/..)
@@ -194,7 +194,7 @@ runs:
             ;;
           *)
             printf '%s\n' "::error::Invalid Dockerfile format: '$INPUT_DOCKERFILE'"
-            printf '%s\n' "::error::Must be 'Dockerfile', '*/Dockerfile', '*.dockerfile', or '*/*.dockerfile'"
+            printf '%s\n' "::error::Must be 'Dockerfile', './Dockerfile', '*/Dockerfile', '*.dockerfile', or '*/*.dockerfile'"
             exit 1
             ;;
         esac
@@ -239,10 +239,11 @@ runs:
 
         # Build full tags (image:tag format)
         tags=""
+        _IFS="$IFS"
         IFS=','
         for image in $image_names; do
           for tag in $INPUT_TAGS; do
-            tag=$(echo "$tag" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
+            tag=$(printf '%s' "$tag" | tr -d ' \t')
             if [ -n "$tags" ]; then
               tags="$(printf '%s\n%s' "$tags" "${image}:${tag}")"
             else
@@ -250,6 +251,7 @@ runs:
             fi
           done
         done
+        IFS="$_IFS"
 
         # Output results
         printf 'image-name=%s\n' "$base_name" >> "$GITHUB_OUTPUT"
@@ -278,6 +280,7 @@ runs:
         username: ${{ github.actor }}
         password: ${{ inputs.token || github.token }}
 
+    # timeout-minutes is set at the calling workflow level
     - name: Build and Push Docker Image
       id: build
       uses: docker/build-push-action@bcafcacb16a39f128d818304e6c9c0c18556b85f # v7.1.0

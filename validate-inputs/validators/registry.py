@@ -108,15 +108,28 @@ class ValidatorRegistry:
                 return None
 
             module = importlib.util.module_from_spec(spec)
-            sys.modules[spec.name] = module
-            spec.loader.exec_module(module)
+            try:
+                sys.modules[spec.name] = module
+                spec.loader.exec_module(module)
+            except Exception:
+                sys.modules.pop(spec.name, None)
+                raise
 
             # Get the CustomValidator class
             if hasattr(module, "CustomValidator"):
                 validator_class = module.CustomValidator
                 return validator_class(action_type)
 
-        except (ImportError, AttributeError, TypeError, ValueError) as e:
+        except (
+            ImportError,
+            AttributeError,
+            TypeError,
+            SyntaxError,
+            OSError,
+            NameError,
+            RuntimeError,
+            ValueError,
+        ) as e:
             # Log at debug level - custom validators are optional
             # Catch common errors during dynamic module loading:
             # - ImportError: Module dependencies not found
@@ -141,6 +154,11 @@ class ValidatorRegistry:
 
     def clear_cache(self) -> None:
         """Clear the validator instance cache."""
+        self._validator_instances.clear()
+
+    def reset(self) -> None:
+        """Clear all registered validators and cached instances. For test isolation only."""
+        self._validators.clear()
         self._validator_instances.clear()
 
     def list_registered(self) -> list[str]:

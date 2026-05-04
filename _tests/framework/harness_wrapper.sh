@@ -1,5 +1,5 @@
-#!/usr/bin/env bash
-# Public bash API for the composite-step harness.
+#!/bin/sh
+# Public POSIX sh API for the composite-step harness.
 #
 # Functions:
 #   run_step <action-dir> <step-id>    -- execute one run: step
@@ -11,14 +11,12 @@
 
 # shellcheck disable=SC2155
 _harness_py() {
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
   echo "${script_dir}/harness/harness.py"
 }
 
 _harness_project_root() {
-  local script_dir
-  script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+  script_dir="$(cd "$(dirname "$0")" && pwd)"
   (cd "${script_dir}/.." && pwd)
 }
 
@@ -40,27 +38,27 @@ _harness_python() {
 # Ensures $HARNESS_SESSION is set and exported. Creates a fresh tempdir on
 # first call in the current shell scope. Idempotent within a test.
 _harness_ensure_session() {
-  if [[ -z "${HARNESS_SESSION:-}" ]]; then
+  if [ -z "${HARNESS_SESSION:-}" ]; then
     HARNESS_SESSION="$(mktemp -d "${TEMP_DIR:-/tmp}/harness.XXXXXXXX")"
     export HARNESS_SESSION
-    echo "[]" > "${HARNESS_SESSION}/mocks.json"
+    printf '[]' >"${HARNESS_SESSION}/mocks.json"
   fi
 }
 
 harness_reset() {
-  if [[ -n "${HARNESS_SESSION:-}" && -d "${HARNESS_SESSION}" ]]; then
+  if [ -n "${HARNESS_SESSION:-}" ] && [ -d "${HARNESS_SESSION}" ]; then
     rm -rf "${HARNESS_SESSION}"
   fi
   unset HARNESS_SESSION
 }
 
 mock_command() {
-  local cmd="$1"
-  local glob="$2"
-  local stdout="$3"
-  local exit_code="${4:-0}"
+  cmd="$1"
+  glob="$2"
+  stdout="$3"
+  exit_code="${4:-0}"
   _harness_ensure_session
-  local session="${HARNESS_SESSION}"
+  session="${HARNESS_SESSION}"
   python3 - "$session" "$cmd" "$glob" "$stdout" "$exit_code" <<'PY'
 import json, sys
 session, cmd, glob, stdout, exit_code = sys.argv[1:6]
@@ -79,10 +77,10 @@ PY
 }
 
 run_step() {
-  local action_dir="$1"
-  local step_id="$2"
+  action_dir="$1"
+  step_id="$2"
   _harness_ensure_session
-  local session="${HARNESS_SESSION}"
+  session="${HARNESS_SESSION}"
   _harness_python "$(_harness_py)" run-step "$action_dir" "$step_id" \
     --session "$session" \
     --github-output "${GITHUB_OUTPUT:?GITHUB_OUTPUT not set}" \
@@ -90,9 +88,9 @@ run_step() {
 }
 
 run_all_owned_steps() {
-  local action_dir="$1"
+  action_dir="$1"
   _harness_ensure_session
-  local session="${HARNESS_SESSION}"
+  session="${HARNESS_SESSION}"
   _harness_python "$(_harness_py)" run-owned "$action_dir" \
     --session "$session" \
     --github-output "${GITHUB_OUTPUT:?GITHUB_OUTPUT not set}" \
@@ -100,14 +98,14 @@ run_all_owned_steps() {
 }
 
 expect_output() {
-  local key="$1"
-  local value="$2"
-  local file="${3:-$GITHUB_OUTPUT}"
+  key="$1"
+  value="$2"
+  file="${3:-$GITHUB_OUTPUT}"
   if ! grep -Fxq "${key}=${value}" "$file"; then
-    echo "expect_output: missing '${key}=${value}' in ${file}" >&2
-    echo "--- actual ---" >&2
+    printf 'expect_output: missing '"'"'%s=%s'"'"' in %s\n' "$key" "$value" "$file" >&2
+    printf '--- actual ---\n' >&2
     cat "$file" >&2
-    echo "--- end ---" >&2
+    printf '--- end ---\n' >&2
     return 1
   fi
   return 0

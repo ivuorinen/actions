@@ -47,11 +47,18 @@ jobs:
       - name: Notify on Critical Issues
         if: failure() && steps.security-scan.outputs.critical_issues != '0'
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        env:
+          CRITICAL_ISSUES: ${{ steps.security-scan.outputs.critical_issues }}
+          TOTAL_ISSUES: ${{ steps.security-scan.outputs.total_issues }}
+          HAS_TRIVY_RESULTS: ${{ steps.security-scan.outputs.has_trivy_results }}
+          HAS_GITLEAKS_RESULTS: ${{ steps.security-scan.outputs.has_gitleaks_results }}
         with:
           script: |-
             const { repo, owner } = context.repo;
-            const critical = '${{ steps.security-scan.outputs.critical_issues }}';
-            const total = '${{ steps.security-scan.outputs.total_issues }}';
+            const critical = process.env.CRITICAL_ISSUES;
+            const total = process.env.TOTAL_ISSUES;
+            const trivyStatus = process.env.HAS_TRIVY_RESULTS === 'true' ? 'Completed' : 'Skipped/Failed';
+            const gitleaksStatus = process.env.HAS_GITLEAKS_RESULTS === 'true' ? 'Completed' : 'Skipped';
 
             const body = `🚨 Critical security issues found in GitHub Actions
 
@@ -59,8 +66,8 @@ jobs:
 
             ### Scan Results
             - Actionlint: Completed
-            - Trivy: ${{ steps.security-scan.outputs.has_trivy_results == 'true' && 'Completed' || 'Skipped/Failed' }}
-            - Gitleaks: ${{ steps.security-scan.outputs.has_gitleaks_results == 'true' && 'Completed' || 'Skipped' }}
+            - Trivy: ${trivyStatus}
+            - Gitleaks: ${gitleaksStatus}
 
             [View detailed scan results](https://github.com/${owner}/${repo}/actions/runs/${context.runId})
 

@@ -968,10 +968,10 @@ optional_inputs:
         result = self.validator._validate_key_value_list("KEY=value", "build-args")
         assert result is True, "Should accept single key-value pair"
 
-        # Multiple key-value pairs
+        # Multiple key-value pairs (newline-separated)
         self.validator.clear_errors()
-        result = self.validator._validate_key_value_list("KEY1=value1,KEY2=value2", "build-args")
-        assert result is True, "Should accept multiple key-value pairs"
+        result = self.validator._validate_key_value_list("KEY1=value1\nKEY2=value2", "build-args")
+        assert result is True, "Should accept multiple newline-separated key-value pairs"
 
         # Empty value (valid for some use cases)
         self.validator.clear_errors()
@@ -985,12 +985,10 @@ optional_inputs:
         )
         assert result is False, "Should reject value with semicolon (injection risk)"
 
-        # Underscores and hyphens in keys
+        # Underscores in keys
         self.validator.clear_errors()
-        result = self.validator._validate_key_value_list(
-            "BUILD_ARG=test,my-key=value", "build-args"
-        )
-        assert result is True, "Should accept underscores and hyphens in keys"
+        result = self.validator._validate_key_value_list("BUILD_ARG=test", "build-args")
+        assert result is True, "Should accept underscores in keys"
 
         # Empty value (optional)
         self.validator.clear_errors()
@@ -1014,11 +1012,6 @@ optional_inputs:
         assert any("Key cannot be empty" in err for err in self.validator.errors), (
             "Should have empty key error"
         )
-
-        # Empty pair after comma
-        self.validator.clear_errors()
-        result = self.validator._validate_key_value_list("KEY=value,", "build-args")
-        assert result is False, "Should reject trailing comma"
 
         # Invalid characters in key
         self.validator.clear_errors()
@@ -1055,21 +1048,22 @@ optional_inputs:
         result = self.validator._validate_key_value_list("KEY=(echo test)", "build-args")
         assert result is False, "Should reject parentheses"
 
-    def test_validate_key_value_list_no_spaces_in_values(self):
-        """Test that spaces in values are rejected (breaks shell word-splitting)."""
+    def test_validate_key_value_list_spaces_in_values(self):
+        """Test that spaces in values are now allowed (newline-split entries support GREETING=Hello World)."""
+        # N-077: values may contain spaces when splitting by newline
         self.validator.clear_errors()
         result = self.validator._validate_key_value_list("KEY=hello world", "build-args")
-        assert result is False, "Should reject space-containing value"
+        assert result is True, "Should accept space-containing value (newline-split mode)"
 
         self.validator.clear_errors()
         result = self.validator._validate_key_value_list(
-            "KEY1=value1,KEY2=hello world", "build-args"
+            "KEY1=value1\nKEY2=hello world", "build-args"
         )
-        assert result is False, "Should reject space in second pair value"
+        assert result is True, "Should accept space in second pair value (newline-split mode)"
 
         self.validator.clear_errors()
         result = self.validator._validate_key_value_list("DESCRIPTION=my app name", "build-args")
-        assert result is False, "Should reject multi-word value with spaces"
+        assert result is True, "Should accept multi-word value with spaces"
 
     def test_validate_path_list_valid(self):
         """Test valid path lists."""

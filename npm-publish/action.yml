@@ -89,16 +89,21 @@ runs:
           exit 1
         fi
 
-        # Validate package.json exists
-        if [ ! -f "package.json" ]; then
-          echo "::error::package.json not found in current directory"
-          exit 1
-        fi
-
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
+
+    - name: Validate Checkout
+      shell: sh
+      run: |
+        set -eu
+
+        # Validate package.json exists after checkout
+        if [ ! -f "package.json" ]; then
+          echo "::error::package.json not found in current directory"
+          exit 1
+        fi
 
     - name: Detect Package Manager
       id: detect-pm
@@ -208,6 +213,7 @@ runs:
         echo "//${registry_host}/:_authToken=$NPM_TOKEN" > ~/.npmrc
         echo "always-auth=true" >> ~/.npmrc
 
+    # timeout-minutes is set at the calling workflow level
     - name: Publish Package
       shell: sh
       env:

@@ -5,11 +5,14 @@ This validator automatically applies validation based on input naming convention
 
 from __future__ import annotations
 
+import logging
 import re
 from pathlib import Path
 from typing import Any
 
 import yaml  # pylint: disable=import-error
+
+logger = logging.getLogger(__name__)
 
 from .base import BaseValidator
 from .convention_mapper import ConventionMapper
@@ -402,6 +405,10 @@ class ConventionBasedValidator(BaseValidator):
             # Unknown validator type, skip validation
             return True
 
+        # Reset errors on the validator module before calling it
+        if validator_module is not self and hasattr(validator_module, "errors"):
+            validator_module.errors = []
+
         try:
             # Call the validation method
             if hasattr(validator_module, method_name):
@@ -435,6 +442,9 @@ class ConventionBasedValidator(BaseValidator):
             return True
 
         except Exception as e:
+            # Ensure module errors are cleared even on exception
+            if validator_module is not self and hasattr(validator_module, "errors"):
+                validator_module.errors = []
             self.add_error(f"Validation error for {input_name}: {e}")
             return False
 
@@ -616,7 +626,11 @@ class ConventionBasedValidator(BaseValidator):
             try:
                 return int(parts[2]), int(parts[3])
             except ValueError:
-                pass
+                logger.warning(
+                    "Could not parse numeric range from validator type %r; "
+                    "falling back to default range (0, 100)",
+                    validator_type,
+                )
         # Default range
         return 0, 100
 
@@ -1180,16 +1194,17 @@ class ConventionBasedValidator(BaseValidator):
         key_pattern: str | None = None,
         check_injection: bool = True,
     ) -> bool:
-        """Validate comma-separated list of key-value pairs (generic validator).
+        """Validate newline-separated list of key-value pairs (generic validator).
 
-        Validates KEY=VALUE,KEY2=VALUE2 format commonly used for Docker build-args,
-        environment variables, and other configuration parameters.
+        Validates KEY=VALUE per line (one pair per line) commonly used for Docker
+        build-args, environment variables, and other configuration parameters.
+        Values may contain spaces (e.g. GREETING=Hello World).
 
         Args:
-            value: The key-value list value (comma-separated KEY=VALUE pairs)
+            value: The key-value list value (newline-separated KEY=VALUE pairs)
             input_name: The input name for error messages
             key_pattern: Regex pattern for key validation
-                (default: alphanumeric+underscores+hyphens)
+                (default: identifier-like: letter/underscore start, alphanumeric/underscore body)
             check_injection: Whether to check for shell injection patterns
                 in values (default: True)
 
@@ -1197,16 +1212,16 @@ class ConventionBasedValidator(BaseValidator):
             True if valid, False otherwise
 
         Examples:
-            Valid: "KEY=value", "KEY1=value1,KEY2=value2", "BUILD_ARG=hello", ""
-            Invalid: "KEY", "=value", "KEY=", "KEY=value,", "KEY=val;whoami"
+            Valid: "KEY=value", "KEY1=value1\\nKEY2=value2", "GREETING=Hello World", ""
+            Invalid: "KEY", "=value", "KEY=val;whoami"
         """
 
         if not value or value.strip() == "":
             return True  # Optional
 
         if key_pattern is None:
-            # Default: alphanumeric, underscores, hyphens (common for env vars and build args)
-            key_pattern = r"^[a-zA-Z0-9_-]+$"
+            # Default: identifier-like keys (letter or underscore start)
+            key_pattern = r"^[A-Za-z_][A-Za-z0-9_]*$"
 
         # Security check for injection patterns in the entire value
         if check_injection and re.search(r"[;&|`$()]", value):
@@ -1216,13 +1231,12 @@ class ConventionBasedValidator(BaseValidator):
             )
             return False
 
-        # Split by comma and validate each key-value pair
-        pairs = [pair.strip() for pair in value.split(",")]
+        # Split by newlines and validate each key-value pair
+        pairs = [pair.strip() for pair in value.splitlines()]
 
         for pair in pairs:
-            if not pair:  # Empty after strip
-                self.add_error(f"Invalid {input_name}: {value}. Contains empty key-value pair")
-                return False
+            if not pair:  # Empty after strip (blank line)
+                continue
 
             # Check for KEY=VALUE format
             if "=" not in pair:
@@ -1231,7 +1245,7 @@ class ConventionBasedValidator(BaseValidator):
                 )
                 return False
 
-            # Split by first = only (value may contain =)
+            # Split by first = only (value may contain = or spaces)
             parts = pair.split("=", 1)
             key = parts[0].strip()
 
@@ -1247,14 +1261,6 @@ class ConventionBasedValidator(BaseValidator):
                 self.add_error(
                     f"Invalid key '{key}' in {input_name}. "
                     f"Keys must be alphanumeric with underscores/hyphens"
-                )
-                return False
-
-            # Validate value does not contain spaces (breaks shell word-splitting in loops)
-            if len(parts) > 1 and " " in parts[1]:
-                self.add_error(
-                    f"Invalid value in '{pair}' in {input_name}. "
-                    f"Values must not contain spaces (breaks shell word-splitting)"
                 )
                 return False
 

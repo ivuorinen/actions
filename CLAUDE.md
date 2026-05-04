@@ -11,16 +11,7 @@
 ### Core Rules
 
 - Follow conventions, fix all issues, never compromise standards, test thoroughly
-- Prioritize quality over speed, write maintainable/DRY code
 - Document changes, communicate factually, review carefully
-- No hardcoded counts in docs/code (action counts, validator counts) — use `make update-catalog` instead
-- Ask when unsure
-
-### Communication
-
-- Direct, factual, concise only
-- Prohibited: hype, buzzwords, jargon, clichés, assumptions, predictions, comparisons, superlatives
-- Never declare "production ready" until all checks pass
 
 ### Folders
 
@@ -44,7 +35,7 @@ Edit/Write (ruff for .py, shfmt for .sh, prettier for
 - `rules.yml` — auto-generated, use `make update-validators`
 - Action `README.md` — auto-generated, use `make docs`
 - `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
-- Bash-isms in .sh/action.yml — must be POSIX sh (`[[ ]]`, `local`, `declare`, `function` keyword)
+- Bash-isms in .sh/action.yml — blocked, must be POSIX sh
 
 **Hook schema**: `matcher` is a regex string matching tool names
 (e.g. `"Edit|Write"`), not an object. File filtering done in hook
@@ -55,10 +46,8 @@ in hook commands
 
 ### Skills & Subagents
 
-**Run proactively** — don't wait to be asked:
-
 | When                                        | Run                                       |
-| ------------------------------------------- | ----------------------------------------- |
+|---------------------------------------------|-------------------------------------------|
 | After modifying an action                   | `/action-health <name>`                   |
 | After creating an action modeled on another | `/compare-actions <source> <new>`         |
 | Before creating a PR                        | `/pin-check` and `/security-audit`        |
@@ -120,23 +109,9 @@ ShellSpec (`_tests/`) + pytest (`validate-inputs/tests/`). Full coverage + indep
 
 ## Architecture - Critical Prevention (Zero Tolerance)
 
-Violations cause runtime failures:
-
-1. Add `id:` when outputs referenced (`steps.x.outputs.y` requires `id: x`)
-2. Check tool availability: `command -v jq >/dev/null 2>&1` (jq/bc/terraform not on all runners)
-3. Sanitize `$GITHUB_OUTPUT`: use `printf 'key=%s\n' "$val"` not `echo "key=$val"` (format-string separation)
-4. Pin external actions to SHA commits (not `@main`/`@v1`)
-5. Quote shell vars: `"$var"`, `basename -- "$path"` (handles spaces)
-6. Use SHA-pinned refs for internal actions: `ivuorinen/actions/action-name@<SHA>`
-   (security, not `./` or `@main`)
-7. Test regex edge cases (support `1.0.0-rc.1`, `1.0.0+build`)
-8. Use `set -eu` (POSIX) in shell scripts (all scripts are POSIX sh, not bash)
-9. Never nest `${{ }}` in quoted YAML strings (breaks hashFiles)
-10. Provide tool fallbacks (macOS/Windows lack Linux tools)
+Rules enforced via `.claude/rules/`. Reference patterns:
 
 ### GITHUB_OUTPUT Pattern
-
-Always use printf with format-string separation — never echo:
 
 ```sh
 # Correct — format string separated from data
@@ -259,7 +234,7 @@ You do NOT need to manually instruct subagents about context-mode.
 ### ctx commands
 
 | Command       | Action                                                                                |
-| ------------- | ------------------------------------------------------------------------------------- |
+|---------------|---------------------------------------------------------------------------------------|
 | `ctx stats`   | Call the `ctx_stats` MCP tool and display the full output verbatim                    |
 | `ctx doctor`  | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist  |
 | `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |

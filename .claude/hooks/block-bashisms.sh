@@ -53,6 +53,11 @@ if printf '%s\n' "$CHECKABLE" | grep -qE '(^|[[:space:]])function[[:space:]]+[a-
   REASON="${REASON}function keyword is not POSIX. Use name() { ... } syntax. "
 fi
 
+# --- local keyword ---
+if printf '%s\n' "$CHECKABLE" | grep -qE '(^|;) *local '; then
+  REASON="${REASON}local builtin is not POSIX. Use plain assignment at function-level scope. "
+fi
+
 # --- echo flags ---
 if printf '%s\n' "$CHECKABLE" | grep -qE '(^|[[:space:]])echo[[:space:]]+-[en]'; then
   REASON="${REASON}echo -e/-n is not portable. Use printf instead. "

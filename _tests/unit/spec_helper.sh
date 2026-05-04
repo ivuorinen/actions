@@ -358,6 +358,10 @@ validate_input_python() {
   input_var_name="$(echo "$input_var_name" | tr '[:lower:]' '[:upper:]')"
   export "$input_var_name"="$input_value"
 
+  # T-M3: save caller's GITHUB_OUTPUT so we can restore it after the validator runs
+  local _saved_github_output
+  _saved_github_output="${GITHUB_OUTPUT:-}"
+
   # Set up GitHub output file
   local temp_output
   temp_output=$(mktemp)
@@ -376,8 +380,15 @@ validate_input_python() {
   local exit_code=$?
 
   # Clean up target input
-  unset INPUT_ACTION_TYPE "$input_var_name" GITHUB_OUTPUT VALIDATOR_QUIET
+  unset INPUT_ACTION_TYPE "$input_var_name" VALIDATOR_QUIET
   rm -f "$temp_output" 2>/dev/null || true
+
+  # T-M3: restore caller's GITHUB_OUTPUT rather than unconditionally unsetting it
+  if [ -n "$_saved_github_output" ]; then
+    export GITHUB_OUTPUT="$_saved_github_output"
+  else
+    unset GITHUB_OUTPUT
+  fi
 
   # Clean up default inputs
   cleanup_default_inputs "$action_type" "$input_name"

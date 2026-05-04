@@ -53,6 +53,7 @@ runs:
         esac
 
         # Set default version if not provided
+        default=""
         if [ -z "$DEFAULT_VERSION" ]; then
           case "$LANGUAGE" in
             php)
