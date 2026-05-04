@@ -207,9 +207,12 @@ install_shellspec() {
 
   # Ensure cleanup of the downloaded file
   # Use ${tarball:-} to handle unbound variable when trap fires after function returns
-  # T-H1: save and restore the outer EXIT trap so we don't clobber it
-  _old_trap=$(trap -p EXIT)
-  trap 'rm -f "${tarball:-}"; eval "${_old_trap:-:}"' EXIT
+  # T-H1: chain the outer EXIT trap: extract its command string (not the trap statement)
+  # so eval executes the commands rather than re-registering the handler.
+  # _old_trap_cmd is intentionally non-local so it survives function return.
+  eval "set -- $(trap -p EXIT 2>/dev/null)"
+  _old_trap_cmd="${3:-:}"
+  trap 'rm -f "${tarball:-}"; eval "${_old_trap_cmd:-:}"' EXIT
 
   log_info "Downloading ShellSpec ${shellspec_version} to ${tarball}..."
   if ! curl -fsSL -o "$tarball" "https://github.com/shellspec/shellspec/archive/refs/tags/${shellspec_version}.tar.gz"; then

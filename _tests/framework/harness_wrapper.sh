@@ -50,12 +50,12 @@ harness_reset() {
 }
 
 mock_command() {
-  cmd="$1"
-  glob="$2"
-  stdout="$3"
-  exit_code="${4:-0}"
+  local cmd="$1"
+  local glob="$2"
+  local stdout="$3"
+  local exit_code="${4:-0}"
   _harness_ensure_session
-  session="${HARNESS_SESSION}"
+  local session="${HARNESS_SESSION}"
   python3 - "$session" "$cmd" "$glob" "$stdout" "$exit_code" <<'PY'
 import json, sys
 session, cmd, glob, stdout, exit_code = sys.argv[1:6]
@@ -74,10 +74,10 @@ PY
 }
 
 run_step() {
-  action_dir="$1"
-  step_id="$2"
+  local action_dir="$1"
+  local step_id="$2"
   _harness_ensure_session
-  session="${HARNESS_SESSION}"
+  local session="${HARNESS_SESSION}"
   _harness_python "$(_harness_py)" run-step "$action_dir" "$step_id" \
     --session "$session" \
     --github-output "${GITHUB_OUTPUT:?GITHUB_OUTPUT not set}" \
@@ -85,9 +85,9 @@ run_step() {
 }
 
 run_all_owned_steps() {
-  action_dir="$1"
+  local action_dir="$1"
   _harness_ensure_session
-  session="${HARNESS_SESSION}"
+  local session="${HARNESS_SESSION}"
   _harness_python "$(_harness_py)" run-owned "$action_dir" \
     --session "$session" \
     --github-output "${GITHUB_OUTPUT:?GITHUB_OUTPUT not set}" \
@@ -95,9 +95,9 @@ run_all_owned_steps() {
 }
 
 expect_output() {
-  key="$1"
-  value="$2"
-  file="${3:-$GITHUB_OUTPUT}"
+  local key="$1"
+  local value="$2"
+  local file="${3:-$GITHUB_OUTPUT}"
   if ! grep -Fxq "${key}=${value}" "$file"; then
     printf 'expect_output: missing '"'"'%s=%s'"'"' in %s\n' "$key" "$value" "$file" >&2
     printf '%s\n' '--- actual ---' >&2

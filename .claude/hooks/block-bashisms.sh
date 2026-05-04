@@ -18,6 +18,11 @@ case "$FILE_PATH" in
 *) exit 0 ;;
 esac
 
+# _tests/framework/ is intentionally bash (uses export -f, local, etc.)
+case "$FILE_PATH" in
+*/_tests/framework/*) exit 0 ;;
+esac
+
 NEW_CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.new_string // .tool_input.content // empty')
 
 if [ -z "$NEW_CONTENT" ]; then
@@ -36,7 +41,7 @@ fi
 REASON=""
 
 # --- Conditionals & operators ---
-if printf '%s\n' "$CHECKABLE" | grep -qE '\[\['; then
+if printf '%s\n' "$CHECKABLE" | grep -qE '\[{2}([^:]|$)'; then
   REASON="${REASON}[[ ]] is not POSIX. Use [ ] or case/test instead. "
 fi
 
