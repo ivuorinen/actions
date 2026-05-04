@@ -48,10 +48,30 @@ class TestSecurityValidator:
         assert self.validator.validate_safe_command("cmd&") is False
         assert self.validator.validate_safe_command("&cmd") is False
 
+    def test_url_query_string_ampersand_allowed(self):
+        """URL query strings with & as separator must not be rejected as shell backgrounding."""
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("key=value&other=thing") is True
+        self.validator.clear_errors()
+        # URL with scheme, path and query — ? and @ must be in the allowed char class
+        assert self.validator.validate_no_injection("https://example.com?x=1&y=2") is True
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("user@host:port/path?q=1&r=2") is True
+
     def test_github_expressions(self):
         """Test GitHub expression handling."""
         assert self.validator.validate_no_injection("${{ inputs.message }}") is True
         assert self.validator.validate_safe_command("${{ inputs.command }}") is True
+
+    def test_safe_environment_variable_pipe_backgrounding(self):
+        """validate_safe_environment_variable must catch & rm and | rm, not just ; rm."""
+        assert self.validator.validate_safe_environment_variable("normal_value") is True
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("config & rm -rf /") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("config | rm -rf /") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("config; rm -rf /") is False
 
     def test_validate_no_injection_preserves_prior_errors(self):
         """validate_no_injection must not wipe errors accumulated before it is called (N-082 regression)."""

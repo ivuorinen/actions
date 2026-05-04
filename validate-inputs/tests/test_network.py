@@ -103,6 +103,11 @@ class TestNetworkValidator:
         assert self.validator.validate_url("https://api.example.com/v1/endpoint") is True
         assert self.validator.validate_url("http://192.168.1.1") is True
         assert self.validator.validate_url("https://example.com/path?query=value") is True
+        assert self.validator.validate_url("https://example.com/path?a=1&b=2") is True
+        assert (
+            self.validator.validate_url("https://registry.company.com/npm?auth=token&ssl=true")
+            is True
+        )
 
     def test_invalid_urls(self):
         """Test invalid URL formats."""

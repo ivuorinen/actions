@@ -89,6 +89,8 @@ class TestVersionValidator:  # pylint: disable=too-many-public-methods
             "7.0.0",
             "8.0",
             "3.1.426",
+            "8.0.0-preview.1",  # Prerelease — must not trigger leading-zero rejection
+            "9.0.0-rc.2",
         ]
 
         for version in valid_versions:

@@ -106,13 +106,13 @@ optional_inputs:
         assert "required_input" in rules["required_inputs"]
 
     def test_load_rules_yaml_error(self, tmp_path):
-        """Test loading rules with invalid YAML."""
+        """Test that invalid YAML raises RuntimeError rather than silently disabling validation."""
+        import pytest
+
         rules_file = tmp_path / "invalid.yml"
         rules_file.write_text("invalid: yaml: ::::")
-        rules = self.validator.load_rules(rules_file)
-        # Should return default rules on error
-        assert "required_inputs" in rules
-        assert "optional_inputs" in rules
+        with pytest.raises(RuntimeError, match="Failed to load rules"):
+            self.validator.load_rules(rules_file)
 
     def test_infer_validator_type_explicit(self):
         """Test inferring validator type with explicit config."""

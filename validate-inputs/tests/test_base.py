@@ -167,6 +167,8 @@ class TestBaseValidator(unittest.TestCase):  # pylint: disable=too-many-public-m
             "../parent/directory",
             "path/../../../etc",
             "..\\..\\windows",
+            "%2Fetc/passwd",  # URL-encoded absolute path bypass
+            "%2F%2Fetc%2Fpasswd",  # Fully URL-encoded absolute path
         ]
 
         for path in invalid_paths:
