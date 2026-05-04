@@ -62,7 +62,7 @@ jobs:
 
       - name: Run MegaLinter
         id: pr-lint
-        uses: ivuorinen/actions/pr-lint@a632fe582f131797b310daa2a6082c74b3d10074
+        uses: ./pr-lint
         with:
           token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
           username: fiximus
