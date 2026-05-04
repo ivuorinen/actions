@@ -194,7 +194,7 @@ runs:
             ;;
           *)
             printf '%s\n' "::error::Invalid Dockerfile format: '$INPUT_DOCKERFILE'"
-            printf '%s\n' "::error::Must be 'Dockerfile', './Dockerfile', '*/Dockerfile', '*.dockerfile', or '*/*.dockerfile'"
+            printf '%s\n' "::error::Must be 'Dockerfile', './Dockerfile', '*/Dockerfile', '*.dockerfile', '*.Dockerfile', '*/*.dockerfile', or '*/*.Dockerfile'"
             exit 1
             ;;
         esac

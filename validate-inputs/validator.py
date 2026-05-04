@@ -126,7 +126,7 @@ def main() -> None:
 
     # Count rules from the validator's internal rules dict when available
     _rules = validator.get_validation_rules()
-    rules_count = len(_rules) if _rules else len(inputs)
+    rules_count = len(_rules) if _rules is not None else len(inputs)
 
     if validator.validate_inputs(inputs):
         # Only show success message if not in quiet mode (for tests)

@@ -578,13 +578,21 @@ generate_sarif_report() {
 
           # T-M4: append to temp file; single jq pass at end
           if [ "$_sarif_need_unit_rule" -eq 1 ]; then
-            jq '. + [{"id":"test-failure","name":"TestFailure","shortDescription":{"text":"Test execution failed"},"fullDescription":{"text":"A unit or integration test failed during execution"},"defaultConfiguration":{"level":"error"}}]' \
-              "$_sarif_rules_file" >"${_sarif_rules_file}.tmp" && mv "${_sarif_rules_file}.tmp" "$_sarif_rules_file"
+            if ! jq '. + [{"id":"test-failure","name":"TestFailure","shortDescription":{"text":"Test execution failed"},"fullDescription":{"text":"A unit or integration test failed during execution"},"defaultConfiguration":{"level":"error"}}]' \
+              "$_sarif_rules_file" >"${_sarif_rules_file}.tmp"; then
+              log_error "Failed to update SARIF rules file for unit test failure"
+              return 1
+            fi
+            mv "${_sarif_rules_file}.tmp" "$_sarif_rules_file"
             _sarif_need_unit_rule=0
           fi
-          jq --arg msg "$failure_message" --arg act "$action_name" \
+          if ! jq --arg msg "$failure_message" --arg act "$action_name" \
             '. + [{"ruleId":"test-failure","level":"error","message":{"text":$msg},"locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},"region":{"startLine":1,"startColumn":1}}}]}]' \
-            "$_sarif_results_file" >"${_sarif_results_file}.tmp" && mv "${_sarif_results_file}.tmp" "$_sarif_results_file"
+            "$_sarif_results_file" >"${_sarif_results_file}.tmp"; then
+            log_error "Failed to append unit test failure to SARIF results"
+            return 1
+          fi
+          mv "${_sarif_results_file}.tmp" "$_sarif_results_file"
         fi
       fi
     done
@@ -603,13 +611,21 @@ generate_sarif_report() {
 
           # T-M4: append to temp file; single jq pass at end
           if [ "$_sarif_need_int_rule" -eq 1 ]; then
-            jq '. + [{"id":"integration-failure","name":"IntegrationFailure","shortDescription":{"text":"Integration test failed"},"fullDescription":{"text":"An integration test failed during workflow execution"},"defaultConfiguration":{"level":"warning"}}]' \
-              "$_sarif_rules_file" >"${_sarif_rules_file}.tmp" && mv "${_sarif_rules_file}.tmp" "$_sarif_rules_file"
+            if ! jq '. + [{"id":"integration-failure","name":"IntegrationFailure","shortDescription":{"text":"Integration test failed"},"fullDescription":{"text":"An integration test failed during workflow execution"},"defaultConfiguration":{"level":"warning"}}]' \
+              "$_sarif_rules_file" >"${_sarif_rules_file}.tmp"; then
+              log_error "Failed to update SARIF rules file for integration test failure"
+              return 1
+            fi
+            mv "${_sarif_rules_file}.tmp" "$_sarif_rules_file"
             _sarif_need_int_rule=0
           fi
-          jq --arg msg "$failure_message" --arg act "$action_name" \
+          if ! jq --arg msg "$failure_message" --arg act "$action_name" \
             '. + [{"ruleId":"integration-failure","level":"warning","message":{"text":$msg},"locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},"region":{"startLine":1,"startColumn":1}}}]}]' \
-            "$_sarif_results_file" >"${_sarif_results_file}.tmp" && mv "${_sarif_results_file}.tmp" "$_sarif_results_file"
+            "$_sarif_results_file" >"${_sarif_results_file}.tmp"; then
+            log_error "Failed to append integration test failure to SARIF results"
+            return 1
+          fi
+          mv "${_sarif_results_file}.tmp" "$_sarif_results_file"
         fi
       fi
     done
@@ -618,9 +634,14 @@ generate_sarif_report() {
   # T-M4: single jq pass merges accumulated results and rules into SARIF file
   local temp_file
   temp_file=$(mktemp)
-  jq --slurpfile rules "$_sarif_rules_file" --slurpfile results "$_sarif_results_file" \
+  if ! jq --slurpfile rules "$_sarif_rules_file" --slurpfile results "$_sarif_results_file" \
     '.runs[0].tool.driver.rules = $rules[0] | .runs[0].results = $results[0]' \
-    "$report_file" >"$temp_file" && mv "$temp_file" "$report_file"
+    "$report_file" >"$temp_file"; then
+    log_error "Failed to merge results into SARIF report"
+    rm -f "$temp_file"
+    return 1
+  fi
+  mv "$temp_file" "$report_file"
   # N-046: reset RETURN trap before explicit cleanup so it doesn't bleed into
   # the caller's return and trigger set -u on out-of-scope locals.
   trap - RETURN
