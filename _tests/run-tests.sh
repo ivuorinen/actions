@@ -602,6 +602,9 @@ generate_sarif_report() {
   jq --slurpfile rules "$_sarif_rules_file" --slurpfile results "$_sarif_results_file" \
     '.runs[0].tool.driver.rules = $rules[0] | .runs[0].results = $results[0]' \
     "$report_file" >"$temp_file" && mv "$temp_file" "$report_file"
+  # N-046: reset RETURN trap before explicit cleanup so it doesn't bleed into
+  # the caller's return and trigger set -u on out-of-scope locals.
+  trap - RETURN
   rm -f "$_sarif_results_file" "$_sarif_rules_file"
 
   log_success "SARIF report generated: $report_file"
