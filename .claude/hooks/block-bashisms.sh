@@ -20,7 +20,7 @@ esac
 
 # _tests/ helpers are intentionally bash (ShellSpec, export -f, local, etc.)
 case "$FILE_PATH" in
-*/_tests/framework/* | */_tests/unit/*) exit 0 ;;
+_tests/framework/* | _tests/unit/* | */_tests/framework/* | */_tests/unit/*) exit 0 ;;
 esac
 
 NEW_CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.new_string // .tool_input.content // empty')

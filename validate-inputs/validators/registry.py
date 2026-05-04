@@ -120,22 +120,8 @@ class ValidatorRegistry:
                 validator_class = module.CustomValidator
                 return validator_class(action_type)
 
-        except (
-            ImportError,
-            AttributeError,
-            TypeError,
-            SyntaxError,
-            OSError,
-            NameError,
-            RuntimeError,
-            ValueError,
-        ) as e:
-            # Log at debug level - custom validators are optional
-            # Catch common errors during dynamic module loading:
-            # - ImportError: Module dependencies not found
-            # - AttributeError: Module doesn't have CustomValidator
-            # - TypeError: Validator instantiation failed
-            # - ValueError: Invalid validator configuration
+        except Exception as e:
+            # Log at debug level - custom validators are optional and may raise anything
             logger = logging.getLogger(__name__)
             logger.debug("Could not load custom validator for %s: %s", action_type, e)
 

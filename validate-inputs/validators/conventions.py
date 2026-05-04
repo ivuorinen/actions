@@ -1254,7 +1254,7 @@ class ConventionBasedValidator(BaseValidator):
             if not re.match(key_pattern, key):
                 self.add_error(
                     f"Invalid key '{key}' in {input_name}. "
-                    f"Keys must be alphanumeric with underscores/hyphens"
+                    f"Keys must start with a letter or underscore and contain only letters, digits, or underscores"
                 )
                 return False
 
