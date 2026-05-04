@@ -258,11 +258,13 @@ class SecurityValidator(BaseValidator):
             return False
 
         # Detect shell backgrounding &
-        # Reject any & unless every & is a URL query-string separator (key=val&key=val)
+        # Reject any & unless every & is a URL query-string separator (key=val&key=val).
+        # Empty parts (from leading/trailing & or &&) are not filtered — they fail fullmatch
+        # so that "a=1&&b=2" (POSIX AND operator) is correctly rejected.
         if "&" in value:
             parts = value.split("&")
-            _url_part = re.compile(r"[\w%+.\-/:?@]*=[\w%+.\-/:%]*")
-            if not all(_url_part.fullmatch(p) for p in parts if p):
+            _url_part = re.compile(r"[\w%+.\-/:?@]*=[\w%+.\-/:]*")
+            if not all(_url_part.fullmatch(p) for p in parts):
                 self.add_error(f"Background execution pattern '&' detected in {name}")
                 return False
 
@@ -330,14 +332,11 @@ class SecurityValidator(BaseValidator):
                 self.add_error(f"Potentially dangerous character '{char}' in {name}")
                 return False
 
-        # Detect shell backgrounding &
-        # Reject any & unless every & is a URL query-string separator (key=val&key=val)
+        # Reject & unconditionally in commands — shell commands have no URL query strings,
+        # so any & is a backgrounding or AND operator.
         if "&" in command:
-            parts = command.split("&")
-            _url_part = re.compile(r"[\w%+.\-/:]*=[\w%+.\-/:%]*")
-            if not all(_url_part.fullmatch(p) for p in parts if p):
-                self.add_error(f"Potentially dangerous character '&' in {name}")
-                return False
+            self.add_error(f"Background execution operator '&' detected in {name}")
+            return False
 
         return True
 
@@ -355,7 +354,7 @@ class SecurityValidator(BaseValidator):
             return True
 
         # Check if the variable name itself is dangerous (hijacks process execution)
-        var_name = value.split("=", 1)[0].strip() if "=" in value else value.strip()
+        var_name = value.split("=", 1)[0].strip() if "=" in value else name
         if var_name.upper() in self._DANGEROUS_ENV_VARS:
             self.add_error(
                 f"Dangerous environment variable '{var_name}': can hijack process execution"

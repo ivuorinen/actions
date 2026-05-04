@@ -59,8 +59,8 @@ class FileValidator(BaseValidator):
         try:
             safe_path = p.resolve(strict=True)
             safe_path.relative_to(Path.cwd().resolve())
-        except FileNotFoundError:
-            self.add_error(f'Invalid {name}: "{path}". Path does not exist')
+        except OSError:
+            self.add_error(f'Invalid {name}: "{path}". Path does not exist or is inaccessible')
             return False
         except ValueError:
             self.add_error(f'Invalid {name}: "{path}". Path must be within the workspace')
