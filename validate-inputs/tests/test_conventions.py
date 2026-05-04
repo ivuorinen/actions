@@ -1,5 +1,7 @@
 """Tests for conventions validator."""
 
+import pytest
+
 from validators.conventions import ConventionBasedValidator
 
 
@@ -107,7 +109,6 @@ optional_inputs:
 
     def test_load_rules_yaml_error(self, tmp_path):
         """Test that invalid YAML raises RuntimeError rather than silently disabling validation."""
-        import pytest
 
         rules_file = tmp_path / "invalid.yml"
         rules_file.write_text("invalid: yaml: ::::")

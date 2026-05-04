@@ -78,3 +78,31 @@ class TestSecurityValidator:
         self.validator.add_error("prior error from earlier check")
         self.validator.validate_no_injection("safe value")
         assert "prior error from earlier check" in self.validator.errors
+
+    def test_double_ampersand_bypass(self):
+        """a=1&&b=2 must be rejected — && is the POSIX AND operator, not a URL separator."""
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("a=1&&b=2") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_no_injection("cmd&&cmd2") is False
+
+    def test_safe_command_rejects_ampersand_unconditionally(self):
+        """validate_safe_command rejects & in all forms — commands have no URL query strings."""
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_command("curl https://x.com?a=1&b=2") is False
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_command("echo hello & disown") is False
+
+    def test_dangerous_env_var_by_name_parameter(self):
+        """validate_safe_environment_variable uses name param when value has no NAME= prefix."""
+        self.validator.clear_errors()
+        assert (
+            self.validator.validate_safe_environment_variable("/tmp/lib.so", "LD_PRELOAD") is False
+        )
+        self.validator.clear_errors()
+        assert (
+            self.validator.validate_safe_environment_variable("/bin/evil.so", "LD_LIBRARY_PATH")
+            is False
+        )
+        self.validator.clear_errors()
+        assert self.validator.validate_safe_environment_variable("normal_value", "MY_VAR") is True
