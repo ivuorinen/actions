@@ -13,8 +13,8 @@ FRAMEWORK_DIR="${TEST_ROOT}/framework"
 FIXTURES_DIR="${FRAMEWORK_DIR}/fixtures"
 MOCKS_DIR="${FRAMEWORK_DIR}/mocks"
 
-# Export directories for use by test cases
-export FIXTURES_DIR MOCKS_DIR
+# Export directories for use by test cases and harness_wrapper functions
+export PROJECT_ROOT TEST_ROOT FRAMEWORK_DIR FIXTURES_DIR MOCKS_DIR
 # Only create TEMP_DIR if not already set (framework setup.sh will create it).
 # Track ownership so the EXIT trap only deletes what this script created.
 # A caller-provided TEMP_DIR (e.g. an inherited env var pointing to scratch

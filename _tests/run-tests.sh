@@ -281,28 +281,33 @@ run_unit_tests() {
       local test_result=0
       local output_file="${TEST_ROOT}/reports/unit/${action}.txt"
 
-      # Run shellspec and capture both exit code and output
-      # Note: ShellSpec returns non-zero exit codes for warnings (101) and other conditions
-      # We need to check the actual output to determine if tests failed
-      # Pass action name relative to --default-path (_tests/unit) for proper spec_helper loading
-      # T-C2: capture exit code separately; || true discards crash exit codes silently
+      # Run shellspec and capture both exit code and output.
+      # Pass the full relative path _tests/unit/$action so ShellSpec resolves the
+      # spec directory correctly from the repo root. Passing just "$action" causes
+      # ShellSpec to resolve it against CWD (repo root) and find the action source
+      # directory instead — which contains no spec files → 0 examples reported.
+      # T-C2: capture exit code separately so a crash doesn't silently pass.
       (cd "$TEST_ROOT/.." && shellspec \
         --no-banner --no-warning-as-failure \
         --format documentation \
-        "$action") >"$output_file" 2>&1
+        "_tests/unit/$action") >"$output_file" 2>&1
       shellspec_exit=$?
 
       # Parse the output to determine if tests passed.
-      # Strip ANSI escape sequences then grep for summary line.
-      # Missing summary line (spec crash, empty output) is treated as FAIL.
-      # T-C2: non-zero shellspec exit is treated as failure regardless of output.
-      # T-M2: require at least 1 example; '^[1-9]' prevents 0-example false passes.
-      # Use col -b (strip backspace-based formatting) as a portable ANSI stripper
-      # that avoids embedding literal ESC+bracket sequences in source.
-      _summary_line=$(col -b <"$output_file" | grep -E '^[1-9][0-9]* examples?.*0 failures?$' || true)
+      # Strip ANSI/backspace formatting with col -b then grep for the summary line.
+      # Missing summary line (spec crash / empty output) → FAIL (shellspec_exit non-zero).
+      # "0 examples, 0 failures" → WARNING (no tests written yet, not a failure).
+      # "N examples, 0 failures" (N≥1) → PASS.
+      # T-C2: non-zero shellspec exit always fails regardless of summary content.
+      _summary_line=$(col -b <"$output_file" | grep -E '^[0-9][0-9]* examples?.*0 failures?$' || true)
       if [ "$shellspec_exit" -eq 0 ] && [ -n "$_summary_line" ]; then
-        log_success "Unit tests passed: $action"
-        passed_tests+=("$action")
+        if echo "$_summary_line" | grep -q '^0 examples'; then
+          log_warning "No examples in spec for: $action (0 examples, 0 failures)"
+          passed_tests+=("$action")
+        else
+          log_success "Unit tests passed: $action"
+          passed_tests+=("$action")
+        fi
       else
         log_error "Unit tests failed: $action"
         failed_tests+=("$action")

@@ -246,16 +246,12 @@ runs:
           IFS="$old_ifs"
           set +f
 
-          # Iterate through positional parameters — one entry per line
+          # Append each arg as " --build-arg VALUE" (space-separated, leading space)
           for arg; do
-            if [ -n "$args" ]; then
-              args="$(printf '%s\n--build-arg %s' "$args" "$arg")"
-            else
-              args="--build-arg $arg"
-            fi
+            args="$args --build-arg $arg"
           done
         fi
-        { printf 'args<<EOF\n%s\nEOF\n' "$args"; } >> "$GITHUB_OUTPUT"
+        printf 'args=%s\n' "$args" >> "$GITHUB_OUTPUT"
 
     # Inputs validated by validate-inputs step above; it fails the workflow
     # on invalid input before these parsing steps execute.
@@ -479,46 +475,42 @@ runs:
             --platform="${platforms}" \
             --tag "$IMAGE_NAME:$TAG"
 
-          # Append build args — use temp file to preserve values with whitespace
+          # Append space-separated flag groups; set -f prevents glob expansion of
+          # values like "*.go" that appear in build-arg strings.
           if [ -n "$BUILD_ARGS" ]; then
-            _ba_tmp=$(mktemp)
-            printf '%s\n' "$BUILD_ARGS" > "$_ba_tmp"
-            while IFS= read -r _arg; do
-              [ -n "$_arg" ] && set -- "$@" "$_arg"
-            done < "$_ba_tmp"
-            rm -f "$_ba_tmp"
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $BUILD_ARGS; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
           fi
           if [ -n "$BUILD_CONTEXTS" ]; then
-            _bc_tmp=$(mktemp)
-            printf '%s\n' "$BUILD_CONTEXTS" > "$_bc_tmp"
-            while IFS= read -r _arg; do
-              [ -n "$_arg" ] && set -- "$@" "$_arg"
-            done < "$_bc_tmp"
-            rm -f "$_bc_tmp"
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $BUILD_CONTEXTS; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
           fi
           if [ -n "$SECRETS" ]; then
-            _sec_tmp=$(mktemp)
-            printf '%s\n' "$SECRETS" > "$_sec_tmp"
-            while IFS= read -r _arg; do
-              [ -n "$_arg" ] && set -- "$@" "$_arg"
-            done < "$_sec_tmp"
-            rm -f "$_sec_tmp"
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $SECRETS; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
           fi
           if [ -n "$CACHE_FROM" ]; then
-            _cf_tmp=$(mktemp)
-            printf '%s\n' "$CACHE_FROM" > "$_cf_tmp"
-            while IFS= read -r _arg; do
-              [ -n "$_arg" ] && set -- "$@" "$_arg"
-            done < "$_cf_tmp"
-            rm -f "$_cf_tmp"
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $CACHE_FROM; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
           fi
           if [ -n "$CACHE_TO" ]; then
-            _ct_tmp=$(mktemp)
-            printf '%s\n' "$CACHE_TO" > "$_ct_tmp"
-            while IFS= read -r _arg; do
-              [ -n "$_arg" ] && set -- "$@" "$_arg"
-            done < "$_ct_tmp"
-            rm -f "$_ct_tmp"
+            _oi="$IFS"; IFS=' '; set -f
+            for _tok in $CACHE_TO; do
+              [ -n "$_tok" ] && set -- "$@" "$_tok"
+            done
+            set +f; IFS="$_oi"
           fi
 
           set -- "$@" \

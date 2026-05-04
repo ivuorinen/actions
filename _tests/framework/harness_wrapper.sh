@@ -9,15 +9,12 @@
 #
 # $GITHUB_OUTPUT and $GITHUB_ENV must be set by the spec (shellspec_setup_test_env).
 
-# shellcheck disable=SC2155
 _harness_py() {
-  script_dir="$(cd "$(dirname "$0")" && pwd)"
-  echo "${script_dir}/harness/harness.py"
+  echo "${FRAMEWORK_DIR:?FRAMEWORK_DIR not set by spec_helper}/harness/harness.py"
 }
 
 _harness_project_root() {
-  script_dir="$(cd "$(dirname "$0")" && pwd)"
-  (cd "${script_dir}/.." && pwd)
+  echo "${PROJECT_ROOT:?PROJECT_ROOT not set by spec_helper}"
 }
 
 # Invoke Python via uv so PyYAML resolves. Falls back to plain python3 if uv
@@ -103,9 +100,9 @@ expect_output() {
   file="${3:-$GITHUB_OUTPUT}"
   if ! grep -Fxq "${key}=${value}" "$file"; then
     printf 'expect_output: missing '"'"'%s=%s'"'"' in %s\n' "$key" "$value" "$file" >&2
-    printf '--- actual ---\n' >&2
+    printf '%s\n' '--- actual ---' >&2
     cat "$file" >&2
-    printf '--- end ---\n' >&2
+    printf '%s\n' '--- end ---' >&2
     return 1
   fi
   return 0
