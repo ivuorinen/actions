@@ -286,15 +286,19 @@ run_unit_tests() {
       # spec directory correctly from the repo root. Passing just "$action" causes
       # ShellSpec to resolve it against CWD (repo root) and find the action source
       # directory instead — which contains no spec files → 0 examples reported.
+      # --no-color: CI runners (GitHub Actions) force-enable ANSI codes via env vars
+      # even when stdout is redirected to a file; without this flag the summary line
+      # is wrapped in escape sequences and the grep below fails to match it.
       # T-C2: capture exit code separately so a crash doesn't silently pass.
       (cd "$TEST_ROOT/.." && shellspec \
         --no-banner --no-warning-as-failure \
+        --no-color \
         --format documentation \
         "_tests/unit/$action") >"$output_file" 2>&1
       shellspec_exit=$?
 
       # Parse the output to determine if tests passed.
-      # Strip ANSI/backspace formatting with col -b then grep for the summary line.
+      # col -b strips backspace overstrikes; grep matches the plain-text summary.
       # Missing summary line (spec crash / empty output) → FAIL (shellspec_exit non-zero).
       # "0 examples, 0 failures" → WARNING (no tests written yet, not a failure).
       # "N examples, 0 failures" (N≥1) → PASS.
