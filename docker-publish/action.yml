@@ -243,7 +243,12 @@ runs:
         IFS=','
         for image in $image_names; do
           for tag in $INPUT_TAGS; do
-            tag=$(printf '%s' "$tag" | tr -d ' \t')
+            case "$tag" in
+              *[[:space:]]*)
+                printf '::error::Invalid tag: "%s" contains whitespace. Tags must not contain spaces or tabs.\n' "$tag"
+                exit 1
+                ;;
+            esac
             if [ -n "$tags" ]; then
               tags="$(printf '%s\n%s' "$tags" "${image}:${tag}")"
             else

@@ -69,9 +69,10 @@ runs:
       run: |
         set -eu
 
-        # Validate path security (prevent absolute paths and path traversal)
+        # Validate path security (prevent absolute paths and path traversal).
+        # Match exact .. components (..|../* etc.) not arbitrary double-dot filenames.
         case "$WORKING_DIRECTORY" in
-          /*|~*|[A-Za-z]:*|*..*)
+          /*|~*|[A-Za-z]:*|..|../*|*/..|*/../*)
             echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Absolute paths and path traversal not allowed"
             exit 1
             ;;
@@ -156,6 +157,18 @@ runs:
           echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Directory does not exist"
           exit 1
         fi
+
+        # Canonicalize to catch symlinks that resolve outside the workspace
+        canon_dir=$(cd -- "$WORKING_DIRECTORY" && pwd -P)
+        workspace=$(pwd -P)
+        case "$canon_dir" in
+          "$workspace"|"$workspace"/*)
+            ;;
+          *)
+            echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Resolved path is outside the workspace"
+            exit 1
+            ;;
+        esac
 
     - name: Compress Images
       id: calibre
