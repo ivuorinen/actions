@@ -99,7 +99,8 @@ runs:
       run: |
         set -eu
         # Write validated inputs to GITHUB_ENV with a random delimiter to prevent heredoc injection
-        _dl=$(od -vAn -N8 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n' || printf 'EOF%s' "$$")
+        _dl=$(od -vAn -N8 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')
+        [ -n "$_dl" ] || _dl="$(printf 'EOF%s' "$$")"
         printf 'VALIDATED_WORKING_DIR<<%s\n%s\n%s\n' "$_dl" "$INPUT_WORKING_DIR" "$_dl" >> "$GITHUB_ENV"
         printf 'VALIDATED_CONFIG<<%s\n%s\n%s\n' "$_dl" "$INPUT_CONFIG" "$_dl" >> "$GITHUB_ENV"
         printf 'VALIDATED_FORMAT<<%s\n%s\n%s\n' "$_dl" "$INPUT_FORMAT" "$_dl" >> "$GITHUB_ENV"
@@ -235,6 +236,7 @@ runs:
         # Track fixed files
         fixed_count=0
         _fixed_list=$(mktemp)
+        trap 'rm -f "$_fixed_list"' EXIT
 
         # Format Terraform files
         find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
