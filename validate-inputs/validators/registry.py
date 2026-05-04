@@ -250,3 +250,8 @@ def register_validator(action_type: str, validator_class: type[BaseValidator]) -
 def clear_cache() -> None:
     """Clear the global validator cache."""
     _registry.clear_cache()
+
+
+def reset() -> None:
+    """Clear all registered validators and cached instances. For test isolation only."""
+    _registry.reset()

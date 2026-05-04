@@ -20,7 +20,7 @@ class TestConventionsValidator:
         """Test validator initialization."""
         validator = ConventionBasedValidator("docker-build")
         assert validator.action_type == "docker-build"
-        assert validator._rules is not None
+        assert validator.get_validation_rules() is not None
         assert validator._convention_mapper is not None
 
     def test_validate_inputs(self):
@@ -47,7 +47,7 @@ class TestConventionsValidator:
     def test_load_rules_nonexistent_file(self):
         """Test loading rules when file doesn't exist."""
         validator = ConventionBasedValidator("nonexistent-action")
-        rules = validator._rules
+        rules = validator.get_validation_rules()
         assert rules["action_type"] == "nonexistent-action"
         assert rules["required_inputs"] == []
         assert isinstance(rules["optional_inputs"], list)
@@ -293,7 +293,7 @@ optional_inputs:
 
     def test_validate_inputs_with_conventions(self):
         """Test validation using conventions."""
-        self.validator._rules["conventions"] = {
+        self.validator.get_validation_rules()["conventions"] = {
             "user_email": "email",
             "max_retries": "retries",
         }
@@ -306,7 +306,7 @@ optional_inputs:
 
     def test_validate_inputs_with_invalid_email(self):
         """Test validation fails with invalid email."""
-        self.validator._rules["conventions"] = {"email": "email"}
+        self.validator.get_validation_rules()["conventions"] = {"email": "email"}
         inputs = {"email": "not-an-email"}
         result = self.validator.validate_inputs(inputs)
         # Result depends on validation logic, check errors

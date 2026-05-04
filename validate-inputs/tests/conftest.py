@@ -11,4 +11,4 @@ from validators import registry
 def reset_registry():
     """Reset the global validator registry between tests for isolation."""
     yield
-    registry._registry.reset()
+    registry.reset()
