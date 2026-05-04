@@ -106,7 +106,7 @@ runs:
 
         # Validate ignore paths format (prevent command injection and path traversal)
         case "$IGNORE_PATHS" in
-          *\;*|*\&\&*|*\|*|*\`*|*\$\(*|*\$\{*|*\<*|*\>*|*..*)
+          *\;*|*\&\&*|*\|*|*\`*|*\$\(*|*\$\{*|*\<*|*\>*|..|../*|*/..|*/../*)
             echo "::error::Invalid ignore-paths: '$IGNORE_PATHS'. Command injection patterns and path traversal not allowed"
             exit 1
             ;;
