@@ -625,8 +625,11 @@ class VersionValidator(BaseValidator):
         if not self._check_version_format(value, clean_value, name, config):
             return False
 
-        # Parse version components
-        parts = clean_value.split(".")
+        # Strip prerelease/build metadata before splitting into numeric parts
+        # so that e.g. "8.0.0-preview.1" doesn't produce "0-preview" as a part
+        # that breaks int() conversion in leading-zero and range checks.
+        numeric_clean = clean_value.split("-", 1)[0].split("+", 1)[0]
+        parts = numeric_clean.split(".")
         major = int(parts[0])
         minor = int(parts[1]) if len(parts) > 1 else 0
 

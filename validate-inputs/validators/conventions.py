@@ -121,14 +121,8 @@ class ConventionBasedValidator(BaseValidator):
                 rules["conventions"] = conventions
 
             return rules
-        except Exception:
-            return {
-                "action_type": self.action_type,
-                "required_inputs": [],
-                "optional_inputs": [],
-                "conventions": {},
-                "overrides": {},
-            }
+        except Exception as exc:
+            raise RuntimeError(f"Failed to load rules from {rules_file}: {exc}") from exc
 
     def _infer_validator_type(self, input_name: str, input_config: dict[str, Any]) -> str | None:
         """Infer the validator type from input name and configuration.

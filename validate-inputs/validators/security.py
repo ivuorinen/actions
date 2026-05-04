@@ -261,7 +261,7 @@ class SecurityValidator(BaseValidator):
         # Reject any & unless every & is a URL query-string separator (key=val&key=val)
         if "&" in value:
             parts = value.split("&")
-            _url_part = re.compile(r"[\w%+.\-/:]*=[\w%+.\-/:%]*")
+            _url_part = re.compile(r"[\w%+.\-/:?@]*=[\w%+.\-/:%]*")
             if not all(_url_part.fullmatch(p) for p in parts if p):
                 self.add_error(f"Background execution pattern '&' detected in {name}")
                 return False
@@ -378,11 +378,7 @@ class SecurityValidator(BaseValidator):
             return False
 
         # Check for shell special chars that might cause issues
-        if re.search(r"[;&|]", value) and re.search(
-            r";\s*(rm|del|format|shutdown|reboot)",
-            value,
-            re.IGNORECASE,
-        ):
+        if re.search(r"[;&|]\s*(rm|del|format|shutdown|reboot)\b", value, re.IGNORECASE):
             self.add_error(f"Dangerous command pattern in environment variable {name}")
             return False
 

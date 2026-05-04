@@ -127,7 +127,7 @@ class NetworkValidator(BaseValidator):
             return False
 
         # Check for obvious injection and traversal patterns
-        injection_patterns = [";", "&", "|", "`", "$(", "${", "../", "..\\"]
+        injection_patterns = [";", "|", "`", "$(", "${", "../", "..\\"]
         for pattern in injection_patterns:
             if pattern in value:
                 self.add_error(f'Potential security injection in {name}: contains "{pattern}"')

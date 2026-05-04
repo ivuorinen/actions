@@ -146,13 +146,16 @@ class BaseValidator(ABC):
         if not path or path.strip() == "":
             return True
 
+        # Decode once; all security checks operate on the decoded form so that
+        # URL-encoded bypass variants like %2Fetc/passwd are caught.
+        decoded_path = urllib.parse.unquote(path)
+
         # Check for absolute paths
-        if path.startswith("/") or (len(path) > 1 and path[1] == ":"):
+        if decoded_path.startswith("/") or (len(decoded_path) > 1 and decoded_path[1] == ":"):
             self.add_error(f"Invalid {name}: '{path}'. Absolute path not allowed")
             return False
 
-        # Check for path traversal (including URL-encoded variants)
-        decoded_path = urllib.parse.unquote(path)
+        # Check for path traversal
         if ".." in decoded_path:
             self.add_error(f"Invalid {name}: '{path}'. Path traversal detected")
             return False
