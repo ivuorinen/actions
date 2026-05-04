@@ -15,7 +15,7 @@ from pathlib import Path
 # Add current directory to path
 sys.path.insert(0, str(Path(__file__).parent))
 
-from validators.registry import _registry, get_validator  # pylint: disable=wrong-import-position
+from validators.registry import clear_cache, get_validator  # pylint: disable=wrong-import-position
 
 # Configure logging for GitHub Actions
 logging.basicConfig(
@@ -109,7 +109,7 @@ def main() -> None:
     if rules_file:
         # Clear cache so load_rules on the new instance uses the custom file,
         # not a previously cached instance that already loaded different rules.
-        _registry.clear_cache()
+        clear_cache()
 
     # Get validator from registry
     # This will either load custom validator or fall back to convention-based
@@ -125,7 +125,8 @@ def main() -> None:
     logger.debug("::debug::Validating %d inputs for %s", len(inputs), action_type)
 
     # Count rules from the validator's internal rules dict when available
-    rules_count = len(validator._rules) if validator._rules else len(inputs)
+    _rules = validator.get_validation_rules()
+    rules_count = len(_rules) if _rules else len(inputs)
 
     if validator.validate_inputs(inputs):
         # Only show success message if not in quiet mode (for tests)
