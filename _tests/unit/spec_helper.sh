@@ -330,6 +330,14 @@ validate_input_python() {
   local input_name="$2"
   local input_value="$3"
 
+  # Save INPUT_ACTION_TYPE set-vs-unset state so we can restore it exactly.
+  local _saved_action_type_set=false
+  local _saved_action_type=""
+  if [ -n "${INPUT_ACTION_TYPE+x}" ]; then
+    _saved_action_type_set=true
+    _saved_action_type="$INPUT_ACTION_TYPE"
+  fi
+
   # When the `action` input itself is being tested, don't pre-set
   # INPUT_ACTION_TYPE — the test is simulating a caller that passes only
   # `action:` and expects its value to flow through validator.py's
@@ -358,9 +366,13 @@ validate_input_python() {
   input_var_name="$(echo "$input_var_name" | tr '[:lower:]' '[:upper:]')"
   export "$input_var_name"="$input_value"
 
-  # T-M3: save caller's GITHUB_OUTPUT so we can restore it after the validator runs
-  local _saved_github_output
-  _saved_github_output="${GITHUB_OUTPUT:-}"
+  # T-M3: save caller's GITHUB_OUTPUT (set vs unset) so we can restore it exactly.
+  local _saved_github_output_set=false
+  local _saved_github_output=""
+  if [ -n "${GITHUB_OUTPUT+x}" ]; then
+    _saved_github_output_set=true
+    _saved_github_output="$GITHUB_OUTPUT"
+  fi
 
   # Set up GitHub output file
   local temp_output
@@ -380,14 +392,21 @@ validate_input_python() {
   local exit_code=$?
 
   # Clean up target input
-  unset INPUT_ACTION_TYPE "$input_var_name" VALIDATOR_QUIET
+  unset "$input_var_name" VALIDATOR_QUIET
   rm -f "$temp_output" 2>/dev/null || true
 
-  # T-M3: restore caller's GITHUB_OUTPUT rather than unconditionally unsetting it
-  if [ -n "$_saved_github_output" ]; then
+  # T-M3: restore GITHUB_OUTPUT exactly (handles set-to-empty vs unset)
+  if [ "$_saved_github_output_set" = "true" ]; then
     export GITHUB_OUTPUT="$_saved_github_output"
   else
     unset GITHUB_OUTPUT
+  fi
+
+  # Restore INPUT_ACTION_TYPE exactly (handles set-to-empty vs unset)
+  if [ "$_saved_action_type_set" = "true" ]; then
+    export INPUT_ACTION_TYPE="$_saved_action_type"
+  else
+    unset INPUT_ACTION_TYPE
   fi
 
   # Clean up default inputs

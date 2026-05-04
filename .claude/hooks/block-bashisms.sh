@@ -18,9 +18,9 @@ case "$FILE_PATH" in
 *) exit 0 ;;
 esac
 
-# _tests/framework/ is intentionally bash (uses export -f, local, etc.)
+# _tests/ helpers are intentionally bash (ShellSpec, export -f, local, etc.)
 case "$FILE_PATH" in
-*/_tests/framework/*) exit 0 ;;
+*/_tests/framework/* | */_tests/unit/*) exit 0 ;;
 esac
 
 NEW_CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.new_string // .tool_input.content // empty')
