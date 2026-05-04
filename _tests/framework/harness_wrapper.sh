@@ -1,4 +1,4 @@
-#!/bin/sh
+#!/usr/bin/env bash
 # Public POSIX sh API for the composite-step harness.
 #
 # Functions:

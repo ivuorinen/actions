@@ -290,12 +290,15 @@ run_unit_tests() {
       # even when stdout is redirected to a file; without this flag the summary line
       # is wrapped in escape sequences and the grep below fails to match it.
       # T-C2: capture exit code separately so a crash doesn't silently pass.
-      (cd "$TEST_ROOT/.." && shellspec \
+      if (cd "$TEST_ROOT/.." && shellspec \
         --no-banner --no-warning-as-failure \
         --no-color \
         --format documentation \
-        "_tests/unit/$action") >"$output_file" 2>&1
-      shellspec_exit=$?
+        "_tests/unit/$action") >"$output_file" 2>&1; then
+        shellspec_exit=0
+      else
+        shellspec_exit=$?
+      fi
 
       # Parse the output to determine if tests passed.
       # col -b strips backspace overstrikes; grep matches the plain-text summary.
@@ -547,8 +550,9 @@ generate_sarif_report() {
   local _sarif_results_file _sarif_rules_file _sarif_need_unit_rule _sarif_need_int_rule
   _sarif_results_file=$(mktemp)
   _sarif_rules_file=$(mktemp)
+  temp_file=
   # N-046: clean up temp files on all exit paths (including jq failure)
-  trap 'rm -f "$_sarif_results_file" "$_sarif_rules_file"' RETURN
+  trap 'rm -f "$_sarif_results_file" "$_sarif_rules_file" "${temp_file:-}"' RETURN
   printf '[]' >"$_sarif_results_file"
   printf '[]' >"$_sarif_rules_file"
   _sarif_need_unit_rule=1

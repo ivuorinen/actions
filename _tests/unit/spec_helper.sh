@@ -376,7 +376,7 @@ validate_input_python() {
   fi
 
   # Run validator and output everything to stdout for ShellSpec
-  uv run "${PROJECT_ROOT}/validate-inputs/validator.py" 2>&1
+  _harness_python "${PROJECT_ROOT}/validate-inputs/validator.py" 2>&1
   local exit_code=$?
 
   # Clean up target input
