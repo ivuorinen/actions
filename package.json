@@ -20,7 +20,7 @@
     "test:coverage": "make test-coverage"
   },
   "devDependencies": {
-    "action-docs": "1.2.0",
+    "action-docs": "2.5.1",
     "js-yaml": "^4.1.0",
     "markdown-table": "^3.0.3",
     "markdown-table-formatter": "^1.6.0",
