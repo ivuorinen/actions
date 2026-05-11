@@ -10,7 +10,7 @@ ARG ACT_VERSION=0.2.71
 ARG SHELLSPEC_VERSION=0.28.1
 
 # Stage 1: Build kcov separately to keep final image slim
-FROM ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9 AS kcov-builder
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS kcov-builder
 
 ARG KCOV_VERSION
 
@@ -43,7 +43,7 @@ RUN cmake .. \
   && make install DESTDIR=/kcov-install
 
 # Stage 2: Base system setup
-FROM ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9 AS base
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS base
 
 LABEL maintainer="ivuorinen"
 LABEL description="GitHub Actions testing framework with pre-installed tools"
