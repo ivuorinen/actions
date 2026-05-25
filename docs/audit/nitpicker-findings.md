@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-05-04 (Pass 13 — fixes applied)
+Last validated: 2026-05-25 (Pass 15 — additional fixes from validation pass)
 
 ## Summary
 
-- Total: 95 | Open: 1 | Fixed: 94 | Invalid: 0
+- Total: 99 | Open: 1 | Fixed: 98 | Invalid: 0
 
 ## Open Findings
 
@@ -497,6 +497,107 @@ then reference only `$COMPOSER_ARGS` in the run body.
 -->
 
 ## Fixed
+
+### Pass 15 — 2026-05-25
+
+#### [N-099] `_tests/framework/validation.py` and `_tests/shared/validation_core.py` token regex updated without unit tests
+
+Category: tests
+Area: `_tests/shared/validation_core.py`, `_tests/framework/validation.py`
+Problem: Pass 14 updated the installation-token regex in both test-framework
+modules without adding unit tests to exercise the new format. The shared
+`ValidationCore` class is invoked via CLI from ShellSpec specs (`uv run
+validation_core.py --validate ...`), so a regex regression would only surface
+when a downstream spec exercises the exact `ghs_APPID_JWT` shape — which none did.
+Evidence: `_tests/shared/` contained only `test_docker_image_regex.py` before this
+pass; no test asserts the behaviour of `ValidationCore.validate_github_token` or
+`ActionValidator.validate_github_token`.
+Impact: A future change to either regex could silently break ShellSpec validation
+runs without any local-test signal.
+Fixed: 2026-05-25
+Notes: Added `_tests/shared/test_token_regex.py` (14 cases) and
+`_tests/framework/test_action_validator_token.py` (8 cases). Coverage includes
+stateful/stateless ghs*, JWT realistic shape, minimum/upper-bound length
+boundaries (36, 1024), invalid-char rejection, classic ghp*, fine-grained
+github*pat*, GitHub expressions, and wrong-prefix rejection.
+
+#### [N-098] Fixture `"ghs_ stateless minimum length (36 body chars)"` body was 37 chars, not 36
+
+Category: tests
+Area: `validate-inputs/tests/fixtures/version_test_data.py`
+Problem: `("ghs_1_" + "a" * 30 + "." + "b" * 4, "ghs_ stateless minimum length (36
+body chars)")` — body length is 2 + 30 + 1 + 4 = 37 chars, but the label says 36.
+The test passed (37 ≥ 36) but did not exercise the boundary it claimed to.
+Evidence: Hand-count and `python3 -c "print(len('1_' + 'a'*30 + '.' + 'b'*4))"` → 37.
+Impact: Minimum-length boundary was untested — a regex regression to `{37,}` would
+have been masked.
+Fixed: 2026-05-25
+Notes: Corrected to `"ghs_1_" + "a" * 30 + ".y.z"` (body = 36). Added explicit
+1024-char upper-bound case to VALID and 1025-char over-bound case to INVALID.
+Mirror boundary test (`test_ghs_length_boundaries`) added to `test_token.py` and
+the generator template.
+
+#### [N-097] `scripts/generate-tests.py` `_generate_input_test_cases` had unused `config` parameter with `# noqa: ARG002` suppression
+
+Category: maintainability
+Area: `validate-inputs/scripts/generate-tests.py`
+Problem: The function signature was `_generate_input_test_cases(self, input_name:
+str, config: dict)` but `config` was never read inside the function body — it was
+silenced with `# noqa: ARG002`. Per `.claude/rules/fix-pre-existing-issues.md`,
+suppression directives are not permitted in place of root-cause fixes.
+Evidence: pyright diagnostic at line 266 — `"config" is not accessed`. Function
+body relies entirely on regex matching against `input_name`.
+Impact: Dead parameter clutters the API and masks intent for future maintainers.
+Fixed: 2026-05-25
+Notes: Removed the `config` parameter from the signature and the call site at line 204. Updated all five call sites in `tests/test_generate_tests.py` accordingly.
+Test suite remains green (786 tests pass).
+
+### Pass 14 — 2026-05-25
+
+#### [N-096] `validate-inputs` rejects new stateless `ghs_` installation tokens with "Invalid token format"
+
+Category: correctness
+Area: `validate-inputs/validators/token.py`, `validate-inputs/validators/security.py`,
+`_tests/shared/validation_core.py`, `_tests/framework/validation.py`
+Problem: GitHub began rolling out a new stateless installation-token format on
+2026-04-27 (`ghs_APPID_JWT`, ~520 chars, two dots, includes underscores). At workflow
+runtime, `${{ github.token }}` and `${{ secrets.GITHUB_TOKEN }}` expand to one of these
+tokens — which the validator's `^ghs_[a-zA-Z0-9]{36}$` regex rejected because it
+required exactly 36 alphanumeric chars after the prefix. Every action that calls
+`validate-inputs` with the runtime `github.token` therefore failed with
+"Invalid token format".
+Evidence: Official docs:
+<https://docs.github.com/en/authentication/keeping-your-account-and-data-secure/about-authentication-to-github#githubs-token-formats>
+("If your application expects or relies on installation tokens being exactly 40
+characters long, it may not handle this new token format correctly") and
+<https://github.blog/changelog/2026-05-15-github-app-installation-tokens-per-request-override-header>
+("A stateless token is a `ghs_`-prefixed JWT. It is longer (~520 characters) and
+contains two dots… Our recommended regex to match both new and current format tokens is
+`ghs_[A-Za-z0-9\._]{36,}`"). Affected actions: ansible-lint-fix, codeql-analysis,
+csharp-publish, pr-lint, pre-commit, python-lint-fix, security-scan, stale,
+terraform-lint-fix (any path that passes the runtime `github.token` to validate-inputs).
+Impact: Blocks every action that uses `validate-inputs` with the runtime GitHub token.
+Fixed: 2026-05-25
+Notes: Updated four regex sites to GitHub's recommended pattern (with anchors and a
+sane upper bound of 1024 chars):
+
+- `validate-inputs/validators/token.py` — `github_installation` pattern now
+  `^ghs_[A-Za-z0-9._]{36,1024}$`; updated error message to document both formats.
+- `validate-inputs/validators/security.py` — `_check_github_tokens` `ghs_` pattern
+  now `ghs_[A-Za-z0-9._]{36,}` so leak detection catches the new format too.
+- `_tests/shared/validation_core.py` and `_tests/framework/validation.py` — same
+  installation regex update; same error message update.
+
+Added test coverage: `test_ghs_stateful_token`, `test_ghs_stateless_jwt_token`,
+`test_ghs_stateless_rejects_invalid_chars`, `test_ghs_too_short` in
+`tests/test_token.py`. Extended `GITHUB_TOKEN_VALID`/`INVALID` fixtures with realistic
+stateless JWT, minimum-length stateless, three-part JWT, char-class violations, and
+length-boundary cases — these feed the parametrized `test_token_validator.py`. Also
+updated `scripts/generate-tests.py` template so regenerated tests carry the new
+coverage and fixed three pre-existing template bugs (`ghp_ + "a" * 32` → `36`,
+`""` invalid check → `"", required=True`, removed reference to nonexistent
+`validate_pypi_token` method). Full test suite now 783/783 passing (was 763). Verified
+end-to-end with a synthetic 460-char stateless JWT token.
 
 ### Pass 13 — 2026-05-04
 
