@@ -1,7 +1,8 @@
----
+# yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 # permissions:
 #   - security-events: write  # Required for uploading SARIF results
 #   - contents: read          # Required for checking out repository
+---
 name: CodeQL Analysis
 description: Run CodeQL security analysis for a single language with configurable query suites
 author: Ismo Vuorinen

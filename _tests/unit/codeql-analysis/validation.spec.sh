@@ -1,4 +1,6 @@
-#!/usr/bin/env bash
+#!/usr/bin/env shellspec
+# Unit tests for codeql-analysis action validation
+# Framework is automatically loaded via spec_helper.sh
 
 Describe "codeql-analysis validation"
 Include "_tests/unit/spec_helper.sh"
