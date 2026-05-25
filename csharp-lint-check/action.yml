@@ -36,28 +36,11 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        DOTNET_VERSION: ${{ inputs.dotnet-version }}
-      run: |
-        set -eu
-
-        # Validate .NET version format if provided
-        if [ -n "$DOTNET_VERSION" ]; then
-          if ! printf '%s' "$DOTNET_VERSION" | grep -qE '^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'; then
-            echo "::error::Invalid dotnet-version format: '$DOTNET_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 7.0, 8.0.100)"
-            exit 1
-          fi
-
-          # Check for reasonable version range (prevent malicious inputs)
-          major_version=$(echo "$DOTNET_VERSION" | cut -d'.' -f1)
-          if [ "$major_version" -lt 3 ] || [ "$major_version" -gt 20 ]; then
-            echo "::error::Invalid dotnet-version: '$DOTNET_VERSION'. Major version should be between 3 and 20"
-            exit 1
-          fi
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
+      with:
+        action-type: 'csharp-lint-check'
+        dotnet-version: ${{ inputs.dotnet-version }}
+        token: ${{ inputs.token }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
