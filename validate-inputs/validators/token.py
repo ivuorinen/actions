@@ -27,9 +27,15 @@ class TokenValidator(BaseValidator):
         # User access token for GitHub App:
         # ghu_ + 36 = 40 chars total
         "github_user_app": r"^ghu_[a-zA-Z0-9]{36}$",
-        # Installation access token:
-        # ghs_ + 36 = 40 chars total
-        "github_installation": r"^ghs_[a-zA-Z0-9]{36}$",
+        # Installation access token (ghs_): two formats supported.
+        #
+        # 1. Stateful (legacy opaque): ghs_ + 36 chars, no dots.
+        # 2. Stateless (ghs_APPID_JWT): rolled out starting 2026-04-27.
+        #    JWT body with two dots, underscores, ~520 chars total.
+        #
+        # Matches GitHub's recommended regex: ghs_[A-Za-z0-9._]{36,}
+        # https://github.blog/changelog/2026-05-15-github-app-installation-tokens-per-request-override-header
+        "github_installation": r"^ghs_[A-Za-z0-9._]{36,1024}$",
         # Refresh token for GitHub App:
         # ghr_ + 36 = 40 chars total
         "github_refresh": r"^ghr_[a-zA-Z0-9]{36}$",
@@ -108,7 +114,8 @@ class TokenValidator(BaseValidator):
         self.add_error(
             "Invalid token format. Expected: ghp_* (40 chars), "
             "github_pat_[A-Za-z0-9_]* (50-255 chars), gho_* (40 chars), ghu_* (40 chars), "
-            "ghs_* (40 chars), ghr_* (40 chars), ghe_* (40 chars), or ${{ github.token }}",
+            "ghs_* (40 chars stateful or ~520 chars stateless JWT), "
+            "ghr_* (40 chars), ghe_* (40 chars), or ${{ github.token }}",
         )
         return False
 
