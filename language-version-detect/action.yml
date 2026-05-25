@@ -34,6 +34,15 @@ runs:
   using: composite
   steps:
     - name: Validate Inputs
+      id: validate-inputs
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
+      with:
+        action-type: 'language-version-detect'
+        language: ${{ inputs.language }}
+        default-version: ${{ inputs.default-version }}
+        token: ${{ inputs.token }}
+
+    - name: Compute Default Version
       id: validate
       shell: sh
       env:
@@ -42,143 +51,20 @@ runs:
       run: |
         set -eu
 
-        # Validate language parameter
-        case "$LANGUAGE" in
-          php|python|go|dotnet)
-            ;;
-          *)
-            echo "::error::Invalid language: '$LANGUAGE'. Must be one of: php, python, go, dotnet"
-            exit 1
-            ;;
-        esac
-
-        # Set default version if not provided
+        # Compute language-specific default when caller did not supply default-version.
+        # The validate-inputs step above already rejected invalid `language` values.
         default=""
         if [ -z "$DEFAULT_VERSION" ]; then
           case "$LANGUAGE" in
-            php)
-              default="8.4"
-              ;;
-            python)
-              default="3.12"
-              ;;
-            go)
-              default="1.21"
-              ;;
-            dotnet)
-              default="7.0"
-              ;;
+            php) default="8.4" ;;
+            python) default="3.12" ;;
+            go) default="1.21" ;;
+            dotnet) default="7.0" ;;
           esac
           printf 'default_version=%s\n' "$default" >> "$GITHUB_OUTPUT"
         else
           printf 'default_version=%s\n' "$DEFAULT_VERSION" >> "$GITHUB_OUTPUT"
         fi
-
-        # Validate version format for specified language
-        version="${DEFAULT_VERSION:-$default}"
-
-        case "$LANGUAGE" in
-          php)
-            # Validate PHP version format (X.Y or X.Y.Z)
-            case "$version" in
-              [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-                ;;
-              *)
-                echo "::error::Invalid PHP version format: '$version'. Expected format: X.Y or X.Y.Z (e.g., 8.4, 8.3.1)"
-                exit 1
-                ;;
-            esac
-
-            # Check for reasonable PHP version range
-            major_version=$(echo "$version" | cut -d'.' -f1)
-            if [ "$major_version" -lt 7 ] || [ "$major_version" -gt 9 ]; then
-              echo "::error::Invalid PHP version: '$version'. PHP major version should be between 7 and 9"
-              exit 1
-            fi
-
-            # Additional validation for PHP 8.x minor versions
-            if [ "$major_version" -eq 8 ]; then
-              minor_version=$(echo "$version" | cut -d'.' -f2)
-              if [ "$minor_version" -gt 4 ]; then
-                echo "::error::Invalid PHP 8 version: '$version'. PHP 8 minor version should be between 0 and 4"
-                exit 1
-              fi
-            fi
-            ;;
-
-          python)
-            # Validate Python version format
-            case "$version" in
-              [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-                ;;
-              *)
-                echo "::error::Invalid Python version format: '$version'. Expected format: X.Y or X.Y.Z (e.g., 3.12, 3.11.5)"
-                exit 1
-                ;;
-            esac
-
-            # Check Python major version
-            major_version=$(echo "$version" | cut -d'.' -f1)
-            if [ "$major_version" -ne 3 ]; then
-              echo "::error::Invalid Python version: '$version'. Python major version should be 3"
-              exit 1
-            fi
-
-            # Check Python minor version range
-            minor_version=$(echo "$version" | cut -d'.' -f2)
-            if [ "$minor_version" -lt 8 ] || [ "$minor_version" -gt 15 ]; then
-              echo "::error::Invalid Python version: '$version'. Python 3 minor version should be between 8 and 15"
-              exit 1
-            fi
-            ;;
-
-          go)
-            # Validate Go version format
-            case "$version" in
-              [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-                ;;
-              *)
-                echo "::error::Invalid Go version format: '$version'. Expected format: X.Y or X.Y.Z (e.g., 1.21, 1.21.5)"
-                exit 1
-                ;;
-            esac
-
-            # Check Go major version (must be 1)
-            major_version=$(echo "$version" | cut -d'.' -f1)
-            if [ "$major_version" -ne 1 ]; then
-              echo "::error::Invalid Go version: '$version'. Go major version should be 1"
-              exit 1
-            fi
-
-            # Check Go minor version range
-            minor_version=$(echo "$version" | cut -d'.' -f2)
-            if [ "$minor_version" -lt 16 ] || [ "$minor_version" -gt 30 ]; then
-              echo "::error::Invalid Go version: '$version'. Go minor version should be between 16 and 30"
-              exit 1
-            fi
-            ;;
-
-          dotnet)
-            # Validate .NET version format
-            case "$version" in
-              [0-9]* | [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-                ;;
-              *)
-                echo "::error::Invalid .NET version format: '$version'. Expected format: X, X.Y, or X.Y.Z (e.g., 7, 7.0, 7.0.1)"
-                exit 1
-                ;;
-            esac
-
-            # Check .NET major version range
-            major_version=$(echo "$version" | cut -d'.' -f1)
-            if [ "$major_version" -lt 3 ] || [ "$major_version" -gt 20 ]; then
-              echo "::error::Invalid .NET version: '$version'. .NET major version should be between 3 and 20"
-              exit 1
-            fi
-            ;;
-        esac
-
-        echo "Input validation completed successfully for $LANGUAGE version $version"
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
