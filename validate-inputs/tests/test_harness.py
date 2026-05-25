@@ -255,7 +255,7 @@ class TestActionCorpus:
     """Load every action.yml in the repo; catch drift early."""
 
     # Actions composed entirely of `uses:` steps with no shell blocks.
-    USES_ONLY: set[str] = {"stale"}
+    USES_ONLY: set[str] = {"stale", "sync-labels"}
 
     def _all_action_dirs(self) -> list[Path]:
         return sorted(p.parent for p in PROJECT_ROOT.glob("*/action.yml"))

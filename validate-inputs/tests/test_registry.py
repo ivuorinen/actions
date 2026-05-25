@@ -149,8 +149,13 @@ class TestCustomValidatorIntegration(unittest.TestCase):  # pylint: disable=too-
                 # Create an instance
                 validator = custom_validator("sync-labels")
 
-                # Test basic functionality
-                assert validator.get_required_inputs() == ["labels"]
+                # Test basic functionality.
+                # `labels` is optional at the action.yml level — the "Run Label
+                # Syncer" step applies a runtime default via
+                # `${{ inputs.labels || format('{0}/labels.yml', github.action_path) }}`.
+                # CustomValidator.get_required_inputs() reflects the action's
+                # public contract, so the list is empty.
+                assert validator.get_required_inputs() == []
 
                 # Test validation with valid inputs
                 inputs = {"labels": "labels.yml", "token": "${{ github.token }}"}
