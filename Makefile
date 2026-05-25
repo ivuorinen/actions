@@ -194,7 +194,7 @@ release-undo: ## Rollback the most recent release (delete tags and reset HEAD)
 # Formatting targets
 format-markdown: ## Format markdown files
 	@echo "$(BLUE)📝 Formatting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees" 2>/dev/null; then \
+	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees" "#.claude" "#docs/superpowers" 2>/dev/null; then \
 		echo "$(GREEN)✅ Markdown formatted$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -246,7 +246,7 @@ format-python: ## Format Python files with ruff
 # Linting targets
 lint-markdown: ## Lint markdown files
 	@echo "$(BLUE)🔍 Linting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees"; then \
+	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees" "#.claude" "#docs/superpowers"; then \
 		echo "$(GREEN)✅ Markdown linting passed$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown linting issues found$(RESET)" | tee -a $(LOG_FILE); \
