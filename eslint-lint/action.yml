@@ -97,170 +97,23 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        MODE: ${{ inputs.mode }}
-        WORKING_DIRECTORY: ${{ inputs.working-directory }}
-        ESLINT_VERSION: ${{ inputs.eslint-version }}
-        CONFIG_FILE: ${{ inputs.config-file }}
-        IGNORE_FILE: ${{ inputs.ignore-file }}
-        FILE_EXTENSIONS: ${{ inputs.file-extensions }}
-        CACHE: ${{ inputs.cache }}
-        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
-        MAX_WARNINGS: ${{ inputs.max-warnings }}
-        REPORT_FORMAT: ${{ inputs.report-format }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-        EMAIL: ${{ inputs.email }}
-        USERNAME: ${{ inputs.username }}
-      run: |
-        set -eu
-
-        # Validate mode
-        case "$MODE" in
-          "check"|"fix")
-            echo "Mode: $MODE"
-            ;;
-          *)
-            echo "::error::Invalid mode: '$MODE'. Must be 'check' or 'fix'"
-            exit 1
-            ;;
-        esac
-
-        # Validate working directory exists
-        if [ ! -d "$WORKING_DIRECTORY" ]; then
-          echo "::error::Working directory not found at '$WORKING_DIRECTORY'"
-          exit 1
-        fi
-
-        # Validate working directory path security (prevent traversal)
-        case "$WORKING_DIRECTORY" in
-          *..*)
-            echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
-            exit 1
-            ;;
-        esac
-
-        # Validate ESLint version format
-        if [ -n "$ESLINT_VERSION" ] && [ "$ESLINT_VERSION" != "latest" ]; then
-          if ! echo "$ESLINT_VERSION" | grep -Eq '^[0-9]+\.[0-9]+(\.[0-9]+)?(-[a-zA-Z0-9]+([.-][a-zA-Z0-9]+)*)?$'; then
-            echo "::error::Invalid eslint-version format: '$ESLINT_VERSION'. Expected format: X.Y.Z or X.Y.Z-prerelease or 'latest' (e.g., 8.57.0, 8.57.0-rc.1, latest)"
-            exit 1
-          fi
-        fi
-
-        # Validate config file path if not default
-        if [ "$CONFIG_FILE" != ".eslintrc" ]; then
-          case "$CONFIG_FILE" in
-            *..*)
-              echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate ignore file path if not default
-        if [ "$IGNORE_FILE" != ".eslintignore" ]; then
-          case "$IGNORE_FILE" in
-            *..*)
-              echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate file extensions format (must start with . and contain letters/numbers)
-        if ! echo "$FILE_EXTENSIONS" | grep -Eq '^\.[a-zA-Z0-9]+(,\.[a-zA-Z0-9]+)*$'; then
-          echo "::error::Invalid file extensions format: '$FILE_EXTENSIONS'. Expected format: .js,.jsx,.ts,.tsx"
-          exit 1
-        fi
-
-        # Validate boolean inputs
-        validate_boolean() {
-          value="$1"
-          name="$2"
-
-          case "$value" in
-            true|True|TRUE|false|False|FALSE)
-              ;;
-            *)
-              echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
-              exit 1
-              ;;
-          esac
-        }
-
-        validate_boolean "$CACHE" "cache"
-        validate_boolean "$FAIL_ON_ERROR" "fail-on-error"
-
-        # Validate max warnings (non-negative integer)
-        case "$MAX_WARNINGS" in
-          ''|*[!0-9]*)
-            echo "::error::Invalid max-warnings: '$MAX_WARNINGS'. Must be a non-negative integer"
-            exit 1
-            ;;
-        esac
-
-        # Validate report format
-        case "$REPORT_FORMAT" in
-          stylish|json|sarif)
-            ;;
-          *)
-            echo "::error::Invalid report-format: '$REPORT_FORMAT'. Must be one of: stylish, json, sarif"
-            exit 1
-            ;;
-        esac
-
-        # Validate max retries
-        case "$MAX_RETRIES" in
-          ''|*[!0-9]*)
-            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-            exit 1
-            ;;
-        esac
-
-        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        # Validate email and username for fix mode
-        if [ "$MODE" = "fix" ]; then
-          if ! echo "$EMAIL" | grep -Eq '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'; then
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address (e.g., user@example.com)"
-            exit 1
-          fi
-
-          # Validate username format (GitHub canonical rules)
-          username="$USERNAME"
-
-          if [ ${#username} -gt 39 ]; then
-            echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
-            exit 1
-          fi
-
-          case "$username" in
-            *[!a-zA-Z0-9-]*)
-              echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
-              exit 1
-              ;;
-          esac
-
-          case "$username" in
-            -*|*-)
-              echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
-              exit 1
-              ;;
-          esac
-
-          case "$username" in
-            *--*)
-              echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
+      with:
+        action-type: 'eslint-lint'
+        mode: ${{ inputs.mode }}
+        working-directory: ${{ inputs.working-directory }}
+        eslint-version: ${{ inputs.eslint-version }}
+        config-file: ${{ inputs.config-file }}
+        ignore-file: ${{ inputs.ignore-file }}
+        file-extensions: ${{ inputs.file-extensions }}
+        cache: ${{ inputs.cache }}
+        max-warnings: ${{ inputs.max-warnings }}
+        fail-on-error: ${{ inputs.fail-on-error }}
+        report-format: ${{ inputs.report-format }}
+        max-retries: ${{ inputs.max-retries }}
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
