@@ -220,31 +220,31 @@ class TestTestGenerator:
     def test_generate_input_test_cases(self):
         """Test generation of input-specific test cases."""
         # Boolean input
-        cases = self.generator._generate_input_test_cases("dry-run", {})
+        cases = self.generator._generate_input_test_cases("dry-run")
         assert len(cases) == 1
         assert "should accept boolean values" in cases[0]
         assert "should reject invalid boolean" in cases[0]
 
         # Version input
-        cases = self.generator._generate_input_test_cases("version", {})
+        cases = self.generator._generate_input_test_cases("version")
         assert len(cases) == 1
         assert "should accept valid version" in cases[0]
         assert "should accept version with v prefix" in cases[0]
 
         # Token input
-        cases = self.generator._generate_input_test_cases("github-token", {})
+        cases = self.generator._generate_input_test_cases("github-token")
         assert len(cases) == 1
         assert "should accept GitHub token" in cases[0]
         assert "should accept classic PAT" in cases[0]
 
         # Path input
-        cases = self.generator._generate_input_test_cases("config-file", {})
+        cases = self.generator._generate_input_test_cases("config-file")
         assert len(cases) == 1
         assert "should accept valid path" in cases[0]
         assert "should reject path traversal" in cases[0]
 
         # No specific pattern
-        cases = self.generator._generate_input_test_cases("custom-input", {})
+        cases = self.generator._generate_input_test_cases("custom-input")
         assert len(cases) == 0
 
     def test_generate_pytest_content_by_type(self):
