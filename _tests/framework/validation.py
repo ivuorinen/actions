@@ -101,9 +101,15 @@ class ActionValidator:
 
         return (
             False,
-            "Invalid token format. Expected: gh[efpousr]_* (36 chars), "
-            "github_pat_[A-Za-z0-9_]* (50-255 chars), "
-            "ghs_* (40 chars stateful or ~520 chars stateless JWT), or npm_* (40+ chars)",
+            "Invalid token format. Expected one of: "
+            "gh[efpousr]_[a-zA-Z0-9]{36} (40 chars total — ghp/gho/ghu/ghs/ghr/ghe), "
+            "ghs_[A-Za-z0-9._]{36,1024} (40-1028 chars total — installation; "
+            "stateful or stateless JWT), "
+            "github_pat_[A-Za-z0-9_]{50,255} (fine-grained PAT), "
+            "npm_[a-zA-Z0-9]{40,} (NPM classic), "
+            "a ${{ ... }} expression (e.g. ${{ github.token }}, "
+            "${{ secrets.GITHUB_TOKEN }}), "
+            "or a $VAR env-var reference",
         )
 
     def validate_namespace_with_lookahead(self, namespace: str) -> tuple[bool, str]:
