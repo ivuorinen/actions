@@ -39,6 +39,15 @@ runs:
   using: 'composite'
   steps:
     - name: Validate Inputs
+      id: validate
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb
+      with:
+        action-type: 'release-monthly'
+        token: ${{ inputs.token }}
+        dry-run: ${{ inputs.dry-run }}
+        prefix: ${{ inputs.prefix }}
+
+    - name: Mask Token and Export Validated Values
       shell: sh
       env:
         INPUT_TOKEN: ${{ inputs.token }}
@@ -46,34 +55,9 @@ runs:
         INPUT_PREFIX: ${{ inputs.prefix }}
       run: |
         set -eu
-
-        # Validate token
-        if [ -z "$INPUT_TOKEN" ]; then
-          echo "::error::GitHub token is required"
-          exit 1
-        fi
-
-        # Validate dry-run option
-        if [ "$INPUT_DRY_RUN" != "true" ] && [ "$INPUT_DRY_RUN" != "false" ]; then
-          echo "::error::dry-run must be either 'true' or 'false'"
-          exit 1
-        fi
-
-        # Validate prefix format if provided (alphanumeric, dots, underscores, hyphens)
-        if [ -n "$INPUT_PREFIX" ]; then
-          # Use case pattern matching for validation
-          case "$INPUT_PREFIX" in
-            *[!a-zA-Z0-9_.-]*)
-              echo "::error::Invalid prefix format. Only alphanumeric characters, dots, underscores, and hyphens are allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Mask token before writing to env to prevent exposure in logs
+        # Mask token before subsequent steps reference it via env
         echo "::add-mask::$INPUT_TOKEN"
-
-        # Write validated values to GITHUB_ENV for use in subsequent steps
+        # Re-export inputs under the names downstream steps consume
         printf 'VALIDATED_DRY_RUN=%s\n' "$INPUT_DRY_RUN" >> "$GITHUB_ENV"
         printf 'VALIDATED_PREFIX=%s\n' "$INPUT_PREFIX" >> "$GITHUB_ENV"
 
