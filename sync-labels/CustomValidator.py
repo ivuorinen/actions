@@ -45,7 +45,12 @@ class CustomValidator(BaseValidator):
         Returns:
             List of required input names
         """
-        return ["labels"]  # labels file is required
+        # `labels` is optional at the action.yml level — the "Run Label Syncer"
+        # step applies a runtime default via
+        # `${{ inputs.labels || format('{0}/labels.yml', github.action_path) }}`.
+        # If the caller omits `labels`, the default file under the action's own
+        # directory is used. Therefore the validator must not reject empty values.
+        return []
 
     def get_validation_rules(self) -> dict:
         """Get validation rules for sync-labels.
