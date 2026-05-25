@@ -97,13 +97,28 @@ DOCKER_INVALID = [
 ]
 
 # GitHub token test cases
+# Stateless installation token format (ghs_APPID_JWT) was rolled out 2026-04-27.
+# Per GitHub: ~520 chars, two dots (JWT separators), underscores between app ID and JWT
+# parts. Both stateful (40 chars) and stateless formats must be accepted.
+# https://github.blog/changelog/2026-05-15-github-app-installation-tokens-per-request-override-header
+_JWT_HEADER = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9"  # 36 chars base64url
+_JWT_PAYLOAD = "a" * 200  # placeholder body
+_JWT_SIGNATURE = "b" * 256  # placeholder signature
+_GHS_STATELESS_REALISTIC = f"ghs_1234567_{_JWT_HEADER}.{_JWT_PAYLOAD}.{_JWT_SIGNATURE}"
+
 GITHUB_TOKEN_VALID = [
     ("github_pat_" + "a" * 71, "Fine-grained PAT"),  # 11 + 71 = 82 chars total (in 50-255 range)
     ("github_pat_" + "a" * 50, "Fine-grained PAT min length"),  # 11 + 50 = 61 chars total (minimum)
     ("ghp_" + "a" * 36, "Classic PAT"),  # 4 + 36 = 40 chars total
     ("gho_" + "a" * 36, "OAuth token"),  # 4 + 36 = 40 chars total
     ("ghu_" + "a" * 36, "User token"),
-    ("ghs_" + "a" * 36, "Installation token"),
+    ("ghs_" + "a" * 36, "Installation token (stateful, 40 chars)"),
+    (_GHS_STATELESS_REALISTIC, "Installation token (stateless JWT, ~520 chars)"),
+    # Body = 1 + 1 + 30 + 1 + 1 + 1 + 1 = 36 chars (regex {36,1024} minimum)
+    ("ghs_1_" + "a" * 30 + ".y.z", "ghs_ stateless minimum length (36 body chars)"),
+    ("ghs_APPID_" + "a" * 50 + "." + "b" * 50 + "." + "c" * 50, "ghs_ with three-part JWT"),
+    # Body = exactly 1024 chars (regex upper bound)
+    ("ghs_" + "a" * 1024, "ghs_ stateless at upper-bound length (1024 body chars)"),
     ("ghr_" + "a" * 36, "Refresh token"),
     ("${{ github.token }}", "GitHub Actions expression"),
     ("${{ secrets.GITHUB_TOKEN }}", "Secrets expression"),
@@ -115,6 +130,10 @@ GITHUB_TOKEN_INVALID = [
     ("ghp_short", "Too short"),
     ("wrong_prefix_" + "a" * 36, "Wrong prefix"),
     ("github_pat_" + "a" * 49, "PAT too short (min 50)"),
+    ("ghs_" + "a" * 35, "ghs_ too short (35 chars body)"),
+    ("ghs_" + "@" * 36, "ghs_ contains invalid chars"),
+    ("ghp_" + "a" * 36 + ".extra", "ghp_ does not allow dots (only ghs_ stateless does)"),
+    ("ghs_" + "a" * 1025, "ghs_ exceeds upper-bound length (1025 body chars)"),
 ]
 
 # Email test cases

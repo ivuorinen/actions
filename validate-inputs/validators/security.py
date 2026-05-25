@@ -402,7 +402,10 @@ class SecurityValidator(BaseValidator):
             r"ghp_[a-zA-Z0-9]{36}",  # GitHub personal access token
             r"gho_[a-zA-Z0-9]{36}",  # GitHub OAuth token
             r"ghu_[a-zA-Z0-9]{36}",  # GitHub user token
-            r"ghs_[a-zA-Z0-9]{36}",  # GitHub server token
+            # GitHub installation token: stateful (ghs_<36 chars>) OR stateless JWT
+            # (ghs_APPID_JWT, ~520 chars, contains dots and underscores).
+            # GitHub's recommended regex catches both formats.
+            r"ghs_[A-Za-z0-9._]{36,}",
             r"ghr_[a-zA-Z0-9]{36}",  # GitHub refresh token
             r"github_pat_[a-zA-Z0-9_]{48,}",  # GitHub fine-grained PAT
         ]

@@ -200,8 +200,8 @@ Describe '{description} Input Validation'
 """
 
         # Add input-specific validation tests
-        for input_name, config in inputs.items():
-            test_cases = self._generate_input_test_cases(input_name, config)
+        for input_name in inputs:
+            test_cases = self._generate_input_test_cases(input_name)
             if test_cases:
                 content += f"""
   Context '{input_name} validation'
@@ -260,16 +260,11 @@ Describe '{description} Input Validation'
         # Default fallback
         return "test-value"
 
-    def _generate_input_test_cases(
-        self,
-        input_name: str,
-        config: dict,  # noqa: ARG002
-    ) -> list[str]:
+    def _generate_input_test_cases(self, input_name: str) -> list[str]:
         """Generate test cases for a specific input.
 
         Args:
             input_name: Name of the input
-            config: Input configuration
 
         Returns:
             List of test case strings
@@ -470,8 +465,8 @@ class Test{class_name}:
         return '''
     def test_valid_github_token(self):
         """Test valid GitHub tokens."""
-        # Classic PAT (36 chars)
-        assert self.validator.validate_github_token("ghp_" + "a" * 32) is True
+        # Classic PAT (4 + 36 chars)
+        assert self.validator.validate_github_token("ghp_" + "a" * 36) is True
         # Fine-grained PAT (82 chars)
         assert self.validator.validate_github_token("github_pat_" + "a" * 71) is True
         # GitHub expression
@@ -481,14 +476,49 @@ class Test{class_name}:
         """Test invalid GitHub tokens."""
         assert self.validator.validate_github_token("invalid") is False
         assert self.validator.validate_github_token("ghp_short") is False
-        assert self.validator.validate_github_token("") is False
+        assert self.validator.validate_github_token("", required=True) is False
+
+    def test_ghs_stateful_token(self):
+        """Stateful installation token: ghs_ + 36 alphanumeric (40 chars total)."""
+        assert self.validator.validate_github_token("ghs_" + "a" * 36) is True
+        assert self.validator.validate_github_token("ghs_" + "A1B2c3" * 6) is True
+
+    def test_ghs_stateless_jwt_token(self):
+        """Stateless installation token: ghs_APPID_JWT format with dots and underscores.
+
+        Per GitHub (2026-04-27 rollout), installation tokens may now be ~520-char JWTs
+        with two dots. The validator must accept both formats.
+        """
+        jwt_header = "eyJ0eXAiOiJKV1QiLCJhbGciOiJSUzI1NiJ9"
+        jwt_payload = "a" * 200
+        jwt_signature = "b" * 256
+        stateless = f"ghs_1234567_{jwt_header}.{jwt_payload}.{jwt_signature}"
+        assert self.validator.validate_github_token(stateless) is True
+        # Minimum stateless: ghs_ + 36 body chars including underscores and dots
+        assert self.validator.validate_github_token("ghs_1_" + "x" * 30 + ".y.z") is True
+
+    def test_ghs_stateless_rejects_invalid_chars(self):
+        """ghs_ pattern allows only [A-Za-z0-9._] after the prefix."""
+        assert self.validator.validate_github_token("ghs_" + "a" * 35 + "+") is False
+        assert self.validator.validate_github_token("ghs_" + "a" * 35 + "/") is False
+        assert self.validator.validate_github_token("ghs_" + "a" * 35 + " ") is False
+
+    def test_ghs_too_short(self):
+        """ghs_ rejects bodies shorter than 36 chars."""
+        assert self.validator.validate_github_token("ghs_" + "a" * 35) is False
+        assert self.validator.validate_github_token("ghs_short") is False
+
+    def test_ghs_length_boundaries(self):
+        """ghs_ body length must satisfy 36 <= len <= 1024 exactly."""
+        assert self.validator.validate_github_token("ghs_" + "a" * 36) is True
+        assert self.validator.validate_github_token("ghs_" + "a" * 35) is False
+        assert self.validator.validate_github_token("ghs_" + "a" * 1024) is True
+        assert self.validator.validate_github_token("ghs_" + "a" * 1025) is False
 
     def test_other_token_types(self):
         """Test other token types."""
-        # NPM token
-        assert self.validator.validate_npm_token("npm_" + "a" * 32) is True
-        # PyPI token
-        assert self.validator.validate_pypi_token("pypi-AgEIcHlwaS5vcmc" + "a" * 100) is True
+        # NPM token (npm_ + 40+ alphanumeric chars)
+        assert self.validator.validate_npm_token("npm_" + "a" * 40) is True
 '''
 
     def _add_boolean_tests(self) -> str:

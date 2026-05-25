@@ -33,11 +33,13 @@ class ValidationCore:
     """Core validation functionality with standardized patterns and functions."""
 
     # Standardized token patterns - resolved based on GitHub documentation
-    # Fine-grained tokens are 50-255 characters with underscores
+    # Fine-grained tokens are 50-255 characters with underscores.
+    # Installation tokens (ghs_) have two formats: stateful (40 chars) and
+    # stateless JWT (~520 chars, dots+underscores) — GitHub 2026-04-27 rollout.
     TOKEN_PATTERNS = {
         "classic": r"^gh[efpousr]_[a-zA-Z0-9]{36}$",
         "fine_grained": r"^github_pat_[A-Za-z0-9_]{50,255}$",  # 50-255 chars with underscores
-        "installation": r"^ghs_[a-zA-Z0-9]{36}$",
+        "installation": r"^ghs_[A-Za-z0-9._]{36,1024}$",
         "npm_classic": r"^npm_[a-zA-Z0-9]{40,}$",  # NPM classic tokens
     }
 
@@ -112,8 +114,15 @@ class ValidationCore:
 
         return (
             False,
-            "Invalid token format. Expected: gh[efpousr]_* (36 chars), "
-            "github_pat_[A-Za-z0-9_]* (50-255 chars), ghs_* (36 chars), or npm_* (40+ chars)",
+            "Invalid token format. Expected one of: "
+            "gh[efpousr]_[a-zA-Z0-9]{36} (40 chars total — ghp/gho/ghu/ghs/ghr/ghe), "
+            "ghs_[A-Za-z0-9._]{36,1024} (40-1028 chars total — installation; "
+            "stateful or stateless JWT), "
+            "github_pat_[A-Za-z0-9_]{50,255} (fine-grained PAT), "
+            "npm_[a-zA-Z0-9]{40,} (NPM classic), "
+            "a ${{ ... }} expression (e.g. ${{ github.token }}, "
+            "${{ secrets.GITHUB_TOKEN }}), "
+            "or a $VAR env-var reference",
         )
 
     def validate_namespace_with_lookahead(self, namespace: str) -> tuple[bool, str]:
