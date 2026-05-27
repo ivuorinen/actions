@@ -3,14 +3,14 @@
 # Pre-installs all testing tools to reduce CI runtime
 
 # Centralized ARG defaults to avoid version drift across stages
-ARG KCOV_VERSION=42
+ARG KCOV_VERSION=43
 ARG TRUFFLEHOG_VERSION=3.86.0
 ARG ACTIONLINT_VERSION=1.7.7
 ARG ACT_VERSION=0.2.71
 ARG SHELLSPEC_VERSION=0.28.1
 
 # Stage 1: Build kcov separately to keep final image slim
-FROM ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9 AS kcov-builder
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS kcov-builder
 
 ARG KCOV_VERSION
 
@@ -43,7 +43,7 @@ RUN cmake .. \
   && make install DESTDIR=/kcov-install
 
 # Stage 2: Base system setup
-FROM ubuntu:24.04@sha256:d1e2e92c075e5ca139d51a140fff46f84315c0fdce203eab2807c7e495eff4f9 AS base
+FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS base
 
 LABEL maintainer="ivuorinen"
 LABEL description="GitHub Actions testing framework with pre-installed tools"
@@ -53,12 +53,16 @@ LABEL org.opencontainers.image.source="https://github.com/ivuorinen/actions"
 # Avoid interactive prompts during package installation
 ENV DEBIAN_FRONTEND=noninteractive
 ENV TZ=UTC
-ENV NODE_MAJOR=20
 
 # Set shell to bash with pipefail for better error handling
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Install system dependencies and common tools
+# Install system dependencies and common tools.
+# Ubuntu 26.04 ships nodejs 22.x and npm in the universe repo, so the NodeSource
+# repo previously used to install Node 20 on 24.04 is no longer required —
+# Ubuntu 26.04's native nodejs/npm pair installs cleanly without the
+# NodeSource-vs-Ubuntu apt conflict (NodeSource's nodejs Conflicts with
+# Ubuntu's npm package).
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y \
   --no-install-recommends \
@@ -69,6 +73,8 @@ RUN apt-get update && apt-get install -y \
   gzip \
   jq \
   lsb-release \
+  nodejs \
+  npm \
   python3 \
   python3-pip \
   python3-yaml \
@@ -77,15 +83,7 @@ RUN apt-get update && apt-get install -y \
   tar \
   unzip \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/* \
-  # Note: build-essential, cmake, and kcov build deps moved to separate builder stage \
-  && curl -fsSL --proto '=https' --tlsv1.2 https://deb.nodesource.com/gpgkey/nodesource-repo.gpg.key -o /tmp/nodesource.gpg.key \
-  && gpg --dearmor -o /usr/share/keyrings/nodesource.gpg < /tmp/nodesource.gpg.key \
-  && echo "deb [signed-by=/usr/share/keyrings/nodesource.gpg] https://deb.nodesource.com/node_${NODE_MAJOR}.x nodistro main" | tee /etc/apt/sources.list.d/nodesource.list \
-  && apt-get update \
-  && apt-get install -y --no-install-recommends nodejs \
-  && apt-get clean \
-  && rm -rf /var/lib/apt/lists/* /tmp/nodesource.gpg.key
+  && rm -rf /var/lib/apt/lists/*
 
 # Stage 2: Tool installation
 FROM base AS tools

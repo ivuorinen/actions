@@ -70,8 +70,7 @@ for tool_cmd in \
   "gh --version" \
   "node --version" \
   "npm --version" \
-  "python3 --version"
-do
+  "python3 --version"; do
   printf "  Testing %s... " "$tool_cmd"
   if docker run --rm "$FULL_IMAGE_NAME" sh -c "$tool_cmd" >/dev/null 2>&1; then
     echo "✅"
@@ -131,9 +130,11 @@ fi
 echo ""
 echo "8. Testing ShellSpec with local test files..."
 if [ -d "$SCRIPT_DIR/test-files" ]; then
-  # Mount local test directory and run a real ShellSpec test
+  # Mount local test directory and run a real ShellSpec test.
+  # `--load-path .` lets shellspec find `spec_helper.sh` next to the spec
+  # file when there is no `./spec/spec_helper.sh` in the conventional path.
   if docker run --rm -v "$SCRIPT_DIR/test-files:/workspace/test-files" "$FULL_IMAGE_NAME" \
-    sh -c "cd /workspace/test-files && shellspec --format tap basic_spec.sh" >/dev/null 2>&1; then
+    sh -c "cd /workspace/test-files && shellspec --load-path . --format tap basic_spec.sh" >/dev/null 2>&1; then
     echo "✅ ShellSpec can run real tests with mounted files"
   else
     echo "❌ ShellSpec test with local files failed"
