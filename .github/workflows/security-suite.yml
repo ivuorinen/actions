@@ -81,7 +81,7 @@ jobs:
         continue-on-error: true
 
       - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503
+        uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503 # v3.90.5
         with:
           path: ./
           base: ${{ env.BASE_REF }}
@@ -91,7 +91,7 @@ jobs:
 
       - name: Analyze Security Results
         id: analyze
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         with:
           script: |-
             const fs = require('fs');
@@ -385,7 +385,7 @@ jobs:
 
       - name: Check Critical Issues
         if: always()
-        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
           CRITICAL_COUNT: ${{ steps.analyze.outputs.critical_issues || '0' }}
         with:
