@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-05-25 (Pass 17 — N-095 closed; 15 actions migrated to validate-inputs)
+Last validated: 2026-05-27 (Pass 18 — N-107 secret-mask hardening, fix shipped same change)
 
 ## Summary
 
-- Total: 106 | Open: 0 | Fixed: 106 | Invalid: 0
+- Total: 107 | Open: 0 | Fixed: 107 | Invalid: 0
 
 ## Open Findings
 
@@ -22,6 +22,59 @@ via per-action migration in commits 3dcf7cb..2191252 + test-fixup 03adba5. Every
 that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a`.
 
 ## Fixed
+
+### Pass 18 — 2026-05-27
+
+#### [N-107] docker-publish missed `::add-mask::` for dockerhub-token; npm-publish/npm-semantic-release used `echo` instead of `printf`
+
+Category: security
+Area: `docker-publish/action.yml`, `npm-publish/action.yml`, `npm-semantic-release/action.yml`
+Problem: `docker-publish/action.yml` accepted `inputs.dockerhub-token` and passed it
+to both `validate-inputs` (line 112) and `docker/login-action` (line 190) without
+a preceding `::add-mask::` workflow command. By contrast, `npm-publish` and
+`npm-semantic-release` already had a `Mask Secrets` composite step. Although
+`docker/login-action` masks internally, the input was unmasked between action
+entry and that step — a defense-in-depth gap that diverged from the established
+repo pattern. Separately, the existing `Mask Secrets` steps in `npm-publish` and
+`npm-semantic-release` used `echo "::add-mask::$VAR"` (variable interpolated into
+the command string) instead of the repo-preferred `printf '::add-mask::%s\n' "$VAR"`
+format-string-separation pattern documented in
+`.claude/agents/security-surface-reviewer.md` Section 2 and consistent with the
+`GITHUB_OUTPUT` rule in `.claude/rules/github-output-format.md`.
+Evidence: `grep -n 'Mask Secrets' */action.yml` returned 2 of 3 actions that
+accept publishable-registry secrets (docker-publish missing). `grep -n
+'::add-mask::' npm-publish/action.yml npm-semantic-release/action.yml` showed
+`echo` usage on lines 55 and 59-60 respectively. Surfaced by
+`/security-audit` post-PR-#592 on branch `chore/upgrades-and-fixes`.
+Impact: Defense-in-depth gap — relies on the downstream `docker/login-action`
+masking internally rather than masking at action entry. Pattern divergence
+between three near-identical mask steps creates rule-of-three pressure
+(`.claude/rules/code-quality.md`) and means a future contributor copying the
+`echo` pattern propagates the variable-in-command-string anti-pattern.
+Fix: Added a `Mask Secrets` step to `docker-publish/action.yml` immediately
+before `Validate Inputs`, using the `printf '::add-mask::%s\n' "$DOCKERHUB_TOKEN"`
+pattern guarded by `[ -n "${DOCKERHUB_TOKEN:-}" ]` (dockerhub-token is optional
+when registry=ghcr). Migrated the two existing `echo` mask lines in
+`npm-publish/action.yml:55` and `npm-semantic-release/action.yml:59-60` to the
+same `printf` pattern in the same change — closing the rule-of-three trigger and
+preventing the new docker-publish step from becoming a third inconsistent copy.
+Fixed: 2026-05-27
+Notes:
+
+- Fix bundled in the same commit that introduced the new mask step, per
+  `.claude/rules/fix-pre-existing-issues.md` ("Discovery is Ownership"). The
+  `echo` pattern was flagged as M-1 in the same `/security-audit` run that
+  flagged H-2 (the missing docker-publish mask); both were rolled into one
+  finding because they have a shared root cause (inconsistent secret-mask
+  step pattern) and one fix unifies them.
+- Token-masking is defense-in-depth: in practice the runner auto-masks
+  `${{ secrets.* }}` values used as step inputs, and `docker/login-action`
+  masks the password it receives. The explicit `Mask Secrets` step still
+  matters for inputs received indirectly (e.g., the action being called with
+  `dockerhub-token: ${{ env.FOO }}` where `env.FOO` was set earlier in the
+  workflow from a non-secret source).
+- No `set -eu` change needed — the existing mask steps were already POSIX-
+  compliant.
 
 ### Pass 17 — 2026-05-25
 

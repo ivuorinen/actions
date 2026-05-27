@@ -94,6 +94,16 @@ outputs:
 runs:
   using: composite
   steps:
+    - name: Mask Secrets
+      shell: sh
+      env:
+        DOCKERHUB_TOKEN: ${{ inputs.dockerhub-token }}
+      run: |
+        set -eu
+        if [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+          printf '::add-mask::%s\n' "$DOCKERHUB_TOKEN"
+        fi
+
     - name: Validate Inputs
       id: validate
       uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
