@@ -200,10 +200,24 @@ class ValidatorRegistry:
             if validator_class:
                 # Create an instance with a dummy action type
                 return validator_class("temp")
-        except (ImportError, AttributeError, SyntaxError, OSError, TypeError):
-            # Silently ignore if the validator module is unavailable, malformed,
-            # has a syntax error, has IO errors, or the class lookup fails.
-            pass
+        except (ImportError, AttributeError):
+            # Genuine "not found": module/class doesn't exist. Caller can
+            # decide how to react (typically by returning None and trying the
+            # next strategy).
+            return None
+        except (SyntaxError, OSError, TypeError):
+            # The built-in validator file IS present but BROKEN (syntax error,
+            # IO error reading bytecode, bad signature). Swallowing these
+            # would silently bypass validation for that type — exactly the
+            # silent-failure mode this registry must not hide. Log and re-raise
+            # so the runtime fails loudly instead of returning None.
+            logging.getLogger(__name__).exception(
+                "Broken built-in validator implementation for %s "
+                "(validators.%s) — refusing to silently disable validation",
+                validator_type,
+                module_name,
+            )
+            raise
 
         return None
 
