@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-05-27 (Pass 18 — N-107 secret-mask hardening, fix shipped same change)
+Last validated: 2026-06-01 (Pass 19 — N-108..N-113 + N-116 from PR #592 review; N-114/N-115 invalidated)
 
 ## Summary
 
-- Total: 107 | Open: 0 | Fixed: 107 | Invalid: 0
+- Total: 116 | Open: 0 | Fixed: 114 | Invalid: 2
 
 ## Open Findings
 
@@ -22,6 +22,229 @@ via per-action migration in commits 3dcf7cb..2191252 + test-fixup 03adba5. Every
 that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a`.
 
 ## Fixed
+
+### Pass 19 — 2026-05-31
+
+#### [N-108] N-095 migration silently dropped 51 input bindings across 12 actions; docker-publish was completely broken
+
+Category: correctness
+Area: `validate-inputs/action.yml` + 12 caller action.yml files
+(`biome-lint`, `compress-images`, `docker-publish`, `eslint-lint`,
+`go-build`, `go-lint`, `npm-publish`, `npm-semantic-release`,
+`php-tests`, `prettier-lint`, `python-lint-fix`, `sync-labels`)
+Problem: `validate-inputs/action.yml` declared 55 inputs and mapped each explicitly
+to `INPUT_*` env vars for `validator.py`. The N-095 migration introduced 12
+callers passing 51 input bindings (40 unique names) that were NOT in that
+declared set. Per official GitHub docs ("If the action is written using a
+composite, then it will not automatically get `INPUT_<VARIABLE_NAME>`"),
+composite actions never auto-forward undeclared `with:` inputs as env vars.
+Undeclared inputs additionally emit "Unexpected input" warnings.
+Evidence: (a) Official docs quote at
+`https://docs.github.com/en/actions/sharing-automations/creating-actions/metadata-syntax-for-github-actions`.
+(b) Code inspection — `validate-inputs/action.yml` env: block has explicit
+`INPUT_X: ${{ inputs.x }}` lines only for the 55 declared inputs; no auto-forward
+mechanism. (c) Gap analysis script enumerated 51 dropped bindings across 12
+actions. (d) Empirical reproduction with `uv run validator.py`:
+
+- TEST 2 — `docker-publish` real wiring (registry undeclared, so absent from
+  env) → validator FAILED with "Required input 'registry' is missing or empty"
+  (exit 1). docker-publish's `CustomValidator.get_required_inputs()` returns
+  `["registry"]`. Result: docker-publish broken at runtime — every invocation
+  fails the validate-inputs step.
+- TEST 4 — `go-lint` real wiring with invalid `INPUT_TIMEOUT="not-a-duration!!!"`
+  passed via `with:` (timeout undeclared, so absent from validator env) →
+  validator reported "✓ All input validation checks passed" (exit 0). Result:
+  silent bypass — `rules.yml` claimed 100% coverage but timeout/go-version/
+  cache/etc were never validated.
+- TEST 1 — `INPUT_REGISTRY="evil;rm -rf /"` injected directly (bypassing the
+  action.yml wiring) → validator correctly caught it. Confirms the defect is
+  purely in action.yml wiring, not the validator/rules.
+  Impact: Two failure modes shipped to PR #592. (a) Silent bypass for actions
+  whose dropped inputs are all optional — `go-lint`, `biome-lint`, `eslint-lint`,
+  `prettier-lint`, `php-tests`, `python-lint-fix`, `go-build`, `compress-images`,
+  `npm-publish`, `npm-semantic-release` all run "successful" validation while
+  ignoring most action-specific inputs. (b) Hard runtime failure for actions
+  whose dropped input is required by the action's CustomValidator —
+  `docker-publish` ALWAYS fails validation because `registry` is required but
+  never reaches the validator. The N-095 migration therefore regressed validation
+  coverage across 12 actions and broke docker-publish entirely. Surfaced via
+  Copilot review comments 1-3 on PR #592; expanded to the full 12-action gap by
+  the nitpicker pass.
+  Fix: Expanded `validate-inputs/action.yml`'s declared input set from 55 → 95
+  inputs (added 40 unique inputs grouped by domain: 9 version inputs, 13
+  linter-shared inputs, 4 token/credential inputs, 4 docker-publish target
+  inputs, 9 misc action-specific inputs) and added their corresponding `INPUT_*`
+  env mappings in the validator step. Empirically re-verified:
+- TEST 2 → exit 0 ("✓ All input validation checks passed for docker_publish")
+  when registry is provided.
+- TEST 4 → exit 1 ("::error::Invalid timeout format: not-a-duration!!!")
+  — invalid timeout is now caught instead of silently bypassed.
+- TEST 1/5 — invalid-registry detection preserved (validator + rules still
+  work end-to-end).
+- Full pytest suite: 786/786 pass.
+  Fixed: 2026-05-31
+  Notes:
+
+- The fix is purely additive to `validate-inputs/action.yml` — existing
+  declared inputs and mappings are untouched. The 95-input total is now a
+  true superset of every key any caller passes.
+- `sync-labels` previously passed `labels` which was dropped, so the CustomValidator's
+  `if "labels" in inputs` was never True at runtime. After N-108, labels reaches
+  the validator (empty string by default), activating CR#9 (N-109).
+- Two pre-existing single-vs-plural input names (`tag`/`tags`,
+  `architectures`/`platforms`) are now both declared — the singular forms may
+  be unused by any current caller but are kept as the action's stable contract.
+
+#### [N-109] `sync-labels/CustomValidator.validate_inputs` failed on empty `labels` (activated by N-108)
+
+Category: correctness
+Area: `sync-labels/CustomValidator.py:80-82`
+Problem: `if "labels" in inputs: self.validate_labels_file(inputs["labels"])` — an
+empty `labels` value (string `""`) is "in" inputs and triggers
+`validate_labels_file("")` → file-path validation fails on the empty string.
+Latent before N-108 because `labels` never reached the validator; activated
+once N-108's superset expansion forwards `labels` to `validator.py`. The
+action.yml's "Run Label Syncer" step applies the bundled default via
+`${{ inputs.labels || format('{0}/labels.yml', github.action_path) }}`, so an
+empty value here means "use default" — not a validation failure. Surfaced
+by CodeRabbit comment 3313752677 on PR #592.
+Evidence: Read of sync-labels/CustomValidator.py:75-90 + sync-labels/action.yml
+default-application logic.
+Impact: After N-108 fix, callers that omit `labels` would have hit this
+validation failure incorrectly. Bundled with N-108 to prevent activation
+window.
+Fix: Replaced `if "labels" in inputs` with
+`labels_path = inputs.get("labels", "").strip(); if labels_path:` — skips
+validation for empty/whitespace values, matching the action.yml's "use default
+file" semantics. Re-ran `validator.py` with `INPUT_LABELS=""` → exit 0
+("All input validation checks passed for sync_labels"). 786/786 pytest pass.
+Fixed: 2026-05-31
+
+#### [N-110] `validators/registry.py` swallowed `SyntaxError`/`OSError`/`TypeError` — silently disabling broken built-in validators
+
+Category: reliability
+Area: `validate-inputs/validators/registry.py:203-206`
+Problem: The built-in validator loader's `except (ImportError, AttributeError,
+SyntaxError, OSError, TypeError): pass; return None` block (introduced in
+commit b05e256 to keep validation working when an action-specific custom
+validator was malformed) was applied too broadly. For the BUILT-IN validator
+loader, `SyntaxError`/`OSError`/`TypeError` mean the validator file IS present
+but BROKEN — returning `None` silently disables validation for that type
+instead of failing loudly. This violates the repo's silent-failure-hunter
+posture and aligns with CodeRabbit comment 3313752684.
+Evidence: Read of registry.py:178-208 + reference to commit b05e256.
+Impact: A `SyntaxError` in (e.g.) `validators/token.py` would cause every
+caller asking for `TokenValidator` to receive `None`, silently disabling all
+token validation across the repo. Indistinguishable from "validator not found"
+to the caller.
+Fix: Narrowed the except clauses — `ImportError`/`AttributeError` continue to
+return `None` (genuine "not found"); `SyntaxError`/`OSError`/`TypeError` now
+log via `logger.exception(...)` and re-raise so the runtime fails loudly. 786/786
+pytest pass (no test exercised the broken-built-in path, so widening to "raise"
+is non-breaking for existing coverage).
+Fixed: 2026-05-31
+Notes:
+
+- This intentionally reverses the over-broad part of b05e256. b05e256's
+  underlying intent — keep a malformed module from crashing the whole run —
+  remains valid for action-specific CustomValidator.py loading, but the
+  BUILT-IN loader (validators.boolean, validators.token, …) is first-party
+  always-present code where a SyntaxError is a real bug, not a runtime
+  contingency.
+
+#### [N-111] `.markdownlintignore` excluded all `.claude/` — skipping first-party rule/agent/skill docs
+
+Category: maintainability
+Area: `.markdownlintignore:3`
+Problem: Commit d54a0b5 added `.claude/` to `.markdownlintignore` to silence
+lint noise, but every git-tracked `.claude/*.md` in this repo is first-party
+(6 agents + 8 rules + 9 SKILL.md = 23 tracked files). The bare `.claude/`
+pattern exempted enforced rule docs and agent definitions from lint. Surfaced
+by Copilot comment 3313703797.
+Evidence: `git ls-files '.claude/**/*.md'` → 23 files. Empirical
+`markdownlint-cli2` scoped to each tracked subtree (`.claude/rules/*.md`,
+`.claude/agents/*.md`, `.claude/skills/*/SKILL.md` filtered to tracked) →
+0 errors across all 23.
+Impact: Enforced rule docs (which CLAUDE.md treats as authoritative)
+exempt from lint, allowing silent drift.
+Fix: Removed `.claude/` from `.markdownlintignore` entirely. All 23 git-tracked
+`.claude/*.md` files now lint clean (0 errors). No content changes needed —
+the broad ignore was unnecessary; the files were already lint-conforming.
+Fixed: 2026-05-31
+Notes:
+
+- 4 additional `.claude/*.md` files exist on disk in the working copy but
+  are NOT tracked in git (`.claude/skills/adversarial-reviewer/SKILL.md`
+  plus 3 rules: `context-mode-always.md`, `fix-pre-existing-issues.md`,
+  `no-partial-implementations.md`). These appear to be user-level overrides
+  loaded into the local environment but not committed to the repo. They are
+  excluded by a user-level `**/.claude/*` global gitignore. Separately worth
+  surfacing: CLAUDE.md and `.claude/rules/skills-usage.md` reference all 4
+  as authoritative rules, but CI/other contributors don't see them. Filed
+  to user for decision (whether to `git add -f` and commit, or treat as
+  intentionally local) — not addressed in this pass.
+
+#### [N-112] `basic_spec.sh` used non-POSIX `which jq`
+
+Category: conventions
+Area: `_tools/docker-testing-tools/test-files/basic_spec.sh:28`
+Problem: `When call which jq` — `which` is not in POSIX base utilities and is
+not in this repo's external-tool list (`.claude/rules/posix-shell.md`). The
+POSIX-portable form is `command -v jq`. Surfaced by CodeRabbit comment 3313752622.
+Evidence: posix-shell.md tool list does not include `which`.
+Impact: Spec fails on minimal POSIX environments lacking `which`.
+Fix: Replaced `which jq` with `command -v jq`. shellcheck clean.
+Fixed: 2026-05-31
+
+#### [N-113] `language-version-detect` Go fallback diverged from `go-build` default
+
+Category: correctness
+Area: `language-version-detect/action.yml:61` and `go-build/action.yml:69`
+Problem: When `default-version` is omitted, `language-version-detect` returned
+`1.21` for Go but `go-build` falls back to `1.24`. A workflow that ran
+language-version-detect then go-build would silently switch toolchains
+depending on which action supplied the fallback. Surfaced by CodeRabbit
+comment 3313752671.
+Evidence: Direct grep of both action.yml files confirmed the version values.
+Impact: Inconsistent default toolchain version across actions in the same
+fallback path — workflow behavior depends on which action provided the
+default, which is brittle and surprising.
+Fix: Updated `language-version-detect/action.yml:61` `go) default="1.21"` to
+`go) default="1.24"`. The PHP/Python/.NET fallbacks were checked and already
+match their respective build/test actions (no parallel mismatches surfaced).
+Fixed: 2026-05-31
+
+#### [N-116] 4 `.claude/*.md` files referenced as authoritative project rules were untracked in git
+
+Category: maintainability
+Area: `.claude/rules/context-mode-always.md`, `.claude/rules/fix-pre-existing-issues.md`, `.claude/rules/no-partial-implementations.md`, `.claude/skills/adversarial-reviewer/SKILL.md`
+Problem: Surfaced during the N-111 audit. `CLAUDE.md` and
+`.claude/rules/skills-usage.md` cite these as authoritative project rules /
+required skills, but `git ls-files` showed they were never committed. They
+existed only in the local working copy via user-level global Claude config
+(`/Users/ivuorinen/.config/git/overrides/ignore` carries `**/.claude/*`,
+which hid them from `git status` and they were never staged). CI builds and
+other contributors did not see them.
+Evidence: `git ls-files '.claude/**/*.md'` → 23 tracked vs 27 on disk. The 4
+missing names enumerated by set difference. `git log --all --oneline -- <path>`
+returned empty for each — never committed in any branch.
+Impact: Silent rule drift between author's local environment and shared
+repo. CI does not enforce the missing rules. New contributors cannot read
+them. CLAUDE.md citations pointed to non-existent (per-repo) files.
+Fix: `git add -f` the 4 files into this PR. They are now tracked in commit C7
+and visible to CI / contributors. The
+`.claude/skills/adversarial-reviewer/SKILL.md` was edited as part of N-111
+to add `text` language tags to 2 fenced code blocks (MD040 fix); it lands in
+already-lint-clean form. The 3 rule docs were not modified — they are added
+exactly as they exist on disk in the author's local environment.
+Fixed: 2026-06-01
+Notes:
+
+- This finding closes the loop on the N-111 audit observation (the N-111 note
+  "filed to user for decision" is resolved by this entry).
+- Per `fix-pre-existing-issues.md` (now properly in the repo as part of this
+  fix), discovery is ownership — the audit surfaced the gap, so the fix
+  ships in the same change.
 
 ### Pass 18 — 2026-05-27
 
@@ -1089,6 +1312,31 @@ the deleted `version-validator-test.yml`). Confirmed: `grep -rl 'checkout@v4'
 _tests/integration/workflows/` → 0 files.
 
 ## Invalid
+
+### Pass 19 — 2026-05-31
+
+#### [N-114] `.gitignore` `!CLAUDE.md` is not "inverted" — it is an intentional force-track countering a user-level global ignore
+
+Notes: CodeRabbit comment 3313752655 proposed changing `!CLAUDE.md` to
+`CLAUDE.md` in `.gitignore:92`, citing "this conflicts with the stated intent
+[to ignore the file]". The intent is the OPPOSITE — to ensure CLAUDE.md is
+TRACKED. The adjacent lines `!.claude/hooks/*` and `!.claude/rules/*` (lines
+90-91) form a deliberate force-track block, countering a user-level global
+gitignore (documented in CLAUDE.md itself: "may be locally gitignored by a
+user-level `**/.claude/*` rule; updating them requires `git add -f`").
+Applying CodeRabbit's suggestion would UNTRACK CLAUDE.md — the actual
+inversion. The current state is correct.
+
+#### [N-115] CLAUDE.md does NOT violate the markdown line-length rule — this repo's MD013 limit is 200, not 120
+
+Notes: CodeRabbit comment 3313752661 flagged a line in CLAUDE.md as exceeding
+the "120-character maximum" markdown line-length rule "as per coding
+guidelines". This repo's `.markdownlint.json` sets `MD013.line_length = 200`,
+not 120. Empirical `markdownlint-cli2 CLAUDE.md` reports 0 errors — the file
+is lint-clean per the actual configured rule. The "120 for MD" line in
+CLAUDE.md's EditorConfig section refers to a style preference, not a linter
+enforcement gate. CodeRabbit's premise (a 120-char enforced rule) does not
+apply to this repo.
 
 ### Pass 1 — 2026-04-30
 
