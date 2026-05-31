@@ -77,9 +77,14 @@ class CustomValidator(BaseValidator):
         # First check required inputs
         valid &= self.validate_required_inputs(inputs)
 
-        # Validate labels file if provided
-        if "labels" in inputs:
-            valid &= self.validate_labels_file(inputs["labels"])
+        # Validate labels file if provided and non-empty.
+        # N-108 makes `labels` reach this validator (previously dropped). The
+        # action.yml applies a runtime default via `${{ inputs.labels || ... }}`
+        # in the syncer step, so an empty value here means "use the action's
+        # bundled default" — not a validation failure.
+        labels_path = inputs.get("labels", "").strip()
+        if labels_path:
+            valid &= self.validate_labels_file(labels_path)
 
         # Validate token if provided
         if "token" in inputs:
