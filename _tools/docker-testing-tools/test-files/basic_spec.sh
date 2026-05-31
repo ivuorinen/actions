@@ -25,7 +25,7 @@ The output should include "shellspec"
 End
 
 It 'has required tools'
-When call which jq
+When call command -v jq
 The status should be success
 The output should include "jq"
 End
