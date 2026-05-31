@@ -58,7 +58,7 @@ runs:
           case "$LANGUAGE" in
             php) default="8.4" ;;
             python) default="3.12" ;;
-            go) default="1.21" ;;
+            go) default="1.24" ;;
             dotnet) default="7.0" ;;
           esac
           printf 'default_version=%s\n' "$default" >> "$GITHUB_OUTPUT"
