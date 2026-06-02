@@ -60,6 +60,7 @@ runs:
       with:
         action-type: 'biome-lint'
         mode: ${{ inputs.mode }}
+        token: ${{ inputs.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
         max-retries: ${{ inputs.max-retries }}

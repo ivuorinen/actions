@@ -71,6 +71,7 @@ runs:
       with:
         action-type: 'npm-semantic-release'
         npm_token: ${{ inputs.npm_token }}
+        github_token: ${{ inputs.github_token }}
         registry-url: ${{ inputs.registry-url }}
         scope: ${{ inputs.scope }}
         node-version: ${{ inputs.node-version }}

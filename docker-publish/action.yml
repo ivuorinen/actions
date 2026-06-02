@@ -117,6 +117,7 @@ runs:
         dockerfile: ${{ inputs.dockerfile }}
         build-args: ${{ inputs.build-args }}
         push: ${{ inputs.push }}
+        token: ${{ inputs.token }}
         dockerhub-username: ${{ inputs.dockerhub-username }}
         dockerhub-token: ${{ inputs.dockerhub-token }}
 

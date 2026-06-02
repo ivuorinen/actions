@@ -79,6 +79,7 @@ runs:
         trivy-scanners: ${{ inputs.trivy-scanners }}
         trivy-timeout: ${{ inputs.trivy-timeout }}
         actionlint-enabled: ${{ inputs.actionlint-enabled }}
+        token: ${{ inputs.token }}
 
     - name: Check Required Configurations
       id: check-configs

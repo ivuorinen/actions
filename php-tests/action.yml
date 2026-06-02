@@ -95,6 +95,7 @@ runs:
         coverage: ${{ inputs.coverage }}
         composer-args: ${{ inputs.composer-args }}
         max-retries: ${{ inputs.max-retries }}
+        token: ${{ inputs.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
 
