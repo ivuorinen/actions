@@ -47,19 +47,14 @@ runs:
         dry-run: ${{ inputs.dry-run }}
         prefix: ${{ inputs.prefix }}
 
-    - name: Mask Token and Export Validated Values
+    - name: Mask Token
       shell: sh
       env:
         INPUT_TOKEN: ${{ inputs.token }}
-        INPUT_DRY_RUN: ${{ inputs.dry-run }}
-        INPUT_PREFIX: ${{ inputs.prefix }}
       run: |
         set -eu
         # Mask token before subsequent steps reference it via env
         echo "::add-mask::$INPUT_TOKEN"
-        # Re-export inputs under the names downstream steps consume
-        printf 'VALIDATED_DRY_RUN=%s\n' "$INPUT_DRY_RUN" >> "$GITHUB_ENV"
-        printf 'VALIDATED_PREFIX=%s\n' "$INPUT_PREFIX" >> "$GITHUB_ENV"
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
@@ -73,12 +68,15 @@ runs:
       shell: sh
       env:
         INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_PREFIX: ${{ inputs.prefix }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
       run: |
         set -eu
-        # Use input token directly and validated environment variables from GITHUB_ENV
+        # Consume inputs via this step's env block (no $GITHUB_ENV round-trip,
+        # which would be an env-var injection sink for newline-bearing values)
         GITHUB_TOKEN="$INPUT_TOKEN"
-        PREFIX="$VALIDATED_PREFIX"
-        DRY_RUN="$VALIDATED_DRY_RUN"
+        PREFIX="$INPUT_PREFIX"
+        DRY_RUN="$INPUT_DRY_RUN"
 
         # Function to validate version format (YYYY.M.N or YYYY.MM.N)
         validate_version() {
