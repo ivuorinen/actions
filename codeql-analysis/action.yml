@@ -120,7 +120,6 @@ runs:
         source-root: ${{ inputs.source-root }}
         category: ${{ inputs.category }}
         checkout-ref: ${{ inputs.checkout-ref }}
-        token: ${{ inputs.token }}
         working-directory: ${{ inputs.working-directory }}
         upload-results: ${{ inputs.upload-results }}
         ram: ${{ inputs.ram }}

@@ -40,7 +40,6 @@ runs:
         action-type: 'language-version-detect'
         language: ${{ inputs.language }}
         default-version: ${{ inputs.default-version }}
-        token: ${{ inputs.token }}
 
     - name: Compute Default Version
       id: validate

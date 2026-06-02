@@ -67,7 +67,6 @@ runs:
       uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
       with:
         action-type: 'python-lint-fix'
-        token: ${{ inputs.token }}
         email: ${{ inputs.email }}
         username: ${{ inputs.username }}
         python-version: ${{ inputs.python-version }}

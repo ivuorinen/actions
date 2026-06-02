@@ -105,7 +105,6 @@ runs:
         report-format: ${{ inputs.report-format }}
         max-retries: ${{ inputs.max-retries }}
         plugins: ${{ inputs.plugins }}
-        token: ${{ inputs.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
 

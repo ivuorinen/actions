@@ -111,7 +111,6 @@ runs:
         fail-on-error: ${{ inputs.fail-on-error }}
         report-format: ${{ inputs.report-format }}
         max-retries: ${{ inputs.max-retries }}
-        token: ${{ inputs.token }}
         username: ${{ inputs.username }}
         email: ${{ inputs.email }}
 

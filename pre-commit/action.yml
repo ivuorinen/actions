@@ -52,7 +52,6 @@ runs:
       uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
       with:
         action-type: 'pre-commit'
-        token: ${{ inputs.token }}
         pre-commit-config: ${{ inputs.pre-commit-config }}
         base-branch: ${{ inputs.base-branch }}
         email: ${{ inputs.commit_email }}
