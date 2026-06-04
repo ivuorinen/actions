@@ -1,15 +1,21 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-04 (Pass 20 — full sweep of `_tests/` and `_tools/`; opened + fixed N-117..N-122)
+Last validated: 2026-06-05 (Pass 21 — full-repo review; opened + fixed N-123, N-124 + 2 advisories)
 
 ## Summary
 
-- Total: 122 | Open: 0 | Fixed: 120 | Invalid: 2
+- Total: 124 | Open: 0 | Fixed: 122 | Invalid: 2
 
 ## Open Findings
 
 _No open findings._
+
+_Pass 21:_ Full-repo review. N-123, N-124 (Low) and advisories N-A1, N-A2 were all
+addressed in the same pass — see Fixed → Pass 21. The rest of the repository
+(12 workflows, 26 action.yml, validate-inputs Python, root configs) was re-validated
+clean: all internal refs SHA-pinned, every workflow `permissions: {}` + scoped, no
+`pull_request_target`, no workflow bashisms, all `steps.<id>.*` references resolve.
 
 _Pass 20:_ N-117..N-122 (full sweep of `_tests/` and `_tools/`) were all fixed and
 verified in the same pass — see the Fixed → Pass 20 section. N-121 and N-122 were
@@ -28,6 +34,43 @@ via per-action migration in commits 3dcf7cb..2191252 + test-fixup 03adba5. Every
 that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a`.
 
 ## Fixed
+
+### Pass 21 — 2026-06-05
+
+#### [N-123] `issue-stats.yml` used GNU-only `date -d` under `shell: sh`
+
+Fixed: 2026-06-05
+Notes: Replaced the `date -d "last month"` / `date -d "$first_day +1 month -1 day"`
+range computation with portable `date -u` + POSIX arithmetic producing `YYYY-MM`, and
+let GitHub search match the whole month via `created:${{ env.last_month }}`
+(`created:2026-05`) — no `date -d`, no `last_day`, and printf instead of `echo` into
+`GITHUB_ENV`. Verified: logic yields correct previous month incl. January wraparound
+(`2026-01 → 2025-12`); actionlint + yamllint clean.
+
+#### [N-124] `arch-profile.md` reported stale validate-inputs adoption
+
+Fixed: 2026-06-05
+Notes: Updated the "Ambiguities & Contradictions" entry from "10 of 26 … csharp-build
+skips validation" to "25 of 26 (all except `validate-inputs` itself); gap closed by the
+N-095 migration (Pass 17)". Verified: 25 action.yml files reference
+`ivuorinen/actions/validate-inputs@`. markdownlint clean.
+
+#### [N-A1] `# noqa: S108` lacked an inline reason (advisory)
+
+Fixed: 2026-06-05
+Notes: Added a comment above `codeql-analysis/CustomValidator.py:279` explaining the
+suppression is a prefix check for CodeQL's `/tmp/codeql_databases` location, not
+insecure temp-file creation. Suppression left in place (verified false positive). ruff
+clean.
+
+#### [N-A2] Inert `# pylint: disable=wrong-import-position` (advisory)
+
+Fixed: 2026-06-05
+Notes: Removed the inert pragma from `validate-inputs/validator.py:18` (the repo lints
+with ruff, not pylint; E402 is already covered by pyproject `per-file-ignores` for this
+file and ruff does not raise it for the `sys.path` idiom — a `# noqa: E402` would have
+tripped RUF100). Replaced with a plain comment explaining the import order. Verified:
+ruff clean; `import validator` succeeds.
 
 ### Pass 20 — 2026-06-04
 

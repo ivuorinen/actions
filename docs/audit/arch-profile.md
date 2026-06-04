@@ -110,11 +110,10 @@ as pipelines with a mandatory validation stage as a reusable filter.
 
 ## Ambiguities & Contradictions
 
-- **Incomplete validate-inputs adoption**: 10 of 26 actions call `validate-inputs`
-  via `uses:`. The remaining 16 either handle validation inline (compress-images uses
-  inline `echo "::error::"` guards) or skip validation entirely (csharp-build has no
-  validate step visible in its action names). This is a structural inconsistency — the
-  inferred rule (Rule 2 above) is violated by more than half the actions.
+- **validate-inputs adoption (resolved)**: 25 of 26 actions call `validate-inputs`
+  via `uses:` — every action except `validate-inputs` itself (which cannot call
+  itself). The earlier gap (10 of 26) was closed by the N-095 migration (nitpicker
+  Pass 17); the inferred rule (Rule 2 above) now holds across the catalog.
 - **validate-inputs is both an action and a library**: It exposes an `action.yml` for
   external calling and a Python package (`github_actions_validate_inputs-1.0.0`) for
   direct import. The dual surface creates ambiguity about which interface is canonical

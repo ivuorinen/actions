@@ -15,18 +15,24 @@ jobs:
       issues: write
       pull-requests: read
     steps:
-      - name: Get dates for last month
+      - name: Get previous month for the report window
         shell: sh
         run: |
-          # Calculate the first day of the previous month
-          first_day=$(date -d "last month" +%Y-%m-01)
-
-          # Calculate the last day of the previous month
-          last_day=$(date -d "$first_day +1 month -1 day" +%Y-%m-%d)
-
-          #Set an environment variable with the date range
-          echo "$first_day..$last_day"
-          echo "last_month=$first_day..$last_day" >> "$GITHUB_ENV"
+          # Previous month as YYYY-MM, computed portably (no GNU `date -d`,
+          # which is forbidden by .claude/rules/posix-shell.md). GitHub issue
+          # search treats `created:YYYY-MM` as the entire calendar month, so we
+          # do not need an explicit first_day..last_day range.
+          year=$(date -u +%Y)
+          month=$(date -u +%m)
+          month=${month#0} # strip leading zero to avoid octal arithmetic
+          if [ "$month" -eq 1 ]; then
+            prev_year=$((year - 1))
+            prev_month=12
+          else
+            prev_year=$year
+            prev_month=$((month - 1))
+          fi
+          printf 'last_month=%04d-%02d\n' "$prev_year" "$prev_month" >> "$GITHUB_ENV"
 
       - name: Run issue-metrics tool
         uses: github/issue-metrics@1e38d5e62363e14db8019ed7d106b9855bdba6cc # v4.2.7

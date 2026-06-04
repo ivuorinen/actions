@@ -12,10 +12,12 @@ import re
 import sys
 from pathlib import Path
 
-# Add current directory to path
+# Add current directory to path so the sibling `validators` package resolves
+# when this entry-point script is run directly (E402 is allowed for this file
+# in pyproject's per-file-ignores; the repo lints with ruff, not pylint).
 sys.path.insert(0, str(Path(__file__).parent))
 
-from validators.registry import clear_cache, get_validator  # pylint: disable=wrong-import-position
+from validators.registry import clear_cache, get_validator
 
 # Configure logging for GitHub Actions
 logging.basicConfig(
