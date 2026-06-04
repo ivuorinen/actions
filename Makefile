@@ -426,6 +426,13 @@ test: test-python test-update-validators test-actions ## Run all tests (Python +
 
 test-actions: ## Run GitHub Actions tests (unit + integration)
 	@echo "$(BLUE)🧪 Running GitHub Actions tests...$(RESET)"
+	@echo "$(BLUE)   ↳ run-tests.sh summary-parser regression (N-117)$(RESET)"
+	@if ./_tests/framework/test_runner_summary.sh; then \
+		echo "$(GREEN)✅ Summary-parser regression passed$(RESET)"; \
+	else \
+		echo "$(RED)❌ Summary-parser regression failed$(RESET)"; \
+		exit 1; \
+	fi
 	@if ./_tests/run-tests.sh --type all --format console; then \
 		echo "$(GREEN)✅ All GitHub Actions tests passed$(RESET)"; \
 	else \

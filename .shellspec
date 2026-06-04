@@ -3,8 +3,12 @@
 # Set the default directory containing spec files
 --default-path _tests/unit
 
-# Specify pattern to find spec files
---pattern "*_spec.sh" --pattern "*.spec.sh"
+# Specify pattern to find spec files.
+# N-122: a second --pattern overrides the first (ShellSpec does not accumulate
+# repeated --pattern, nor does it split on ':'), so listing both silently dropped
+# every *_spec.sh file. The repo convention is *.spec.sh (used by all generated
+# and hand-written specs); the few legacy *_spec.sh files were renamed to match.
+--pattern "*.spec.sh"
 
 # Set shell to use (bash for better compatibility with GitHub Actions)
 --shell bash

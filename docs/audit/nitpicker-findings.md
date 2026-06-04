@@ -1,15 +1,21 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-01 (Pass 19 — N-108..N-113 + N-116 from PR #592 review; N-114/N-115 invalidated)
+Last validated: 2026-06-04 (Pass 20 — full sweep of `_tests/` and `_tools/`; opened + fixed N-117..N-122)
 
 ## Summary
 
-- Total: 116 | Open: 0 | Fixed: 114 | Invalid: 2
+- Total: 122 | Open: 0 | Fixed: 120 | Invalid: 2
 
 ## Open Findings
 
 _No open findings._
+
+_Pass 20:_ N-117..N-122 (full sweep of `_tests/` and `_tools/`) were all fixed and
+verified in the same pass — see the Fixed → Pass 20 section. N-121 and N-122 were
+discovered while wiring the N-118 test: the test runner never executed non-action
+component specs (claude-hooks, \_harness), and claude-hooks' 106 tests had never run
+at all due to a spec-file naming/pattern mismatch.
 
 _Pass 16 re-validation summary:_ Two `<!-- -->` comment blocks under the Open Findings
 section previously held 27 historical findings (N-031..N-048, N-081..N-089). All 27 were
@@ -22,6 +28,70 @@ via per-action migration in commits 3dcf7cb..2191252 + test-fixup 03adba5. Every
 that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a`.
 
 ## Fixed
+
+### Pass 20 — 2026-06-04
+
+#### [N-117] `run-tests.sh` pass/fail regex over-matched "N failures" and diverged from its regression harness
+
+Fixed: 2026-06-04
+Notes: `run_unit_tests` used `^[0-9][0-9]* examples?.*0 failures?$`; the `.*0
+failures?$` tail false-matched any count ending in 0 (`5 examples, 10 failures`).
+Tightened to `^[0-9][0-9]* examples?, 0 failures?$` (now byte-identical to the
+harness). `test_runner_summary.sh` was orphaned (wired into no target) and tested a
+different regex; it is now invoked by `make test-actions` and gained an explicit
+N-117 regression case (`5 examples, 10 failures` must classify as fail; the old
+`.*` predicate is shown failing). Verified: harness exits 0 and confirms both
+historical bugs; full unit suite 29/29 pass.
+
+#### [N-118] `fix-local-action-refs.py` scanned only `action.yml`, never the workflow dirs
+
+Fixed: 2026-06-04
+Notes: Repointed `check_all_files`/`fix_all_files` to a new `find_workflow_files()`
+that scans `.github/workflows/` and `_tests/integration/workflows/` (where
+`./action-name` is correct); `action.yml` is now read only to enumerate valid
+action names, never rewritten. Also fixed the ref regex, which only matched block
+`uses:` and missed the dominant list-item form (`- uses: ../foo`); the pattern is
+now a single `LOCAL_REF_PATTERN` class constant (deduped across both methods) that
+matches `(?:-\s+)?uses:`. Added `--root` for fixture testing, a ShellSpec spec at
+`_tests/unit/fix-local-action-refs/behavior.spec.sh`, and updated the docstring.
+Verified: ruff clean; spec 3/3 pass; tool reports clean on the real repo.
+
+#### [N-119] `validation_core.py` `classic` token pattern accepted a non-existent `ghf_` prefix
+
+Fixed: 2026-06-04
+Notes: Changed `^gh[efpousr]_…` → `^gh[eoprsu]_…` (dropped `f`) so the test
+validator matches `token.py`'s six real classic-family prefixes exactly. Verified:
+54 token tests pass (`_tests/shared/test_token_regex.py` + validate-inputs token
+suites).
+
+#### [N-120] `utils.sh` used `echo` interpolation into `GITHUB_OUTPUT`
+
+Fixed: 2026-06-04
+Notes: `echo "${output}=mock-value-$(date +%s)" >>"$GITHUB_OUTPUT"` →
+`printf '%s=mock-value-%s\n' "$output" "$(date +%s)" >>"$GITHUB_OUTPUT"`, matching
+`.claude/rules/github-output-format.md`. Verified: shellcheck clean.
+
+#### [N-121] `run-tests.sh` discovery ignored non-action component spec dirs
+
+Fixed: 2026-06-04
+Notes: `discover_actions` only enumerated `action.yml` dirs, so component spec dirs
+under `_tests/unit/` (`claude-hooks`, `_harness`, `fix-local-action-refs`) were never
+run by `make test-actions`/CI. Added a discovery pass that appends `_tests/unit/*`
+dirs containing `*.spec.sh` (skipped when explicit targets are given; honors
+`--action`; dedups). Verified: discovery went from 26 → 29; `_harness` and
+`fix-local-action-refs` now execute and pass.
+
+#### [N-122] claude-hooks specs were named `*_spec.sh` but the active ShellSpec pattern was `*.spec.sh` — 106 tests never ran
+
+Fixed: 2026-06-04
+Notes: `.shellspec` listed `--pattern "*_spec.sh" --pattern "*.spec.sh"`, but
+ShellSpec does not accumulate repeated `--pattern` (nor split on `:`) — the second
+overrode the first, so every `*_spec.sh` file was silently skipped (proven: pattern
+`*_spec.sh` alone collects 106 examples; the active `*.spec.sh` collected 0). Renamed
+the 5 claude-hooks specs to the dominant `.spec.sh` convention, set `.shellspec` to a
+single `--pattern "*.spec.sh"`, and updated stale `arch-profile.md` references.
+Verified: claude-hooks runs 106 examples / 0 failures via the runner; full unit suite
+29/29 pass.
 
 ### Pass 19 — 2026-05-31
 

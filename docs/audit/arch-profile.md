@@ -100,13 +100,13 @@ as pipelines with a mandatory validation stage as a reusable filter.
    by `_tools/fix-local-action-refs.py` and CI checks.
 8. **POSIX shell compliance**: All shell code in `action.yml` `run:` blocks and
    `.sh` scripts must be POSIX sh (no bash-isms); enforced by Claude Code hooks
-   (`block_bashisms_spec.sh`).
+   (`block_bashisms.spec.sh`).
 9. **Test mirroring**: Every action in `<name>/` must have a corresponding
    `_tests/unit/<name>/` directory; every custom validator must have a matching
    `validate-inputs/tests/test_<name>_custom.py`.
 10. **No inline GITHUB_OUTPUT interpolation**: Outputs written via `printf 'key=%s\n'
 "$val"` only; `echo "key=$val"` is structurally prohibited and enforced by
-    `block_echo_github_output_spec.sh` Claude hook.
+    `block_echo_github_output.spec.sh` Claude hook.
 
 ## Ambiguities & Contradictions
 
