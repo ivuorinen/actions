@@ -117,7 +117,7 @@ class ValidationCore:
         return (
             False,
             "Invalid token format. Expected one of: "
-            "gh[efpousr]_[a-zA-Z0-9]{36} (40 chars total — ghp/gho/ghu/ghs/ghr/ghe), "
+            "gh[eoprsu]_[a-zA-Z0-9]{36} (40 chars total — ghp/gho/ghu/ghs/ghr/ghe), "
             "ghs_[A-Za-z0-9._]{36,1024} (40-1028 chars total — installation; "
             "stateful or stateless JWT), "
             "github_pat_[A-Za-z0-9_]{50,255} (fine-grained PAT), "
