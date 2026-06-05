@@ -118,6 +118,18 @@ class ConventionMapper:
                 "_disabled": "boolean",
             },
         },
+        # Credential suffixes — mirror conventions.py's "token" match so the two
+        # detection engines agree on *-token inputs (nitpicker N-132). Priority is
+        # below the exact token rules above, so npm-token / dockerhub-token /
+        # registry-token keep their specific types.
+        {
+            "priority": 78,
+            "type": "suffix",
+            "patterns": {
+                "-token": "github_token",
+                "_token": "github_token",
+            },
+        },
         # File patterns
         {
             "priority": 70,

@@ -679,7 +679,12 @@ class SecurityValidator(BaseValidator):
         Returns:
             True if safe, False if consecutive quantifiers detected
         """
-        consecutive_quantifiers = r"[.+*][+*{]"
+        # Two quantifiers in a row (a**, .*+, .++) or two adjacent greedy
+        # dot-quantifiers (.*.*) — true catastrophic-backtracking shapes. A single
+        # `.+` / `.*` / `.{n,m}` is linear and must NOT be flagged; the old
+        # `[.+*][+*{]` treated the atom `.` as a quantifier and rejected them
+        # (nitpicker N-135).
+        consecutive_quantifiers = r"[*+][*+]|\.[*+]\.[*+]"
         if re.search(consecutive_quantifiers, pattern):
             self.add_error(
                 f"ReDoS risk detected in {name}: consecutive quantifiers like .*.* or .*+ "

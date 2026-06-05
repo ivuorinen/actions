@@ -7,6 +7,16 @@ import re
 from .base import BaseValidator
 
 
+def _strip_leading_v(version: str) -> str:
+    """Strip a single optional leading 'v' prefix (not a run of them).
+
+    `str.lstrip("v")` strips a *run* of leading 'v's, so "vvv1.2.3" would pass
+    "strict" validation; a real version prefix is at most one character
+    (nitpicker N-135).
+    """
+    return version[1:] if version[:1] == "v" else version
+
+
 class VersionValidator(BaseValidator):
     """Validator for version strings (SemVer, CalVer, language-specific)."""
 
@@ -197,7 +207,7 @@ class VersionValidator(BaseValidator):
             return True
 
         # Remove common prefixes for validation
-        clean_version = version.lstrip("v")
+        clean_version = _strip_leading_v(version)
 
         # Strict semantic version pattern
         pattern = r"^\d+\.\d+\.\d+(-[\dA-Za-z.-]+)?(\+[\dA-Za-z.-]+)?$"
@@ -224,7 +234,7 @@ class VersionValidator(BaseValidator):
             return True  # Version is often optional
 
         # Remove common prefixes for validation
-        clean_version = version.lstrip("v")
+        clean_version = _strip_leading_v(version)
 
         # CalVer patterns
         calver_patterns = [
@@ -368,7 +378,7 @@ class VersionValidator(BaseValidator):
         original_errors = self.errors.copy()
 
         # Try CalVer first if it looks like CalVer
-        clean_version = version.lstrip("v")
+        clean_version = _strip_leading_v(version)
         looks_like_calver = (
             re.match(r"^\d{4}\.", clean_version)
             or re.match(r"^\d{4}-", clean_version)
@@ -420,7 +430,7 @@ class VersionValidator(BaseValidator):
         if value.strip().lower() == "latest":
             return True
 
-        clean_version = value.lstrip("v")
+        clean_version = _strip_leading_v(value)
         pattern = r"^\d+\.\d+\.\d+(-[\w.-]+)?$"
 
         if re.match(pattern, clean_version):

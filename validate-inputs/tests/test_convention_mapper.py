@@ -82,6 +82,9 @@ class TestConventionMapper:
             "warnings_disabled": "boolean",
             "some-version": "version",  # Generic version suffix
             "app_version": "version",  # Generic version suffix
+            "api-token": "github_token",  # N-132: mapper now mirrors conventions
+            "auth_token": "github_token",
+            "secret-token": "github_token",
         }
 
         for input_name, expected_validator in test_cases.items():

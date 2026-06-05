@@ -306,6 +306,9 @@ class TestSecurityValidator:
             r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$",
             r"^[a-z]+@[a-z]+\.[a-z]+$",
             r"^https?://[\w.-]+$",
+            r"^.+\.txt$",  # N-135: single .+ is linear, must not be flagged ReDoS
+            r"src/.*\.js",
+            r"x.{2,4}y",
         ]
 
         for pattern in safe_patterns:

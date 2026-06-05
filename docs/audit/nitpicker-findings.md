@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-129 + N-134; invalid N-133; open N-130..N-132 + N-135)
+Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-129, N-132, N-134, N-135; invalid N-133; open N-130, N-131)
 
 ## Summary
 
-- Total: 135 | Open: 4 | Fixed: 128 | Invalid: 3
+- Total: 135 | Open: 2 | Fixed: 130 | Invalid: 3
 
 ## Open Findings
 
@@ -55,48 +55,6 @@ Fix: have the generator emit `pytest.skip("CUSTOMIZE")` for un-customized stubs 
 committed vacuous assertions with real expected outcomes (valid → `result is True and not
 has_errors()`; a known-bad value → `result is False`); fix the `'{action_name}'` interpolation
 in generate-tests.py:153 and the input-case templates.
-
-#### [N-132] two convention-detection engines diverge on token/secret-suffixed inputs
-
-Category: maintainability
-Area: validate-inputs/validators/convention_mapper.py:230-281 vs validators/conventions.py:222-229
-Problem: `conventions._check_pattern_based_matches` classifies anything containing `token` as
-`github_token`, but the runtime fallback `convention_mapper.get_validator_type` has no
-`-token`/`-password`/`-key`/`-secret` suffix rule, so `api-token`, `db-password`, `access-key`
-return `None` (input skipped entirely, no injection/format check) in that path. The two engines
-give opposite security verdicts for the same input — a duplicate-pattern divergence forbidden by
-code-quality.md.
-Evidence: for `api-token = "x; rm -rf / #"`, the conventions engine → `valid=False` (rejected);
-the convention_mapper engine → `valid=True, errors=[]`. No current action input is named this
-way, so this is latent for first-party use but a live gap for external consumers (the action is
-documented as externally usable).
-Impact: external consumers relying on the mapper path get no validation for credential-suffixed
-inputs.
-Fix: add the `-token`/`-secret`/`-password`/`-key` suffix groups to
-`convention_mapper._DEFAULT_PATTERNS`, mirroring `_check_pattern_based_matches`; extract one
-shared mapping table so the two engines cannot drift (rule-of-three).
-
-### Low
-
-#### [N-135] minor validator-correctness + coverage gaps (grouped)
-
-Category: correctness
-Area: validate-inputs/validators/version.py:198,224; security.py:673,721; conventions.py:236-243,1318; coverage
-Problem/Evidence (all reproduced unless noted):
-(a) `validate_strict_semantic_version` uses `version.lstrip("v")` (char-set strip) → accepts
-`vvv1.2.3` as valid "strict" semver. Fix: strip a single leading `v` only.
-(b) `validate_regex_pattern` rejects benign `.+`, `.*`, `.{2,4}` as "consecutive quantifiers"
-(`[.+*][+*{]`). LATENT — no convention routes a user input to `validate_regex_pattern`
-(`pattern`/`file-pattern` infer no type). Fix when wired: target true double-quantifier shapes.
-(c) VERSION_MAPPINGS substring loop (`if key in name_lower`) over-matches `net`/`go`/`php`, so
-`kubernetes-version`→dotnet, `cargo-version`→go, `phpunit-version`→php. LATENT/external — verified
-that every real forwarded version input (golangci-lint-version→flexible, etc.) classifies
-correctly. Fix: match on word boundary / prefix, drop the bare `net` alias.
-(d) `_validate_path_list` glob class allows `~` while `base.validate_path_security` forbids it —
-inconsistent path posture. Fix: drop `~` or reject `~`-prefixed entries to match base.py.
-(e) Live-module coverage below ~85%: token.py 72%, registry.py 75%, security.py 81%, boolean.py
-82%, file.py 85% (default `[tool.coverage.run] source=["validators"]` also excludes the live
-`validator.py` entirely). Fix: add edge-branch tests; consider adding `.` to the coverage source.
 
 _Pass 21:_ Full-repo review. N-123, N-124 (Low) and advisories N-A1, N-A2 were all
 addressed in the same pass — see Fixed → Pass 21. The rest of the repository
@@ -203,6 +161,36 @@ checks — reachable because the npm-publish / npm-semantic-release CustomValida
 (`%0d`/`%0a`/`%00`/`%2e%2e`), plus regression tests: the encoded payloads added to the invalid-URL
 set in `test_network_validator.py`, and a new `test_validate_url_security_rejects_encoded_payloads`
 in `test_security_validator.py`. Verified both reject the encoded payloads and accept clean URLs.
+
+#### [N-132] convention_mapper diverged from conventions on \*-token inputs
+
+Fixed: 2026-06-05
+Notes: `convention_mapper.get_validator_type` returned `None` for `api-token`/`auth-token`/
+`secret-token` while `conventions` classified them as `github_token` (it substring-matches
+"token"). Added a `-token`/`_token` suffix rule (priority 78, below the exact token rules so
+npm-token/dockerhub-token/registry-token keep their specific types) so the two engines agree on the
+realistic credential-suffix cases (verified + test in test_convention_mapper.py). Latent — no
+current action input is named this way. The agent's `-password`/`-key`/`-secret` claim was NOT a
+divergence: conventions also returns `None` for those, so both engines already agree. Residual:
+degenerate no-separator names (`authtoken`) and `registry-token`'s type still differ; full
+shared-table parity is a larger refactor not warranted for a latent gap.
+
+#### [N-135] minor validator-correctness fixes (grouped)
+
+Fixed: 2026-06-05
+Notes: (a) FIXED — extracted `_strip_leading_v` and replaced four `version.lstrip("v")` sites so
+"strict" version validation rejects `vvv1.2.3` (verified). (b) FIXED — the consecutive-quantifier
+regex `[.+*][+*{]` wrongly treated the atom `.` as a quantifier and rejected benign `.+`/`.*`/
+`.{n,m}`; changed to `[*+][*+]|\.[*+]\.[*+]`, which still rejects the real ReDoS shapes (`.*.*`,
+`a**`, `.*+`, …) — verified against both sets; added the benign patterns to
+test_validate_regex_pattern_safe_patterns. (d) INVALID — `_validate_path_list` allows `~`
+deliberately (home-relative entries like `~/config`, asserted in test_validate_path_list_valid);
+base.validate_path_security forbids `~` for a different, security-sensitive purpose. Reverted.
+(c) NOT fixed (latent) — the VERSION_MAPPINGS substring over-match affects only hypothetical inputs
+(kubernetes-version, cargo-version); every real forwarded version input classifies correctly, and a
+word-boundary refactor of the 1473-line engine is too risky for a no-impact gap. (e) coverage:
+partially addressed by the new registry/security/url/entry-point tests; broader edge-branch
+coverage remains an advisory, not a defect.
 
 ### Pass 21 — 2026-06-05
 
