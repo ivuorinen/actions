@@ -135,7 +135,7 @@ class TestCustomValidateInputsValidator:
             inputs = {"rules-file": path}
             result = self.validator.validate_inputs(inputs)
             # Result depends on file existence, but should not crash
-            assert isinstance(result, bool)
+            assert result == (not self.validator.has_errors())
 
     def test_validate_fail_on_error_valid(self):
         """Test validation with valid fail-on-error values."""

@@ -32,7 +32,7 @@ class TestCustomSyncLabelsValidator:
         inputs = {}
         result = self.validator.validate_inputs(inputs)
         # Adjust assertion based on required inputs
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 
     def test_validate_inputs_invalid(self):
         """Test validation with invalid inputs."""
@@ -40,7 +40,7 @@ class TestCustomSyncLabelsValidator:
         inputs = {"invalid_key": "invalid_value"}
         result = self.validator.validate_inputs(inputs)
         # Custom validators may have specific validation rules
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 
     def test_required_inputs(self):
         """Test required inputs detection."""
@@ -60,7 +60,7 @@ class TestCustomSyncLabelsValidator:
             "test_input": "${{ github.token }}",
         }
         result = self.validator.validate_inputs(inputs)
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
         # GitHub expressions should generally be accepted
 
     def test_label_specific_validation(self):
@@ -70,14 +70,13 @@ class TestCustomSyncLabelsValidator:
             "token": "${{ secrets.GITHUB_TOKEN }}",
         }
         result = self.validator.validate_inputs(inputs)
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 
     def test_error_propagation(self):
         """Test error propagation from sub-validators."""
         # Custom validators often use sub-validators
         # Test that errors are properly propagated
         inputs = {"test": "value"}
-        self.validator.validate_inputs(inputs)
-        # Check error handling
-        if self.validator.has_errors():
-            assert len(self.validator.errors) > 0
+        result = self.validator.validate_inputs(inputs)
+        # result must agree with the error state — no silent True-with-errors.
+        assert result == (not self.validator.has_errors())

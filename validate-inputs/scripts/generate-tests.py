@@ -150,8 +150,9 @@ Describe '{description} Input Validation'
         content += """
   setup() {
     export_test_env
-    export INPUT_ACTION_TYPE="${action_name}"
-    cleanup_test_env
+"""
+        content += f'    export INPUT_ACTION_TYPE="{action_name}"\n'
+        content += """    cleanup_test_env
   }
 
   Before 'setup'
@@ -201,7 +202,7 @@ Describe '{description} Input Validation'
 
         # Add input-specific validation tests
         for input_name in inputs:
-            test_cases = self._generate_input_test_cases(input_name)
+            test_cases = self._generate_input_test_cases(input_name, action_name)
             if test_cases:
                 content += f"""
   Context '{input_name} validation'
@@ -260,11 +261,12 @@ Describe '{description} Input Validation'
         # Default fallback
         return "test-value"
 
-    def _generate_input_test_cases(self, input_name: str) -> list[str]:
+    def _generate_input_test_cases(self, input_name: str, action_name: str) -> list[str]:
         """Generate test cases for a specific input.
 
         Args:
             input_name: Name of the input
+            action_name: The action name, baked into each validate_inputs call
 
         Returns:
             List of test case strings
@@ -277,13 +279,13 @@ Describe '{description} Input Validation'
             test_cases.append(f"""
     It 'should accept boolean values for {input_name}'
       export {env_var}='true'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be success
     End
 
     It 'should reject invalid boolean for {input_name}'
       export {env_var}='invalid'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be failure
       The error should include 'boolean'
     End
@@ -294,13 +296,13 @@ Describe '{description} Input Validation'
             test_cases.append(f"""
     It 'should accept valid version for {input_name}'
       export {env_var}='1.2.3'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be success
     End
 
     It 'should accept version with v prefix for {input_name}'
       export {env_var}='v1.2.3'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be success
     End
 """)
@@ -310,13 +312,13 @@ Describe '{description} Input Validation'
             test_cases.append(f"""
     It 'should accept GitHub token for {input_name}'
       export {env_var}='${{{{ secrets.GITHUB_TOKEN }}}}'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be success
     End
 
     It 'should accept classic PAT for {input_name}'
       export {env_var}='ghp_1234567890123456789012345678901234'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be success
     End
 """)
@@ -326,13 +328,13 @@ Describe '{description} Input Validation'
             test_cases.append(f"""
     It 'should accept valid path for {input_name}'
       export {env_var}='./valid/path'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be success
     End
 
     It 'should reject path traversal for {input_name}'
       export {env_var}='../../../etc/passwd'
-      When run validate_inputs '${{action_name}}'
+      When run validate_inputs '{action_name}'
       The status should be failure
       The error should include 'security'
     End
@@ -711,7 +713,7 @@ class Test{class_name}:
         # CUSTOMIZE: Add specific test cases for {validator_name}
         inputs = {{"test_input": "test_value"}}
         result = self.validator.validate_inputs(inputs)
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 
     def test_error_handling(self):
         """Test error handling."""
@@ -812,7 +814,7 @@ class TestCustom{class_name}Validator:
         inputs = {{}}
         result = self.validator.validate_inputs(inputs)
         # Adjust assertion based on required inputs
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 
     def test_validate_inputs_invalid(self):
         """Test validation with invalid inputs."""
@@ -820,7 +822,7 @@ class TestCustom{class_name}Validator:
         inputs = {{"invalid_key": "invalid_value"}}
         result = self.validator.validate_inputs(inputs)
         # Custom validators may have specific validation rules
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 
     def test_required_inputs(self):
         """Test required inputs detection."""
@@ -840,7 +842,7 @@ class TestCustom{class_name}Validator:
             "test_input": "${{{{ github.token }}}}",
         }}
         result = self.validator.validate_inputs(inputs)
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
         # GitHub expressions should generally be accepted
 '''
 
@@ -854,7 +856,7 @@ class TestCustom{class_name}Validator:
             "platforms": "linux/amd64,linux/arm64",
         }
         result = self.validator.validate_inputs(inputs)
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 '''
         elif "codeql" in action_name:
             content += '''
@@ -865,7 +867,7 @@ class TestCustom{class_name}Validator:
             "queries": "security-extended",
         }
         result = self.validator.validate_inputs(inputs)
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 '''
         elif "label" in action_name:
             content += '''
@@ -876,7 +878,7 @@ class TestCustom{class_name}Validator:
             "token": "${{ secrets.GITHUB_TOKEN }}",
         }
         result = self.validator.validate_inputs(inputs)
-        assert isinstance(result, bool)
+        assert result == (not self.validator.has_errors())
 '''
 
         content += '''

@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-129, N-132, N-134, N-135; invalid N-133; open N-130, N-131)
+Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-129, N-131, N-132, N-134, N-135; invalid N-133; open N-130)
 
 ## Summary
 
-- Total: 135 | Open: 2 | Fixed: 130 | Invalid: 3
+- Total: 135 | Open: 1 | Fixed: 131 | Invalid: 3
 
 ## Open Findings
 
@@ -33,28 +33,6 @@ Fix: forward the declared inputs in each caller's validate-inputs `with:` block 
 validate-inputs input declarations where needed, e.g. `format`, `auto-fix`); correct the
 "validated" comments; re-run `/action-health <name>` per caller. Audit all 13 CustomValidators
 for the same gap.
-
-#### [N-131] 13 generated `test_*_custom.py` are tautological; `generate-tests.py` emits a broken `${action_name}` literal
-
-Category: tests
-Area: validate-inputs/tests/test\_\*\_custom.py (13 files); validate-inputs/scripts/generate-tests.py:153,280-335
-Problem: The generated custom-validator tests assert only `assert isinstance(result, bool)`
-against a `-> bool` function, so they pass regardless of validator behavior (the N-018
-phantom-test class, now committed and run in CI as fake-green + inflating coverage). Separately,
-`generate-tests.py` emits the literal `${action_name}` (undefined shell var) into newly
-generated ShellSpec specs, so a freshly generated spec would export `INPUT_ACTION_TYPE=""` and
-call `validate_inputs ''`.
-Evidence: `grep -c 'assert isinstance(result, bool)'` → 3-4 per file across 13 files; all 13
-still carry `# CUSTOMIZE:` placeholders. generate-tests.py:150-160 is a plain (non-f) triple
-string containing `export INPUT_ACTION_TYPE="${action_name}"`; the input cases use
-`'${{action_name}}'` which renders to literal `${action_name}` (contrast the correct
-`'{action_name}'` at :166/:177/:195). Latent: all 25 actions already have hand-written specs,
-so no committed spec is corrupted today.
-Impact: ~40 committed assertions can never fail; any new action gets a broken generated spec.
-Fix: have the generator emit `pytest.skip("CUSTOMIZE")` for un-customized stubs and replace the
-committed vacuous assertions with real expected outcomes (valid → `result is True and not
-has_errors()`; a known-bad value → `result is False`); fix the `'{action_name}'` interpolation
-in generate-tests.py:153 and the input-case templates.
 
 _Pass 21:_ Full-repo review. N-123, N-124 (Low) and advisories N-A1, N-A2 were all
 addressed in the same pass — see Fixed → Pass 21. The rest of the repository
@@ -191,6 +169,25 @@ base.validate_path_security forbids `~` for a different, security-sensitive purp
 word-boundary refactor of the 1473-line engine is too risky for a no-impact gap. (e) coverage:
 partially addressed by the new registry/security/url/entry-point tests; broader edge-branch
 coverage remains an advisory, not a defect.
+
+#### [N-131] generated custom-validator tests were tautological; generator emitted a broken ${action_name}
+
+Fixed: 2026-06-05
+Notes: The 12 generated `tests/test_*_custom.py` asserted only `assert isinstance(result, bool)`
+against a `-> bool` function (38 assertions that could never fail — the N-018 phantom-test class,
+committed and run as fake-green) plus a vacuous `test_error_propagation` (asserted nothing when no
+errors). Replaced all with the action-agnostic invariant `assert result == (not
+self.validator.has_errors())` — verified to hold for all 12 validators across every generated
+scenario, and it catches a silent True-with-errors / False-without-error regression. Fixed the
+generator templates (`_generate_custom_validator_test` + `_generate_generic_validator_tests`)
+identically. Fixed the latent `${action_name}` interpolation: threaded `action_name` into
+`_generate_input_test_cases` (its `'${{action_name}}'` rendered a literal `${action_name}` because
+the method had no `action_name` in scope) and split the setup block so
+`INPUT_ACTION_TYPE="{action_name}"` bakes the real name; updated `test_generate_input_test_cases`
+to assert the baked name. Verified the generator now emits `validate_inputs 'docker-build'` and
+`INPUT_ACTION_TYPE="docker-build"` with no literal `${action_name}`. 787 pytest pass, ruff clean.
+Residual: committed files keep their `# CUSTOMIZE:` placeholders (action-specific valid/invalid
+cases are still worth filling in), but the assertions are no longer fake-green.
 
 ### Pass 21 — 2026-06-05
 
