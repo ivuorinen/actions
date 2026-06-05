@@ -17,28 +17,6 @@ logger = logging.getLogger(__name__)
 from .base import BaseValidator
 from .convention_mapper import ConventionMapper
 
-TOKEN_TYPES = {
-    "github": "github_token",
-    "npm": "npm_token",
-    "docker": "docker_token",
-}
-
-VERSION_MAPPINGS = {
-    "python": "python_version",
-    "node": "node_version",
-    "go": "go_version",
-    "php": "php_version",
-    "terraform": "terraform_version",
-    "dotnet": "dotnet_version",
-    "net": "dotnet_version",
-}
-
-FILE_TYPES = {
-    "yaml": "yaml_file",
-    "yml": "yaml_file",
-    "json": "json_file",
-}
-
 
 class ConventionBasedValidator(BaseValidator):
     """Validator that applies validation based on naming conventions.
@@ -134,133 +112,15 @@ class ConventionBasedValidator(BaseValidator):
         Returns:
             The inferred validator type or None
         """
-        # Check for explicit validator type in config
+        # Honor an explicit validator type from the rules config.
         if isinstance(input_config, dict) and "validator" in input_config:
             return input_config["validator"]
 
-        # Infer based on name patterns
-        name_lower = input_name.lower().replace("-", "_")
-
-        # Try to determine validator type
-        validator_type = self._check_exact_matches(name_lower)
-
-        if validator_type is None:
-            validator_type = self._check_pattern_based_matches(name_lower)
-
-        return validator_type
-
-    def _check_exact_matches(self, name_lower: str) -> str | None:
-        """Check for exact pattern matches."""
-        exact_matches = {
-            # Docker patterns
-            "platforms": "docker_architectures",
-            "architectures": "docker_architectures",
-            "cache_from": "cache_mode",
-            "cache_to": "cache_mode",
-            "sbom": "sbom_format",
-            "registry": "registry_url",
-            "registry_url": "registry_url",
-            "tags": "docker_tags",
-            # File patterns
-            "file": "file_path",
-            "path": "file_path",
-            "file_path": "file_path",
-            "config_file": "file_path",
-            "dockerfile": "file_path",
-            "branch": "branch_name",
-            "branch_name": "branch_name",
-            "ref": "branch_name",
-            # Network patterns
-            "email": "email",
-            "url": "url",
-            "endpoint": "url",
-            "webhook": "url",
-            "repository_url": "repository_url",
-            "repo_url": "repository_url",
-            "scope": "scope",
-            "username": "username",
-            "user": "username",
-            # Boolean patterns
-            "dry_run": "boolean",
-            "draft": "boolean",
-            "prerelease": "boolean",
-            "push": "boolean",
-            "delete": "boolean",
-            "all_files": "boolean",
-            "force": "boolean",
-            "skip": "boolean",
-            "enabled": "boolean",
-            "disabled": "boolean",
-            "verbose": "boolean",
-            "debug": "boolean",
-            # Numeric patterns
-            "retries": "retries",
-            "retry": "retries",
-            "attempts": "retries",
-            "timeout": "timeout",
-            "timeout_ms": "timeout",
-            "timeout_seconds": "timeout",
-            "threads": "threads",
-            "workers": "threads",
-            "concurrency": "threads",
-            # Other patterns
-            "category": "category_format",
-            "cache": "package_manager_enum",
-            "package_manager": "package_manager_enum",
-            "format": "report_format",
-            "output_format": "report_format",
-            "report_format": "report_format",
-            "mode": "mode_enum",
-        }
-        return exact_matches.get(name_lower)
-
-    def _check_pattern_based_matches(self, name_lower: str) -> str | None:  # noqa: PLR0912
-        """Check for pattern-based matches."""
-        result = None
-
-        # Token patterns
-        if "token" in name_lower:
-            token_types = TOKEN_TYPES
-            for key, value in token_types.items():
-                if key in name_lower:
-                    result = value
-                    break
-            if result is None:
-                result = "github_token"  # Default token type
-
-        # Docker patterns
-        elif name_lower.startswith("docker_"):
-            result = f"docker_{name_lower[7:]}"
-
-        # Version patterns
-        elif "version" in name_lower:
-            version_mappings = VERSION_MAPPINGS
-            for key, value in version_mappings.items():
-                if key in name_lower:
-                    result = value
-                    break
-            if result is None:
-                result = "flexible_version"  # Default to flexible version
-
-        # File suffix patterns
-        elif name_lower.endswith("_file") and name_lower != "config_file":
-            file_types = FILE_TYPES
-            for key, value in file_types.items():
-                if key in name_lower:
-                    result = value
-                    break
-            if result is None:
-                result = "file_path"
-
-        # CodeQL patterns
-        elif name_lower.startswith("codeql_"):
-            result = name_lower
-
-        # Cache-related check (special case for returning None)
-        elif "cache" in name_lower and name_lower != "cache":
-            result = None  # cache-related but not numeric
-
-        return result
+        # Otherwise delegate to ConventionMapper — the same name->type engine used
+        # as the runtime fallback in _get_validator_type — so this load-time
+        # pre-population and runtime resolution share one source of truth (removes
+        # a second, divergent detection table only reachable from this method).
+        return self._convention_mapper.get_validator_type(input_name)
 
     def get_required_inputs(self) -> list[str]:
         """Get the list of required input names from rules.

@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .convention_mapper import ConventionMapper
 from .conventions import ConventionBasedValidator
 
 if TYPE_CHECKING:
@@ -29,7 +28,6 @@ class ValidatorRegistry:
         """Initialize the validator registry."""
         self._validators: dict[str, type[BaseValidator]] = {}
         self._validator_instances: dict[str, BaseValidator] = {}
-        self._convention_mapper = ConventionMapper()
 
     def register(self, action_type: str, validator_class: type[BaseValidator]) -> None:
         """Register a validator class for an action type.

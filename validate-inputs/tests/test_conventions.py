@@ -121,43 +121,17 @@ optional_inputs:
         result = self.validator._infer_validator_type("user-email", input_config)
         assert result == "email"
 
-    def test_infer_validator_type_from_name(self):
-        """Test inferring validator type from input name."""
-        # Test exact matches
+    def test_infer_validator_type_delegates_to_mapper(self):
+        """_infer_validator_type delegates name->type detection to ConventionMapper.
+
+        The old _check_exact_matches / _check_pattern_based_matches engine was a
+        second, divergent detection table only reachable from this method (and
+        only when a rules.yml had empty conventions + optional_inputs, which the
+        generator never produces). It was removed; detection now has one source.
+        """
         assert self.validator._infer_validator_type("email", {}) == "email"
         assert self.validator._infer_validator_type("url", {}) == "url"
         assert self.validator._infer_validator_type("dry-run", {}) == "boolean"
-        assert self.validator._infer_validator_type("retries", {}) == "retries"
-
-    def test_check_exact_matches(self):
-        """Test exact pattern matching."""
-        assert self.validator._check_exact_matches("email") == "email"
-        assert self.validator._check_exact_matches("dry_run") == "boolean"
-        assert self.validator._check_exact_matches("architectures") == "docker_architectures"
-        assert self.validator._check_exact_matches("retries") == "retries"
-        assert self.validator._check_exact_matches("dockerfile") == "file_path"
-        assert self.validator._check_exact_matches("branch") == "branch_name"
-        assert self.validator._check_exact_matches("nonexistent") is None
-
-    def test_check_pattern_based_matches(self):
-        """Test pattern-based matching."""
-        # Token patterns
-        assert self.validator._check_pattern_based_matches("github_token") == "github_token"
-        assert self.validator._check_pattern_based_matches("npm_token") == "npm_token"
-
-        # Version patterns
-        assert self.validator._check_pattern_based_matches("python_version") == "python_version"
-        assert self.validator._check_pattern_based_matches("node_version") == "node_version"
-
-        # File patterns (checking actual return values)
-        yaml_result = self.validator._check_pattern_based_matches("config_yaml")
-        # Result might be "yaml_file" or None depending on implementation
-        assert yaml_result is None or yaml_result == "yaml_file"
-
-        # Boolean patterns ending with common suffixes (checking for presence)
-        # These may or may not match depending on implementation
-        assert self.validator._check_pattern_based_matches("enable_feature") is not None or True
-        assert self.validator._check_pattern_based_matches("disable_option") is not None or True
 
     def test_get_required_inputs(self):
         """Test getting required inputs."""
