@@ -623,6 +623,31 @@ class ConventionBasedValidator(BaseValidator):
             item_name="extension",
         )
 
+    def _check_enum_membership(
+        self,
+        value: str,
+        input_name: str,
+        valid_values: list,
+        *,
+        case_sensitive: bool,
+    ) -> bool:
+        """Shared membership check for the enum validators.
+
+        Blank is treated as optional (valid); otherwise ``value`` must be in
+        ``valid_values`` (case-insensitively when ``case_sensitive`` is False).
+        The count-guard preconditions stay in the calling validators.
+        """
+        if not value or value.strip() == "":
+            return True  # Optional
+        candidate = value if case_sensitive else value.lower()
+        allowed = valid_values if case_sensitive else [v.lower() for v in valid_values]
+        if candidate not in allowed:
+            self.add_error(
+                f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
+            )
+            return False
+        return True
+
     def _validate_binary_enum(
         self,
         value: str,
@@ -663,26 +688,9 @@ class ConventionBasedValidator(BaseValidator):
                 f"Binary enum requires exactly 2 valid values, got {len(valid_values)}"
             )
 
-        if not value or value.strip() == "":
-            return True  # Optional
-
-        # Case-insensitive comparison if needed
-        if not case_sensitive:
-            value_lower = value.lower()
-            valid_values_lower = [v.lower() for v in valid_values]
-            if value_lower not in valid_values_lower:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-        else:
-            if value not in valid_values:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-
-        return True
+        return self._check_enum_membership(
+            value, input_name, valid_values, case_sensitive=case_sensitive
+        )
 
     def _validate_format_enum(
         self,
@@ -800,26 +808,9 @@ class ConventionBasedValidator(BaseValidator):
             msg = f"Multi-value enum allows <= {max_values} values, got {len(valid_values)}"
             raise ValueError(msg)
 
-        if not value or value.strip() == "":
-            return True  # Optional
-
-        # Case-insensitive comparison if needed
-        if not case_sensitive:
-            value_lower = value.lower()
-            valid_values_lower = [v.lower() for v in valid_values]
-            if value_lower not in valid_values_lower:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-        else:
-            if value not in valid_values:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-
-        return True
+        return self._check_enum_membership(
+            value, input_name, valid_values, case_sensitive=case_sensitive
+        )
 
     def _validate_coverage_driver(self, value: str, input_name: str) -> bool:
         """Validate coverage driver enum.
