@@ -87,8 +87,15 @@ runs:
         terraform-version: ${{ inputs.terraform-version }}
         tflint-version: ${{ inputs.tflint-version }}
         max-retries: ${{ inputs.max-retries }}
+        working-directory: ${{ inputs.working-directory }}
+        config-file: ${{ inputs.config-file }}
 
-    - name: Write Validated Inputs to Environment
+    - name: Write Inputs to Environment
+      # working-directory, config-file and max-retries are validated by the
+      # validate-inputs step above. format and fail-on-error are NOT validated
+      # there: validate-inputs declares no `format` input, and its own
+      # `fail-on-error` input controls validation strictness (a name collision),
+      # so those two are passed through as-is (nitpicker N-130).
       shell: sh
       env:
         INPUT_WORKING_DIR: ${{ inputs.working-directory }}

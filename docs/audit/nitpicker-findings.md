@@ -1,38 +1,15 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-129, N-131, N-132, N-134, N-135; invalid N-133; open N-130)
+Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-132, N-134, N-135; invalid N-133; all open findings resolved)
 
 ## Summary
 
-- Total: 135 | Open: 1 | Fixed: 131 | Invalid: 3
+- Total: 135 | Open: 0 | Fixed: 132 | Invalid: 3
 
 ## Open Findings
 
-### Medium
-
-#### [N-130] caller actions under-forward inputs to validate-inputs → values reach shell unvalidated
-
-Category: conventions
-Area: terraform-lint-fix/action.yml:82-89, docker-build/action.yml:151-159, csharp-publish/action.yml:60-64
-Problem: Several callers pass only a subset of their inputs to validate-inputs, so accepted
-values flow into shell steps without validation, and the matching CustomValidator checks are
-dead. Violates `.claude/rules/validate-inputs-pattern.md` ("every action that accepts user
-inputs must call validate-inputs — never skip validation even when inputs seem optional").
-Evidence: terraform-lint-fix forwards only `token,email,username,terraform-version,
-tflint-version,max-retries`; `format` → `tflint --format "$FORMAT"`, `config-file` →
-`tflint --config`, `working-directory` → `cd "$WORKING_DIRECTORY"` are never validated, yet
-the step is named "Write Validated Inputs to Environment" and comments say "Use validated
-environment variable". docker-build forwards 7 of 27 inputs (e.g. `buildkit-version` →
-`image=moby/buildkit:${{ inputs.buildkit-version }}` unvalidated; 12 CustomValidator checks
-dead). csharp-publish never forwards `max-retries` (→ `max_attempts`) though rules.yml
-declares `numeric_range_1_10` for it.
-Impact: validation coverage is materially lower than the actions' comments and rules.yml
-`coverage_percentage` claim; unvalidated values reach tool invocations.
-Fix: forward the declared inputs in each caller's validate-inputs `with:` block (add missing
-validate-inputs input declarations where needed, e.g. `format`, `auto-fix`); correct the
-"validated" comments; re-run `/action-health <name>` per caller. Audit all 13 CustomValidators
-for the same gap.
+_No open findings._
 
 _Pass 21:_ Full-repo review. N-123, N-124 (Low) and advisories N-A1, N-A2 were all
 addressed in the same pass — see Fixed → Pass 21. The rest of the repository
@@ -188,6 +165,37 @@ to assert the baked name. Verified the generator now emits `validate_inputs 'doc
 `INPUT_ACTION_TYPE="docker-build"` with no literal `${action_name}`. 787 pytest pass, ruff clean.
 Residual: committed files keep their `# CUSTOMIZE:` placeholders (action-specific valid/invalid
 cases are still worth filling in), but the assertions are no longer fake-green.
+
+#### [N-130] caller actions under-forwarded inputs to validate-inputs
+
+Fixed: 2026-06-05
+Notes: Several callers forwarded only a subset of their inputs, so accepted values reached shell
+steps unvalidated and the matching CustomValidator checks were dead, while comments claimed the
+inputs were "validated". Mechanism established: a convention-based caller (no CustomValidator)
+validates any forwarded input its rules.yml covers; a CustomValidator-based caller REPLACES
+convention validation, so it must validate explicitly or chain to conventions.
+
+- csharp-publish (convention-based): forwarded `max-retries`; rules.yml `numeric_range_1_10` now
+  validates it (verified: `999` rejected). COMPLETE.
+- terraform-lint-fix (CustomValidator): chained `validate_inputs` to
+  `ConventionBasedValidator(self.action_type)` so all forwarded inputs are checked per rules.yml
+  (verified: bad tflint-version/email/max-retries now rejected, valid inputs still pass); forwarded
+  `working-directory` + `config-file`; renamed the misleading "Write Validated Inputs" step and
+  documented that `format` (validate-inputs declares no such input) and `fail-on-error` (collides
+  with validate-inputs' own input) are passed through unvalidated. COMPLETE for the validatable
+  inputs.
+- docker-build (CustomValidator): chaining was tried and REVERTED — conventions disagree with the
+  docker-specific checks (it false-rejected a valid `cache-from=type=gha`), so chaining is unsafe
+  here. Instead forwarded the 4 inputs validate-inputs already declares and the CustomValidator
+  already checks (`context`, `push`, `dry-run`, `max-retries`) and corrected the overstated
+  "Inputs validated" comment. RESIDUAL (documented in the action): docker-specific inputs
+  validate-inputs does not declare (`buildkit-version`, `cache-*`, `sbom-format`, `scan-image`,
+  `sign-image`, `secrets`, `network`, `verbose`, `platform-*`, `build-contexts`,
+  `auto-detect-platforms`) cannot be forwarded without expanding validate-inputs' input surface
+  (~16 new inputs + env mappings) — a separate feature task, not a defect left in place.
+
+Verified: 787 pytest pass, ruff clean, all three callers pass `action-validator`; no README/rules
+drift (only internal `with:` blocks + comments + the terraform CustomValidator changed).
 
 ### Pass 21 — 2026-06-05
 

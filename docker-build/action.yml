@@ -157,6 +157,10 @@ runs:
         build-args: ${{ inputs.build-args }}
         buildx-version: ${{ inputs.buildx-version }}
         parallel-builds: ${{ inputs.parallel-builds }}
+        context: ${{ inputs.context }}
+        push: ${{ inputs.push }}
+        dry-run: ${{ inputs.dry-run }}
+        max-retries: ${{ inputs.max-retries }}
 
     - name: Check Dockerfile Exists
       shell: sh
@@ -253,8 +257,12 @@ runs:
         fi
         printf 'args=%s\n' "$args" >> "$GITHUB_OUTPUT"
 
-    # Inputs validated by validate-inputs step above; it fails the workflow
-    # on invalid input before these parsing steps execute.
+    # Forwarded inputs are validated by the validate-inputs step above, which
+    # fails the workflow on invalid input before these parsing steps execute.
+    # NOTE: docker inputs validate-inputs does not declare (buildkit-version,
+    # cache-*, sbom-format, scan/sign-image, secrets, network, verbose,
+    # platform-*, build-contexts, auto-detect-platforms) cannot be forwarded yet
+    # and remain unvalidated here — see nitpicker N-130.
     - name: Parse Build Contexts
       id: build-contexts
       shell: sh

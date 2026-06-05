@@ -62,6 +62,7 @@ runs:
         token: ${{ inputs.token }}
         namespace: ${{ inputs.namespace }}
         dotnet-version: ${{ inputs.dotnet-version }}
+        max-retries: ${{ inputs.max-retries }}
 
     - name: Detect .NET SDK Version
       id: detect-dotnet-version
