@@ -6,62 +6,40 @@ Always route shell, file analysis, and search work through context-mode MCP tool
 The output-size threshold is zero: there is no "short output" exemption.
 Short outputs become long after one followup, and the cumulative cost is the loophole.
 
-Always pass commands through `ctx_execute(language: "shell", ...)` or `ctx_batch_execute`
-instead of Bash, even when the expected output is one line.
-The split is by intent, not output size:
+Bash is permitted for exactly two commands: `git commit` and `git push`. Nothing
+else may use Bash. Every other operation — whether it reads or mutates state — goes
+through context-mode, or, for file content, through `Edit`/`Write`. There is no
+"short output", "one line", or "state-mutating" exemption: any other command's
+terminal output bloats the context window, which is exactly what this rule prevents.
 
-- Bash is permitted for state-mutating operations whose stdout you do not parse:
-  `mkdir`, `rm`, `mv`, `cp`, `ln`, `chmod`, `chown`, `cd`, `touch`,
-  output redirection that creates a new file (`>file`, `>>file`),
-  package installers (`npm install`, `pip install`, `uv sync`, `cargo build`),
-  and `git` write subcommands: `add`, `commit`, `push`, `fetch`, `pull`,
-  `checkout`, `switch`, `branch -d`/`-D`/`-m`, `tag` create/delete, `rebase`,
-  `merge`, `cherry-pick`, `revert`, `reset`, `restore`, `stash`, `worktree`,
-  `remote add`/`remove`/`set-url`,
-  `config --global`/`--local <key> <value>` (and `--unset`, `--add`,
-  `--replace-all`, `--rename-section`, `--remove-section`),
-  `init`, `clone`.
-- `make` targets split by intent:
-  - Bash-permitted (mutate state, output not parsed): `make install`,
-    `make install-tools`, `make format`, `make format-*`, `make fix-*`,
-    `make update-validators`, `make update-catalog`, `make docs`,
-    `make release`, `make release-prep`, `make release-tag`, `make release-undo`,
-    `make clean`, `make precommit`, `make all`, `make dev`.
-  - Context-mode required (produce information you parse): `make lint`,
-    `make lint-*`, `make test`, `make test-*`, `make check`, `make check-*`,
-    `make stats`, `make ci`, any target whose output you intend to read.
-  - If unsure, default to context-mode.
-- Context-mode is mandatory for every read-side operation:
-  `ls`, `cat`, `head`, `tail`, `grep`, `find`, `wc`, `stat`, `file`, `which`,
-  `command -v`, `printf` (when used to inspect),
-  every `git` read subcommand (`log`, `diff`, `status`, `blame`, `show`,
-  `cat-file`, `ls-files`, `ls-tree`, `rev-parse`, `rev-list`,
-  `tag --list`/`tag -l`, `branch --list`/`branch -a`, `remote -v`,
-  `config --get`, `describe`, `reflog`, `bisect view`, `shortlog`),
-  and every `gh` invocation that is not in the explicit `gh` write-list below.
+- Bash-permitted — the ONLY two: `git commit` (with any flags or a `-F -` heredoc)
+  and `git push`. They must run as real git so the commit/push reaches the host
+  repo; their output (pre-commit hooks, the new SHA, push refs) is the single
+  accepted source of terminal output.
+- File CONTENT (creating or editing a file's bytes) → `Edit` / `Write` (native
+  tools). Never `printf >file`, `cat <<EOF >file`, `tee`, or `sed -i` in Bash.
+- Every OTHER state mutation → context-mode (`ctx_execute(language: "shell", ...)`
+  or `ctx_batch_execute`): `git add` and every other `git` write (`fetch`, `pull`,
+  `checkout`, `switch`, `branch`, `tag`, `rebase`, `merge`, `cherry-pick`,
+  `revert`, `reset`, `restore`, `stash`, `worktree`, `remote`, `config`, `init`,
+  `clone`), `mkdir`, `rm`, `mv`, `cp`, `ln`, `chmod`, `chown`, `touch`, package
+  installers (`npm install`, `pip install`, `uv sync`, `cargo build`), every `make`
+  target (`make format`, `make docs`, `make update-validators`, `make lint`,
+  `make test`, ...), and every `gh` write (`gh pr create`, `gh release create`,
+  `gh api -X POST`, ...).
+  `ctx_execute` runs in the real working directory and PERSISTS filesystem and
+  git-index changes to the host repo, so `ctx_execute("git add <paths>")` stages
+  for a real Bash `git commit` — and only what you `echo`/`print` enters context.
+- Every read-side operation → context-mode: `ls`, `cat`, `head`, `tail`, `grep`,
+  `find`, `wc`, `stat`, `file`, `which`, `command -v`, every `git` read subcommand
+  (`status`, `diff`, `log`, `show`, `blame`, `ls-files`, `rev-parse`, ...), every
+  read-only `gh` query, and any `make`/test target whose output you read.
 
-`gh` write-list (Bash-permitted):
-`gh auth login`, `gh auth logout`, `gh auth refresh`, `gh auth setup-git`,
-`gh repo create`, `gh repo clone`, `gh repo delete`, `gh repo rename`,
-`gh repo set-default`, `gh repo archive`,
-`gh pr create`, `gh pr edit`, `gh pr close`, `gh pr merge`, `gh pr ready`,
-`gh pr review`, `gh pr comment`, `gh pr reopen`,
-`gh issue create`, `gh issue edit`, `gh issue close`, `gh issue comment`,
-`gh issue reopen`, `gh issue transfer`,
-`gh release create`, `gh release edit`, `gh release delete`,
-`gh release upload`,
-`gh secret set`, `gh secret delete`, `gh variable set`, `gh variable delete`,
-`gh ssh-key add`, `gh ssh-key delete`,
-`gh api -X POST`, `gh api -X PUT`, `gh api -X PATCH`, `gh api -X DELETE`,
-`gh workflow run`, `gh workflow enable`, `gh workflow disable`,
-`gh run rerun`, `gh run cancel`, `gh run delete`, `gh cache delete`,
-`gh label create`, `gh label edit`, `gh label delete`,
-`gh gist create`, `gh gist edit`, `gh gist delete`.
+Committing flow under this rule: `Edit`/`Write` the files → stage with
+`ctx_execute("git add <paths>")` → `git commit` (Bash) → `git push` (Bash).
 
-If a command is not in the explicit write-side list above, default to context-mode.
-If unsure whether a command mutates state, use context-mode.
-The principle is: "did this command produce information I will use?"
-If yes, context-mode.
+If a command is not `git commit` or `git push`, it does not run in Bash. If unsure,
+use context-mode.
 
 Always use `ctx_execute_file` when reading a file to analyze, summarize, or extract.
 Only use the native `Read` tool when the next step is an `Edit` or `Write` that

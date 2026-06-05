@@ -205,20 +205,27 @@ Instead use:
 
 ### REDIRECTED tools — use sandbox equivalents
 
-#### Bash (always — no output-size exemption)
+#### Bash (only `git commit` and `git push`)
 
-Bash is permitted ONLY for state-mutating operations with no useful stdout.
-Allowed: `mkdir`, `rm`, `mv`, `cp`, `cd`, `ln`, `chmod`, `chown`, package installers
-(`npm install`, `pip install`, `uv sync`), and `git` write subcommands
-(`add`, `commit`, `push`, `fetch`, `pull`, `checkout`, `switch`, `branch`, `tag`,
-`rebase`, `merge`, `cherry-pick`, `revert`, `reset`, `restore`, `stash`, `worktree`,
-`remote`, `config`, `init`, `clone`).
+Bash is permitted for exactly two commands: `git commit` and `git push`. Nothing
+else uses Bash — every other command, whether it reads or mutates state, goes
+through context-mode (file content goes through `Edit`/`Write`). This keeps all
+terminal output out of the context window; there is no "short output" or
+"state-mutating" exemption.
 
-Every read-side command — `ls`, `cat`, `head`, `tail`, `grep`, `find`, `wc`, `stat`,
-`git log`, `git diff`, `git status`, `gh` queries, every other read-side command —
-must go through context-mode. Output size is irrelevant; there is no "short output"
-exception. See `.claude/rules/context-mode-always.md` for the complete write-side
-list and `gh` write-list.
+- `git commit` / `git push` (Bash): must run as real git; their hook/SHA/ref output
+  is the one accepted source of terminal output.
+- Other mutations — `git add`, `git fetch`/`checkout`/`branch`/`reset`/..., `mkdir`,
+  `rm`, `mv`, `cp`, `chmod`, package installers (`uv sync`, `npm/pip install`),
+  every `make` target, every `gh` write — go through context-mode. `ctx_execute`
+  persists filesystem and git-index changes to the real repo, so stage with
+  `ctx_execute("git add <paths>")`, then `git commit` in Bash.
+- Every read-side command — `ls`, `cat`, `grep`, `find`, `wc`, `git status`/`diff`/
+  `log`, `make lint`/`test`, `gh` queries — goes through context-mode.
+
+See `.claude/rules/context-mode-always.md` for the full policy. A PreToolUse hook
+(`route-bash-to-context-mode.sh`) enforces it: Bash calls other than `git commit` /
+`git push` are blocked with a redirect to context-mode.
 
 - `ctx_batch_execute(commands, queries)` — run multiple commands + search in ONE call
 - `ctx_execute(language: "shell", code: "...")` — run in sandbox, only stdout enters context
