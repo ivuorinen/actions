@@ -1,15 +1,102 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-05 (Pass 21 — full-repo review; opened + fixed N-123, N-124 + 2 advisories)
+Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-129 + N-134; invalid N-133; open N-130..N-132 + N-135)
 
 ## Summary
 
-- Total: 124 | Open: 0 | Fixed: 122 | Invalid: 2
+- Total: 135 | Open: 4 | Fixed: 128 | Invalid: 3
 
 ## Open Findings
 
-_No open findings._
+### Medium
+
+#### [N-130] caller actions under-forward inputs to validate-inputs → values reach shell unvalidated
+
+Category: conventions
+Area: terraform-lint-fix/action.yml:82-89, docker-build/action.yml:151-159, csharp-publish/action.yml:60-64
+Problem: Several callers pass only a subset of their inputs to validate-inputs, so accepted
+values flow into shell steps without validation, and the matching CustomValidator checks are
+dead. Violates `.claude/rules/validate-inputs-pattern.md` ("every action that accepts user
+inputs must call validate-inputs — never skip validation even when inputs seem optional").
+Evidence: terraform-lint-fix forwards only `token,email,username,terraform-version,
+tflint-version,max-retries`; `format` → `tflint --format "$FORMAT"`, `config-file` →
+`tflint --config`, `working-directory` → `cd "$WORKING_DIRECTORY"` are never validated, yet
+the step is named "Write Validated Inputs to Environment" and comments say "Use validated
+environment variable". docker-build forwards 7 of 27 inputs (e.g. `buildkit-version` →
+`image=moby/buildkit:${{ inputs.buildkit-version }}` unvalidated; 12 CustomValidator checks
+dead). csharp-publish never forwards `max-retries` (→ `max_attempts`) though rules.yml
+declares `numeric_range_1_10` for it.
+Impact: validation coverage is materially lower than the actions' comments and rules.yml
+`coverage_percentage` claim; unvalidated values reach tool invocations.
+Fix: forward the declared inputs in each caller's validate-inputs `with:` block (add missing
+validate-inputs input declarations where needed, e.g. `format`, `auto-fix`); correct the
+"validated" comments; re-run `/action-health <name>` per caller. Audit all 13 CustomValidators
+for the same gap.
+
+#### [N-131] 13 generated `test_*_custom.py` are tautological; `generate-tests.py` emits a broken `${action_name}` literal
+
+Category: tests
+Area: validate-inputs/tests/test\_\*\_custom.py (13 files); validate-inputs/scripts/generate-tests.py:153,280-335
+Problem: The generated custom-validator tests assert only `assert isinstance(result, bool)`
+against a `-> bool` function, so they pass regardless of validator behavior (the N-018
+phantom-test class, now committed and run in CI as fake-green + inflating coverage). Separately,
+`generate-tests.py` emits the literal `${action_name}` (undefined shell var) into newly
+generated ShellSpec specs, so a freshly generated spec would export `INPUT_ACTION_TYPE=""` and
+call `validate_inputs ''`.
+Evidence: `grep -c 'assert isinstance(result, bool)'` → 3-4 per file across 13 files; all 13
+still carry `# CUSTOMIZE:` placeholders. generate-tests.py:150-160 is a plain (non-f) triple
+string containing `export INPUT_ACTION_TYPE="${action_name}"`; the input cases use
+`'${{action_name}}'` which renders to literal `${action_name}` (contrast the correct
+`'{action_name}'` at :166/:177/:195). Latent: all 25 actions already have hand-written specs,
+so no committed spec is corrupted today.
+Impact: ~40 committed assertions can never fail; any new action gets a broken generated spec.
+Fix: have the generator emit `pytest.skip("CUSTOMIZE")` for un-customized stubs and replace the
+committed vacuous assertions with real expected outcomes (valid → `result is True and not
+has_errors()`; a known-bad value → `result is False`); fix the `'{action_name}'` interpolation
+in generate-tests.py:153 and the input-case templates.
+
+#### [N-132] two convention-detection engines diverge on token/secret-suffixed inputs
+
+Category: maintainability
+Area: validate-inputs/validators/convention_mapper.py:230-281 vs validators/conventions.py:222-229
+Problem: `conventions._check_pattern_based_matches` classifies anything containing `token` as
+`github_token`, but the runtime fallback `convention_mapper.get_validator_type` has no
+`-token`/`-password`/`-key`/`-secret` suffix rule, so `api-token`, `db-password`, `access-key`
+return `None` (input skipped entirely, no injection/format check) in that path. The two engines
+give opposite security verdicts for the same input — a duplicate-pattern divergence forbidden by
+code-quality.md.
+Evidence: for `api-token = "x; rm -rf / #"`, the conventions engine → `valid=False` (rejected);
+the convention_mapper engine → `valid=True, errors=[]`. No current action input is named this
+way, so this is latent for first-party use but a live gap for external consumers (the action is
+documented as externally usable).
+Impact: external consumers relying on the mapper path get no validation for credential-suffixed
+inputs.
+Fix: add the `-token`/`-secret`/`-password`/`-key` suffix groups to
+`convention_mapper._DEFAULT_PATTERNS`, mirroring `_check_pattern_based_matches`; extract one
+shared mapping table so the two engines cannot drift (rule-of-three).
+
+### Low
+
+#### [N-135] minor validator-correctness + coverage gaps (grouped)
+
+Category: correctness
+Area: validate-inputs/validators/version.py:198,224; security.py:673,721; conventions.py:236-243,1318; coverage
+Problem/Evidence (all reproduced unless noted):
+(a) `validate_strict_semantic_version` uses `version.lstrip("v")` (char-set strip) → accepts
+`vvv1.2.3` as valid "strict" semver. Fix: strip a single leading `v` only.
+(b) `validate_regex_pattern` rejects benign `.+`, `.*`, `.{2,4}` as "consecutive quantifiers"
+(`[.+*][+*{]`). LATENT — no convention routes a user input to `validate_regex_pattern`
+(`pattern`/`file-pattern` infer no type). Fix when wired: target true double-quantifier shapes.
+(c) VERSION_MAPPINGS substring loop (`if key in name_lower`) over-matches `net`/`go`/`php`, so
+`kubernetes-version`→dotnet, `cargo-version`→go, `phpunit-version`→php. LATENT/external — verified
+that every real forwarded version input (golangci-lint-version→flexible, etc.) classifies
+correctly. Fix: match on word boundary / prefix, drop the bare `net` alias.
+(d) `_validate_path_list` glob class allows `~` while `base.validate_path_security` forbids it —
+inconsistent path posture. Fix: drop `~` or reject `~`-prefixed entries to match base.py.
+(e) Live-module coverage below ~85%: token.py 72%, registry.py 75%, security.py 81%, boolean.py
+82%, file.py 85% (default `[tool.coverage.run] source=["validators"]` also excludes the live
+`validator.py` entirely). Fix: add edge-branch tests; consider adding `.` to the coverage source.
 
 _Pass 21:_ Full-repo review. N-123, N-124 (Low) and advisories N-A1, N-A2 were all
 addressed in the same pass — see Fixed → Pass 21. The rest of the repository
@@ -34,6 +121,88 @@ via per-action migration in commits 3dcf7cb..2191252 + test-fixup 03adba5. Every
 that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a`.
 
 ## Fixed
+
+### Pass 22 — 2026-06-05
+
+#### [N-125] `modular_validator.py` — dead duplicate entry point with weaker security than `validator.py`
+
+Fixed: 2026-06-05
+Notes: `validator.py` is the sole entry point (`action.yml` runs `uv run validator.py`; every
+ShellSpec spec and `_tests/README.md` reference it). `modular_validator.py` was referenced only
+by its own `test_modular_validator.py` and a stale `arch-profile.md:44` line, yet self-described
+as "the new entry point". It diverged from `validator.py` and was less safe: no `INPUT_ACTION`
+alias, no `_ACTION_TYPE_RE` action-name gate, wrote `error=...` to `GITHUB_OUTPUT` unsanitized
+(the N-025 CRLF-injection), and had a `~/github_output` fallback. Its 14 passing tests inflated
+`make test-python-coverage` (`--cov=.`) to 100% on never-shipped code. Deleted
+`modular_validator.py` + `tests/test_modular_validator.py`; corrected `arch-profile.md`
+("within `modular_validator.py`" → "within `validator.py`"; stale "10 of 26" → "25 of 26").
+
+#### [N-126] `registry._load_custom_validator` silently swallowed a present-but-broken CustomValidator
+
+Fixed: 2026-06-05
+Notes: The loader caught every exception from a PRESENT `CustomValidator.py` at DEBUG level and
+returned `None` → silent downgrade to convention validation. Reproduced: a syntax-error
+`CustomValidator.py` yielded `ConventionBasedValidator` with no WARNING+ log. This is the exact
+silent-failure mode `get_validator_by_type` (built-in path, registry.py:208-220) explicitly
+refuses. Changed the handler to `logging.exception(...)` + `raise` on a present-but-broken file;
+the absent-file fast path still returns `None` and falls back (unchanged, so
+`test_get_convention_validator_fallback` stays green). Replaced the no-op
+`test_load_custom_validator` (its `patch.object(Path, "parent", ...)` never redirected the lookup
+— it just asserted `None`) with `test_load_custom_validator_present_file_loads` (real dynamic load)
+and `test_broken_present_custom_validator_raises`.
+
+#### [N-127] validate-inputs docs drifted from the implementation (4 docs)
+
+Fixed: 2026-06-05
+Notes: (a) `ACTION_MAINTAINER.md` output example used non-existent step outputs (`.valid`,
+`.status`, `.action`, `.inputs_validated`) for a `uses:`-consumer → corrected to the real action
+outputs (`validation-status`, `validation-result`, `errors-found`, `rules-applied`).
+(b) `API.md` `load_rules(action_type)` → `load_rules(rules_path=None)` (actual signature
+`base.py:185`). (c) `DEVELOPER_GUIDE.md` Step 3 instructed editing a non-existent
+`ConventionBasedValidator.PATTERNS` dict + `get_validator_class` method → rewritten to the real
+`_check_exact_matches`/`_check_pattern_based_matches`/`_get_validator_method` + registry
+`validator_modules`. (d) `README_ARCHITECTURE.md` removed hardcoded "9 specialized validators"
+(×2) and the false "Test Coverage: 100%" per code-quality.md.
+
+#### [N-128] live entry-point `validator.py` branches untested + tautological convention assertion
+
+Fixed: 2026-06-05
+Notes: pyproject's default coverage source is `validators` only, so `validator.py` main() branches
+had no regression guard. Added `TestValidatorEntryPointBranches`: the `_ACTION_TYPE_RE` rejection
+(parametrized over `../evil`, `act;rm`, `UPPER`, `a b`, `x|y`, `$(id)` → `SystemExit(1)`),
+`fail-on-error=false` (returns without exit, writes `status=failure`), `INPUT_RULES_FILE`
+(`load_rules` invoked with the `Path`), and the `rules_count = len(inputs)` fallback. Strengthened
+`test_convention_based_validation`'s tautological `assert isinstance(result, bool)` to assert
+`is True` for known-valid inputs plus a new known-invalid (`email="not-an-email"`) case asserting
+`is False`. Suite: 786 passed, ruff clean.
+
+#### [N-129] convention dispatch silently skipped threads/timeout via a missing-method fallback
+
+Fixed: 2026-06-05
+Notes: `_get_validator_method` mapped the `threads`/`timeout`/`retries` convention types and the
+bare `flexible`/`semantic` aliases to non-existent methods (`validate_threads`, `validate_timeout`,
+`validate_flexible`, …), and `_apply_validator` returned `True` on a missing method — silently
+skipping validation. Routed `threads`/`retries` → `validate_integer`, `timeout` →
+`_validate_timeout_with_unit`, and `flexible`/`semantic` → the canonical `*_version` methods, so
+these types now validate (verified: `timeout='5m'` passes, `'zzz'` fails; `validate_integer('abc')`
+fails). Strengthened `test_get_validator_method_numeric` to assert the resolved methods actually
+EXIST — the missing invariant that hid the bug. NOTE: no current action reaches these types via the
+convention path (codeql/go-lint use CustomValidators), so this is a latent-correctness fix. The
+broader fail-closed was deliberately NOT shipped: it would turn two remaining unmapped-type
+silent-skips (`docker_tags` → no `validate_tags`; `cache` → `package_manager_enum` no-module) from
+latent silent-pass into latent hard-error. Those two mapping gaps remain as an N-129 residual (add
+`validate_tags`; fix the `cache` misclassification) — both latent.
+
+#### [N-134] URL validators accepted percent-encoded CRLF / traversal (reachable via registry-url)
+
+Fixed: 2026-06-05
+Notes: `validate_url` (network.py) and `validate_url_security` (security.py) screened only the raw
+string, so `%0d%0a` (CRLF/header-injection) and `%2e%2e%2f` (traversal) bypassed the `\r\n`/`../`
+checks — reachable because the npm-publish / npm-semantic-release CustomValidators call
+`validate_url` on `registry-url`. Added a lockstep encoded-payload guard to both
+(`%0d`/`%0a`/`%00`/`%2e%2e`), plus regression tests: the encoded payloads added to the invalid-URL
+set in `test_network_validator.py`, and a new `test_validate_url_security_rejects_encoded_payloads`
+in `test_security_validator.py`. Verified both reject the encoded payloads and accept clean URLs.
 
 ### Pass 21 — 2026-06-05
 
@@ -1425,6 +1594,21 @@ the deleted `version-validator-test.yml`). Confirmed: `grep -rl 'checkout@v4'
 _tests/integration/workflows/` → 0 files.
 
 ## Invalid
+
+### Pass 22 — 2026-06-05
+
+#### [N-133] `ghs_` stateless-token regex omits base64url `-`
+
+Notes: Opened as a Low security finding — the stateless `ghs_APPID_JWT` token's base64url JWT
+segments can, per RFC 4648 §5, contain `-`, which the pattern `ghs_[A-Za-z0-9._]{36,1024}` omits.
+Verification against GitHub's own documentation INVALIDATED it: GitHub's engineering blog states the
+token random portion is Base62 (`[A-Za-z0-9]`, no `-`), with `_` only as a prefix separator; the
+docs describe the stateless form as `ghs_APPID_JWT` but publish no dash-inclusive charset; and
+`token.py:36` explicitly records that the pattern matches "GitHub's recommended regex
+`ghs_[A-Za-z0-9._]{36,}`". Adding `-` on a base64url inference would diverge from a deliberately
+GitHub-sourced security regex — exactly what `code-quality.md`'s "never assume" rule forbids. If a
+real `ghs_APPID_JWT` sample (mintable via GitHub's per-request override header) is later found to
+contain `-`, re-open and fix all four lockstep copies + add a `-`-containing regression test.
 
 ### Pass 19 — 2026-05-31
 

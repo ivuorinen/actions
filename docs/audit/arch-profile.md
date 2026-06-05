@@ -39,9 +39,9 @@ Evidence:
 - Each `action.yml` follows a fixed step sequence: Validate Inputs → Checkout
   Repository → Setup Tool → Run Tool → Commit/Upload Results — inputs flow through
   sequential, composable stages
-- `validate-inputs` action acts as a reusable filter stage consumed by 10 of 26
+- `validate-inputs` action acts as a reusable filter stage consumed by 25 of 26
   actions via SHA-pinned `uses:` reference
-- Validation pipeline within `modular_validator.py`: extract env vars → normalize keys →
+- Validation pipeline within `validator.py`: extract env vars → normalize keys →
   dispatch to validator → collect errors → write to `GITHUB_OUTPUT`
 - No branching fan-out; each stage transforms and passes state forward
 

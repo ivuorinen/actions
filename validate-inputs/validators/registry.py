@@ -120,10 +120,20 @@ class ValidatorRegistry:
                 validator_class = module.CustomValidator
                 return validator_class(action_type)
 
-        except Exception as e:
-            # Log at debug level - custom validators are optional and may raise anything
-            logger = logging.getLogger(__name__)
-            logger.debug("Could not load custom validator for %s: %s", action_type, e)
+        except Exception:
+            # The file EXISTS (checked above) but failed to load or instantiate —
+            # a syntax error, bad import, or constructor failure in a first-party
+            # CustomValidator.py. Silently falling back to convention validation
+            # would disable the action's bespoke checks without a trace — the exact
+            # silent-failure mode that get_validator_by_type() below refuses for
+            # built-in validators. Fail loudly so CI surfaces the broken validator
+            # instead of shipping weakened validation.
+            logging.getLogger(__name__).exception(
+                "Broken custom validator for %s (%s) — refusing to silently disable validation",
+                action_type,
+                custom_validator_path,
+            )
+            raise
 
         return None
 

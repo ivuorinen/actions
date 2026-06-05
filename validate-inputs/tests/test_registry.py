@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
-import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import MagicMock, patch
 
 # Add parent directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -64,42 +63,52 @@ class TestValidatorRegistry(unittest.TestCase):  # pylint: disable=too-many-publ
         validator2 = self.registry.get_validator("test_action")
         assert validator1 is not validator2  # Different instances
 
-    def test_load_custom_validator(self):
-        """Test loading a custom validator from action directory."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            # Create a mock action directory with CustomValidator.py
-            action_dir = Path(tmpdir) / "test-action"
-            action_dir.mkdir()
+    def test_load_custom_validator_present_file_loads(self):
+        """A present, valid CustomValidator.py is dynamically loaded and instantiated.
 
-            custom_validator_code = """
-from validate_inputs.validators.base import BaseValidator
+        The custom validator lives at ``<repo-root>/<action-dir>/CustomValidator.py``,
+        which is exactly how ``_load_custom_validator`` resolves the path
+        (``Path(registry.py).parent.parent.parent / action_dir``). The previous
+        version of this test created the file under a ``TemporaryDirectory`` the
+        loader never consults and asserted ``None``, exercising nothing.
+        """
+        repo_root = Path(__file__).parent.parent.parent
+        action_dir = repo_root / "zz-nitpick-valid-cv"
+        action_dir.mkdir(exist_ok=True)
+        try:
+            (action_dir / "CustomValidator.py").write_text(
+                "from validators.base import BaseValidator\n\n"
+                "class CustomValidator(BaseValidator):\n"
+                "    def validate_inputs(self, inputs):\n"
+                "        return True\n\n"
+                "    def get_required_inputs(self):\n"
+                "        return []\n\n"
+                "    def get_validation_rules(self):\n"
+                "        return {}\n",
+            )
+            validator = self.registry._load_custom_validator("zz_nitpick_valid_cv")  # pylint: disable=protected-access
+            assert validator is not None
+            assert validator.validate_inputs({}) is True
+        finally:
+            shutil.rmtree(action_dir, ignore_errors=True)
 
-class CustomValidator(BaseValidator):
-    def validate_inputs(self, inputs):
-        return True
+    def test_broken_present_custom_validator_raises(self):
+        """A present-but-broken CustomValidator.py must fail loudly, not silently downgrade.
 
-    def get_required_inputs(self):
-        return ["custom_input"]
-
-    def get_validation_rules(self):
-        return {"custom": "rules"}
-"""
-
-            custom_validator_path = action_dir / "CustomValidator.py"
-            custom_validator_path.write_text(custom_validator_code)
-
-            # Mock the project root path
-            with patch.object(
-                Path,
-                "parent",
-                new_callable=lambda: MagicMock(return_value=Path(tmpdir)),
-            ):
-                # This test would need more setup to properly test dynamic loading
-                # For now, we'll just verify the method exists
-                result = self.registry._load_custom_validator("test_action")  # pylint: disable=protected-access
-                # In a real test environment, this would load the custom validator
-                # For now, it returns None due to path resolution issues in test
-                assert result is None  # Expected in test environment
+        Mirrors the loud-failure contract of ``get_validator_by_type``: a syntax
+        error in a first-party CustomValidator.py must surface in CI rather than
+        silently fall back to convention validation with weakened checks.
+        """
+        repo_root = Path(__file__).parent.parent.parent
+        action_dir = repo_root / "zz-nitpick-broken-cv"
+        action_dir.mkdir(exist_ok=True)
+        try:
+            # Unclosed parenthesis -> SyntaxError raised by exec_module.
+            (action_dir / "CustomValidator.py").write_text("class CustomValidator(\n")
+            with self.assertRaises(SyntaxError):
+                self.registry._load_custom_validator("zz_nitpick_broken_cv")  # pylint: disable=protected-access
+        finally:
+            shutil.rmtree(action_dir, ignore_errors=True)
 
     def test_global_registry_functions(self):
         """Test global registry functions."""

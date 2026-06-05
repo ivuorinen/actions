@@ -5,7 +5,7 @@ A comprehensive, modular validation system for GitHub Actions inputs with automa
 ## Features
 
 - 🔍 **Automatic Validation** - Convention-based input detection
-- 🧩 **Modular Architecture** - 9 specialized validators
+- 🧩 **Modular Architecture** - a dedicated validator per input class
 - 🛡️ **Security First** - Injection and traversal protection
 - 🎯 **Custom Validators** - Action-specific validation logic
 - 🧪 **Test Generation** - Automatic test scaffolding
@@ -132,7 +132,7 @@ validate-inputs/
 The system automatically detects validation types based on input names:
 
 | Pattern              | Validator        | Examples                      |
-|----------------------|------------------|-------------------------------|
+| -------------------- | ---------------- | ----------------------------- |
 | `*-token`            | TokenValidator   | `github-token`, `api-token`   |
 | `*-version`          | VersionValidator | `node-version`, `go-version`  |
 | `dry-run`, `debug`   | BooleanValidator | `dry-run`, `verbose`          |
@@ -332,8 +332,8 @@ class CustomValidator(BaseValidator):
 
 ## Quality Metrics
 
-- **Test Coverage**: 100%
-- **Validators**: 9 specialized + unlimited custom
+- **Test Coverage**: comprehensive unit + integration suite
+- **Validators**: a dedicated validator per input class + unlimited custom
 - **Performance**: < 10ms typical validation time
 - **Zero Dependencies**: Uses only Python stdlib + PyYAML
 - **Production Ready**: Zero defects policy

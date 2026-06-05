@@ -281,15 +281,31 @@ optional_inputs:
         assert "token" in method_name.lower()
 
     def test_get_validator_method_numeric(self):
-        """Test getting numeric validator methods."""
-        validator_obj, method_name = self.validator._get_validator_method("retries")
-        assert validator_obj is not None
-        # Method name is "validate_retries"
-        assert (
-            "retries" in method_name.lower()
-            or "range" in method_name.lower()
-            or "numeric" in method_name.lower()
-        )
+        """Numeric-ish convention types resolve to methods that actually EXIST.
+
+        retries/threads have no validate_retries/validate_threads on
+        NumericValidator, so they map to validate_integer; timeout is a
+        duration-with-unit validated internally. The previous assertion only
+        name-matched "retries"/"range"/"numeric", which passed even though
+        validate_retries did not exist and the input was silently skipped
+        (nitpicker N-129).
+        """
+        for vtype, expected in [
+            ("retries", "validate_integer"),
+            ("threads", "validate_integer"),
+            ("integer", "validate_integer"),
+            ("numeric_range_1_10", "validate_range"),
+        ]:
+            validator_obj, method_name = self.validator._get_validator_method(vtype)
+            assert validator_obj is not None
+            assert method_name == expected
+            assert hasattr(validator_obj, method_name), (
+                f"{vtype} -> {method_name} missing on {type(validator_obj).__name__}"
+            )
+        # timeout is duration-with-unit, validated on the convention object itself.
+        obj, method_name = self.validator._get_validator_method("timeout")
+        assert method_name == "_validate_timeout_with_unit"
+        assert hasattr(obj, method_name)
 
     def test_validate_inputs_with_conventions(self):
         """Test validation using conventions."""

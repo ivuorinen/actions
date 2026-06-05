@@ -100,6 +100,8 @@ class TestNetworkValidator:
             "http://",  # Incomplete URL
             "http:/example.com",  # Single slash
             "http:///example.com",  # Triple slash
+            "https://a.com/x%0d%0aSet-Cookie:evil",  # encoded CRLF (header injection)
+            "https://a.com/%2e%2e%2fetc/passwd",  # encoded path traversal
             "",  # Empty
         ]
 

@@ -432,7 +432,15 @@ class ConventionBasedValidator(BaseValidator):
                         validator_module.errors = []
 
                 return result
-            # Method not found, skip validation
+            # No method on the resolved module. The reachable convention types now
+            # all map to existing validators (threads/timeout/retries/flexible/
+            # semantic were fixed in this pass). The only residual hits are
+            # genuinely-unmapped types — the plural `docker_tags` (DockerValidator
+            # has validate_tag, not validate_tags) and the `cache`->
+            # package_manager_enum misclassification — neither of which is reached
+            # by any current action's convention path (their actions use a
+            # CustomValidator). Pass them through rather than hard-failing valid
+            # input on a mapping gap; see nitpicker N-129 residual.
             return True
 
         except Exception as e:
@@ -490,7 +498,14 @@ class ConventionBasedValidator(BaseValidator):
                 from . import version
 
                 self._validator_modules["version"] = version.VersionValidator()
-            return self._validator_modules["version"], f"validate_{validator_type}"
+            # Bare "semantic"/"flexible" aliases map to the canonical *_version
+            # methods (validate_semantic_version / validate_flexible_version);
+            # only "calver" has a bare validate_calver. Without this, the bare
+            # aliases resolve to non-existent methods and silently skip validation.
+            method_type = validator_type
+            if validator_type in ("semantic", "flexible"):
+                method_type = f"{validator_type}_version"
+            return self._validator_modules["version"], f"validate_{method_type}"
 
         # File validators
         if validator_type in [
@@ -530,10 +545,14 @@ class ConventionBasedValidator(BaseValidator):
                 self._validator_modules["boolean"] = boolean.BooleanValidator()
             return self._validator_modules["boolean"], "validate_boolean"
 
+        # Timeout-with-unit (e.g. "5m", "1h") is validated internally, not as a
+        # bare number — NumericValidator has no validate_timeout.
+        if validator_type == "timeout":
+            return self, "_validate_timeout_with_unit"
+
         # Numeric validators
         if validator_type.startswith("numeric_range") or validator_type in [
             "retries",
-            "timeout",
             "threads",
             "positive_integer",
             "non_negative_integer",
@@ -545,6 +564,10 @@ class ConventionBasedValidator(BaseValidator):
                 self._validator_modules["numeric"] = numeric.NumericValidator()
             if validator_type.startswith("numeric_range"):
                 return self._validator_modules["numeric"], "validate_range"
+            # retries/threads are plain integer counts; NumericValidator has no
+            # validate_retries / validate_threads, so map them to validate_integer.
+            if validator_type in ("retries", "threads"):
+                return self._validator_modules["numeric"], "validate_integer"
             return self._validator_modules["numeric"], f"validate_{validator_type}"
 
         # Security validators

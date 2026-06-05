@@ -129,6 +129,15 @@ class SecurityValidator(BaseValidator):
             self.add_error(f"Security issue in {name}: file: protocol not allowed")
             return False
 
+        # Percent-encoded CRLF / NUL / traversal bypass the raw checks above.
+        # Mirrored in NetworkValidator.validate_url — keep both in lockstep.
+        lowered = url.lower()
+        if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
+            self.add_error(
+                f"Security issue in {name}: encoded control/traversal sequence not allowed",
+            )
+            return False
+
         return True
 
     def validate_command_security(self, command: str, name: str = "command") -> bool:

@@ -45,7 +45,7 @@ runs:
 Name your inputs to get automatic validation:
 
 | Input Pattern        | Validation Type    | Example                          |
-|----------------------|--------------------|----------------------------------|
+| -------------------- | ------------------ | -------------------------------- |
 | `*-token`            | Token validation   | `github-token`, `npm-token`      |
 | `*-version`          | Version validation | `node-version`, `python-version` |
 | `dry-run`, `verbose` | Boolean            | `dry-run: true`                  |
@@ -457,10 +457,10 @@ Access validation results in subsequent steps:
 
 - name: Check validation status
   run: |
-    echo "Status: ${{ steps.validation.outputs.status }}"
-    echo "Valid: ${{ steps.validation.outputs.valid }}"
-    echo "Action: ${{ steps.validation.outputs.action }}"
-    echo "Inputs validated: ${{ steps.validation.outputs.inputs_validated }}"
+    echo "Status: ${{ steps.validation.outputs.validation-status }}"
+    echo "Result: ${{ steps.validation.outputs.validation-result }}"
+    echo "Errors found: ${{ steps.validation.outputs.errors-found }}"
+    echo "Rules applied: ${{ steps.validation.outputs.rules-applied }}"
   shell: bash
 ```
 

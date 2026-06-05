@@ -239,10 +239,27 @@ class TestValidatorIntegration:
             "email": "test@example.com",  # Email
         }
 
-        # Convention validator should handle these
-        result = validator.validate_inputs(test_inputs)
-        # The result depends on the specific validation logic
-        assert isinstance(result, bool)
+        # All four inputs are valid for their detected conventions, so the
+        # convention validator must ACCEPT them. The old assertion
+        # (`isinstance(result, bool)`) accepted both True and False, so a
+        # regression inverting the verdict would have passed silently.
+        assert validator.validate_inputs(test_inputs) is True
+        assert validator.errors == []
+
+        # A malformed value for one convention must flip the verdict to False.
+        invalid = registry.get_validator("test-action-invalid")
+        assert (
+            invalid.validate_inputs(
+                {
+                    "dry-run": "true",
+                    "token": "${{ github.token }}",
+                    "version": "1.2.3",
+                    "email": "not-an-email",
+                },
+            )
+            is False
+        )
+        assert invalid.has_errors() is True
 
 
 class TestSanitize:
@@ -272,3 +289,102 @@ class TestSanitize:
 
         assert _sanitize(42) == "42"
         assert _sanitize(None) == "None"
+
+
+class TestValidatorEntryPointBranches:
+    """Cover live validator.py main() branches the suite previously skipped.
+
+    pyproject's default coverage source is ``validators`` only, so the
+    entry-point's action-name security gate, the fail-on-error switch, and the
+    custom rules-file override had no regression guard.
+    """
+
+    def setup_method(self):
+        for key in list(os.environ.keys()):
+            if key.startswith("INPUT_"):
+                del os.environ[key]
+        # Need persistent file for teardown, can't use context manager
+        self.temp_output = tempfile.NamedTemporaryFile(mode="w", delete=False)  # noqa: SIM115
+        os.environ["GITHUB_OUTPUT"] = self.temp_output.name
+        self.temp_output.close()
+
+    def teardown_method(self):
+        if hasattr(self, "temp_output") and Path(self.temp_output.name).exists():
+            os.unlink(self.temp_output.name)
+        for key in list(os.environ.keys()):
+            if key.startswith("INPUT_"):
+                del os.environ[key]
+
+    @pytest.mark.parametrize("bad_name", ["../evil", "act;rm", "UPPER", "a b", "x|y", "$(id)"])
+    def test_invalid_action_name_is_rejected(self, bad_name):
+        """The _ACTION_TYPE_RE gate must reject shell/path metacharacters in the action name."""
+        os.environ["INPUT_ACTION_TYPE"] = bad_name
+
+        from validator import main
+
+        with pytest.raises(SystemExit) as exc_info:
+            main()
+        assert exc_info.value.code == 1
+
+    def test_fail_on_error_false_does_not_exit(self):
+        """fail-on-error=false: a failing validation writes status=failure but does NOT exit."""
+        os.environ["INPUT_ACTION_TYPE"] = "test-action"
+        os.environ["INPUT_FAIL_ON_ERROR"] = "false"
+
+        mock_validator = MagicMock()
+        mock_validator.validate_inputs.return_value = False
+        mock_validator.errors = ["boom"]
+        mock_validator.get_validation_rules.return_value = {}
+
+        with patch("validator.get_validator", return_value=mock_validator):
+            from validator import main
+
+            # Must return normally — no SystemExit.
+            main()
+
+        with Path(self.temp_output.name).open() as f:
+            output = f.read()
+        assert "status=failure" in output
+        assert "errors=1" in output
+
+    def test_rules_file_triggers_load_rules(self):
+        """A custom rules-file (INPUT_RULES_FILE) is loaded onto the validator."""
+        # Need persistent file across the patched main() call.
+        rules = tempfile.NamedTemporaryFile(mode="w", suffix=".yml", delete=False)  # noqa: SIM115
+        rules.write("rules: {}\n")
+        rules.close()
+        os.environ["INPUT_ACTION_TYPE"] = "test-action"
+        os.environ["INPUT_RULES_FILE"] = rules.name
+
+        mock_validator = MagicMock()
+        mock_validator.validate_inputs.return_value = True
+        mock_validator.get_validation_rules.return_value = {"x": 1}
+
+        try:
+            with patch("validator.get_validator", return_value=mock_validator):
+                from validator import main
+
+                main()
+            mock_validator.load_rules.assert_called_once_with(Path(rules.name))
+        finally:
+            os.unlink(rules.name)
+
+    def test_rules_count_falls_back_to_input_count(self):
+        """When get_validation_rules() returns None, rules-applied falls back to the input count."""
+        os.environ["INPUT_ACTION_TYPE"] = "test-action"
+        os.environ["INPUT_ONLYONE"] = "value"
+
+        mock_validator = MagicMock()
+        mock_validator.validate_inputs.return_value = True
+        mock_validator.errors = []
+        mock_validator.get_validation_rules.return_value = None
+
+        with patch("validator.get_validator", return_value=mock_validator):
+            from validator import main
+
+            main()
+
+        with Path(self.temp_output.name).open() as f:
+            output = f.read()
+        # collect_inputs() saw exactly one INPUT_ (onlyone); ACTION_TYPE is excluded.
+        assert "rules=1" in output
