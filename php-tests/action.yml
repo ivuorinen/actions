@@ -86,101 +86,18 @@ runs:
 
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        FRAMEWORK: ${{ inputs.framework }}
-        PHP_VERSION: ${{ inputs.php-version }}
-        COVERAGE: ${{ inputs.coverage }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-        EMAIL: ${{ inputs.email }}
-        USERNAME: ${{ inputs.username }}
-        COMPOSER_ARGS: ${{ inputs.composer-args }}
-      run: |
-        set -eu
-
-        # Validate framework mode
-        case "$FRAMEWORK" in
-          auto|laravel|generic)
-            echo "Framework mode: $FRAMEWORK"
-            ;;
-          *)
-            echo "::error::Invalid framework: '$FRAMEWORK'. Must be 'auto', 'laravel', or 'generic'"
-            exit 1
-            ;;
-        esac
-
-        # Validate PHP version format
-        if [ "$PHP_VERSION" != "latest" ]; then
-          case "$PHP_VERSION" in
-            [0-9]*\.[0-9]*\.[0-9]*)
-              # X.Y.Z format (e.g., 8.3.0)
-              ;;
-            [0-9]*\.[0-9]*)
-              # X.Y format (e.g., 8.4)
-              ;;
-            *)
-              echo "::error::Invalid php-version format: '$PHP_VERSION'. Expected format: X.Y or X.Y.Z (e.g., 8.4, 8.3.0)"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate coverage driver
-        case "$COVERAGE" in
-          none|xdebug|pcov)
-            ;;
-          *)
-            echo "::error::Invalid coverage driver: '$COVERAGE'. Must be 'none', 'xdebug', or 'pcov'"
-            exit 1
-            ;;
-        esac
-
-        # Validate max retries (must be digits only)
-        case "$MAX_RETRIES" in
-          *[!0-9]*)
-            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-            exit 1
-            ;;
-        esac
-        # Validate max retries range
-        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        # Validate email format (must contain @ and .)
-        case "$EMAIL" in
-          *@*.*) ;;
-          *)
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-            exit 1
-            ;;
-        esac
-
-        # Validate username format (reject command injection patterns)
-        case "$USERNAME" in
-          *";"*|*"&&"*|*"|"*)
-            echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
-            exit 1
-            ;;
-        esac
-
-        if [ ${#USERNAME} -gt 39 ]; then
-          echo "::error::Username too long: ${#USERNAME} characters. GitHub usernames are max 39 characters"
-          exit 1
-        fi
-
-        # Validate composer-args (only safe flag characters allowed)
-        if [ -n "$COMPOSER_ARGS" ]; then
-          case "$COMPOSER_ARGS" in
-            *[!a-zA-Z0-9\ _=./-]*)
-              echo "::error::Invalid composer-args: '$COMPOSER_ARGS'. Only alphanumeric characters, spaces, and -_=./ are allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
+      with:
+        action-type: 'php-tests'
+        framework: ${{ inputs.framework }}
+        php-version: ${{ inputs.php-version }}
+        extensions: ${{ inputs.extensions }}
+        coverage: ${{ inputs.coverage }}
+        composer-args: ${{ inputs.composer-args }}
+        max-retries: ${{ inputs.max-retries }}
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta

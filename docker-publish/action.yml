@@ -94,112 +94,32 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Validate Inputs
-      id: validate
+    - name: Mask Secrets
       shell: sh
       env:
-        INPUT_REGISTRY: ${{ inputs.registry }}
-        INPUT_DOCKERHUB_USERNAME: ${{ inputs.dockerhub-username }}
-        INPUT_DOCKERHUB_TOKEN: ${{ inputs.dockerhub-token }}
-        INPUT_TOKEN: ${{ inputs.token }}
-        INPUT_CONTEXT: ${{ inputs.context }}
-        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
+        DOCKERHUB_TOKEN: ${{ inputs.dockerhub-token }}
       run: |
         set -eu
-
-        # Validate registry input
-        case "$INPUT_REGISTRY" in
-          dockerhub|github|both)
-            ;;
-          *)
-            printf '%s\n' "::error::Invalid registry value. Must be 'dockerhub', 'github', or 'both'"
-            exit 1
-            ;;
-        esac
-
-        # Validate Docker Hub credentials if needed
-        if [ "$INPUT_REGISTRY" = "dockerhub" ] || [ "$INPUT_REGISTRY" = "both" ]; then
-          if [ -z "$INPUT_DOCKERHUB_USERNAME" ] || [ -z "$INPUT_DOCKERHUB_TOKEN" ]; then
-            printf '%s\n' "::error::Docker Hub username and token are required when publishing to Docker Hub"
-            exit 1
-          fi
+        if [ -n "${DOCKERHUB_TOKEN:-}" ]; then
+          printf '::add-mask::%s\n' "$DOCKERHUB_TOKEN"
         fi
 
-        # Validate GitHub token if needed
-        if [ "$INPUT_REGISTRY" = "github" ] || [ "$INPUT_REGISTRY" = "both" ]; then
-          token="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
-          if [ -z "$token" ]; then
-            printf '%s\n' "::error::GitHub token is required when publishing to GitHub Packages"
-            exit 1
-          fi
-        fi
-
-        # Validate context input for security
-        INPUT_CONTEXT="${INPUT_CONTEXT:-.}"
-
-        case "$INPUT_CONTEXT" in
-          .|./*|*/*)
-            # Relative paths are allowed
-            # Check for path traversal attempts
-            case "$INPUT_CONTEXT" in
-              */../*|../*|*/..)
-                printf '%s\n' "::error::Context path contains path traversal: '$INPUT_CONTEXT'"
-                exit 1
-                ;;
-            esac
-            ;;
-          /*)
-            printf '%s\n' "::error::Context cannot be an absolute path: '$INPUT_CONTEXT'"
-            printf '%s\n' "::error::Use relative paths (e.g., '.', './app')"
-            exit 1
-            ;;
-          git://*|git@*|https://*.git|https://github.com/*|https://gitlab.com/*)
-            # Allow trusted git repository URLs
-            printf '%s\n' "::notice::Using git repository URL for context"
-            ;;
-          http://*|https://*)
-            printf '%s\n' "::error::Context cannot be an arbitrary HTTP URL: '$INPUT_CONTEXT'"
-            printf '%s\n' "::error::Only git repository URLs are allowed for remote contexts"
-            exit 1
-            ;;
-          *)
-            printf '%s\n' "::error::Invalid context format: '$INPUT_CONTEXT'"
-            printf '%s\n' "::error::Must be a relative path or git repository URL"
-            exit 1
-            ;;
-        esac
-
-        # Validate dockerfile input for security
-        INPUT_DOCKERFILE="${INPUT_DOCKERFILE:-Dockerfile}"
-
-        case "$INPUT_DOCKERFILE" in
-          Dockerfile|./Dockerfile|*/Dockerfile|*.dockerfile|*.Dockerfile|*/*.dockerfile|*/*.Dockerfile)
-            # Common dockerfile patterns are allowed (including ./ prefix)
-            # Check for path traversal attempts
-            case "$INPUT_DOCKERFILE" in
-              */../*|../*|*/..)
-                printf '%s\n' "::error::Dockerfile path contains path traversal: '$INPUT_DOCKERFILE'"
-                exit 1
-                ;;
-            esac
-            ;;
-          /*)
-            printf '%s\n' "::error::Dockerfile path cannot be absolute: '$INPUT_DOCKERFILE'"
-            printf '%s\n' "::error::Use relative paths (e.g., 'Dockerfile', './docker/Dockerfile')"
-            exit 1
-            ;;
-          *://*)
-            printf '%s\n' "::error::Dockerfile path cannot be a URL: '$INPUT_DOCKERFILE'"
-            exit 1
-            ;;
-          *)
-            printf '%s\n' "::error::Invalid Dockerfile format: '$INPUT_DOCKERFILE'"
-            printf '%s\n' "::error::Must be 'Dockerfile', './Dockerfile', '*/Dockerfile', '*.dockerfile', '*.Dockerfile', '*/*.dockerfile', or '*/*.Dockerfile'"
-            exit 1
-            ;;
-        esac
-
-        printf '%s\n' "Input validation completed successfully"
+    - name: Validate Inputs
+      id: validate
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
+      with:
+        action-type: 'docker-publish'
+        registry: ${{ inputs.registry }}
+        image-name: ${{ inputs.image-name }}
+        tags: ${{ inputs.tags }}
+        platforms: ${{ inputs.platforms }}
+        context: ${{ inputs.context }}
+        dockerfile: ${{ inputs.dockerfile }}
+        build-args: ${{ inputs.build-args }}
+        push: ${{ inputs.push }}
+        token: ${{ inputs.token }}
+        dockerhub-username: ${{ inputs.dockerhub-username }}
+        dockerhub-token: ${{ inputs.dockerhub-token }}
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@d7f5e7f509e45cec5c76c4d5afdd7de93d0b3df5 # v4.1.0

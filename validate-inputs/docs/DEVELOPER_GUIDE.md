@@ -134,31 +134,26 @@ __all__ = [
 Update `validate-inputs/validators/conventions.py`:
 
 ```python
-# In ConventionBasedValidator.PATTERNS dict:
-PATTERNS = {
-    # Exact matches (highest priority)
-    "exact": {
-        # ... existing patterns ...
-        "mytype-config": "mytype",
-    },
+# Convention detection lives in two methods, not a PATTERNS dict.
 
-    # Prefix patterns
-    "prefix": {
-        # ... existing patterns ...
-        "mytype-": "mytype",
-    },
+# 1. Exact input-name match -> ConventionBasedValidator._check_exact_matches:
+#       if name_lower == "mytype-config":
+#           return "mytype_format"
 
-    # Suffix patterns
-    "suffix": {
-        # ... existing patterns ...
-        "-mytype": "mytype",
-    },
-}
+# 2. Prefix/suffix/substring match -> _check_pattern_based_matches:
+#       names starting "mytype-" or ending "-mytype" -> "mytype_format"
 
-# In get_validator_class method:
-validator_map = {
+# 3. Route the validator_type to your module + method ->
+#    ConventionBasedValidator._get_validator_method:
+#       if validator_type == "mytype_format":
+#           from . import mytype
+#           return mytype.MyTypeValidator(), "validate_mytype_format"
+
+# 4. Register the class for lookup-by-name ->
+#    ValidatorRegistry.get_validator_by_type (validators/registry.py):
+validator_modules = {
     # ... existing mappings ...
-    "mytype": MyTypeValidator,
+    "MyTypeValidator": "mytype",
 }
 ```
 

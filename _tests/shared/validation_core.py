@@ -37,7 +37,9 @@ class ValidationCore:
     # Installation tokens (ghs_) have two formats: stateful (40 chars) and
     # stateless JWT (~520 chars, dots+underscores) — GitHub 2026-04-27 rollout.
     TOKEN_PATTERNS = {
-        "classic": r"^gh[efpousr]_[a-zA-Z0-9]{36}$",
+        # N-119: prefixes match token.py exactly — ghe/gho/ghp/ghr/ghs/ghu.
+        # No `ghf_` exists; the old class `[efpousr]` over-accepted it.
+        "classic": r"^gh[eoprsu]_[a-zA-Z0-9]{36}$",
         "fine_grained": r"^github_pat_[A-Za-z0-9_]{50,255}$",  # 50-255 chars with underscores
         "installation": r"^ghs_[A-Za-z0-9._]{36,1024}$",
         "npm_classic": r"^npm_[a-zA-Z0-9]{40,}$",  # NPM classic tokens
@@ -115,7 +117,7 @@ class ValidationCore:
         return (
             False,
             "Invalid token format. Expected one of: "
-            "gh[efpousr]_[a-zA-Z0-9]{36} (40 chars total — ghp/gho/ghu/ghs/ghr/ghe), "
+            "gh[eoprsu]_[a-zA-Z0-9]{36} (40 chars total — ghp/gho/ghu/ghs/ghr/ghe), "
             "ghs_[A-Za-z0-9._]{36,1024} (40-1028 chars total — installation; "
             "stateful or stateless JWT), "
             "github_pat_[A-Za-z0-9_]{50,255} (fine-grained PAT), "

@@ -53,9 +53,15 @@ class CustomValidator(BaseValidator):
                 max_val=100,
             )
 
-        if inputs.get("directory"):
+        # The action.yml input is named `working-directory`. Accept both forms
+        # so the CV can be called consistently from tests using either name.
+        working_dir_key = self.get_key_variant(inputs, "working-directory", "directory")
+        if working_dir_key and inputs.get(working_dir_key):
             valid &= self.validate_with(
-                self.file_validator, "validate_file_path", inputs["directory"], "directory"
+                self.file_validator,
+                "validate_file_path",
+                inputs[working_dir_key],
+                working_dir_key,
             )
 
         if inputs.get("ignore-paths"):
@@ -75,24 +81,24 @@ class CustomValidator(BaseValidator):
     def get_validation_rules(self) -> dict:
         """Get validation rules."""
         return {
-            "directory": {
+            "working-directory": {
                 "type": "directory",
                 "required": False,
-                "description": "Directory containing images",
+                "description": "Directory containing images to compress",
             },
             "image-quality": {
                 "type": "numeric",
                 "required": False,
-                "description": "Image compression quality",
+                "description": "JPEG compression quality (0-100)",
             },
             "png-quality": {
                 "type": "numeric",
                 "required": False,
-                "description": "PNG compression quality",
+                "description": "PNG compression quality (0-100)",
             },
             "ignore-paths": {
                 "type": "string",
                 "required": False,
-                "description": "Paths to ignore",
+                "description": "Paths to ignore (glob patterns)",
             },
         }

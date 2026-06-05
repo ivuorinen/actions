@@ -219,32 +219,35 @@ class TestTestGenerator:
 
     def test_generate_input_test_cases(self):
         """Test generation of input-specific test cases."""
-        # Boolean input
-        cases = self.generator._generate_input_test_cases("dry-run")
+        # Boolean input — the action name must be baked into the When-run line
+        # (N-131), not left as a literal ${action_name}.
+        cases = self.generator._generate_input_test_cases("dry-run", "my-action")
         assert len(cases) == 1
         assert "should accept boolean values" in cases[0]
         assert "should reject invalid boolean" in cases[0]
+        assert "validate_inputs 'my-action'" in cases[0]
+        assert "${action_name}" not in cases[0]
 
         # Version input
-        cases = self.generator._generate_input_test_cases("version")
+        cases = self.generator._generate_input_test_cases("version", "my-action")
         assert len(cases) == 1
         assert "should accept valid version" in cases[0]
         assert "should accept version with v prefix" in cases[0]
 
         # Token input
-        cases = self.generator._generate_input_test_cases("github-token")
+        cases = self.generator._generate_input_test_cases("github-token", "my-action")
         assert len(cases) == 1
         assert "should accept GitHub token" in cases[0]
         assert "should accept classic PAT" in cases[0]
 
         # Path input
-        cases = self.generator._generate_input_test_cases("config-file")
+        cases = self.generator._generate_input_test_cases("config-file", "my-action")
         assert len(cases) == 1
         assert "should accept valid path" in cases[0]
         assert "should reject path traversal" in cases[0]
 
         # No specific pattern
-        cases = self.generator._generate_input_test_cases("custom-input")
+        cases = self.generator._generate_input_test_cases("custom-input", "my-action")
         assert len(cases) == 0
 
     def test_generate_pytest_content_by_type(self):

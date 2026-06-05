@@ -161,6 +161,24 @@ discover_actions() {
     done < <(find "${TEST_ROOT}/.." -mindepth 2 -maxdepth 2 -type f -name "action.yml" -exec dirname {} \; | sort)
   fi
 
+  # N-121: also include non-action component spec dirs under _tests/unit/ that have
+  # specs but no top-level action.yml (e.g. claude-hooks, _harness,
+  # fix-local-action-refs). Without this they were never executed by run-tests.sh
+  # (CI uses default discovery), so their specs were dark. Skipped when explicit
+  # TARGET_ACTIONS were passed; honors --action filtering and dedups.
+  if [[ ${#TARGET_ACTIONS[@]} -eq 0 ]]; then
+    local _existing=" ${actions[*]+${actions[*]}} "
+    while IFS= read -r spec_dir; do
+      ls "${spec_dir}"/*.spec.sh >/dev/null 2>&1 || continue
+      local comp
+      comp=$(basename "$spec_dir")
+      [[ -n $ACTION_FILTER && $comp != *"$ACTION_FILTER"* ]] && continue
+      [[ $_existing == *" $comp "* ]] && continue
+      actions+=("$comp")
+      _existing="${_existing}${comp} "
+    done < <(find "${TEST_ROOT}/unit" -mindepth 1 -maxdepth 1 -type d | sort)
+  fi
+
   log_info "Discovered ${#actions[@]} actions to test: ${actions[*]}"
   printf '%s\n' "${actions[@]}"
 }
@@ -309,7 +327,10 @@ run_unit_tests() {
       # "0 examples, 0 failures" → WARNING (no tests written yet, not a failure).
       # "N examples, 0 failures" (N≥1) → PASS.
       # T-C2: non-zero shellspec exit always fails regardless of summary content.
-      _summary_line=$(col -b <"$output_file" | grep -E '^[0-9][0-9]* examples?.*0 failures?$' || true)
+      # N-117: require the literal ", 0 failures" tail (kept in lockstep with
+      # framework/test_runner_summary.sh classify_new). The old `.*0 failures?$`
+      # also matched "N examples, 10 failures" (any count ending in 0).
+      _summary_line=$(col -b <"$output_file" | grep -E '^[0-9][0-9]* examples?, 0 failures?$' || true)
       if [ "$shellspec_exit" -eq 0 ] && [ -n "$_summary_line" ]; then
         if echo "$_summary_line" | grep -q '^0 examples'; then
           log_warning "No examples in spec for: $action (0 examples, 0 failures)"

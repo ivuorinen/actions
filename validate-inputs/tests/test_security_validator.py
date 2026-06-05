@@ -22,6 +22,20 @@ class TestSecurityValidator:
         patterns = self.validator.INJECTION_PATTERNS
         assert len(patterns) > 0
 
+    def test_validate_url_security_rejects_encoded_payloads(self):
+        """Percent-encoded CRLF / traversal must be rejected (nitpicker N-134)."""
+        assert self.validator.validate_url_security("https://ok.example/path") is True
+        self.validator.errors = []
+        assert (
+            self.validator.validate_url_security(
+                "https://a.com/x%0d%0aSet-Cookie:evil",
+                "registry-url",
+            )
+            is False
+        )
+        self.validator.errors = []
+        assert self.validator.validate_url_security("https://a.com/%2e%2e%2fetc", "url") is False
+
     def test_validate_no_injection_safe_inputs(self):
         """Test that safe inputs pass validation."""
         safe_inputs = [
@@ -292,6 +306,9 @@ class TestSecurityValidator:
             r"^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$",
             r"^[a-z]+@[a-z]+\.[a-z]+$",
             r"^https?://[\w.-]+$",
+            r"^.+\.txt$",  # N-135: single .+ is linear, must not be flagged ReDoS
+            r"src/.*\.js",
+            r"x.{2,4}y",
         ]
 
         for pattern in safe_patterns:

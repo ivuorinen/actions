@@ -276,6 +276,9 @@ class CustomValidator(BaseValidator):
         result = self.validate_with(self.file_validator, "validate_file_path", database, "database")
         # Database paths often contain the language
         # e.g., "codeql-database/javascript" or "/tmp/codeql_databases/python"
+        # S108 noqa: this is a prefix check for CodeQL's /tmp/codeql_databases
+        # location, not insecure temp-file creation — the literal is the value
+        # being validated, so the rule does not apply.
         if result and database.startswith("/tmp/"):  # noqa: S108
             return True
         return result

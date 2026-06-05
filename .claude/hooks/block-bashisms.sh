@@ -18,9 +18,10 @@ case "$FILE_PATH" in
 *) exit 0 ;;
 esac
 
-# _tests/ helpers are intentionally bash (ShellSpec, export -f, local, etc.)
+# _tests/ helpers are intentionally bash (ShellSpec, export -f, local, etc.).
+# Includes top-level test runner (_tests/run-tests.sh) and all subdirs.
 case "$FILE_PATH" in
-_tests/framework/* | _tests/unit/* | */_tests/framework/* | */_tests/unit/*) exit 0 ;;
+_tests/* | */_tests/*) exit 0 ;;
 esac
 
 NEW_CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.new_string // .tool_input.content // empty')

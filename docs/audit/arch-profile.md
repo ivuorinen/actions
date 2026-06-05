@@ -39,9 +39,9 @@ Evidence:
 - Each `action.yml` follows a fixed step sequence: Validate Inputs → Checkout
   Repository → Setup Tool → Run Tool → Commit/Upload Results — inputs flow through
   sequential, composable stages
-- `validate-inputs` action acts as a reusable filter stage consumed by 10 of 26
+- `validate-inputs` action acts as a reusable filter stage consumed by 25 of 26
   actions via SHA-pinned `uses:` reference
-- Validation pipeline within `modular_validator.py`: extract env vars → normalize keys →
+- Validation pipeline within `validator.py`: extract env vars → normalize keys →
   dispatch to validator → collect errors → write to `GITHUB_OUTPUT`
 - No branching fan-out; each stage transforms and passes state forward
 
@@ -100,21 +100,20 @@ as pipelines with a mandatory validation stage as a reusable filter.
    by `_tools/fix-local-action-refs.py` and CI checks.
 8. **POSIX shell compliance**: All shell code in `action.yml` `run:` blocks and
    `.sh` scripts must be POSIX sh (no bash-isms); enforced by Claude Code hooks
-   (`block_bashisms_spec.sh`).
+   (`block_bashisms.spec.sh`).
 9. **Test mirroring**: Every action in `<name>/` must have a corresponding
    `_tests/unit/<name>/` directory; every custom validator must have a matching
    `validate-inputs/tests/test_<name>_custom.py`.
 10. **No inline GITHUB_OUTPUT interpolation**: Outputs written via `printf 'key=%s\n'
 "$val"` only; `echo "key=$val"` is structurally prohibited and enforced by
-    `block_echo_github_output_spec.sh` Claude hook.
+    `block_echo_github_output.spec.sh` Claude hook.
 
 ## Ambiguities & Contradictions
 
-- **Incomplete validate-inputs adoption**: 10 of 26 actions call `validate-inputs`
-  via `uses:`. The remaining 16 either handle validation inline (compress-images uses
-  inline `echo "::error::"` guards) or skip validation entirely (csharp-build has no
-  validate step visible in its action names). This is a structural inconsistency — the
-  inferred rule (Rule 2 above) is violated by more than half the actions.
+- **validate-inputs adoption (resolved)**: 25 of 26 actions call `validate-inputs`
+  via `uses:` — every action except `validate-inputs` itself (which cannot call
+  itself). The earlier gap (10 of 26) was closed by the N-095 migration (nitpicker
+  Pass 17); the inferred rule (Rule 2 above) now holds across the catalog.
 - **validate-inputs is both an action and a library**: It exposes an `action.yml` for
   external calling and a Python package (`github_actions_validate_inputs-1.0.0`) for
   direct import. The dual surface creates ambiguity about which interface is canonical

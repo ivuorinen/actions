@@ -1,8 +1,16 @@
 #!/usr/bin/env python3
-"""Fix local action references in GitHub Action YAML files.
+"""Fix local action references in GitHub workflow YAML files.
 
-This script finds and fixes uses: ../action-name references to use: ./action-name
-following GitHub's recommended pattern for same-repository action references.
+This script finds and fixes ``uses: ../action-name`` references to
+``uses: ./action-name`` in the repo's workflow files
+(``.github/workflows/`` and ``_tests/integration/workflows/``), following
+GitHub's recommended pattern for same-repository action references.
+
+Note: it deliberately does NOT scan ``*/action.yml`` — per the repo's
+github-actions-security rule those must use immutable
+``ivuorinen/actions/<name>@<sha>`` pins, never ``./``/``../`` local refs, so a
+``./`` "fix" there would be a rule violation. Top-level ``action.yml`` files are
+read only to enumerate valid action names (see ``find_action_files``).
 
 Usage:
     python3 fix-local-action-refs.py [--check] [--dry-run]
@@ -59,6 +67,32 @@ class LocalActionRefsFixer:
             actions.append(action_name)
         return sorted(actions)
 
+    # Directories whose workflow YAML files reference internal actions as
+    # ./action-name (the form this tool enforces). action.yml files are
+    # intentionally excluded — they must use SHA-pinned external refs.
+    WORKFLOW_DIRS = (
+        Path(".github") / "workflows",
+        Path("_tests") / "integration" / "workflows",
+    )
+
+    # Matches a `uses: ../<action>` reference whether written as a block key
+    # (`  uses: ../foo`) or a list item (`  - uses: ../foo` — the common step
+    # form). Groups: (prefix, action_name, trailing comment/space). Defined once
+    # and compiled in both find_local_ref_issues and fix_content to stay in
+    # lockstep (.claude/rules/code-quality.md).
+    LOCAL_REF_PATTERN = r"^(\s*(?:-\s+)?uses:\s+)\.\./([\w-]+)(\s*(?:#.*)?)\s*$"
+
+    def find_workflow_files(self) -> list[Path]:
+        """Find workflow YAML files that may contain local action references."""
+        workflow_files: list[Path] = []
+        for rel_dir in self.WORKFLOW_DIRS:
+            workflow_dir = self.project_root / rel_dir
+            if not workflow_dir.is_dir():
+                continue
+            for ext in ("*.yml", "*.yaml"):
+                workflow_files.extend(workflow_dir.glob(ext))
+        return sorted(workflow_files)
+
     def find_local_ref_issues(self, content: str) -> list[tuple[int, str, str, str]]:
         """Find lines with ../action-name references that should be ./action-name.
 
@@ -69,13 +103,13 @@ class LocalActionRefsFixer:
         available_actions = self.get_available_actions()
 
         # Pattern to match "uses: ../action-name" references
-        pattern = re.compile(r"^(\s*uses:\s+)\.\./([\w-]+)(\s*(?:#.*)?)\s*$")
+        pattern = re.compile(self.LOCAL_REF_PATTERN)
 
         lines = content.splitlines()
         for line_num, line in enumerate(lines, 1):
             match = pattern.match(line)
             if match:
-                _prefix, action_name, _suffix = match.groups()
+                action_name = match.group(2)
 
                 # Only fix if this is actually one of our actions
                 if action_name in available_actions:
@@ -106,7 +140,7 @@ class LocalActionRefsFixer:
             # Don't change external references
             return match.group(0)
 
-        pattern = re.compile(r"^(\s*uses:\s+)\.\./([\w-]+)(\s*(?:#.*)?)\s*$", re.MULTILINE)
+        pattern = re.compile(self.LOCAL_REF_PATTERN, re.MULTILINE)
         fixed_content = pattern.sub(replace_ref, content)
 
         return fixed_content, fixes_made
@@ -143,11 +177,9 @@ class LocalActionRefsFixer:
             return {"file": file_path, "fixes_made": 0, "error": str(e)}
 
     def check_all_files(self) -> list[dict]:
-        """Check all action files for issues."""
+        """Check all workflow files for issues."""
         results = []
-        action_files = self.find_action_files()
-
-        for file_path in action_files:
+        for file_path in self.find_workflow_files():
             result = self.check_file(file_path)
             if result["issues"] or result["error"]:
                 results.append(result)
@@ -155,11 +187,9 @@ class LocalActionRefsFixer:
         return results
 
     def fix_all_files(self, *, dry_run: bool = False) -> list[dict]:
-        """Fix all action files."""
+        """Fix all workflow files."""
         results = []
-        action_files = self.find_action_files()
-
-        for file_path in action_files:
+        for file_path in self.find_workflow_files():
             result = self.fix_file(file_path, dry_run=dry_run)
             if result["fixes_made"] > 0 or result["error"]:
                 results.append(result)
@@ -187,6 +217,13 @@ def _create_argument_parser() -> argparse.ArgumentParser:
         "--dry-run",
         action="store_true",
         help="Show what would be changed without making changes",
+    )
+
+    parser.add_argument(
+        "--root",
+        type=Path,
+        default=None,
+        help="Project root to scan (default: the repository containing this script)",
     )
 
     return parser
@@ -265,7 +302,7 @@ def main() -> int:
     """Main entry point."""
     parser = _create_argument_parser()
     args = parser.parse_args()
-    fixer = LocalActionRefsFixer()
+    fixer = LocalActionRefsFixer(args.root)
 
     if args.check:
         return _run_check_mode(fixer)

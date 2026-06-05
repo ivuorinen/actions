@@ -56,104 +56,15 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        MODE: ${{ inputs.mode }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-        EMAIL: ${{ inputs.email }}
-        USERNAME: ${{ inputs.username }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
-      run: |
-        set -eu
-
-        # Validate mode
-        case "$MODE" in
-          "check"|"fix")
-            echo "Mode: $MODE"
-            ;;
-          *)
-            echo "::error::Invalid mode: '$MODE'. Must be 'check' or 'fix'"
-            exit 1
-            ;;
-        esac
-
-        # Validate GitHub token presence if provided
-        if [ -n "$GITHUB_TOKEN" ]; then
-          case "$GITHUB_TOKEN" in
-            \$\{\{*)
-              # Token is a GitHub Actions expression, skip validation
-              ;;
-            *)
-              echo "Using provided GitHub token"
-              ;;
-          esac
-        fi
-
-        # Validate email format (basic check) - required for fix mode
-        if [ "$MODE" = "fix" ]; then
-          case "$EMAIL" in
-            *@*.*) ;;
-            *)
-              echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-              exit 1
-              ;;
-          esac
-
-          # Validate username format (GitHub canonical rules)
-          username="$USERNAME"
-
-          # Check length (GitHub limit)
-          if [ ${#username} -gt 39 ]; then
-            echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
-            exit 1
-          fi
-
-          # Check allowed characters (letters, digits, hyphens only)
-          case "$username" in
-            *[!a-zA-Z0-9-]*)
-              echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
-              exit 1
-              ;;
-          esac
-
-          # Check doesn't start or end with hyphen
-          case "$username" in
-            -*|*-)
-              echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
-              exit 1
-              ;;
-          esac
-
-          # Check no consecutive hyphens
-          case "$username" in
-            *--*)
-              echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate max retries (positive integer with reasonable upper limit)
-        case "$MAX_RETRIES" in
-          ''|*[!0-9]*)
-            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-            exit 1
-            ;;
-        esac
-
-        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        # Validate fail-on-error (boolean)
-        if [ "$FAIL_ON_ERROR" != "true" ] && [ "$FAIL_ON_ERROR" != "false" ]; then
-          echo "::error::Invalid fail-on-error value: '$FAIL_ON_ERROR'. Must be 'true' or 'false'"
-          exit 1
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
+      with:
+        action-type: 'biome-lint'
+        mode: ${{ inputs.mode }}
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
+        max-retries: ${{ inputs.max-retries }}
+        fail-on-error: ${{ inputs.fail-on-error }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta

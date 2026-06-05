@@ -160,7 +160,7 @@ test_action_outputs() {
   # Create mock outputs
   while IFS= read -r output; do
     if [[ -n $output ]]; then
-      echo "${output}=mock-value-$(date +%s)" >>"$GITHUB_OUTPUT"
+      printf '%s=mock-value-%s\n' "$output" "$(date +%s)" >>"$GITHUB_OUTPUT"
     fi
   done <<<"$outputs"
 

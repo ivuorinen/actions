@@ -129,6 +129,15 @@ class SecurityValidator(BaseValidator):
             self.add_error(f"Security issue in {name}: file: protocol not allowed")
             return False
 
+        # Percent-encoded CRLF / NUL / traversal bypass the raw checks above.
+        # Mirrored in NetworkValidator.validate_url — keep both in lockstep.
+        lowered = url.lower()
+        if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
+            self.add_error(
+                f"Security issue in {name}: encoded control/traversal sequence not allowed",
+            )
+            return False
+
         return True
 
     def validate_command_security(self, command: str, name: str = "command") -> bool:
@@ -670,7 +679,12 @@ class SecurityValidator(BaseValidator):
         Returns:
             True if safe, False if consecutive quantifiers detected
         """
-        consecutive_quantifiers = r"[.+*][+*{]"
+        # Two quantifiers in a row (a**, .*+, .++) or two adjacent greedy
+        # dot-quantifiers (.*.*) — true catastrophic-backtracking shapes. A single
+        # `.+` / `.*` / `.{n,m}` is linear and must NOT be flagged; the old
+        # `[.+*][+*{]` treated the atom `.` as a quantifier and rejected them
+        # (nitpicker N-135).
+        consecutive_quantifiers = r"[*+][*+]|\.[*+]\.[*+]"
         if re.search(consecutive_quantifiers, pattern):
             self.add_error(
                 f"ReDoS risk detected in {name}: consecutive quantifiers like .*.* or .*+ "

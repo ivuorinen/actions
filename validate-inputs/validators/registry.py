@@ -12,7 +12,6 @@ import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from .convention_mapper import ConventionMapper
 from .conventions import ConventionBasedValidator
 
 if TYPE_CHECKING:
@@ -29,7 +28,6 @@ class ValidatorRegistry:
         """Initialize the validator registry."""
         self._validators: dict[str, type[BaseValidator]] = {}
         self._validator_instances: dict[str, BaseValidator] = {}
-        self._convention_mapper = ConventionMapper()
 
     def register(self, action_type: str, validator_class: type[BaseValidator]) -> None:
         """Register a validator class for an action type.
@@ -120,10 +118,20 @@ class ValidatorRegistry:
                 validator_class = module.CustomValidator
                 return validator_class(action_type)
 
-        except Exception as e:
-            # Log at debug level - custom validators are optional and may raise anything
-            logger = logging.getLogger(__name__)
-            logger.debug("Could not load custom validator for %s: %s", action_type, e)
+        except Exception:
+            # The file EXISTS (checked above) but failed to load or instantiate —
+            # a syntax error, bad import, or constructor failure in a first-party
+            # CustomValidator.py. Silently falling back to convention validation
+            # would disable the action's bespoke checks without a trace — the exact
+            # silent-failure mode that get_validator_by_type() below refuses for
+            # built-in validators. Fail loudly so CI surfaces the broken validator
+            # instead of shipping weakened validation.
+            logging.getLogger(__name__).exception(
+                "Broken custom validator for %s (%s) — refusing to silently disable validation",
+                action_type,
+                custom_validator_path,
+            )
+            raise
 
         return None
 
@@ -201,8 +209,23 @@ class ValidatorRegistry:
                 # Create an instance with a dummy action type
                 return validator_class("temp")
         except (ImportError, AttributeError):
-            # Silently ignore if custom validator module doesn't exist or class not found
-            pass
+            # Genuine "not found": module/class doesn't exist. Caller can
+            # decide how to react (typically by returning None and trying the
+            # next strategy).
+            return None
+        except (SyntaxError, OSError, TypeError):
+            # The built-in validator file IS present but BROKEN (syntax error,
+            # IO error reading bytecode, bad signature). Swallowing these
+            # would silently bypass validation for that type — exactly the
+            # silent-failure mode this registry must not hide. Log and re-raise
+            # so the runtime fails loudly instead of returning None.
+            logging.getLogger(__name__).exception(
+                "Broken built-in validator implementation for %s "
+                "(validators.%s) — refusing to silently disable validation",
+                validator_type,
+                module_name,
+            )
+            raise
 
         return None
 

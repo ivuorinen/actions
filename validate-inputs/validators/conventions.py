@@ -17,28 +17,6 @@ logger = logging.getLogger(__name__)
 from .base import BaseValidator
 from .convention_mapper import ConventionMapper
 
-TOKEN_TYPES = {
-    "github": "github_token",
-    "npm": "npm_token",
-    "docker": "docker_token",
-}
-
-VERSION_MAPPINGS = {
-    "python": "python_version",
-    "node": "node_version",
-    "go": "go_version",
-    "php": "php_version",
-    "terraform": "terraform_version",
-    "dotnet": "dotnet_version",
-    "net": "dotnet_version",
-}
-
-FILE_TYPES = {
-    "yaml": "yaml_file",
-    "yml": "yaml_file",
-    "json": "json_file",
-}
-
 
 class ConventionBasedValidator(BaseValidator):
     """Validator that applies validation based on naming conventions.
@@ -134,133 +112,15 @@ class ConventionBasedValidator(BaseValidator):
         Returns:
             The inferred validator type or None
         """
-        # Check for explicit validator type in config
+        # Honor an explicit validator type from the rules config.
         if isinstance(input_config, dict) and "validator" in input_config:
             return input_config["validator"]
 
-        # Infer based on name patterns
-        name_lower = input_name.lower().replace("-", "_")
-
-        # Try to determine validator type
-        validator_type = self._check_exact_matches(name_lower)
-
-        if validator_type is None:
-            validator_type = self._check_pattern_based_matches(name_lower)
-
-        return validator_type
-
-    def _check_exact_matches(self, name_lower: str) -> str | None:
-        """Check for exact pattern matches."""
-        exact_matches = {
-            # Docker patterns
-            "platforms": "docker_architectures",
-            "architectures": "docker_architectures",
-            "cache_from": "cache_mode",
-            "cache_to": "cache_mode",
-            "sbom": "sbom_format",
-            "registry": "registry_url",
-            "registry_url": "registry_url",
-            "tags": "docker_tags",
-            # File patterns
-            "file": "file_path",
-            "path": "file_path",
-            "file_path": "file_path",
-            "config_file": "file_path",
-            "dockerfile": "file_path",
-            "branch": "branch_name",
-            "branch_name": "branch_name",
-            "ref": "branch_name",
-            # Network patterns
-            "email": "email",
-            "url": "url",
-            "endpoint": "url",
-            "webhook": "url",
-            "repository_url": "repository_url",
-            "repo_url": "repository_url",
-            "scope": "scope",
-            "username": "username",
-            "user": "username",
-            # Boolean patterns
-            "dry_run": "boolean",
-            "draft": "boolean",
-            "prerelease": "boolean",
-            "push": "boolean",
-            "delete": "boolean",
-            "all_files": "boolean",
-            "force": "boolean",
-            "skip": "boolean",
-            "enabled": "boolean",
-            "disabled": "boolean",
-            "verbose": "boolean",
-            "debug": "boolean",
-            # Numeric patterns
-            "retries": "retries",
-            "retry": "retries",
-            "attempts": "retries",
-            "timeout": "timeout",
-            "timeout_ms": "timeout",
-            "timeout_seconds": "timeout",
-            "threads": "threads",
-            "workers": "threads",
-            "concurrency": "threads",
-            # Other patterns
-            "category": "category_format",
-            "cache": "package_manager_enum",
-            "package_manager": "package_manager_enum",
-            "format": "report_format",
-            "output_format": "report_format",
-            "report_format": "report_format",
-            "mode": "mode_enum",
-        }
-        return exact_matches.get(name_lower)
-
-    def _check_pattern_based_matches(self, name_lower: str) -> str | None:  # noqa: PLR0912
-        """Check for pattern-based matches."""
-        result = None
-
-        # Token patterns
-        if "token" in name_lower:
-            token_types = TOKEN_TYPES
-            for key, value in token_types.items():
-                if key in name_lower:
-                    result = value
-                    break
-            if result is None:
-                result = "github_token"  # Default token type
-
-        # Docker patterns
-        elif name_lower.startswith("docker_"):
-            result = f"docker_{name_lower[7:]}"
-
-        # Version patterns
-        elif "version" in name_lower:
-            version_mappings = VERSION_MAPPINGS
-            for key, value in version_mappings.items():
-                if key in name_lower:
-                    result = value
-                    break
-            if result is None:
-                result = "flexible_version"  # Default to flexible version
-
-        # File suffix patterns
-        elif name_lower.endswith("_file") and name_lower != "config_file":
-            file_types = FILE_TYPES
-            for key, value in file_types.items():
-                if key in name_lower:
-                    result = value
-                    break
-            if result is None:
-                result = "file_path"
-
-        # CodeQL patterns
-        elif name_lower.startswith("codeql_"):
-            result = name_lower
-
-        # Cache-related check (special case for returning None)
-        elif "cache" in name_lower and name_lower != "cache":
-            result = None  # cache-related but not numeric
-
-        return result
+        # Otherwise delegate to ConventionMapper — the same name->type engine used
+        # as the runtime fallback in _get_validator_type — so this load-time
+        # pre-population and runtime resolution share one source of truth (removes
+        # a second, divergent detection table only reachable from this method).
+        return self._convention_mapper.get_validator_type(input_name)
 
     def get_required_inputs(self) -> list[str]:
         """Get the list of required input names from rules.
@@ -432,7 +292,15 @@ class ConventionBasedValidator(BaseValidator):
                         validator_module.errors = []
 
                 return result
-            # Method not found, skip validation
+            # No method on the resolved module. The reachable convention types now
+            # all map to existing validators (threads/timeout/retries/flexible/
+            # semantic were fixed in this pass). The only residual hits are
+            # genuinely-unmapped types — the plural `docker_tags` (DockerValidator
+            # has validate_tag, not validate_tags) and the `cache`->
+            # package_manager_enum misclassification — neither of which is reached
+            # by any current action's convention path (their actions use a
+            # CustomValidator). Pass them through rather than hard-failing valid
+            # input on a mapping gap; see nitpicker N-129 residual.
             return True
 
         except Exception as e:
@@ -490,7 +358,14 @@ class ConventionBasedValidator(BaseValidator):
                 from . import version
 
                 self._validator_modules["version"] = version.VersionValidator()
-            return self._validator_modules["version"], f"validate_{validator_type}"
+            # Bare "semantic"/"flexible" aliases map to the canonical *_version
+            # methods (validate_semantic_version / validate_flexible_version);
+            # only "calver" has a bare validate_calver. Without this, the bare
+            # aliases resolve to non-existent methods and silently skip validation.
+            method_type = validator_type
+            if validator_type in ("semantic", "flexible"):
+                method_type = f"{validator_type}_version"
+            return self._validator_modules["version"], f"validate_{method_type}"
 
         # File validators
         if validator_type in [
@@ -530,10 +405,14 @@ class ConventionBasedValidator(BaseValidator):
                 self._validator_modules["boolean"] = boolean.BooleanValidator()
             return self._validator_modules["boolean"], "validate_boolean"
 
+        # Timeout-with-unit (e.g. "5m", "1h") is validated internally, not as a
+        # bare number — NumericValidator has no validate_timeout.
+        if validator_type == "timeout":
+            return self, "_validate_timeout_with_unit"
+
         # Numeric validators
         if validator_type.startswith("numeric_range") or validator_type in [
             "retries",
-            "timeout",
             "threads",
             "positive_integer",
             "non_negative_integer",
@@ -545,6 +424,10 @@ class ConventionBasedValidator(BaseValidator):
                 self._validator_modules["numeric"] = numeric.NumericValidator()
             if validator_type.startswith("numeric_range"):
                 return self._validator_modules["numeric"], "validate_range"
+            # retries/threads are plain integer counts; NumericValidator has no
+            # validate_retries / validate_threads, so map them to validate_integer.
+            if validator_type in ("retries", "threads"):
+                return self._validator_modules["numeric"], "validate_integer"
             return self._validator_modules["numeric"], f"validate_{validator_type}"
 
         # Security validators
@@ -740,6 +623,31 @@ class ConventionBasedValidator(BaseValidator):
             item_name="extension",
         )
 
+    def _check_enum_membership(
+        self,
+        value: str,
+        input_name: str,
+        valid_values: list,
+        *,
+        case_sensitive: bool,
+    ) -> bool:
+        """Shared membership check for the enum validators.
+
+        Blank is treated as optional (valid); otherwise ``value`` must be in
+        ``valid_values`` (case-insensitively when ``case_sensitive`` is False).
+        The count-guard preconditions stay in the calling validators.
+        """
+        if not value or value.strip() == "":
+            return True  # Optional
+        candidate = value if case_sensitive else value.lower()
+        allowed = valid_values if case_sensitive else [v.lower() for v in valid_values]
+        if candidate not in allowed:
+            self.add_error(
+                f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
+            )
+            return False
+        return True
+
     def _validate_binary_enum(
         self,
         value: str,
@@ -780,26 +688,9 @@ class ConventionBasedValidator(BaseValidator):
                 f"Binary enum requires exactly 2 valid values, got {len(valid_values)}"
             )
 
-        if not value or value.strip() == "":
-            return True  # Optional
-
-        # Case-insensitive comparison if needed
-        if not case_sensitive:
-            value_lower = value.lower()
-            valid_values_lower = [v.lower() for v in valid_values]
-            if value_lower not in valid_values_lower:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-        else:
-            if value not in valid_values:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-
-        return True
+        return self._check_enum_membership(
+            value, input_name, valid_values, case_sensitive=case_sensitive
+        )
 
     def _validate_format_enum(
         self,
@@ -917,26 +808,9 @@ class ConventionBasedValidator(BaseValidator):
             msg = f"Multi-value enum allows <= {max_values} values, got {len(valid_values)}"
             raise ValueError(msg)
 
-        if not value or value.strip() == "":
-            return True  # Optional
-
-        # Case-insensitive comparison if needed
-        if not case_sensitive:
-            value_lower = value.lower()
-            valid_values_lower = [v.lower() for v in valid_values]
-            if value_lower not in valid_values_lower:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-        else:
-            if value not in valid_values:
-                self.add_error(
-                    f"Invalid {input_name}: {value}. Must be one of: {', '.join(valid_values)}"
-                )
-                return False
-
-        return True
+        return self._check_enum_membership(
+            value, input_name, valid_values, case_sensitive=case_sensitive
+        )
 
     def _validate_coverage_driver(self, value: str, input_name: str) -> bool:
         """Validate coverage driver enum.

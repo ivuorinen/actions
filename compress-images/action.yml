@@ -57,88 +57,16 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        WORKING_DIRECTORY: ${{ inputs.working-directory }}
-        IMAGE_QUALITY: ${{ inputs.image-quality }}
-        PNG_QUALITY: ${{ inputs.png-quality }}
-        IGNORE_PATHS: ${{ inputs.ignore-paths }}
-        EMAIL: ${{ inputs.email }}
-        USERNAME: ${{ inputs.username }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-      run: |
-        set -eu
-
-        # Validate path security (prevent absolute paths and path traversal).
-        # Match exact .. components (..|../* etc.) not arbitrary double-dot filenames.
-        case "$WORKING_DIRECTORY" in
-          /*|~*|[A-Za-z]:*|..|../*|*/..|*/../*)
-            echo "::error::Invalid working-directory: '$WORKING_DIRECTORY'. Absolute paths and path traversal not allowed"
-            exit 1
-            ;;
-        esac
-
-        # Validate image quality (0-100) - must be numeric
-        case "$IMAGE_QUALITY" in
-          ''|*[!0-9]*)
-            echo "::error::Invalid image-quality: '$IMAGE_QUALITY'. Must be a number between 0 and 100"
-            exit 1
-            ;;
-        esac
-
-        if [ "$IMAGE_QUALITY" -lt 0 ] || [ "$IMAGE_QUALITY" -gt 100 ]; then
-          echo "::error::Invalid image-quality: '$IMAGE_QUALITY'. Must be between 0 and 100"
-          exit 1
-        fi
-
-        # Validate PNG quality (0-100) - must be numeric
-        case "$PNG_QUALITY" in
-          ''|*[!0-9]*)
-            echo "::error::Invalid png-quality: '$PNG_QUALITY'. Must be a number between 0 and 100"
-            exit 1
-            ;;
-        esac
-
-        if [ "$PNG_QUALITY" -lt 0 ] || [ "$PNG_QUALITY" -gt 100 ]; then
-          echo "::error::Invalid png-quality: '$PNG_QUALITY'. Must be between 0 and 100"
-          exit 1
-        fi
-
-        # Validate ignore paths format (prevent command injection and path traversal)
-        case "$IGNORE_PATHS" in
-          *\;*|*\&\&*|*\|*|*\`*|*\$\(*|*\$\{*|*\<*|*\>*|..|../*|*/..|*/../*)
-            echo "::error::Invalid ignore-paths: '$IGNORE_PATHS'. Command injection patterns and path traversal not allowed"
-            exit 1
-            ;;
-        esac
-
-        # Validate email format (basic check)
-        case "$EMAIL" in
-          *@*.*) ;;
-          *)
-            echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-            exit 1
-            ;;
-        esac
-
-        # Validate username format (prevent command injection)
-        case "$USERNAME" in
-          *\;*|*\&\&*|*\|*)
-            echo "::error::Invalid username: '$USERNAME'. Command injection patterns not allowed"
-            exit 1
-            ;;
-        esac
-
-        # Validate token format if provided (basic GitHub token pattern)
-        if [ -n "$GITHUB_TOKEN" ]; then
-          case "$GITHUB_TOKEN" in
-            gh[efpours]_?????????????????????????????????????)
-              ;;
-            *)
-              echo "::warning::GitHub token format may be invalid. Expected format: gh*_36characters"
-              ;;
-          esac
-        fi
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
+      with:
+        action-type: 'compress-images'
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
+        working-directory: ${{ inputs.working-directory }}
+        image-quality: ${{ inputs.image-quality }}
+        png-quality: ${{ inputs.png-quality }}
+        ignore-paths: ${{ inputs.ignore-paths }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta

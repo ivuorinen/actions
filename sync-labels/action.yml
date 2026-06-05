@@ -29,40 +29,11 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        LABELS_FILE: ${{ inputs.labels }}
-        GITHUB_TOKEN: ${{ inputs.token }}
-      run: |
-        set -eu
-
-        if [ -z "${LABELS_FILE:-}" ]; then
-          exit 0
-        fi
-
-        # Validate labels file path format
-        case "$LABELS_FILE" in
-          *".."*|"/"*)
-            echo "::error::Invalid labels file path: '$LABELS_FILE'. Path traversal not allowed"
-            exit 1
-            ;;
-        esac
-
-        # Validate labels file extension
-        case "$LABELS_FILE" in
-          *.yml|*.yaml)
-            ;;
-          *)
-            echo "::error::Invalid labels file extension: '$LABELS_FILE'. Expected .yml or .yaml file"
-            exit 1
-            ;;
-        esac
-
-        # Validate token is provided (basic check)
-        if [ -z "$GITHUB_TOKEN" ]; then
-          echo "::error::GitHub token is required for label synchronization"
-          exit 1
-        fi
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
+      with:
+        action-type: 'sync-labels'
+        labels: ${{ inputs.labels || '' }}
+        token: ${{ inputs.token }}
 
     - name: Run Label Syncer
       uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0

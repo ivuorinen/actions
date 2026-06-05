@@ -57,6 +57,19 @@ class CustomValidator(BaseValidator):
                 "working-directory",
             )
 
+        # A CustomValidator REPLACES convention validation, so every other input
+        # the action accepts and forwards (tflint-version, email, username,
+        # config-file, max-retries, fail-on-error, ...) would otherwise reach
+        # tflint unvalidated. Chain to the action's rules.yml conventions so they
+        # are checked too (nitpicker N-130).
+        from validators.conventions import ConventionBasedValidator
+
+        convention_validator = ConventionBasedValidator(self.action_type)
+        valid &= convention_validator.validate_inputs(inputs)
+        for error in convention_validator.errors:
+            if error not in self.errors:
+                self.add_error(error)
+
         return valid
 
     def get_required_inputs(self) -> list[str]:

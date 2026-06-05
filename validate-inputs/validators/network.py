@@ -133,6 +133,16 @@ class NetworkValidator(BaseValidator):
                 self.add_error(f'Potential security injection in {name}: contains "{pattern}"')
                 return False
 
+        # Percent-encoded payloads (%0d%0a CRLF, %2e%2e traversal, %00 NUL) slip
+        # past the raw check above. Mirrored in
+        # SecurityValidator.validate_url_security — keep both in lockstep.
+        lowered = value.lower()
+        if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
+            self.add_error(
+                f"Potential security injection in {name}: encoded control/traversal sequence",
+            )
+            return False
+
         # Basic URL validation (with optional port)
         # Hostname labels allow only letters, digits, hyphens (no underscore per RFC 952/1123)
         url_pattern = r"^https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s<>]*)?$"

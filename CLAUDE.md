@@ -15,7 +15,9 @@
 
 ### Folders
 
-- `.claude/hooks/` – Claude Code hook scripts (auto-format, lint, block edits)
+- `.claude/hooks/` – Claude Code hook scripts (auto-format, lint, block edits).
+  Files are tracked in git but may be locally gitignored by a user-level
+  `**/.claude/*` rule; updating them requires `git add -f` to stage.
 - `.claude/skills/` – Claude Code skills (see Skills & Subagents section below)
 - `.claude/agents/` – Claude Code subagents (see Skills & Subagents section below)
 - `.github/` – Workflows/templates
@@ -35,7 +37,8 @@ Edit/Write (ruff for .py, shfmt for .sh, prettier for
 - `rules.yml` — auto-generated, use `make update-validators`
 - Action `README.md` — auto-generated, use `make docs`
 - `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
-- Bash-isms in .sh/action.yml — blocked, must be POSIX sh
+- Bash-isms in .sh/action.yml — blocked, must be POSIX sh.
+  Exempt: anything under `_tests/*` or `*/_tests/*` (intentionally bash).
 
 **Hook schema**: `matcher` is a regex string matching tool names
 (e.g. `"Edit|Write"`), not an object. File filtering done in hook
@@ -47,7 +50,7 @@ in hook commands
 ### Skills & Subagents
 
 | When                                        | Run                                       |
-|---------------------------------------------|-------------------------------------------|
+| ------------------------------------------- | ----------------------------------------- |
 | After modifying an action                   | `/action-health <name>`                   |
 | After creating an action modeled on another | `/compare-actions <source> <new>`         |
 | Before creating a PR                        | `/pin-check` and `/security-audit`        |
@@ -55,8 +58,8 @@ in hook commands
 | Before a release                            | `/changelog` and `/validate`              |
 | Periodically or on large changes            | Use `action-consistency-auditor` subagent |
 
-**Available skills**: `/action-health`, `/compare-actions`,
-`/security-audit`, `/pin-check`, `/changelog`, `/release`,
+**Available skills** (10): `/action-health`, `/adversarial-reviewer`,
+`/compare-actions`, `/security-audit`, `/pin-check`, `/changelog`, `/release`,
 `/test-action`, `/new-action`, `/validate`
 
 **Available subagents**: `action-validator`,
@@ -87,9 +90,14 @@ Validation (validate-inputs)
 
 ## Commands
 
-**Main**: `make all` (install-tools+update-validators+docs+update-catalog+format+lint+precommit), `make dev` (format+lint), `make lint`, `make format`, `make docs`, `make test`
+**Main**:
 
-**Testing**: `make test-python`, `make test-python-coverage`, `make test-actions`, `make test-update-validators`, `make test-coverage`
+- `make all` — install-tools + update-validators + docs + update-catalog + format + lint + precommit
+- `make dev` — format + lint (fast iteration loop)
+- `make ci` — check + docs + lint, no formatting (CI parity)
+- Individual: `make lint`, `make format`, `make docs`, `make test`
+
+**Testing**: `make test-python`, `make test-python-coverage`, `make test-actions`, `make test-update-validators`, `make test-coverage`, `make test-unit`, `make test-integration`, `make test-action ACTION=<name>`
 
 **Validation**: `make update-validators`, `make update-validators-dry`
 
@@ -109,7 +117,10 @@ ShellSpec (`_tests/`) + pytest (`validate-inputs/tests/`). Full coverage + indep
 
 ## Architecture - Critical Prevention (Zero Tolerance)
 
-Rules enforced via `.claude/rules/`. Reference patterns:
+Rules enforced via `.claude/rules/` — every file in that directory is mandatory and
+non-negotiable. Read them all before acting on the codebase. Key cross-cutting rules:
+`context-mode-always.md`, `no-partial-implementations.md`, `fix-pre-existing-issues.md`.
+Reference patterns:
 
 ### GITHUB_OUTPUT Pattern
 
@@ -194,10 +205,27 @@ Instead use:
 
 ### REDIRECTED tools — use sandbox equivalents
 
-#### Bash (>20 lines output)
+#### Bash (only `git commit` and `git push`)
 
-Bash is ONLY for: `git`, `mkdir`, `rm`, `mv`, `cd`, `ls`, `npm install`, `pip install`, and other short-output commands.
-For everything else, use:
+Bash is permitted for exactly two commands: `git commit` and `git push`. Nothing
+else uses Bash — every other command, whether it reads or mutates state, goes
+through context-mode (file content goes through `Edit`/`Write`). This keeps all
+terminal output out of the context window; there is no "short output" or
+"state-mutating" exemption.
+
+- `git commit` / `git push` (Bash): must run as real git; their hook/SHA/ref output
+  is the one accepted source of terminal output.
+- Other mutations — `git add`, `git fetch`/`checkout`/`branch`/`reset`/..., `mkdir`,
+  `rm`, `mv`, `cp`, `chmod`, package installers (`uv sync`, `npm/pip install`),
+  every `make` target, every `gh` write — go through context-mode. `ctx_execute`
+  persists filesystem and git-index changes to the real repo, so stage with
+  `ctx_execute("git add <paths>")`, then `git commit` in Bash.
+- Every read-side command — `ls`, `cat`, `grep`, `find`, `wc`, `git status`/`diff`/
+  `log`, `make lint`/`test`, `gh` queries — goes through context-mode.
+
+See `.claude/rules/context-mode-always.md` for the full policy. A PreToolUse hook
+(`route-bash-to-context-mode.sh`) enforces it: Bash calls other than `git commit` /
+`git push` are blocked with a redirect to context-mode.
 
 - `ctx_batch_execute(commands, queries)` — run multiple commands + search in ONE call
 - `ctx_execute(language: "shell", code: "...")` — run in sandbox, only stdout enters context
@@ -205,11 +233,14 @@ For everything else, use:
 #### Read (for analysis)
 
 If you are reading a file to **Edit** it → Read is correct (Edit needs content in context).
-If you are reading to **analyze, explore, or summarize** → use `ctx_execute_file(path, language, code)` instead. Only your printed summary enters context. The raw file content stays in the sandbox.
+If you are reading to **analyze, explore, or summarize** → use
+`ctx_execute_file(path, language, code)` instead. Only your printed summary enters
+context. The raw file content stays in the sandbox. Output size of the file is
+irrelevant.
 
-#### Grep (large results)
+#### Grep (always)
 
-Grep results can flood context. Use `ctx_execute(language: "shell", code: "grep ...")` to run searches in sandbox. Only your printed summary enters context.
+All grep/search operations go through context-mode: `ctx_execute(language: "shell", code: "grep ...")`. Output size is irrelevant — a one-match grep today becomes a flood after one followup.
 
 ### Tool selection hierarchy
 
@@ -234,7 +265,7 @@ You do NOT need to manually instruct subagents about context-mode.
 ### ctx commands
 
 | Command       | Action                                                                                |
-|---------------|---------------------------------------------------------------------------------------|
+| ------------- | ------------------------------------------------------------------------------------- |
 | `ctx stats`   | Call the `ctx_stats` MCP tool and display the full output verbatim                    |
 | `ctx doctor`  | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist  |
 | `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |

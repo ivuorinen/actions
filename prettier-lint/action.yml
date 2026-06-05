@@ -91,176 +91,23 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        MODE: ${{ inputs.mode }}
-        WORKING_DIRECTORY: ${{ inputs.working-directory }}
-        PRETTIER_VERSION: ${{ inputs.prettier-version }}
-        CONFIG_FILE: ${{ inputs.config-file }}
-        IGNORE_FILE: ${{ inputs.ignore-file }}
-        FILE_PATTERN: ${{ inputs.file-pattern }}
-        CACHE: ${{ inputs.cache }}
-        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
-        REPORT_FORMAT: ${{ inputs.report-format }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-        PLUGINS: ${{ inputs.plugins }}
-        EMAIL: ${{ inputs.email }}
-        USERNAME: ${{ inputs.username }}
-      run: |
-        set -eu
-
-        # Validate mode
-        case "$MODE" in
-          "check"|"fix")
-            echo "Mode: $MODE"
-            ;;
-          *)
-            echo "::error::Invalid mode: '$MODE'. Must be 'check' or 'fix'"
-            exit 1
-            ;;
-        esac
-
-        # Validate working directory
-        if [ ! -d "$WORKING_DIRECTORY" ]; then
-          echo "::error::Working directory not found at '$WORKING_DIRECTORY'"
-          exit 1
-        fi
-
-        # Validate working directory path security
-        case "$WORKING_DIRECTORY" in
-          *..*)
-            echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
-            exit 1
-            ;;
-        esac
-
-        # Validate Prettier version format
-        if [ -n "$PRETTIER_VERSION" ] && [ "$PRETTIER_VERSION" != "latest" ]; then
-          case "$PRETTIER_VERSION" in
-            [0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*|[0-9]*.[0-9]*.[0-9]*-*)
-              ;;
-            *)
-              echo "::error::Invalid prettier-version format: '$PRETTIER_VERSION'. Expected format: X.Y.Z or 'latest'"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate config file path
-        if [ "$CONFIG_FILE" != ".prettierrc" ]; then
-          case "$CONFIG_FILE" in
-            *..*)
-              echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate ignore file path
-        if [ "$IGNORE_FILE" != ".prettierignore" ]; then
-          case "$IGNORE_FILE" in
-            *..*)
-              echo "::error::Invalid ignore file path: '$IGNORE_FILE'. Path traversal not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate boolean inputs
-        validate_boolean() {
-          value="$1"
-          name="$2"
-
-          case "$value" in
-            true|True|TRUE|false|False|FALSE)
-              ;;
-            *)
-              echo "::error::Invalid boolean value for $name: '$value'. Expected: true or false"
-              exit 1
-              ;;
-          esac
-        }
-
-        validate_boolean "$CACHE" "cache"
-        validate_boolean "$FAIL_ON_ERROR" "fail-on-error"
-
-        # Validate report format
-        case "$REPORT_FORMAT" in
-          json|sarif)
-            ;;
-          *)
-            echo "::error::Invalid report-format: '$REPORT_FORMAT'. Must be one of: json, sarif"
-            exit 1
-            ;;
-        esac
-
-        # Validate max retries
-        case "$MAX_RETRIES" in
-          ''|*[!0-9]*)
-            echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-            exit 1
-            ;;
-        esac
-
-        if [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        # Validate email and username for fix mode
-        if [ "$MODE" = "fix" ]; then
-          case "$EMAIL" in
-            *@*.*) ;;
-            *)
-              echo "::error::Invalid email format: '$EMAIL'. Expected valid email address"
-              exit 1
-              ;;
-          esac
-
-          username="$USERNAME"
-
-          if [ ${#username} -gt 39 ]; then
-            echo "::error::Username too long: ${#username} characters. GitHub usernames are max 39 characters"
-            exit 1
-          fi
-
-          case "$username" in
-            *[!a-zA-Z0-9-]*)
-              echo "::error::Invalid username characters in '$username'. Only letters, digits, and hyphens allowed"
-              exit 1
-              ;;
-          esac
-
-          case "$username" in
-            -*|*-)
-              echo "::error::Invalid username '$username'. Cannot start or end with hyphen"
-              exit 1
-              ;;
-          esac
-
-          case "$username" in
-            *--*)
-              echo "::error::Invalid username '$username'. Consecutive hyphens not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate plugins format if provided
-        if [ -n "$PLUGINS" ]; then
-          case "$PLUGINS" in
-            *[!a-zA-Z0-9@/._,-]*)
-              echo "::error::Invalid plugins value: '$PLUGINS'. Only package names with optional scopes allowed"
-              exit 1
-              ;;
-          esac
-          if ! echo "$PLUGINS" | grep -Eq '^(@[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_.-]+(,(@[a-zA-Z0-9_-]+/)?[a-zA-Z0-9_.-]+)*$'; then
-            echo "::error::Invalid plugins format: '$PLUGINS'. Expected comma-separated package names (e.g., 'prettier-plugin-foo,@org/prettier-plugin-bar')"
-            exit 1
-          fi
-        fi
-
-        echo "Input validation completed successfully"
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
+      with:
+        action-type: 'prettier-lint'
+        mode: ${{ inputs.mode }}
+        working-directory: ${{ inputs.working-directory }}
+        prettier-version: ${{ inputs.prettier-version }}
+        config-file: ${{ inputs.config-file }}
+        ignore-file: ${{ inputs.ignore-file }}
+        file-pattern: ${{ inputs.file-pattern }}
+        cache: ${{ inputs.cache }}
+        fail-on-error: ${{ inputs.fail-on-error }}
+        report-format: ${{ inputs.report-format }}
+        max-retries: ${{ inputs.max-retries }}
+        plugins: ${{ inputs.plugins }}
+        token: ${{ inputs.token }}
+        username: ${{ inputs.username }}
+        email: ${{ inputs.email }}
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta

@@ -86,123 +86,23 @@ runs:
   steps:
     - name: Validate Inputs
       id: validate
-      shell: sh
-      env:
-        WORKING_DIRECTORY: ${{ inputs.working-directory }}
-        GOLANGCI_LINT_VERSION: ${{ inputs.golangci-lint-version }}
-        GO_VERSION: ${{ inputs.go-version }}
-        CONFIG_FILE: ${{ inputs.config-file }}
-        TIMEOUT: ${{ inputs.timeout }}
-        CACHE: ${{ inputs.cache }}
-        FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
-        ONLY_NEW_ISSUES: ${{ inputs.only-new-issues }}
-        DISABLE_ALL: ${{ inputs.disable-all }}
-        REPORT_FORMAT: ${{ inputs.report-format }}
-        MAX_RETRIES: ${{ inputs.max-retries }}
-        ENABLE_LINTERS: ${{ inputs.enable-linters }}
-        DISABLE_LINTERS: ${{ inputs.disable-linters }}
-      run: |
-        set -eu
-
-        # Validate working directory exists
-        if [ ! -d "$WORKING_DIRECTORY" ]; then
-          echo "::error::Working directory not found at '$WORKING_DIRECTORY'"
-          exit 1
-        fi
-
-        # Validate working directory path security (prevent traversal)
-        case "$WORKING_DIRECTORY" in
-          *..*)
-            echo "::error::Invalid working directory path: '$WORKING_DIRECTORY'. Path traversal not allowed"
-            exit 1
-            ;;
-        esac
-
-        # Validate golangci-lint version format
-        if [ -n "$GOLANGCI_LINT_VERSION" ] && [ "$GOLANGCI_LINT_VERSION" != "latest" ]; then
-          if ! echo "$GOLANGCI_LINT_VERSION" | grep -Eq '^v?[0-9]+\.[0-9]+\.[0-9]+(-[a-zA-Z0-9.-]+)?$'; then
-            echo "::error::Invalid golangci-lint-version format: '$GOLANGCI_LINT_VERSION'. Expected format: vX.Y.Z or 'latest' (e.g., v1.55.2, latest)"
-            exit 1
-          fi
-        fi
-
-        # Validate Go version format
-        if [ -n "$GO_VERSION" ] && [ "$GO_VERSION" != "stable" ]; then
-          if ! echo "$GO_VERSION" | grep -Eq '^[0-9]+(\.[0-9]+(\.[0-9]+)?)?$'; then
-            echo "::error::Invalid go-version format: '$GO_VERSION'. Expected format: X.Y or X.Y.Z or 'stable' (e.g., 1.21, 1.21.5, stable)"
-            exit 1
-          fi
-        fi
-
-        # Validate config file path if not default
-        if [ "$CONFIG_FILE" != ".golangci.yml" ]; then
-          case "$CONFIG_FILE" in
-            *..*)
-              echo "::error::Invalid config file path: '$CONFIG_FILE'. Path traversal not allowed"
-              exit 1
-              ;;
-          esac
-        fi
-
-        # Validate timeout format (duration with unit)
-        if ! echo "$TIMEOUT" | grep -Eq '^[0-9]+(ns|us|µs|ms|s|m|h)$'; then
-          echo "::error::Invalid timeout format: '$TIMEOUT'. Expected format with unit: 5m, 1h, 300s (e.g., 5m, 30s, 2h)"
-          exit 1
-        fi
-
-        # Validate boolean inputs
-        validate_boolean() {
-          _value="$1"
-          _name="$2"
-          _value_lower=$(echo "$_value" | tr '[:upper:]' '[:lower:]')
-
-          case "$_value_lower" in
-            true|false)
-              ;;
-            *)
-              echo "::error::Invalid boolean value for $_name: '$_value'. Expected: true or false"
-              exit 1
-              ;;
-          esac
-        }
-
-        validate_boolean "$CACHE" "cache"
-        validate_boolean "$FAIL_ON_ERROR" "fail-on-error"
-        validate_boolean "$ONLY_NEW_ISSUES" "only-new-issues"
-        validate_boolean "$DISABLE_ALL" "disable-all"
-
-        # Validate report format enumerated values
-        case "$REPORT_FORMAT" in
-          checkstyle|colored-line-number|github-actions|html|json|junit-xml|line-number|sarif|tab|teamcity|xml)
-            ;;
-          *)
-            echo "::error::Invalid report-format: '$REPORT_FORMAT'. Allowed values:" \
-                 "checkstyle, colored-line-number, github-actions, html, json, junit-xml, line-number, sarif, tab, teamcity, xml"
-            exit 1
-            ;;
-        esac
-
-        # Validate max retries (positive integer with reasonable upper limit)
-        if ! echo "$MAX_RETRIES" | grep -Eq '^[0-9]+$' || [ "$MAX_RETRIES" -le 0 ] || [ "$MAX_RETRIES" -gt 10 ]; then
-          echo "::error::Invalid max-retries: '$MAX_RETRIES'. Must be a positive integer between 1 and 10"
-          exit 1
-        fi
-
-        # Validate linter lists if provided
-        validate_linter_list() {
-          _linter_list="$1"
-          _name="$2"
-
-          if [ -n "$_linter_list" ]; then
-            if ! echo "$_linter_list" | grep -Eq '^[a-zA-Z0-9]+(,[a-zA-Z0-9]+)*$'; then
-              echo "::error::Invalid $_name format: '$_linter_list'. Expected comma-separated linter names (e.g., gosec,govet,staticcheck)"
-              exit 1
-            fi
-          fi
-        }
-
-        validate_linter_list "$ENABLE_LINTERS" "enable-linters"
-        validate_linter_list "$DISABLE_LINTERS" "disable-linters"
+      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
+      with:
+        action-type: 'go-lint'
+        working-directory: ${{ inputs.working-directory }}
+        golangci-lint-version: ${{ inputs.golangci-lint-version }}
+        go-version: ${{ inputs.go-version }}
+        config-file: ${{ inputs.config-file }}
+        timeout: ${{ inputs.timeout }}
+        cache: ${{ inputs.cache }}
+        fail-on-error: ${{ inputs.fail-on-error }}
+        only-new-issues: ${{ inputs.only-new-issues }}
+        disable-all: ${{ inputs.disable-all }}
+        report-format: ${{ inputs.report-format }}
+        max-retries: ${{ inputs.max-retries }}
+        enable-linters: ${{ inputs.enable-linters }}
+        disable-linters: ${{ inputs.disable-linters }}
+        token: ${{ inputs.token }}
 
     - name: Setup Go
       uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0
