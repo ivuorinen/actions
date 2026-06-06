@@ -15,8 +15,8 @@ if [ -z "$FILE_PATH" ]; then
 fi
 
 case "$FILE_PATH" in
-*/rules.yml)
-  # rules.yml should not be reached here (blocked by PreToolUse),
+*/validate.py)
+  # Generated validators should not be reached here (blocked by PreToolUse),
   # but skip formatting just in case
   exit 0
   ;;

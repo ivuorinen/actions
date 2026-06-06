@@ -24,15 +24,22 @@ Collect the SHA used for each common external action across all action.yml files
 
 Report which SHA each action uses. Flag any that differ from the majority.
 
-### 2. rules.yml coverage
+### 2. validate.py coverage
 
-Every action.yml should have a corresponding `rules.yml` in the same directory.
+Every action that declares inputs must have a generated `validate.py` in the same
+directory, its inputs must be covered by `_validation/spec.py`, and the action must
+forward each input as an `INPUT_*` env var to the validator step. The pytest suite
+`_validation/tests/test_spec.py` enforces all of this (spec coverage, required-input
+match, and env-var forwarding), so run it as part of the audit.
 
 ```bash
-# Find actions missing rules.yml
+# Find actions that declare inputs but are missing validate.py
 for dir in $(find . -name "action.yml" -not -path "./.git/*" -exec dirname {} \;); do
-  [ ! -f "$dir/rules.yml" ] && echo "MISSING: $dir/rules.yml"
+  grep -q '^inputs:' "$dir/action.yml" && [ ! -f "$dir/validate.py" ] && echo "MISSING: $dir/validate.py"
 done
+
+# Confirm spec coverage + env-var forwarding hold
+python3 -m pytest _validation/tests/test_spec.py
 ```
 
 ### 3. Token masking
@@ -87,8 +94,8 @@ Report findings grouped by check category:
 actions/checkout: 7 actions use abc123, 1 action uses def456
   OUTLIER: docker-build/action.yml uses def456
 
-## Missing rules.yml
-- new-action/ (no rules.yml)
+## Missing validate.py
+- new-action/ (declares inputs but no validate.py)
 
 ## Token Masking
 - npm-publish/action.yml: input 'token' not masked (line 23)
@@ -101,7 +108,7 @@ actions/checkout: 7 actions use abc123, 1 action uses def456
 - version-file-parser/action.yml:52 — uses echo instead of printf
 
 ## Branding
-- validate-inputs/action.yml — missing branding section
+- some-action/action.yml — missing branding section
 ```
 
 End with a summary: X actions checked, Y findings across Z categories.

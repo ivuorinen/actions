@@ -21,23 +21,22 @@ action-validator <action-name>/action.yml
 
 Report pass/fail.
 
-### 2. Check rules.yml exists and is current
+### 2. Check validate.py exists and is current
 
 ```bash
-# Check existence
-test -f <action-name>/rules.yml
+# Check existence (every action with inputs has a generated validator)
+test -f <action-name>/validate.py
 
-# Check if rules are current (dry-run regeneration and diff)
-make update-validators-dry 2>&1 | grep <action-name> || echo "No changes needed"
+# Check the committed validator is current (regenerates in memory and compares)
+python3 _validation/generate.py --check --action <action-name>
 ```
 
-If `rules.yml` does not exist, report as WARNING (not all actions require one).
+If the action declares inputs but `validate.py` does not exist, report as FAIL.
+If the action has no inputs, `validate.py` is not required — report as N/A.
+Never hand-edit `validate.py`; it is generated from `_validation/spec.py` +
+`_validation/kit.py` via `make update-validators`.
 
-### 3. Check CustomValidator.py if needed
-
-If `rules.yml` exists and contains `custom` conventions, verify that `validate-inputs/validators/<action-name>/CustomValidator.py` exists.
-
-### 4. Check README.md is up-to-date
+### 3. Check README.md is up-to-date
 
 ```bash
 # Generate fresh docs and check for drift
@@ -48,11 +47,11 @@ diff <action-name>/README.md /tmp/readme-backup.md
 cp /tmp/readme-backup.md <action-name>/README.md
 ```
 
-### 5. Check tests exist
+### 4. Check tests exist
 
 Look for test files in `_tests/unit/<action-name>/` or `_tests/` that reference the action. Report MISSING if no tests found.
 
-### 6. Check shell script quality
+### 5. Check shell script quality
 
 Scan all `run:` blocks in `<action-name>/action.yml`:
 
@@ -60,7 +59,7 @@ Scan all `run:` blocks in `<action-name>/action.yml`:
 - Verify `GITHUB_OUTPUT` writes use `printf 'key=%s\n' "$value"` format (not `echo` or `printf '%s\n' "key=$value"`)
 - Report any violations with line numbers
 
-### 7. Check action refs are SHA-pinned
+### 6. Check action refs are SHA-pinned
 
 Scan all `uses:` lines in `<action-name>/action.yml`:
 
@@ -68,7 +67,7 @@ Scan all `uses:` lines in `<action-name>/action.yml`:
 - Internal actions must use `ivuorinen/actions/<name>@<sha>` format
 - Report any violations with line numbers
 
-### 8. Summary
+### 7. Summary
 
 Print a table:
 
@@ -76,8 +75,7 @@ Print a table:
 Action: <action-name>
 --------------------------------------------------
 action-validator    PASS / FAIL
-rules.yml           PASS / WARN (missing) / FAIL (outdated)
-CustomValidator.py  PASS / WARN (missing) / N/A
+validate.py         PASS / FAIL (missing/outdated) / N/A (no inputs)
 README.md           PASS / FAIL (outdated)
 Tests               PASS / WARN (missing)
 set -eu             PASS / FAIL (N violations)
