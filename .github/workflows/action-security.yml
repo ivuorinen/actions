@@ -4,6 +4,8 @@ name: Action Security
 
 on:
   push:
+    branches:
+      - main
     paths:
       - '**/action.yml'
   pull_request:
