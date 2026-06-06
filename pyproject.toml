@@ -24,7 +24,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["validate-inputs"]
+packages = ["_validation"]
 
 [tool.ruff]
 # Ruff configuration for Python linting and formatting
@@ -162,21 +162,13 @@ unfixable = []
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [tool.ruff.lint.per-file-ignores]
-# CustomValidator files need imports after sys.path manipulation
-"**/CustomValidator.py" = [
-    "E402",    # Allow module level imports not at top of file (needed for sys.path manipulation)
-    "D",       # No docstrings required in custom validators
-    "ANN",     # No annotations required in custom validators
-    "C901",    # Allow complex functions in custom validators
-    "PLR091",  # Allow complex functions in custom validators
-]
-
 # Test files can have additional relaxed rules
 "**/_tests/**" = [
     "S101",    # Allow assert statements in tests
     "PLR2004", # Allow magic values in tests
     "ANN",     # No annotations required in tests
     "D",       # No docstrings required in tests
+    "E402",    # Allow imports after sys.path manipulation (harness imports the kit)
 ]
 
 # Harness is internal test infrastructure; exception-message style nits
@@ -196,7 +188,7 @@ dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
     "PT006",   # Allow string parametrize arguments in pytest
     "SLF001",  # Allow access to private members in tests
     "N999",    # Allow hyphens in test filenames (match action names)
-    "E402",    # Allow imports after sys.path manipulation for CustomValidator tests
+    "E402",    # Allow imports after sys.path manipulation in tests
 ]
 
 # Scripts can have relaxed import rules
@@ -251,7 +243,7 @@ skip-magic-trailing-comma = false
 
 [tool.pytest.ini_options]
 # Pytest configuration
-testpaths = ["validate-inputs/tests"]
+testpaths = ["_validation/tests"]
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -270,7 +262,7 @@ markers = [
 
 [tool.coverage.run]
 # Coverage configuration - focus on application code only
-source = ["validate-inputs"]
+source = ["_validation"]
 omit = [
     "**/_tests/*",
     "*/site-packages/*",
@@ -293,11 +285,9 @@ exclude_lines = [
 
 [tool.pyright]
 typeCheckingMode = "basic"
-venv = ".venv"
-venvPath = "./validate-inputs"
 extraPaths = [
-  "./validate-inputs",
-  "./validate-inputs/tests",
+  "./_validation",
+  "./_validation/tests",
   "./_tests/framework",
   "./_tests/shared",
 ]
