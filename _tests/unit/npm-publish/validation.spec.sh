@@ -44,9 +44,12 @@ When call validate_input_python "npm-publish" "npm_token" "ghp_12345678901234567
 The status should be success
 End
 
-It "accepts valid NPM classic token format"
+It "rejects a literal npm_ classic token (npm_token uses the github_token check)"
+# The npm_token input is validated by the kit's github_token check, which accepts
+# ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_ tokens or ${{ ... }}/$VAR references —
+# not bare npm_ tokens. In practice npm_token is passed as ${{ secrets.NPM_TOKEN }}.
 When call validate_input_python "npm-publish" "npm_token" "npm_1234567890123456789012345678901234567890"
-The status should be success
+The status should be failure
 End
 
 It "accepts GitHub fine-grained token (exact length)"

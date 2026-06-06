@@ -1,0 +1,17 @@
+---
+name: Uses curl Fixture
+description: 'Fixture: calls curl and writes the result to $GITHUB_OUTPUT.'
+outputs:
+  body:
+    description: 'the fetched body'
+    value: ${{ steps.fetch.outputs.body }}
+
+runs:
+  using: composite
+  steps:
+    - id: fetch
+      shell: sh
+      run: |
+        set -eu
+        body=$(curl -sSf https://harness.invalid/)
+        printf 'body=%s\n' "$body" >> "$GITHUB_OUTPUT"

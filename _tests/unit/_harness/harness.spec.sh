@@ -27,9 +27,9 @@ End
 End
 
 Describe "uses-gh fixture"
-It "fails when gh is not mocked (gh absent from restricted PATH)"
-# The harness restricts PATH so unmocked external commands aren't found.
-# Exact error message varies by shell; we only assert "not found".
+It "fails not-found when gh is not mocked"
+# The harness shadows unmocked external commands with a not-found stub, so an
+# unmocked gh fails as "not found" even on runners where gh ships in /usr/bin.
 When call run_step "${FIXTURES}/uses-gh" "fetch"
 The status should not be success
 The stderr should include "not found"
@@ -40,6 +40,17 @@ mock_command gh "release list *" "v2026.4.0"
 When call run_step "${FIXTURES}/uses-gh" "fetch"
 The status should be success
 Assert expect_output tag "v2026.4.0"
+End
+End
+
+Describe "uses-curl fixture (external CLI present in /usr/bin)"
+It "blocks an unmocked external command even when it exists on the system PATH"
+# curl ships in /usr/bin on CI runners (and macOS), so this guards the
+# regression where gh in /usr/bin slipped past the old system-dir PATH
+# restriction: the harness must shadow it regardless of where it is installed.
+When call run_step "${FIXTURES}/uses-curl" "fetch"
+The status should not be success
+The stderr should include "not found"
 End
 End
 

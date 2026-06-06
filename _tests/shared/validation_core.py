@@ -1,538 +1,39 @@
 #!/usr/bin/env python3
-"""
-Shared validation core module for GitHub Actions.
+"""Shared validation core for the ShellSpec test harness.
 
-This module consolidates all validation logic to eliminate duplication between
-the framework validation and the centralized validator. It provides:
+The actual input checks live in ``_validation/kit.py`` (the single source of truth); this
+module delegates to ``kit.CHECKS`` via ``_validation/spec.py`` and adds:
 
-1. Standardized token patterns (resolved GitHub documentation discrepancies)
-2. Common validation functions
-3. Unified security validation
-4. Centralized YAML parsing utilities
-5. Command-line interface for ShellSpec test integration
+1. action.yml parsing utilities (name, inputs, outputs, runs-using, input properties)
+2. a command-line interface for ShellSpec test integration (``--validate``, ``--property``,
+   ``--inputs``, ``--outputs``, ``--name``, ``--runs-using``, ``--validate-yaml``)
 
-This replaces inline Python code in ShellSpec tests and duplicate functions
-across multiple files.
+It holds no validation patterns of its own — to change what an input accepts, edit
+``_validation/kit.py`` and run ``make update-validators``.
 """
 
 from __future__ import annotations
 
 import argparse
 from pathlib import Path
-import re
 import sys
 from typing import Any
 
 import yaml  # pylint: disable=import-error
 
+# Delegate input validation to the canonical per-action validation kit
+# (_validation/kit.py + _validation/spec.py) — the single source of truth that
+# also generates each action's self-contained validate.py. Adding the directory
+# to sys.path lets this CLI import the same checks the actions run.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_validation"))
+# The harness runs many of these CLI processes in parallel; skipping .pyc writes for
+# kit/spec avoids a cold-cache bytecode-compile race on the first run.
+sys.dont_write_bytecode = True
+import kit  # pylint: disable=import-error,wrong-import-position
+from spec import SPECS  # pylint: disable=import-error,wrong-import-position
+
 # Default value for unknown items (used by ActionFileParser)
 DEFAULT_UNKNOWN = "Unknown"
-
-
-class ValidationCore:
-    """Core validation functionality with standardized patterns and functions."""
-
-    # Standardized token patterns - resolved based on GitHub documentation
-    # Fine-grained tokens are 50-255 characters with underscores.
-    # Installation tokens (ghs_) have two formats: stateful (40 chars) and
-    # stateless JWT (~520 chars, dots+underscores) — GitHub 2026-04-27 rollout.
-    TOKEN_PATTERNS = {
-        # N-119: prefixes match token.py exactly — ghe/gho/ghp/ghr/ghs/ghu.
-        # No `ghf_` exists; the old class `[efpousr]` over-accepted it.
-        "classic": r"^gh[eoprsu]_[a-zA-Z0-9]{36}$",
-        "fine_grained": r"^github_pat_[A-Za-z0-9_]{50,255}$",  # 50-255 chars with underscores
-        "installation": r"^ghs_[A-Za-z0-9._]{36,1024}$",
-        "npm_classic": r"^npm_[a-zA-Z0-9]{40,}$",  # NPM classic tokens
-    }
-
-    # Injection detection pattern - characters commonly used in command injection
-    INJECTION_CHARS_PATTERN = r"[;&|`$()]"
-
-    # Metacharacters that are NEVER legitimate in a typed input.
-    _TYPED_DENY_PATTERN = re.compile(
-        r"""
-        ;                    # command separator
-        | &&                 # logical AND
-        | \|\|               # logical OR
-        | `                  # backtick command substitution
-        | \$\(               # $() command substitution
-        | \$\{               # ${} parameter expansion reaching shell
-        | \|\s*[A-Za-z]      # pipe into a command
-        | >\s*[/A-Za-z]      # redirect out
-        | <\s*[/A-Za-z]      # redirect in
-        """,
-        re.VERBOSE,
-    )
-
-    # Inputs whose declared convention legitimately allows shell metachars.
-    # Kept empty on purpose — update only when a real input needs it.
-    _CONVENTION_ALLOWS_SHELL_METACHARS: set[str] = set()
-
-    # Legacy allowlist, kept as a fallback ONLY for inputs with no convention.
-    _LEGACY_INJECTION_PATTERNS = [
-        r";\s*(rm|del|format|shutdown|reboot)",
-        r"&&\s*(rm|del|format|shutdown|reboot)",
-        r"\|\s*(rm|del|format|shutdown|reboot)",
-        r"`[^`]*`",
-        r"\$\([^)]*\)",
-        r"\.\./.*;\s*(rm|del|format|shutdown|reboot)",
-        r"\.\.\\+.*;\s*(rm|del|format|shutdown|reboot)",
-    ]
-
-    # Back-compat alias: existing callers import this name.
-    SECURITY_PATTERNS = _LEGACY_INJECTION_PATTERNS
-
-    def __init__(self):
-        """Initialize the validation core."""
-
-    def validate_github_token(self, token: str, *, required: bool = False) -> tuple[bool, str]:
-        """
-        Validate GitHub token format using standardized PCRE patterns.
-
-        Args:
-            token: The token to validate
-            required: Whether the token is required
-
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        if not token or token.strip() == "":
-            if required:
-                return False, "Token is required but not provided"
-            return True, ""
-
-        # Allow GitHub Actions expressions
-        if token == "${{ github.token }}" or (token.startswith("${{") and token.endswith("}}")):
-            return True, ""
-
-        # Allow environment variable references (e.g., $GITHUB_TOKEN)
-        if re.match(r"^\$[A-Za-z_][\w]*$", token):
-            return True, ""
-
-        # Check against standardized token patterns
-        for pattern in self.TOKEN_PATTERNS.values():
-            if re.match(pattern, token):
-                return True, ""
-
-        return (
-            False,
-            "Invalid token format. Expected one of: "
-            "gh[eoprsu]_[a-zA-Z0-9]{36} (40 chars total — ghp/gho/ghu/ghs/ghr/ghe), "
-            "ghs_[A-Za-z0-9._]{36,1024} (40-1028 chars total — installation; "
-            "stateful or stateless JWT), "
-            "github_pat_[A-Za-z0-9_]{50,255} (fine-grained PAT), "
-            "npm_[a-zA-Z0-9]{40,} (NPM classic), "
-            "a ${{ ... }} expression (e.g. ${{ github.token }}, "
-            "${{ secrets.GITHUB_TOKEN }}), "
-            "or a $VAR env-var reference",
-        )
-
-    def validate_namespace_with_lookahead(self, namespace: str) -> tuple[bool, str]:
-        """
-        Validate namespace using lookahead pattern for .NET namespaces.
-
-        Args:
-            namespace: The namespace to validate
-
-        Returns:
-            Tuple of (is_valid, error_message)
-        """
-        if not namespace or namespace.strip() == "":
-            return False, "Namespace cannot be empty"
-
-        # Pattern with lookahead ensures hyphens are only allowed when followed by alphanumeric
-        pattern = r"^[a-zA-Z0-9]([a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$"
-
-        if re.match(pattern, namespace):
-            return True, ""
-        return (
-            False,
-            "Invalid namespace format. Must be 1-39 characters, "
-            "alphanumeric and hyphens, no trailing hyphens",
-        )
-
-    def validate_security_patterns(
-        self,
-        input_value: str,
-        input_name: str = "",
-        *,
-        convention: str | None = None,
-    ) -> tuple[bool, str]:
-        """Reject shell metacharacters in typed inputs.
-
-        If ``convention`` is a known type (anything not in the allow-set),
-        any shell metacharacter rejects. If ``convention`` is None, fall
-        back to the legacy allowlist-of-dangerous-commands and log a warning
-        so the gap is visible in CI logs.
-        """
-        if not input_value or input_value.strip() == "":
-            return True, ""
-
-        if convention is not None:
-            if convention in self._CONVENTION_ALLOWS_SHELL_METACHARS:
-                return True, ""
-            # ${{ ... }} expressions are evaluated server-side; not a shell risk.
-            # Non-greedy .+? accepts internal '}' chars like ${{ a || '' }}.
-            if re.fullmatch(r"\$\{\{.+?\}\}", input_value.strip()):
-                return True, ""
-            if self._TYPED_DENY_PATTERN.search(input_value):
-                return (
-                    False,
-                    f"Shell metacharacter detected in {input_name or 'input'} "
-                    f"(convention={convention})",
-                )
-            return True, ""
-
-        # No convention: legacy behavior + warning.
-        import logging
-
-        logging.getLogger(__name__).warning(
-            "validate_security_patterns called without a convention for "
-            "input=%r; falling back to legacy allowlist (incomplete)",
-            input_name,
-        )
-        for pattern in self._LEGACY_INJECTION_PATTERNS:
-            if re.search(pattern, input_value, re.IGNORECASE):
-                return (
-                    False,
-                    f"Potential security injection pattern detected in {input_name or 'input'}",
-                )
-        return True, ""
-
-    def validate_boolean(self, value: str, input_name: str) -> tuple[bool, str]:
-        """Validate boolean input with intelligent fallback for misclassified inputs."""
-        # Handle empty values
-        if not value:
-            return True, ""
-
-        # Standard boolean values
-        if value.lower() in ["true", "false"]:
-            return True, ""
-
-        # Intelligent fallback for misclassified inputs
-        # If input name suggests it should accept paths/directories, validate as such
-        if any(
-            keyword in input_name.lower()
-            for keyword in ["directories", "directory", "path", "file"]
-        ):
-            return self.validate_cache_directories(value)
-
-        return False, f"Input '{input_name}' must be 'true' or 'false'"
-
-    def validate_version_format(
-        self,
-        value: str,
-        *,
-        allow_v_prefix: bool = False,
-    ) -> tuple[bool, str]:
-        """Validate semantic version format."""
-        if value.lower() == "latest":
-            return True, ""
-        if not allow_v_prefix and value.startswith("v"):
-            return False, f"Version should not start with 'v': {value}"
-        value = value.removeprefix("v")  # Remove v prefix for validation
-        # Split validation to reduce complexity
-        # Base version: major.minor.patch (or simpler forms)
-        base_pattern = r"^[\d]+(\.[\d]+)?(\.[\d]+)?$"
-        # Version with prerelease/build: major.minor.patch-prerelease+build
-        extended_pattern = r"^[\d]+(\.[\d]+)?(\.[\d]+)?[-+][0-9A-Za-z.-]+$"
-
-        if re.match(base_pattern, value) or re.match(extended_pattern, value):
-            return True, ""
-        return False, f"Invalid version format: {value}"
-
-    def validate_file_path(self, value: str, *, allow_traversal: bool = False) -> tuple[bool, str]:
-        """Validate file path format."""
-        if not value:
-            return True, ""
-
-        # Check for injection patterns
-        if re.search(self.INJECTION_CHARS_PATTERN, value):
-            return False, f"Potential injection detected in file path: {value}"
-
-        # Check for path traversal (unless explicitly allowed)
-        if not allow_traversal and ("../" in value or "..\\" in value):
-            return False, f"Path traversal not allowed: {value}"
-
-        # Check for absolute paths (often not allowed)
-        if value.startswith("/") or (len(value) > 1 and value[1] == ":"):
-            return False, f"Absolute paths not allowed: {value}"
-
-        return True, ""
-
-    def validate_docker_image_name(self, value: str) -> tuple[bool, str]:
-        """Validate docker image name format."""
-        if not value:
-            return True, ""
-        # Split validation into parts to reduce regex complexity
-        # Valid format: lowercase alphanumeric with separators (., _, __, -) and optional namespace
-        if not re.match(r"^[a-z0-9]", value):
-            return False, f"Invalid docker image name format: {value}"
-        if not re.match(r"^[a-z0-9._/-]+$", value):
-            return False, f"Invalid docker image name format: {value}"
-        # Check for invalid patterns
-        if value.endswith((".", "_", "-", "/")):
-            return False, f"Invalid docker image name format: {value}"
-        if "//" in value or ".." in value:
-            return False, f"Invalid docker image name format: {value}"
-        return True, ""
-
-    def validate_docker_tag(self, value: str) -> tuple[bool, str]:
-        """Validate Docker tag format."""
-        if not value:
-            return True, ""
-        # Docker tags must be valid ASCII and may contain lowercase and uppercase letters,
-        # digits, underscores, periods and dashes. Cannot start with period or dash.
-        # Max length is 128 characters.
-        if len(value) > 128:
-            return False, f"Docker tag too long (max 128 characters): {value}"
-        if not re.match(r"^[a-zA-Z0-9_][a-zA-Z0-9._-]*$", value):
-            return False, f"Invalid docker tag format: {value}"
-        return True, ""
-
-    def validate_php_extensions(self, value: str) -> tuple[bool, str]:
-        """Validate PHP extensions format."""
-        if not value:
-            return True, ""
-        if re.search(r"[;&|`$()@#]", value):
-            return False, f"Potential injection detected in PHP extensions: {value}"
-        if not re.match(r"^[a-zA-Z0-9_,\s]+$", value):
-            return False, f"Invalid PHP extensions format: {value}"
-        return True, ""
-
-    def validate_coverage_driver(self, value: str) -> tuple[bool, str]:
-        """Validate coverage driver."""
-        if value not in ["none", "xdebug", "pcov", "xdebug3"]:
-            return False, "Invalid coverage driver. Must be 'none', 'xdebug', 'pcov', or 'xdebug3'"
-        return True, ""
-
-    def validate_numeric_range(self, value: str, min_val: int, max_val: int) -> tuple[bool, str]:
-        """Validate numeric value within range."""
-        try:
-            num = int(value)
-            if min_val <= num <= max_val:
-                return True, ""
-            return False, f"Value must be between {min_val} and {max_val}, got {num}"
-        except ValueError:
-            return False, f"Invalid numeric value: {value}"
-
-    def validate_php_version(self, value: str) -> tuple[bool, str]:
-        """Validate PHP version format (allows X.Y and X.Y.Z)."""
-        if not value:
-            return True, ""
-        # PHP versions can be X.Y or X.Y.Z format
-        if re.match(r"^[\d]+\.[\d]+(\.[\d]+)?$", value):
-            return True, ""
-        return False, f"Invalid PHP version format: {value}"
-
-    def validate_composer_version(self, value: str) -> tuple[bool, str]:
-        """Validate Composer version (1 or 2)."""
-        if value in ["1", "2"]:
-            return True, ""
-        return False, f"Invalid Composer version. Must be '1' or '2', got '{value}'"
-
-    def validate_stability(self, value: str) -> tuple[bool, str]:
-        """Validate Composer stability."""
-        valid_stabilities = ["stable", "RC", "beta", "alpha", "dev"]
-        if value in valid_stabilities:
-            return True, ""
-        return False, f"Invalid stability. Must be one of: {', '.join(valid_stabilities)}"
-
-    def validate_cache_directories(self, value: str) -> tuple[bool, str]:
-        """Validate cache directories (comma-separated paths)."""
-        if not value:
-            return True, ""
-
-        # Split by comma and validate each directory
-        directories = [d.strip() for d in value.split(",")]
-        for directory in directories:
-            if not directory:
-                continue
-
-            # Basic path validation
-            if re.search(self.INJECTION_CHARS_PATTERN, directory):
-                return False, f"Potential injection detected in directory path: {directory}"
-
-            # Check for path traversal (both Unix and Windows)
-            if re.search(r"\.\.[/\\]", directory):
-                return False, f"Path traversal not allowed in directory: {directory}"
-
-            # Check for absolute paths
-            if directory.startswith("/") or (len(directory) > 1 and directory[1] == ":"):
-                return False, f"Absolute paths not allowed in directory: {directory}"
-
-        return True, ""
-
-    def validate_tools(self, value: str) -> tuple[bool, str]:
-        """Validate Composer tools format (allows @ for stability flags like dev-master@dev)."""
-        if not value:
-            return True, ""
-
-        # Check for injection patterns (@ removed to allow Composer stability flags)
-        if re.search(self.INJECTION_CHARS_PATTERN, value):
-            return False, f"Potential injection detected in tools: {value}"
-
-        return True, ""
-
-    def validate_numeric_range_1_10(self, value: str) -> tuple[bool, str]:
-        """Validate numeric value between 1 and 10."""
-        return self.validate_numeric_range(value, 1, 10)
-
-    def validate_enhanced_business_logic(
-        self,
-        action_name: str,
-        input_name: str,
-        value: str,
-    ) -> tuple[bool | None, str]:
-        """
-        Enhanced business logic validation for specific action/input combinations.
-        Returns (None, "") if no enhanced validation applies, otherwise returns validation result.
-        """
-        if not value:  # Empty values are generally allowed, except for specific cases
-            # Some inputs should not be empty even if they're optional
-            if action_name == "php-composer" and input_name == "composer-version":
-                return False, f"Empty {input_name} is not allowed"
-            return None, ""
-
-        # PHP Composer specific validations
-        if action_name == "php-composer":
-            return self._validate_php_composer_business_logic(input_name, value)
-
-        # Prettier-check specific validations
-        if action_name == "prettier-check":
-            return self._validate_prettier_check_business_logic(input_name, value)
-
-        # Add more action-specific validations here as needed
-
-        return None, ""  # No enhanced validation applies
-
-    def _validate_composer_version(self, value: str) -> tuple[bool, str]:
-        """Validate composer version input."""
-        if value not in ["1", "2"]:
-            return False, f"Composer version must be '1' or '2', got '{value}'"
-        return True, ""
-
-    def _validate_stability(self, value: str) -> tuple[bool, str]:
-        """Validate stability input."""
-        valid_stabilities = ["stable", "RC", "beta", "alpha", "dev"]
-        if value not in valid_stabilities:
-            return (
-                False,
-                f"Invalid stability '{value}'. Must be one of: {', '.join(valid_stabilities)}",
-            )
-        return True, ""
-
-    def _validate_php_version(self, value: str) -> tuple[bool, str]:
-        """Validate PHP version input."""
-        if not re.match(r"^[\d]+\.[\d]+(\.[\d]+)?$", value):
-            return False, f"Invalid PHP version format: {value}"
-
-        try:
-            major, minor = value.split(".")[:2]
-            major_num, minor_num = int(major), int(minor)
-
-            if major_num < 7:
-                return False, f"PHP version {value} is too old (minimum 7.0)"
-
-            if major_num > 20:
-                return False, f"Invalid PHP version: {value}"
-
-            if minor_num < 0 or minor_num > 99:
-                return False, f"Invalid PHP version: {value}"
-
-        except (ValueError, IndexError):
-            return False, f"Invalid PHP version format: {value}"
-        return True, ""
-
-    def _validate_extensions(self, value: str) -> tuple[bool, str]:
-        """Validate PHP extensions input."""
-        if re.search(r"[@#$&*(){}\[\]|\\]", value):
-            return False, f"Invalid characters in PHP extensions: {value}"
-        return True, ""
-
-    def _validate_tools(self, value: str) -> tuple[bool, str]:
-        """Validate tools input (@ allowed for Composer stability flags like dev-master@dev)."""
-        if re.search(r"[#$&*(){}\[\]|\\]", value):
-            return False, f"Invalid characters in tools specification: {value}"
-        return True, ""
-
-    def _validate_args(self, value: str) -> tuple[bool, str]:
-        """Validate args input."""
-        if re.search(self.INJECTION_CHARS_PATTERN, value):
-            return False, f"Potentially dangerous characters in args: {value}"
-        return True, ""
-
-    def _validate_php_composer_business_logic(
-        self,
-        input_name: str,
-        value: str,
-    ) -> tuple[bool | None, str]:
-        """Business logic validation specific to php-composer action."""
-        validators = {
-            "composer-version": self._validate_composer_version,
-            "stability": self._validate_stability,
-            "php": self._validate_php_version,
-            "extensions": self._validate_extensions,
-            "tools": self._validate_tools,
-            "args": self._validate_args,
-        }
-
-        if input_name in validators:
-            is_valid, error_msg = validators[input_name](value)
-            return is_valid, error_msg
-
-        return None, ""  # No specific validation for this input
-
-    def _validate_file_pattern_security(self, value: str) -> tuple[bool, str]:
-        """Validate file-pattern for security issues."""
-        if ".." in value:
-            return False, "Path traversal detected in file-pattern"
-        if value.startswith("/"):
-            return False, "Absolute path not allowed in file-pattern"
-        if "$" in value:
-            return False, "Shell expansion not allowed in file-pattern"
-        return True, ""
-
-    def _validate_plugins_security(self, value: str) -> tuple[bool, str]:
-        """Validate plugins for security issues."""
-        if re.search(self.INJECTION_CHARS_PATTERN, value):
-            return False, "Potentially dangerous characters in plugins"
-        if re.search(r"\$\{.*\}", value):
-            return False, "Variable expansion not allowed in plugins"
-        if re.search(r"\$\(.*\)", value):
-            return False, "Command substitution not allowed in plugins"
-        return True, ""
-
-    def _validate_prettier_check_business_logic(
-        self,
-        input_name: str,
-        value: str,
-    ) -> tuple[bool | None, str]:
-        """Business logic validation specific to prettier-check action."""
-        # Handle prettier-version specially (accepts "latest" or semantic version)
-        if input_name == "prettier-version":
-            if value == "latest":
-                return True, ""
-            # Otherwise validate as semantic version
-            return None, ""  # Let standard semantic version validation handle it
-
-        # Validate file-pattern for security issues
-        if input_name == "file-pattern":
-            return self._validate_file_pattern_security(value)
-
-        # Validate report-format enum
-        if input_name == "report-format":
-            if value == "":
-                return False, "report-format cannot be empty"
-            if value not in ["json", "sarif"]:
-                return False, f"Invalid report-format: {value}"
-            return True, ""
-
-        # Validate plugins for security issues
-        if input_name == "plugins":
-            return self._validate_plugins_security(value)
-
-        return None, ""  # No specific validation for this input
 
 
 class ActionFileParser:
@@ -668,163 +169,36 @@ def resolve_action_file_path(action_dir: str) -> str:
     return f"{action_dir}/action.yml"
 
 
-def _validate_no_prefix_version(validator: ValidationCore, input_value: str) -> tuple[bool, str]:
-    if not input_value or input_value.strip() == "":
+def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[bool, str]:
+    """Validate one input value by delegating to the canonical validation kit.
+
+    Looks up the action's spec (``_validation/spec.py``) to find the check type for
+    ``input_name``, then runs the matching ``kit.CHECKS`` function. Returns
+    ``(is_valid, error_message)``; ``error_message`` is empty on success. Inputs with
+    no spec entry, or no check for the given name, are treated as valid — the kit only
+    governs inputs it knows about.
+    """
+    action = Path(action_dir).name
+    spec = SPECS.get(action)
+    if spec is None:
         return True, ""
-    if input_value.strip().lower().startswith("v"):
-        return False, f'Version must not have a "v" prefix: "{input_value}"'
-    return validator.validate_version_format(input_value)
 
-
-def _validate_integer(input_value: str, *, non_negative: bool = False) -> tuple[bool, str]:
-    if not input_value or input_value.strip() == "":
+    checks = spec["checks"]
+    # action.yml input names use hyphens; spec keys mirror them, but be tolerant of
+    # the hyphen/underscore swap that env-var derivation introduces.
+    check_type = (
+        checks.get(input_name)
+        or checks.get(input_name.replace("-", "_"))
+        or checks.get(input_name.replace("_", "-"))
+    )
+    if check_type is None:
         return True, ""
-    try:
-        num = int(input_value.strip())
-        if num >= 0 if non_negative else num > 0:
-            return True, ""
-        label = "non-negative" if non_negative else "positive"
-        return False, f"Value must be {label}, got {num}"
-    except ValueError:
-        return False, f"Invalid integer: {input_value!r}"
 
+    if input_name in spec["required"] and input_value.strip() == "":
+        return False, f"Required input '{input_name}' cannot be empty"
 
-def _apply_validation_by_type(
-    validator: ValidationCore,
-    validation_type: str,
-    input_value: str,
-    input_name: str,
-    required_inputs: list,
-) -> tuple[bool, str]:
-    """Apply validation based on the validation type."""
-    version_types = {
-        "semantic_version",
-        "calver_version",
-        "flexible_version",
-        "strict_semantic_version",
-    }
-
-    validation_map = {
-        "github_token": lambda: validator.validate_github_token(
-            input_value, required=input_name in required_inputs
-        ),
-        "namespace_with_lookahead": lambda: validator.validate_namespace_with_lookahead(
-            input_value
-        ),
-        "boolean": lambda: validator.validate_boolean(input_value, input_name),
-        "file_path": lambda: validator.validate_file_path(input_value),
-        "docker_image_name": lambda: validator.validate_docker_image_name(input_value),
-        "docker_tag": lambda: validator.validate_docker_tag(input_value),
-        "php_extensions": lambda: validator.validate_php_extensions(input_value),
-        "coverage_driver": lambda: validator.validate_coverage_driver(input_value),
-        "php_version": lambda: validator.validate_php_version(input_value),
-        "composer_version": lambda: validator.validate_composer_version(input_value),
-        "stability": lambda: validator.validate_stability(input_value),
-        "cache_directories": lambda: validator.validate_cache_directories(input_value),
-        "tools": lambda: validator.validate_tools(input_value),
-        "numeric_range_1_10": lambda: validator.validate_numeric_range_1_10(input_value),
-        "no_prefix_version": lambda: _validate_no_prefix_version(validator, input_value),
-        "terraform_version": lambda: validator.validate_version_format(
-            input_value, allow_v_prefix=True
-        ),
-        "positive_integer": lambda: _validate_integer(input_value),
-        "non_negative_integer": lambda: _validate_integer(input_value, non_negative=True),
-    }
-
-    if validation_type in version_types:
-        return validator.validate_version_format(input_value)
-
-    if validation_type in validation_map:
-        return validation_map[validation_type]()
-
-    return True, ""  # Unknown validation type, assume valid
-
-
-def _load_and_validate_rules(
-    rules_file: Path,
-    input_name: str,
-    input_value: str,
-) -> tuple[str | None, dict, list]:
-    """Load validation rules and perform basic validation."""
-    try:
-        with Path(rules_file).open(encoding="utf-8") as f:
-            rules_data = yaml.safe_load(f)
-
-        conventions = rules_data.get("conventions", {})
-        overrides = rules_data.get("overrides", {})
-        required_inputs = rules_data.get("required_inputs", [])
-
-        # Check if input is required and empty; preserve required_inputs so caller can detect it
-        if input_name in required_inputs and (not input_value or input_value.strip() == ""):
-            return None, {}, required_inputs
-
-        # Get validation type
-        validation_type = overrides.get(input_name, conventions.get(input_name))
-        return validation_type, rules_data, required_inputs
-
-    except (OSError, yaml.YAMLError, KeyError, AttributeError):
-        return None, {}, []
-
-
-def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[bool | None, str]:
-    """Validate an input value for a specific action."""
-    validator = ValidationCore()
-
-    # Get action name for business logic and rules
-    action_name = Path(action_dir).name
-
-    # Load validation rules from action folder so security can type-check.
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent.parent
-    rules_file = project_root / action_name / "rules.yml"
-
-    resolved_convention: str | None = None
-    required_inputs: list = []
-    if rules_file.exists():
-        resolved_convention, _, required_inputs = _load_and_validate_rules(
-            rules_file,
-            input_name,
-            input_value,
-        )
-
-    # Always perform security validation first (convention-aware)
-    security_valid, security_error = validator.validate_security_patterns(
-        input_value, input_name, convention=resolved_convention
-    )
-    if not security_valid:
-        return False, security_error
-
-    # Check enhanced business logic first (takes precedence over general rules)
-    enhanced_validation = validator.validate_enhanced_business_logic(
-        action_name,
-        input_name,
-        input_value,
-    )
-    if enhanced_validation[0] is not None:  # If enhanced validation has an opinion
-        return enhanced_validation
-
-    if rules_file.exists():
-        # Check for required input error
-        if input_name in required_inputs and (not input_value or input_value.strip() == ""):
-            return False, f"Required input '{input_name}' cannot be empty"
-
-        if resolved_convention:
-            try:
-                return _apply_validation_by_type(
-                    validator,
-                    resolved_convention,
-                    input_value,
-                    input_name,
-                    required_inputs,
-                )
-            except (ValueError, AttributeError, KeyError, TypeError) as e:
-                print(
-                    f"Warning: Could not apply validation for {action_name}: {e}",
-                    file=sys.stderr,
-                )
-
-    # If no specific validation found, the security check is sufficient
-    return True, ""
+    err = kit.CHECKS[check_type](input_value)
+    return err is None, err or ""
 
 
 def _handle_legacy_interface() -> bool:

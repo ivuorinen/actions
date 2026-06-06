@@ -85,19 +85,25 @@ runs:
         fi
 
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: 'php-tests'
-        framework: ${{ inputs.framework }}
-        php-version: ${{ inputs.php-version }}
-        extensions: ${{ inputs.extensions }}
-        coverage: ${{ inputs.coverage }}
-        composer-args: ${{ inputs.composer-args }}
-        max-retries: ${{ inputs.max-retries }}
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_COMPOSER_ARGS: ${{ inputs.composer-args }}
+        INPUT_COVERAGE: ${{ inputs.coverage }}
+        INPUT_EMAIL: ${{ inputs.email }}
+        INPUT_EXTENSIONS: ${{ inputs.extensions }}
+        INPUT_FRAMEWORK: ${{ inputs.framework }}
+        INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_PHP_VERSION: ${{ inputs.php-version }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_USERNAME: ${{ inputs.username }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta

@@ -23,7 +23,6 @@ repos:
     hooks:
       - id: requirements-txt-fixer
       - id: detect-private-key
-        exclude: ^validate-inputs/validators/security\.py$
       - id: destroyed-symlinks
       - id: trailing-whitespace
         args: [--markdown-linebreak-ext=md]

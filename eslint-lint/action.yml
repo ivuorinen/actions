@@ -96,24 +96,30 @@ runs:
   using: composite
   steps:
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: 'eslint-lint'
-        mode: ${{ inputs.mode }}
-        working-directory: ${{ inputs.working-directory }}
-        eslint-version: ${{ inputs.eslint-version }}
-        config-file: ${{ inputs.config-file }}
-        ignore-file: ${{ inputs.ignore-file }}
-        file-extensions: ${{ inputs.file-extensions }}
-        cache: ${{ inputs.cache }}
-        max-warnings: ${{ inputs.max-warnings }}
-        fail-on-error: ${{ inputs.fail-on-error }}
-        report-format: ${{ inputs.report-format }}
-        max-retries: ${{ inputs.max-retries }}
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_CACHE: ${{ inputs.cache }}
+        INPUT_CONFIG_FILE: ${{ inputs.config-file }}
+        INPUT_EMAIL: ${{ inputs.email }}
+        INPUT_ESLINT_VERSION: ${{ inputs.eslint-version }}
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        INPUT_FILE_EXTENSIONS: ${{ inputs.file-extensions }}
+        INPUT_IGNORE_FILE: ${{ inputs.ignore-file }}
+        INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_MAX_WARNINGS: ${{ inputs.max-warnings }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_REPORT_FORMAT: ${{ inputs.report-format }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_USERNAME: ${{ inputs.username }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta

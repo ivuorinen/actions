@@ -2,9 +2,9 @@
 
 Place unit tests under `_tests/unit/<subject>/`, where `<subject>` is the action
 name (e.g., `docker-build`), a component slug (e.g., `claude-hooks`,
-`_harness`), or the validate-inputs Python suite (`validate-inputs`).
+`_harness`), or the validation Python suite (`_validation`).
 Place integration tests under `_tests/integration/`.
-Place validate-inputs Python tests under `validate-inputs/tests/` (the pytest
+Place validation Python tests under `_validation/tests/` (the pytest
 suite is co-located with the Python module by design — this is not an exception
 to invent ad-hoc paths for other components).
 Never create test files outside these three locations.

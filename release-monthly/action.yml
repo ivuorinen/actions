@@ -39,13 +39,19 @@ runs:
   using: 'composite'
   steps:
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: 'release-monthly'
-        token: ${{ inputs.token }}
-        dry-run: ${{ inputs.dry-run }}
-        prefix: ${{ inputs.prefix }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_PREFIX: ${{ inputs.prefix }}
+        INPUT_TOKEN: ${{ inputs.token }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Mask Token
       shell: sh

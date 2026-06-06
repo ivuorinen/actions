@@ -55,16 +55,22 @@ runs:
   using: composite
   steps:
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: 'biome-lint'
-        mode: ${{ inputs.mode }}
-        token: ${{ inputs.token }}
-        username: ${{ inputs.username }}
-        email: ${{ inputs.email }}
-        max-retries: ${{ inputs.max-retries }}
-        fail-on-error: ${{ inputs.fail-on-error }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_EMAIL: ${{ inputs.email }}
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_MODE: ${{ inputs.mode }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_USERNAME: ${{ inputs.username }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta

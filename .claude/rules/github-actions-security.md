@@ -18,4 +18,4 @@ is referenced via `steps.<id>.outputs.<key>`, `steps.<id>.outcome`, or
 
 Always test regex patterns against pre-release inputs (`1.0.0-rc.1`, `1.0.0+build`,
 `v2025.04.05-rc.1`, `2025.4.5+sha.abc1234`). "Tested" means an automated unit test
-under `_tests/` or `validate-inputs/tests/`, not a one-off REPL check.
+under `_tests/` or `_validation/tests/`, not a one-off REPL check.

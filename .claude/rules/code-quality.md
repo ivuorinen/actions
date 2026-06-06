@@ -35,6 +35,10 @@ same approval as adding a brand-new dependency. "I'm not adding, I'm replacing" 
 not an exemption.
 
 Never duplicate a regex, validation pattern, or schema across files.
-If a pattern lives in two places (e.g., `validators/token.py` and
-`_tests/shared/validation_core.py`), they must be kept in lockstep by the same
-change; see `.claude/rules/no-partial-implementations.md`.
+The canonical source for every validation regex, enum, and range is
+`_validation/kit.py`. Both consumers read from that one source: the generated
+`<action>/validate.py` validators inline checks from it (regenerate via
+`make update-validators`, never hand-edit), and the ShellSpec test harness
+(`_tests/shared/validation_core.py`) imports `kit.CHECKS` rather than re-implementing
+the patterns. If you ever find a validation pattern copied into a second file, fold it
+back into `_validation/kit.py`; see `.claude/rules/no-partial-implementations.md`.

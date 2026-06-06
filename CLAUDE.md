@@ -23,8 +23,8 @@
 - `.github/` – Workflows/templates
 - `_tests/` – ShellSpec tests
 - `_tools/` – Helper tools
-- `validate-inputs/` – Python validation system + tests
-- `*/rules.yml` – Auto-generated validation rules
+- `_validation/` – Validation kit (single source of truth), generator + tests
+- `*/validate.py` – Auto-generated, self-contained per-action input validators
 
 ### Claude Code Hooks
 
@@ -34,7 +34,7 @@ Edit/Write (ruff for .py, shfmt for .sh, prettier for
 
 **Blocked edits** (PreToolUse):
 
-- `rules.yml` — auto-generated, use `make update-validators`
+- `*/validate.py` — auto-generated; edit `_validation/spec.py` or `_validation/kit.py`, then `make update-validators`
 - Action `README.md` — auto-generated, use `make docs`
 - `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
 - Bash-isms in .sh/action.yml — blocked, must be POSIX sh.
@@ -69,7 +69,7 @@ in hook commands
 
 ### Documentation Locations
 
-**Validation System**: `validate-inputs/docs/` (4 guides: API.md, DEVELOPER_GUIDE.md, ACTION_MAINTAINER.md, README_ARCHITECTURE.md)
+**Validation System**: `_validation/` — `kit.py` (canonical checks, single source of truth), `spec.py` (per-action input→check map), `generate.py` (codegen). See `_validation/README.md`.
 
 **Testing**: `_tests/README.md` (ShellSpec framework, test patterns, running tests)
 
@@ -85,8 +85,7 @@ Flat structure. Each action self-contained with `action.yml`.
 Linting (ansible-lint-fix, biome-lint, csharp-lint-check, eslint-lint, go-lint, pr-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix),
 Testing (php-tests), Build (csharp-build, go-build, docker-build),
 Publishing (npm-publish, npm-semantic-release, docker-publish, csharp-publish),
-Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysis, security-scan),
-Validation (validate-inputs)
+Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysis, security-scan)
 
 ## Commands
 
@@ -113,7 +112,7 @@ Use `make lint` (not direct calls). Runs: markdownlint-cli2, prettier, markdown-
 
 ### Tests
 
-ShellSpec (`_tests/`) + pytest (`validate-inputs/tests/`). Full coverage + independent + integration tests required.
+ShellSpec (`_tests/`) + pytest (`_validation/tests/`). Full coverage + independent + integration tests required.
 
 ## Architecture - Critical Prevention (Zero Tolerance)
 
@@ -161,15 +160,19 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 ## Validation System
 
-**Location**: `validate-inputs/` (YAML rules.yml per action, Python generator)
+**Model**: Each action runs its own self-contained `validate.py` (pure-stdlib `python3`, no deps, no external action) as its first real step. Validators are generated from one source:
 
-**Conventions**: `token`→GitHub token, `*-version`→SemVer/CalVer, `email`→format, `dockerfile`→path, `dry-run`→bool, `architectures`→Docker, `*-retries`→range
+- `_validation/kit.py` — canonical check functions (`CHECKS[type](value) -> error|None`); the single place every regex/enum/range is defined.
+- `_validation/spec.py` — per-action `{required, checks: {input: type}}` map (hand-edited source of truth).
+- `_validation/generate.py` — inlines only the needed checks into each `<action>/validate.py` (generated; do not hand-edit).
 
-**Version Types**: semantic_version, calver_version, flexible_version, dotnet_version, terraform_version, node_version
+**Conventions** (in `spec.py`): `token`→GitHub token, `*-version`→SemVer/CalVer, `email`→format, `*-file`→path, `dry-run`/`push`→bool, `architectures`→Docker, `*-retries`→range
+
+**Version Types**: semantic_version, strict_semantic_version, no_prefix_version, calver_version, dotnet_version, terraform_version, node_version, go_version
 
 **CalVer Support**: YYYY.MM.PATCH, YYYY.MM.DD, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, YYYY-MM-DD
 
-**Maintenance**: `make update-validators`, `git diff validate-inputs/rules/`
+**Maintenance**: edit `_validation/spec.py` or `kit.py` → `make update-validators` → review `git diff '*/validate.py'`. CI's `generate.py --check` fails if a committed validator is stale.
 
 ---
 

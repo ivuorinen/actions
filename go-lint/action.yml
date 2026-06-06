@@ -85,24 +85,30 @@ runs:
   using: composite
   steps:
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: 'go-lint'
-        working-directory: ${{ inputs.working-directory }}
-        golangci-lint-version: ${{ inputs.golangci-lint-version }}
-        go-version: ${{ inputs.go-version }}
-        config-file: ${{ inputs.config-file }}
-        timeout: ${{ inputs.timeout }}
-        cache: ${{ inputs.cache }}
-        fail-on-error: ${{ inputs.fail-on-error }}
-        only-new-issues: ${{ inputs.only-new-issues }}
-        disable-all: ${{ inputs.disable-all }}
-        report-format: ${{ inputs.report-format }}
-        max-retries: ${{ inputs.max-retries }}
-        enable-linters: ${{ inputs.enable-linters }}
-        disable-linters: ${{ inputs.disable-linters }}
-        token: ${{ inputs.token }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_CACHE: ${{ inputs.cache }}
+        INPUT_CONFIG_FILE: ${{ inputs.config-file }}
+        INPUT_DISABLE_ALL: ${{ inputs.disable-all }}
+        INPUT_DISABLE_LINTERS: ${{ inputs.disable-linters }}
+        INPUT_ENABLE_LINTERS: ${{ inputs.enable-linters }}
+        INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
+        INPUT_GO_VERSION: ${{ inputs.go-version }}
+        INPUT_GOLANGCI_LINT_VERSION: ${{ inputs.golangci-lint-version }}
+        INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_ONLY_NEW_ISSUES: ${{ inputs.only-new-issues }}
+        INPUT_REPORT_FORMAT: ${{ inputs.report-format }}
+        INPUT_TIMEOUT: ${{ inputs.timeout }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Setup Go
       uses: actions/setup-go@4a3601121dd01d1626a1e23e37211e3254c1c06c # v6.4.0

@@ -48,9 +48,6 @@ const CATEGORIES = {
 
   // Security
   'security-scan': 'Security',
-
-  // Validation
-  'validate-inputs': 'Validation',
 };
 
 // Language support mappings
@@ -72,7 +69,6 @@ const LANGUAGE_SUPPORT = {
   'biome-lint': ['JavaScript', 'TypeScript', 'JSON'],
   'npm-publish': ['Node.js', 'npm'],
   'codeql-analysis': ['JavaScript', 'TypeScript', 'Python', 'Java', 'C#', 'C++', 'Go', 'Ruby'],
-  'validate-inputs': ['YAML', 'GitHub Actions'],
   'pre-commit': ['Python', 'Multiple Languages'],
   'pr-lint': ['Conventional Commits'],
   'sync-labels': ['YAML', 'GitHub'],

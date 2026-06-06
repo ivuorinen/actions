@@ -100,9 +100,6 @@ setup_default_inputs() {
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && export INPUT_GO_VERSION="1.21"
     ;;
-  "validate-inputs")
-    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && export INPUT_ACTION_TYPE="test-action"
-    ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && export INPUT_LANGUAGE="javascript"
     [[ "$input_name" != "token" ]] && export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
@@ -141,9 +138,6 @@ cleanup_default_inputs() {
   "go-build" | "go-lint")
     [[ "$input_name" != "go-version" ]] && unset INPUT_GO_VERSION
     ;;
-  "validate-inputs")
-    [[ "$input_name" != "action-type" && "$input_name" != "action" && "$input_name" != "rules-file" && "$input_name" != "fail-on-error" ]] && unset INPUT_ACTION_TYPE
-    ;;
   "codeql-analysis")
     [[ "$input_name" != "language" ]] && unset INPUT_LANGUAGE
     [[ "$input_name" != "token" ]] && unset INPUT_TOKEN
@@ -180,7 +174,8 @@ shellspec_validate_action_output() {
   fi
 }
 
-# Use centralized Python validation system for input validation testing
+# Validate an input by running the action's own self-contained validate.py
+# (generated from the canonical _validation/ kit) for input validation testing
 shellspec_test_input_validation() {
   local action_dir="$1"
   local input_name="$2"
@@ -220,10 +215,11 @@ shellspec_test_input_validation() {
   export "$input_var_name"="$test_value"
   export GITHUB_OUTPUT="$temp_output_file"
 
-  # Run the Python validation script and capture exit code. Use uv when
-  # available so PyYAML resolves consistently across both helpers.
+  # Run the action's own self-contained validator (generated from the
+  # canonical _validation/ kit) and capture its exit code. It is pure stdlib,
+  # so plain python3 suffices — no PyYAML/uv needed.
   local exit_code
-  if _harness_python "${PROJECT_ROOT}/validate-inputs/validator.py" >/dev/null 2>&1; then
+  if python3 "${PROJECT_ROOT}/${action_name}/validate.py" >/dev/null 2>&1; then
     exit_code=0
   else
     exit_code=1
@@ -339,9 +335,8 @@ validate_input_python() {
   fi
 
   # When the `action` input itself is being tested, don't pre-set
-  # INPUT_ACTION_TYPE — the test is simulating a caller that passes only
-  # `action:` and expects its value to flow through validator.py's
-  # action_type fallback (where format validation kicks in).
+  # INPUT_ACTION_TYPE — the test simulates a caller that passes only `action:`
+  # and expects its value to be validated on its own.
   if [[ "$input_name" != "action" ]]; then
     export INPUT_ACTION_TYPE="$action_type"
   fi
@@ -387,10 +382,14 @@ validate_input_python() {
     env | grep "^INPUT_" | sort
   fi
 
-  # Run validator and output everything to stdout for ShellSpec
-  # Use || to capture non-zero exit without triggering set -e, ensuring cleanup runs
+  # Run the action's own self-contained validator (generated from the
+  # canonical _validation/ kit). It is pure stdlib, so plain python3 suffices
+  # — no PyYAML/uv needed. Only the exit code matters here (no spec asserts the
+  # validator's text), and the generated validate.py prints ::error:: lines on
+  # failure, so its output is discarded to keep ShellSpec from warning about
+  # unexpected stdout. Use || to capture non-zero exit without tripping set -e.
   local exit_code=0
-  _harness_python "${PROJECT_ROOT}/validate-inputs/validator.py" 2>&1 || exit_code=$?
+  python3 "${PROJECT_ROOT}/${action_type}/validate.py" >/dev/null 2>&1 || exit_code=$?
 
   # Clean up target input
   unset "$input_var_name" VALIDATOR_QUIET
