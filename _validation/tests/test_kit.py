@@ -20,6 +20,10 @@ CASES: dict[str, dict[str, list[str]]] = {
             "ghu_" + "c" * 36,
             "ghs_" + "d" * 36,
             "ghs_1234567_" + "e" * 200 + "." + "f" * 40 + "." + "g" * 256,
+            # stateless ghs_<app-id>_<JWT>: base64url segments contain - and _, joined by .
+            "ghs_1234567_" + "Ab-Cd_Ef" * 40 + "." + "Gh-Ij_Kl" * 30 + "." + "Mn-Op_Qr" * 48,
+            # body length is unbounded (GitHub warns against relying on the 40-char size)
+            "ghs_" + "z" * 1200,
             "ghr_" + "h" * 36,
             "ghe_" + "i" * 36,
             "github_pat_" + "j" * 71,

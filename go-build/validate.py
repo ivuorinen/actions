@@ -92,10 +92,13 @@ def check_file_path(value: str) -> str | None:
 def check_github_token(value: str) -> str | None:
     """GitHub/registry token: a known token format, a ``${{ }}`` expression, or ``$VAR``.
 
-    Accepts every GitHub token shape (classic, OAuth, user-to-server, installation —
-    including the ~520-char stateless JWT form — refresh, enterprise, and fine-grained
-    PATs). Tokens are almost always passed as ``${{ secrets.* }}`` or ``$VAR`` references,
-    both of which pass through unchecked.
+    Accepts every GitHub token shape (classic, OAuth, user-to-server, installation,
+    refresh, enterprise, and fine-grained PATs). Installation tokens cover both the
+    legacy 40-char ``ghs_`` form and the stateless ``ghs_<app-id>_<JWT>`` form rolled
+    out 2026-04-27: the JWT is base64url (so it may contain ``-`` and ``_``) joined by
+    ``.`` and has no fixed length, so that pattern allows ``-`` and sets no upper bound
+    (GitHub warns against relying on token length). Tokens are almost always passed as
+    ``${{ secrets.* }}`` or ``$VAR`` references, both of which pass through unchecked.
     """
     if _skip(value) or _is_env_ref(value):
         return None
@@ -103,7 +106,7 @@ def check_github_token(value: str) -> str | None:
         r"^ghp_[A-Za-z0-9]{36}$",  # classic personal access token
         r"^gho_[A-Za-z0-9]{36}$",  # OAuth token
         r"^ghu_[A-Za-z0-9]{36}$",  # user-to-server token
-        r"^ghs_[A-Za-z0-9._]{36,1024}$",  # installation token (stateful or stateless JWT)
+        r"^ghs_[A-Za-z0-9._-]{36,}$",  # installation token (stateful ghs_+36 or stateless JWT)
         r"^ghr_[A-Za-z0-9]{36}$",  # refresh token
         r"^ghe_[A-Za-z0-9]{36}$",  # enterprise token
         r"^github_pat_[A-Za-z0-9_]{50,255}$",  # fine-grained PAT
