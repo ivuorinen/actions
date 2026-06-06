@@ -146,21 +146,43 @@ runs:
         token: ${{ inputs.token || github.token }}
 
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: 'docker-build'
-        image-name: ${{ inputs.image-name }}
-        tag: ${{ inputs.tag }}
-        architectures: ${{ inputs.architectures }}
-        dockerfile: ${{ inputs.dockerfile }}
-        build-args: ${{ inputs.build-args }}
-        buildx-version: ${{ inputs.buildx-version }}
-        parallel-builds: ${{ inputs.parallel-builds }}
-        context: ${{ inputs.context }}
-        push: ${{ inputs.push }}
-        dry-run: ${{ inputs.dry-run }}
-        max-retries: ${{ inputs.max-retries }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_ARCHITECTURES: ${{ inputs.architectures }}
+        INPUT_AUTO_DETECT_PLATFORMS: ${{ inputs.auto-detect-platforms }}
+        INPUT_BUILD_ARGS: ${{ inputs.build-args }}
+        INPUT_BUILD_CONTEXTS: ${{ inputs.build-contexts }}
+        INPUT_BUILDKIT_VERSION: ${{ inputs.buildkit-version }}
+        INPUT_BUILDX_VERSION: ${{ inputs.buildx-version }}
+        INPUT_CACHE_EXPORT: ${{ inputs.cache-export }}
+        INPUT_CACHE_FROM: ${{ inputs.cache-from }}
+        INPUT_CACHE_IMPORT: ${{ inputs.cache-import }}
+        INPUT_CACHE_MODE: ${{ inputs.cache-mode }}
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
+        INPUT_DRY_RUN: ${{ inputs.dry-run }}
+        INPUT_IMAGE_NAME: ${{ inputs.image-name }}
+        INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_NETWORK: ${{ inputs.network }}
+        INPUT_PARALLEL_BUILDS: ${{ inputs.parallel-builds }}
+        INPUT_PLATFORM_BUILD_ARGS: ${{ inputs.platform-build-args }}
+        INPUT_PLATFORM_FALLBACK: ${{ inputs.platform-fallback }}
+        INPUT_PUSH: ${{ inputs.push }}
+        INPUT_SBOM_FORMAT: ${{ inputs.sbom-format }}
+        INPUT_SCAN_IMAGE: ${{ inputs.scan-image }}
+        INPUT_SECRETS: ${{ inputs.secrets }}
+        INPUT_SIGN_IMAGE: ${{ inputs.sign-image }}
+        INPUT_TAG: ${{ inputs.tag }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_VERBOSE: ${{ inputs.verbose }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Check Dockerfile Exists
       shell: sh
@@ -257,12 +279,8 @@ runs:
         fi
         printf 'args=%s\n' "$args" >> "$GITHUB_OUTPUT"
 
-    # Forwarded inputs are validated by the validate-inputs step above, which
-    # fails the workflow on invalid input before these parsing steps execute.
-    # NOTE: docker inputs validate-inputs does not declare (buildkit-version,
-    # cache-*, sbom-format, scan/sign-image, secrets, network, verbose,
-    # platform-*, build-contexts, auto-detect-platforms) cannot be forwarded yet
-    # and remain unvalidated here — see nitpicker N-130.
+    # All inputs are validated by the "Validate Inputs" step above (validate.py),
+    # which fails the action on invalid input before these parsing steps run.
     - name: Parse Build Contexts
       id: build-contexts
       shell: sh

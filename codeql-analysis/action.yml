@@ -107,26 +107,33 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Validate inputs
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: codeql-analysis
-        language: ${{ inputs.language }}
-        queries: ${{ inputs.queries }}
-        packs: ${{ inputs.packs }}
-        config-file: ${{ inputs.config-file }}
-        config: ${{ inputs.config }}
-        build-mode: ${{ inputs.build-mode }}
-        source-root: ${{ inputs.source-root }}
-        category: ${{ inputs.category }}
-        checkout-ref: ${{ inputs.checkout-ref }}
-        token: ${{ inputs.token }}
-        working-directory: ${{ inputs.working-directory }}
-        upload-results: ${{ inputs.upload-results }}
-        ram: ${{ inputs.ram }}
-        threads: ${{ inputs.threads }}
-        output: ${{ inputs.output }}
-        skip-queries: ${{ inputs.skip-queries }}
+    - name: Validate Inputs
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_BUILD_MODE: ${{ inputs.build-mode }}
+        INPUT_CATEGORY: ${{ inputs.category }}
+        INPUT_CHECKOUT_REF: ${{ inputs.checkout-ref }}
+        INPUT_CONFIG: ${{ inputs.config }}
+        INPUT_CONFIG_FILE: ${{ inputs.config-file }}
+        INPUT_LANGUAGE: ${{ inputs.language }}
+        INPUT_OUTPUT: ${{ inputs.output }}
+        INPUT_PACKS: ${{ inputs.packs }}
+        INPUT_QUERIES: ${{ inputs.queries }}
+        INPUT_RAM: ${{ inputs.ram }}
+        INPUT_SKIP_QUERIES: ${{ inputs.skip-queries }}
+        INPUT_SOURCE_ROOT: ${{ inputs.source-root }}
+        INPUT_THREADS: ${{ inputs.threads }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_UPLOAD_RESULTS: ${{ inputs.upload-results }}
+        INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Validate checkout safety
       shell: sh

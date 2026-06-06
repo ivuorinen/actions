@@ -69,17 +69,23 @@ runs:
         fetch-depth: 0
 
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: security-scan
-        gitleaks-license: ${{ inputs.gitleaks-license }}
-        gitleaks-config: ${{ inputs.gitleaks-config }}
-        trivy-severity: ${{ inputs.trivy-severity }}
-        trivy-scanners: ${{ inputs.trivy-scanners }}
-        trivy-timeout: ${{ inputs.trivy-timeout }}
-        actionlint-enabled: ${{ inputs.actionlint-enabled }}
-        token: ${{ inputs.token }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_ACTIONLINT_ENABLED: ${{ inputs.actionlint-enabled }}
+        INPUT_GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
+        INPUT_GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
+        INPUT_TOKEN: ${{ inputs.token }}
+        INPUT_TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
+        INPUT_TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
+        INPUT_TRIVY_TIMEOUT: ${{ inputs.trivy-timeout }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Check Required Configurations
       id: check-configs

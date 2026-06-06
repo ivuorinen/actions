@@ -28,12 +28,18 @@ runs:
   using: 'composite'
   steps:
     - name: Validate Inputs
-      id: validate
-      uses: ivuorinen/actions/validate-inputs@5cc7373a22402ee8985376bc713f00e09b5b2edb # v2025.11.23
-      with:
-        action-type: 'sync-labels'
-        labels: ${{ inputs.labels || '' }}
-        token: ${{ inputs.token }}
+      shell: sh
+      working-directory: ${{ github.action_path }}
+      env:
+        INPUT_LABELS: ${{ inputs.labels }}
+        INPUT_TOKEN: ${{ inputs.token }}
+      run: |
+        set -eu
+        if ! command -v python3 >/dev/null 2>&1; then
+          echo "::error::python3 is required to validate inputs"
+          exit 1
+        fi
+        python3 validate.py
 
     - name: Run Label Syncer
       uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0
