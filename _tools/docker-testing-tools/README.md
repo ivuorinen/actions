@@ -17,7 +17,7 @@ jobs:
 ## 📦 Pre-installed Tools
 
 | Tool           | Version         | Purpose                         |
-|----------------|-----------------|---------------------------------|
+| -------------- | --------------- | ------------------------------- |
 | **ShellSpec**  | 0.28.1 (pinned) | Shell script testing framework  |
 | **nektos/act** | 0.2.71 (pinned) | Local GitHub Actions testing    |
 | **TruffleHog** | 3.86.0 (pinned) | Secrets detection               |
@@ -28,10 +28,11 @@ jobs:
 | **jq**         | repo stable¹    | JSON processing                 |
 | **kcov**       | v42 (source)²   | Code coverage for shell scripts |
 | **Node.js**    | LTS             | JavaScript runtime              |
-| **Python**     | 3.x             | Python runtime + PyYAML         |
+| **Python**     | 3.x             | Python runtime + PyYAML³        |
 
 ¹ _Installed via Ubuntu 22.04 LTS repositories for stability and security_
 ² _Built from source (not available in Ubuntu 22.04 repositories)_
+³ _PyYAML is needed only by the ShellSpec harness (`_tests/shared/validation_core.py` parses `action.yml`); the generated `<action>/validate.py` validators are pure stdlib._
 
 ## 🏗️ Building Locally
 
@@ -44,7 +45,7 @@ cd _tools/docker-testing-tools
 ## 📊 Performance Benefits
 
 | Workflow Job      | Before | After | Savings        |
-|-------------------|--------|-------|----------------|
+| ----------------- | ------ | ----- | -------------- |
 | Unit Tests        | ~90s   | ~30s  | **60s**        |
 | Integration Tests | ~120s  | ~45s  | **75s**        |
 | Coverage          | ~100s  | ~40s  | **60s**        |

@@ -6,8 +6,7 @@ This is a **flat-structure GitHub Actions monorepo** with over 40 self-contained
 
 - `action.yml` - Action definition with inputs/outputs/branding
 - `README.md` - Auto-generated documentation
-- `rules.yml` - Auto-generated validation rules (do not edit manually)
-- `CustomValidator.py` - Custom validation logic (for actions requiring it)
+- `validate.py` - Auto-generated, self-contained pure-stdlib input validator (do not edit manually; run via `python3 validate.py`)
 
 **Core principle**: Actions are designed for external consumption with pinned refs like `ivuorinen/actions/action-name@2025-01-15`.
 
@@ -30,10 +29,11 @@ make test-action ACTION=node-setup  # Test specific action
 
 ### Validation System
 
-- Each action has auto-generated `rules.yml` defining input validation
-- `validate-inputs/` contains centralized Python validation framework
-- `make test-update-validators` regenerates all rules.yml files
-- Custom validators in `CustomValidator.py` handle action-specific logic
+- Each action with inputs has an auto-generated, self-contained `validate.py` (pure stdlib, no third-party deps) that validates `INPUT_*` env vars and fails with `::error::` + exit 1
+- `_validation/` holds the generator sources: `kit.py` (canonical check functions — every regex/enum/range),
+  `spec.py` (per-action input → check mapping + required inputs), and `generate.py` (inlines checks into each `<action>/validate.py`)
+- `make update-validators` regenerates all `validate.py` files; `python3 _validation/generate.py --check` verifies the committed validators are current
+- Validator tests live in `_validation/tests/` (pytest)
 
 ## Critical Patterns
 
@@ -79,15 +79,15 @@ Actions like `node-setup`, `php-version-detect` follow auto-detection patterns:
 ### Error Handling
 
 - All actions use structured error messages
-- Python validators inherit from `BaseValidator` class
-- Shell scripts use `set -euo pipefail` pattern
+- Input validators are generated `validate.py` scripts built from `_validation/kit.py` checks; each check returns `None` on success or a short reason string on failure
+- Shell scripts use POSIX `sh` with `set -eu` (not bash; `set -euo pipefail` is bash-only and forbidden)
 - Always provide actionable error messages with context
 
 ## Development Standards
 
 ### Code Quality (Zero Tolerance)
 
-- All linting must pass: markdownlint, yamllint, shellcheck, pylint
+- All linting must pass: markdownlint, yamllint, shellcheck, ruff
 - All tests must pass: unit + integration
 - No warnings allowed in production
 - Use `make all` before committing
@@ -101,7 +101,7 @@ Actions like `node-setup`, `php-version-detect` follow auto-detection patterns:
 
 ### Security
 
-- Use `validate-inputs` action for all user-provided input
+- Validate all user-provided input via the action's generated `validate.py` (run it as the first real step); define the rules in `_validation/spec.py` + `_validation/kit.py`
 - Pin action versions in workflows with commit SHAs
 - Follow least-privilege token permissions
 - Implement proper secret handling patterns
@@ -110,13 +110,14 @@ Actions like `node-setup`, `php-version-detect` follow auto-detection patterns:
 
 - `CLAUDE.md` - Current architectural decisions and action inventory
 - `Makefile` - Complete build system with all targets
-- `validate-inputs/validators/` - Validation logic patterns
+- `_validation/kit.py` - Canonical validation check functions (regex/enum/range patterns)
+- `_validation/spec.py` - Per-action input → check mapping and required inputs
 - `_tests/shared/` - Testing utilities and patterns
 - `_tools/fix-local-action-refs.py` - Reference resolution tooling
 
 ## Anti-Patterns to Avoid
 
-- **Don't** manually edit `rules.yml` files (use `make test-update-validators`)
+- **Don't** manually edit generated `validate.py` files (edit `_validation/spec.py`/`_validation/kit.py`, then run `make update-validators`)
 - **Don't** edit README.md between `<!--LISTING-->` markers
 - **Don't** create actions without proper input validation
 - **Don't** skip the `make all` verification step

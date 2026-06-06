@@ -77,22 +77,22 @@ update-catalog: ## Update action catalog in README.md
 	fi
 	@echo "$(GREEN)✅ Action catalog updated$(RESET)"
 
-update-validators: ## Update validation rules for all actions
-	@echo "$(BLUE)🔧 Updating validation rules...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		cd validate-inputs && uv run scripts/update-validators.py; \
+update-validators: ## Regenerate every action's self-contained validate.py
+	@echo "$(BLUE)🔧 Regenerating input validators...$(RESET)"
+	@if command -v python3 >/dev/null 2>&1; then \
+		python3 _validation/generate.py; \
 	else \
-		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		echo "$(RED)❌ python3 not found$(RESET)"; \
 		exit 1; \
 	fi
-	@echo "$(GREEN)✅ Validation rules updated$(RESET)"
+	@echo "$(GREEN)✅ Validators regenerated$(RESET)"
 
-update-validators-dry: ## Preview validation rules changes (dry run)
-	@echo "$(BLUE)🔍 Previewing validation rules changes...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		cd validate-inputs && uv run scripts/update-validators.py --dry-run; \
+update-validators-dry: ## Verify every validate.py is current (fails if stale)
+	@echo "$(BLUE)🔍 Checking validators are up to date...$(RESET)"
+	@if command -v python3 >/dev/null 2>&1; then \
+		python3 _validation/generate.py --check; \
 	else \
-		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		echo "$(RED)❌ python3 not found$(RESET)"; \
 		exit 1; \
 	fi
 
@@ -284,9 +284,8 @@ lint-python: ## Lint Python files with ruff and pyright
 			echo "$(YELLOW)⚠️ Python linting issues found$(RESET)" | tee -a $(LOG_FILE); \
 			ruff_passed=false; \
 		fi; \
-		if command -v pyright >/dev/null 2>&1; then \
-			uv sync --all-extras --quiet --directory validate-inputs 2>/dev/null || true; \
-			if ! (cd validate-inputs && pyright .); then \
+		if command -v uvx >/dev/null 2>&1; then \
+			if ! (cd _validation && uvx --with pytest --with pytest-cov pyright .); then \
 				echo "$(YELLOW)⚠️ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
 				pyright_passed=false; \
 			fi; \
@@ -440,10 +439,10 @@ test-actions: ## Run GitHub Actions tests (unit + integration)
 		exit 1; \
 	fi
 
-test-python: ## Run Python validation tests
+test-python: ## Run the validation kit + generator test suite
 	@echo "$(BLUE)🐍 Running Python tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uv run --directory validate-inputs pytest -v --tb=short; then \
+		if uvx pytest _validation/tests -q; then \
 			echo "$(GREEN)✅ Python tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Python tests failed$(RESET)"; \
@@ -453,25 +452,21 @@ test-python: ## Run Python validation tests
 		echo "$(BLUE)ℹ️ uv not available, skipping Python tests$(RESET)"; \
 	fi
 
-test-python-coverage: ## Run Python tests with coverage
+test-python-coverage: ## Run the validation tests with coverage
 	@echo "$(BLUE)📊 Running Python tests with coverage...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run --directory validate-inputs pytest --cov=. --cov-report=term-missing; \
+		uvx --with pytest-cov pytest --cov=_validation --cov-report=term-missing _validation/tests; \
 	else \
 		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
 	fi
 
-test-update-validators: ## Run tests for update-validators.py script
-	@echo "$(BLUE)🔧 Running update-validators.py tests...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		if uv run --directory validate-inputs pytest tests/test_update_validators.py -v --tb=short; then \
-			echo "$(GREEN)✅ Update-validators tests passed$(RESET)"; \
-		else \
-			echo "$(RED)❌ Update-validators tests failed$(RESET)"; \
-			exit 1; \
-		fi; \
+test-update-validators: ## Verify every generated validate.py is current (fails if stale)
+	@echo "$(BLUE)🔧 Checking generated validators are up to date...$(RESET)"
+	@if python3 _validation/generate.py --check; then \
+		echo "$(GREEN)✅ Validators are current$(RESET)"; \
 	else \
-		echo "$(BLUE)ℹ️ uv not available, skipping update-validators tests$(RESET)"; \
+		echo "$(RED)❌ Validators are stale — run 'make update-validators'$(RESET)"; \
+		exit 1; \
 	fi
 
 test-unit: ## Run unit tests only
@@ -495,42 +490,6 @@ test-action: ## Run tests for specific action (usage: make test-action ACTION=no
 	@echo "$(BLUE)🎯 Running tests for action: $(ACTION)$(RESET)"
 	@./_tests/run-tests.sh --action $(ACTION) --format console
 
-generate-tests: ## Generate missing tests for actions and validators (won't overwrite existing tests)
-	@echo "$(BLUE)🧪 Generating missing tests...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		if uv run validate-inputs/scripts/generate-tests.py; then \
-			echo "$(GREEN)✅ Test generation completed$(RESET)"; \
-		else \
-			echo "$(RED)❌ Test generation failed$(RESET)"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
-		exit 1; \
-	fi
-
-generate-tests-dry: ## Preview what tests would be generated without creating files
-	@echo "$(BLUE)👁️ Preview test generation (dry run)...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		uv run validate-inputs/scripts/generate-tests.py --dry-run --verbose; \
-	else \
-		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
-		exit 1; \
-	fi
-
-test-generate-tests: ## Test the test generation system itself
-	@echo "$(BLUE)🔬 Testing test generation system...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		if uv run --directory validate-inputs pytest tests/test_generate_tests.py -v; then \
-			echo "$(GREEN)✅ Test generation tests passed$(RESET)"; \
-		else \
-			echo "$(RED)❌ Test generation tests failed$(RESET)"; \
-			exit 1; \
-		fi; \
-	else \
-		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
-		exit 1; \
-	fi
 
 # Docker targets
 docker-build: ## Build the testing-tools Docker image
