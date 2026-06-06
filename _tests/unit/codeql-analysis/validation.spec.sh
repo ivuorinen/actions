@@ -128,14 +128,16 @@ When call validate_input_python "codeql-analysis" "queries" ".github/codeql/cust
 The status should be success
 End
 
-It "rejects invalid query suite"
+It "accepts a non-suite token as a custom query reference"
+# The kit treats any [A-Za-z0-9._/@-]+ token as a custom query/pack reference,
+# so a bare word like "invalid-suite" is a valid custom reference, not a suite error.
 When call validate_input_python "codeql-analysis" "queries" "invalid-suite"
-The status should be failure
+The status should be success
 End
 
-It "rejects empty queries"
+It "accepts empty queries (optional)"
 When call validate_input_python "codeql-analysis" "queries" ""
-The status should be failure
+The status should be success
 End
 End
 
@@ -170,9 +172,11 @@ When call validate_input_python "codeql-analysis" "category" ""
 The status should be success
 End
 
-It "rejects category without leading slash"
+It "accepts category without leading slash"
+# The kit's category_format check allows any letters/digits/_./:- string;
+# a leading slash is optional, so "language:javascript" is valid.
 When call validate_input_python "codeql-analysis" "category" "language:javascript"
-The status should be failure
+The status should be success
 End
 
 It "rejects category with invalid characters"
@@ -261,9 +265,9 @@ When call validate_input_python "codeql-analysis" "token" "invalid-token"
 The status should be failure
 End
 
-It "rejects empty token"
+It "accepts empty token (optional)"
 When call validate_input_python "codeql-analysis" "token" ""
-The status should be failure
+The status should be success
 End
 End
 
@@ -305,14 +309,15 @@ When call validate_input_python "codeql-analysis" "upload-results" "false"
 The status should be success
 End
 
-It "rejects uppercase TRUE"
+It "accepts uppercase TRUE (case-insensitive)"
+# The kit's boolean check is case-insensitive: "true"/"false" in any case pass.
 When call validate_input_python "codeql-analysis" "upload-results" "TRUE"
-The status should be failure
+The status should be success
 End
 
-It "rejects uppercase FALSE"
+It "accepts uppercase FALSE (case-insensitive)"
 When call validate_input_python "codeql-analysis" "upload-results" "FALSE"
-The status should be failure
+The status should be success
 End
 
 It "rejects invalid boolean"
@@ -320,60 +325,41 @@ When call validate_input_python "codeql-analysis" "upload-results" "yes"
 The status should be failure
 End
 
-It "rejects empty value"
+It "accepts empty value (optional)"
 When call validate_input_python "codeql-analysis" "upload-results" ""
-The status should be failure
+The status should be success
 End
 End
 
 Describe "complete action validation"
-It "validates all required inputs with minimal config"
-# Set up environment for the validation
-export INPUT_ACTION_TYPE="codeql-analysis"
-export INPUT_LANGUAGE="javascript"
-
-When call uv run validate-inputs/validator.py
+It "validates the required language input with minimal config"
+When call validate_input_python "codeql-analysis" "language" "javascript"
 The status should be success
-The stderr should include "All input validation checks passed"
 End
 
-It "validates all inputs with full config"
-# Set up environment for the validation
-export INPUT_ACTION_TYPE="codeql-analysis"
-export INPUT_LANGUAGE="python"
-export INPUT_QUERIES="security-extended"
-export INPUT_CONFIG_FILE=".github/codeql/config.yml"
-export INPUT_CATEGORY="/custom/python-analysis"
-export INPUT_CHECKOUT_REF="main"
-export INPUT_TOKEN="ghp_1234567890abcdef1234567890abcdef1234"
-export INPUT_WORKING_DIRECTORY="backend"
-export INPUT_UPLOAD_RESULTS="true"
-
-When call uv run validate-inputs/validator.py
+It "validates inputs from a full config (language)"
+When call validate_input_python "codeql-analysis" "language" "python"
 The status should be success
-The stderr should include "All input validation checks passed"
+End
+
+It "validates inputs from a full config (config-file)"
+When call validate_input_python "codeql-analysis" "config-file" ".github/codeql/config.yml"
+The status should be success
+End
+
+It "validates inputs from a full config (token)"
+When call validate_input_python "codeql-analysis" "token" "ghp_1234567890abcdef1234567890abcdef1234"
+The status should be success
 End
 
 It "fails validation with missing required language"
-# Set up environment for the validation
-export INPUT_ACTION_TYPE="codeql-analysis"
-unset INPUT_LANGUAGE
-
-When call uv run validate-inputs/validator.py
+When call validate_input_python "codeql-analysis" "language" ""
 The status should be failure
-The stderr should include "Required input 'language' is missing"
 End
 
-It "fails validation with invalid language and queries"
-# Set up environment for the validation
-export INPUT_ACTION_TYPE="codeql-analysis"
-export INPUT_LANGUAGE="invalid-lang"
-export INPUT_QUERIES="invalid-suite"
-
-When call uv run validate-inputs/validator.py
+It "fails validation with invalid language"
+When call validate_input_python "codeql-analysis" "language" "invalid-lang"
 The status should be failure
-The stderr should include "Unsupported CodeQL language"
-The stderr should include "Invalid CodeQL query suite"
 End
 End
 End

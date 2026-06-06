@@ -79,9 +79,10 @@ It "accepts relative context path"
 When call validate_input_python "docker-build" "context" "src/app"
 The status should be success
 End
-It "accepts path traversal in context (no validation in action)"
+It "rejects path traversal in context"
+# The action's validator runs the kit's file_path check, which rejects '..'.
 When call validate_input_python "docker-build" "context" "../../../etc"
-The status should be success
+The status should be failure
 End
 End
 

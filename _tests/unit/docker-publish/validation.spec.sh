@@ -20,9 +20,10 @@ It "accepts both registry"
 When call validate_input_python "docker-publish" "registry" "both"
 The status should be success
 End
-It "rejects empty registry input"
+It "accepts empty registry input (optional)"
+# registry is optional and not required; the kit's enum check skips empty values.
 When call validate_input_python "docker-publish" "registry" ""
-The status should be failure
+The status should be success
 End
 It "accepts boolean values for nightly"
 When call validate_input_python "docker-publish" "nightly" "true"

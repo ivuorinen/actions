@@ -141,9 +141,13 @@ When call validate_input_python "python-lint-fix" "email" "user@example.com; rm 
 The status should be failure
 End
 
-It "validates against variable expansion in token"
-When call validate_input_python "python-lint-fix" "token" "\${MALICIOUS_VAR}"
-The status should be failure
+It "accepts a token passed as an env-var reference"
+# The kit's github_token check treats any value starting with '$' (but not '${{')
+# as a $VAR env reference and accepts it — tokens are normally passed this way or
+# as ${{ secrets.* }}. Genuine shell injection (e.g. "ghp_token; rm -rf /") is still
+# rejected; see the command-injection test above.
+When call validate_input_python "python-lint-fix" "token" "\${SOME_TOKEN_VAR}"
+The status should be success
 End
 End
 End

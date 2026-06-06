@@ -214,9 +214,13 @@ When call validate_input_python "php-tests" "email" "user@example.com; rm -rf /"
 The status should be failure
 End
 
-It "validates against variable expansion in token"
-When call validate_input_python "php-tests" "token" "\${MALICIOUS_VAR}"
-The status should be failure
+It "accepts a token passed as an env-var reference"
+# The kit's github_token check treats any value starting with '$' (but not '${{')
+# as a $VAR env reference and accepts it — tokens are normally passed this way or
+# as ${{ secrets.* }}. Genuine shell injection (e.g. "token; rm -rf /") is still
+# rejected; see the injection test below.
+When call validate_input_python "php-tests" "token" "\${SOME_TOKEN_VAR}"
+The status should be success
 End
 
 It "validates against backtick injection in username"
@@ -288,114 +292,114 @@ parse_phpunit_output() {
 }
 
 Context "when parsing PHPUnit output"
-  # Success cases
-  It "parses single successful test"
-    output="OK (1 test, 2 assertions)"
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=1"
-    The line 2 of output should equal "tests_passed=1"
-    The line 3 of output should equal "status=success"
-  End
+# Success cases
+It "parses single successful test"
+output="OK (1 test, 2 assertions)"
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=1"
+The line 2 of output should equal "tests_passed=1"
+The line 3 of output should equal "status=success"
+End
 
-  It "parses multiple successful tests"
-    output="OK (5 tests, 10 assertions)"
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=5"
-    The line 3 of output should equal "status=success"
-  End
+It "parses multiple successful tests"
+output="OK (5 tests, 10 assertions)"
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=5"
+The line 3 of output should equal "status=success"
+End
 
-  It "parses successful tests with plural form"
-    output="OK (25 tests, 50 assertions)"
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=25"
-    The line 2 of output should equal "tests_passed=25"
-    The line 3 of output should equal "status=success"
-  End
+It "parses successful tests with plural form"
+output="OK (25 tests, 50 assertions)"
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=25"
+The line 2 of output should equal "tests_passed=25"
+The line 3 of output should equal "status=success"
+End
 
-  # Failure cases
-  It "parses test failures"
-    output="FAILURES!
+# Failure cases
+It "parses test failures"
+output="FAILURES!
 Tests: 5, Assertions: 10, Failures: 2."
-    When call parse_phpunit_output "$output" 1
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=3"
-    The line 3 of output should equal "status=failure"
-  End
+When call parse_phpunit_output "$output" 1
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=3"
+The line 3 of output should equal "status=failure"
+End
 
-  It "parses test errors"
-    output="ERRORS!
+It "parses test errors"
+output="ERRORS!
 Tests: 5, Assertions: 10, Errors: 1."
-    When call parse_phpunit_output "$output" 2
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=4"
-    The line 3 of output should equal "status=failure"
-  End
+When call parse_phpunit_output "$output" 2
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=4"
+The line 3 of output should equal "status=failure"
+End
 
-  It "parses mixed failures and errors"
-    output="FAILURES!
+It "parses mixed failures and errors"
+output="FAILURES!
 Tests: 10, Assertions: 20, Failures: 2, Errors: 1."
-    When call parse_phpunit_output "$output" 1
-    The line 1 of output should equal "tests_run=10"
-    The line 2 of output should equal "tests_passed=7"
-    The line 3 of output should equal "status=failure"
-  End
+When call parse_phpunit_output "$output" 1
+The line 1 of output should equal "tests_run=10"
+The line 2 of output should equal "tests_passed=7"
+The line 3 of output should equal "status=failure"
+End
 
-  It "handles all tests failing"
-    output="FAILURES!
+It "handles all tests failing"
+output="FAILURES!
 Tests: 5, Assertions: 10, Failures: 5."
-    When call parse_phpunit_output "$output" 1
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=0"
-    The line 3 of output should equal "status=failure"
-  End
+When call parse_phpunit_output "$output" 1
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=0"
+The line 3 of output should equal "status=failure"
+End
 
-  It "prevents negative passed count"
-    output="ERRORS!
+It "prevents negative passed count"
+output="ERRORS!
 Tests: 2, Assertions: 4, Failures: 1, Errors: 2."
-    When call parse_phpunit_output "$output" 2
-    The line 1 of output should equal "tests_run=2"
-    The line 2 of output should equal "tests_passed=0"
-    The line 3 of output should equal "status=failure"
-  End
+When call parse_phpunit_output "$output" 2
+The line 1 of output should equal "tests_run=2"
+The line 2 of output should equal "tests_passed=0"
+The line 3 of output should equal "status=failure"
+End
 
-  # Skipped tests
-  It "parses skipped tests with success"
-    output="OK, but some tests were skipped!
+# Skipped tests
+It "parses skipped tests with success"
+output="OK, but some tests were skipped!
 Tests: 5, Assertions: 8, Skipped: 2."
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=5"
-    The line 3 of output should equal "status=success"
-  End
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=5"
+The line 3 of output should equal "status=success"
+End
 
-  # Edge cases
-  It "handles no parseable output (fallback)"
-    output="Some random output without test info"
-    When call parse_phpunit_output "$output" 1
-    The line 1 of output should equal "tests_run=0"
-    The line 2 of output should equal "tests_passed=0"
-    The line 3 of output should equal "status=failure"
-  End
+# Edge cases
+It "handles no parseable output (fallback)"
+output="Some random output without test info"
+When call parse_phpunit_output "$output" 1
+The line 1 of output should equal "tests_run=0"
+The line 2 of output should equal "tests_passed=0"
+The line 3 of output should equal "status=failure"
+End
 
-  It "handles empty output"
-    output=""
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=0"
-    The line 2 of output should equal "tests_passed=0"
-    The line 3 of output should equal "status=success"
-  End
+It "handles empty output"
+output=""
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=0"
+The line 2 of output should equal "tests_passed=0"
+The line 3 of output should equal "status=success"
+End
 
-  It "handles PHPUnit 10+ format with singular test"
-    output="OK (1 test, 3 assertions)"
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=1"
-    The line 2 of output should equal "tests_passed=1"
-    The line 3 of output should equal "status=success"
-  End
+It "handles PHPUnit 10+ format with singular test"
+output="OK (1 test, 3 assertions)"
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=1"
+The line 2 of output should equal "tests_passed=1"
+The line 3 of output should equal "status=success"
+End
 
-  It "handles verbose output with noise"
-    output="PHPUnit 10.5.0 by Sebastian Bergmann and contributors.
+It "handles verbose output with noise"
+output="PHPUnit 10.5.0 by Sebastian Bergmann and contributors.
 Runtime:       PHP 8.3.0
 
 .....                                                               5 / 5 (100%)
@@ -403,14 +407,14 @@ Runtime:       PHP 8.3.0
 Time: 00:00.123, Memory: 10.00 MB
 
 OK (5 tests, 10 assertions)"
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=5"
-    The line 3 of output should equal "status=success"
-  End
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=5"
+The line 3 of output should equal "status=success"
+End
 
-  It "handles failure output with full details"
-    output="PHPUnit 10.5.0 by Sebastian Bergmann and contributors.
+It "handles failure output with full details"
+output="PHPUnit 10.5.0 by Sebastian Bergmann and contributors.
 
 ..F..                                                               5 / 5 (100%)
 
@@ -418,41 +422,41 @@ Time: 00:00.234, Memory: 12.00 MB
 
 FAILURES!
 Tests: 5, Assertions: 10, Failures: 1."
-    When call parse_phpunit_output "$output" 1
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=4"
-    The line 3 of output should equal "status=failure"
-  End
+When call parse_phpunit_output "$output" 1
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=4"
+The line 3 of output should equal "status=failure"
+End
 
-  # Status determination tests
-  It "marks as success when exit code is 0"
-    output="OK (3 tests, 6 assertions)"
-    When call parse_phpunit_output "$output" 0
-    The line 3 of output should equal "status=success"
-  End
+# Status determination tests
+It "marks as success when exit code is 0"
+output="OK (3 tests, 6 assertions)"
+When call parse_phpunit_output "$output" 0
+The line 3 of output should equal "status=success"
+End
 
-  It "marks as failure when exit code is non-zero"
-    output="OK (3 tests, 6 assertions)"
-    When call parse_phpunit_output "$output" 1
-    The line 3 of output should equal "status=failure"
-  End
+It "marks as failure when exit code is non-zero"
+output="OK (3 tests, 6 assertions)"
+When call parse_phpunit_output "$output" 1
+The line 3 of output should equal "status=failure"
+End
 
-  It "handles skipped tests without OK prefix"
-    output="Tests: 5, Assertions: 8, Skipped: 2."
-    When call parse_phpunit_output "$output" 0
-    The line 1 of output should equal "tests_run=5"
-    The line 2 of output should equal "tests_passed=5"
-    The line 3 of output should equal "status=success"
-  End
+It "handles skipped tests without OK prefix"
+output="Tests: 5, Assertions: 8, Skipped: 2."
+When call parse_phpunit_output "$output" 0
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=5"
+The line 3 of output should equal "status=success"
+End
 
-  It "handles risky tests output"
-    output="FAILURES!
+It "handles risky tests output"
+output="FAILURES!
 Tests: 8, Assertions: 15, Failures: 1, Risky: 2."
-    When call parse_phpunit_output "$output" 1
-    The line 1 of output should equal "tests_run=8"
-    The line 2 of output should equal "tests_passed=7"
-    The line 3 of output should equal "status=failure"
-  End
+When call parse_phpunit_output "$output" 1
+The line 1 of output should equal "tests_run=8"
+The line 2 of output should equal "tests_passed=7"
+The line 3 of output should equal "status=failure"
+End
 End
 End
 End

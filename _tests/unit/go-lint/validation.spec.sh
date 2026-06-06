@@ -209,9 +209,11 @@ When call validate_input_python "go-lint" "disable-linters" "exhaustivestruct,in
 The status should be success
 End
 
-It "rejects invalid linter list format"
+It "accepts a comma-separated linter list with spaces"
+# The kit's linter_list check trims whitespace around comma-separated entries,
+# so "gosec, govet" is a valid two-linter list.
 When call validate_input_python "go-lint" "enable-linters" "gosec, govet"
-The status should be failure
+The status should be success
 End
 End
 

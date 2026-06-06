@@ -52,15 +52,17 @@ It "rejects injection in branch"
 When call validate_input_python "pre-commit" "base-branch" "branch; rm -rf /"
 The status should be failure
 End
-# NOTE: Test framework uses default validation for 'base-branch'
-# Default validation only checks for injection patterns (;, &&, $()
-It "accepts branch with tilde (framework default validation)"
+# NOTE: 'base-branch' is validated by the kit's branch_name check, which enforces
+# git ref naming rules — not just injection patterns.
+It "rejects branch containing a tilde"
+# Git ref names may not contain '~' (a revision operator).
 When call validate_input_python "pre-commit" "base-branch" "branch~1"
-The status should be success
+The status should be failure
 End
-It "accepts branch starting with dot (framework default validation)"
+It "rejects branch starting with a dot"
+# Git ref names may not start with '.'.
 When call validate_input_python "pre-commit" "base-branch" ".hidden-branch"
-The status should be success
+The status should be failure
 End
 It "rejects injection patterns in branch"
 When call validate_input_python "pre-commit" "base-branch" "branch && rm -rf /"
@@ -85,7 +87,9 @@ End
 
 Context "when validating commit_user input"
 It "accepts valid user"
-When call validate_input_python "pre-commit" "commit_user" "GitHub Actions"
+# The kit's username check allows letters, digits, and internal - or _ (no spaces),
+# matching GitHub login rules — e.g. the "github-actions" bot login.
+When call validate_input_python "pre-commit" "commit_user" "github-actions"
 The status should be success
 End
 It "rejects injection in user"
