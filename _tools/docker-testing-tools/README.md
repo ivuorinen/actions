@@ -125,6 +125,42 @@ The image is:
 - ✅ **Sudo access** - Available for emergency use only
 - ✅ **Transparent build** - Built with GitHub Actions
 
+## 🩺 Troubleshooting
+
+### `denied: permission_denied: write_package` on push to `main`
+
+**Symptom:** `build-testing-image.yml` fails at the _Build and push Docker image_
+step with `failed to push ghcr.io/<owner>/actions:main-testing-tools: denied:
+permission_denied: write_package`, while pull-request runs stay green (PR runs
+only build — the push is gated by `push: ${{ github.event_name != 'pull_request' }}`).
+
+**Cause:** the failure is at the **package's access-control layer**, not the
+workflow. The workflow already grants `packages: write`, logs in with
+`GITHUB_TOKEN`, and stamps the `org.opencontainers.image.source` label. The
+personal-account-scoped GHCR package lost the **inherited write access** for the
+repository's `GITHUB_TOKEN` — this happens when a package is re-connected from its
+settings page, or "Inherit access from source repository" is toggled off, leaving
+explicit permissions that no longer include the repo's workflow token.
+
+**Fix:** user-scoped packages have **no REST API** to grant a repository "Actions
+access" (that endpoint is organization-only), so either:
+
+1. **Non-destructive (UI):** package settings → _Manage Actions access_ →
+   re-enable _Inherit access from source repository_, or add the repository with
+   the **Write** role.
+2. **Delete and recreate (destructive):** delete the package, then re-run the
+   push — the recreate links the repo at creation via the source label, so write
+   access is inherited the supported way:
+
+   ```sh
+   gh api -X DELETE user/packages/container/actions
+   gh run rerun <failed-run-id> --repo <owner>/actions
+   ```
+
+   Side effects: the recreated package inherits the **repository's visibility**
+   (public for a public repo) and existing versions are wiped (acceptable here —
+   the image is regenerated on every push and has no other workflow consumers).
+
 ## 🚨 Migration Guide
 
 ### Before (Old Workflow)
