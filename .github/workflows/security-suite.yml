@@ -81,7 +81,7 @@ jobs:
         continue-on-error: true
 
       - name: TruffleHog Secret Scan
-        uses: trufflesecurity/trufflehog@0f58ae7c5036094a1e3e750d18772af92821b503 # v3.90.5
+        uses: trufflesecurity/trufflehog@d411fff7b8879a62509f3fa98c07f247ac089a51 # v3.95.5
         with:
           path: ./
           base: ${{ env.BASE_REF }}
