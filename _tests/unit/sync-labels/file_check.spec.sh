@@ -45,11 +45,11 @@ End
 End
 
 Context "with no INPUT_LABELS (uses default manifest path)"
-It "sets found=false and warns — sync-labels has no bundled labels.yml"
+It "sets found=true and exits without warning — sync-labels ships labels.yml"
 When call run_step "${ACTION_DIR}" "check-labels-file"
 The status should be success
-The stdout should include "::warning::"
-Assert expect_output found false
+The stdout should be blank
+Assert expect_output found true
 End
 End
 
