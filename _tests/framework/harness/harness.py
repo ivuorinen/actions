@@ -306,7 +306,7 @@ def _inputs_from_env() -> dict[str, str]:
     return out
 
 
-def _build_context() -> dict:
+def _build_context(action_dir: Path | None = None) -> dict:
     return {
         "inputs": _inputs_from_env(),
         "github": {
@@ -315,6 +315,7 @@ def _build_context() -> dict:
             "repository": os.environ.get("GITHUB_REPOSITORY", "ivuorinen/actions"),
             "workspace": os.environ.get("GITHUB_WORKSPACE", str(Path.cwd())),
             "run_id": os.environ.get("GITHUB_RUN_ID", "1"),
+            "action_path": str(action_dir.resolve()) if action_dir else "",
         },
         "env": dict(os.environ),
         "steps": {},
@@ -384,7 +385,7 @@ def _run_owned(
     github_output: Path,
     github_env: Path,
 ) -> int:
-    context = _build_context()
+    context = _build_context(action_dir=action_dir)
     steps_ctx: dict = context["steps"]
     step_output_index = 0
 
@@ -510,7 +511,7 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     if args.command == "run-step":
-        context = _build_context()
+        context = _build_context(action_dir=Path(args.action_dir))
         step = ActionParser.get_step(Path(args.action_dir), args.step_id)
         return _execute_step(
             step,

@@ -22,11 +22,19 @@ inputs:
 outputs:
   labels:
     description: 'Path to the labels YAML file'
-    value: ${{ inputs.labels }}
+    value: ${{ steps.check-labels-file.outputs.manifest-path }}
 
 runs:
   using: 'composite'
   steps:
+    - name: Mask token
+      shell: sh
+      env:
+        INPUT_TOKEN: ${{ inputs.token }}
+      run: |
+        set -eu
+        printf '::add-mask::%s\n' "$INPUT_TOKEN"
+
     - name: Validate Inputs
       shell: sh
       working-directory: ${{ github.action_path }}
@@ -41,9 +49,32 @@ runs:
         fi
         python3 validate.py
 
+    - name: Check Labels File
+      id: check-labels-file
+      shell: sh
+      env:
+        INPUT_LABELS: ${{ inputs.labels }}
+        DEFAULT_MANIFEST: ${{ github.action_path }}/labels.yml
+      run: |
+        set -eu
+        if [ -n "$INPUT_LABELS" ]; then
+          case "$INPUT_LABELS" in
+            /*|..*) printf '::error::sync-labels: labels path must be relative and within the repository\n'; exit 1 ;;
+          esac
+        fi
+        manifest="${INPUT_LABELS:-${DEFAULT_MANIFEST}}"
+        printf 'manifest-path=%s\n' "$manifest" >> "$GITHUB_OUTPUT"
+        if [ -f "$manifest" ]; then
+          printf 'found=true\n' >> "$GITHUB_OUTPUT"
+        else
+          printf 'found=false\n' >> "$GITHUB_OUTPUT"
+          printf '::warning::sync-labels: labels file not found at "%s" — skipping label sync\n' "$manifest"
+        fi
+
     - name: Run Label Syncer
+      if: steps.check-labels-file.outputs.found == 'true'
       uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0
       env:
         GITHUB_TOKEN: ${{ inputs.token }}
       with:
-        manifest: ${{ inputs.labels || format('{0}/labels.yml', github.action_path) }}
+        manifest: ${{ steps.check-labels-file.outputs.manifest-path }}
