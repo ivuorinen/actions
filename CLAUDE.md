@@ -50,7 +50,7 @@ in hook commands
 ### Skills & Subagents
 
 | When                                        | Run                                       |
-| ------------------------------------------- | ----------------------------------------- |
+|---------------------------------------------|-------------------------------------------|
 | After modifying an action                   | `/action-health <name>`                   |
 | After creating an action modeled on another | `/compare-actions <source> <new>`         |
 | Before creating a PR                        | `/pin-check` and `/security-audit`        |
@@ -268,7 +268,7 @@ You do NOT need to manually instruct subagents about context-mode.
 ### ctx commands
 
 | Command       | Action                                                                                |
-| ------------- | ------------------------------------------------------------------------------------- |
+|---------------|---------------------------------------------------------------------------------------|
 | `ctx stats`   | Call the `ctx_stats` MCP tool and display the full output verbatim                    |
 | `ctx doctor`  | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist  |
 | `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |

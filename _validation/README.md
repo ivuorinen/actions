@@ -14,7 +14,7 @@ self-contained model removes all of that: validation ships _atomically_ with eac
 ## Layout
 
 | File          | Role                                                                                                                  |
-| ------------- | --------------------------------------------------------------------------------------------------------------------- |
+|---------------|-----------------------------------------------------------------------------------------------------------------------|
 | `kit.py`      | Canonical check functions — `CHECKS[type](value) -> error \| None`. Every regex/enum/range is defined here, **once**. |
 | `spec.py`     | Hand-edited map: `SPECS[action] = {"required": [...], "checks": {input: type}}`.                                      |
 | `generate.py` | Inlines the exact source of the checks each action needs into `<action>/validate.py`.                                 |
