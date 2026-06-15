@@ -207,7 +207,7 @@ jobs:
                 }
               }
             } catch (error) {
-              console.log('Opengrep SARIF parsing completed');
+              core.warning(`Failed to parse opengrep.sarif: ${error.message}`);
             }
 
             // Parse TruffleHog results (NDJSON format - one JSON object per line)
