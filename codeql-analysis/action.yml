@@ -153,6 +153,7 @@ runs:
       with:
         ref: ${{ inputs.checkout-ref || github.sha }}
         token: ${{ inputs.token }}
+        persist-credentials: false
 
     - name: Set analysis category
       id: set-category
