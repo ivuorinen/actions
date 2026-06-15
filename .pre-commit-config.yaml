@@ -8,10 +8,14 @@ repos:
     hooks:
       - id: generate-docs-format-lint
         name: Generate docs, format, and lint
-        entry: bash -c 'make all'
+        # Runs the docs/format/lint targets directly — NOT `make all`, whose
+        # `precommit` step would re-invoke pre-commit and recurse infinitely.
+        entry: bash -c 'make docs format lint'
         language: system
         pass_filenames: false
-        types: [markdown, python, yaml]
+        # types_or (any of), not types (which is an AND — no file is markdown
+        # AND python AND yaml, so the hook never matched and never ran).
+        types_or: [markdown, python, yaml]
         files: ^(docs/.*|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|.*\.py|.*\.ya?ml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
     rev: 0.11.19
