@@ -46,7 +46,10 @@ runs:
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
-        persist-credentials: false
+        # git-auto-commit-action pushes the auto-fix commit using the token that
+        # actions/checkout persists in .git/config; persist-credentials must stay
+        # true or the "Commit Fixes" step cannot authenticate its push.
+        persist-credentials: true # zizmor: ignore[artipacked]
 
     - name: Validate Inputs
       shell: sh

@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-05 (Pass 22 — validate-inputs deep audit; fixed N-125..N-132, N-134, N-135; invalid N-133; all open findings resolved)
+Last validated: 2026-06-15 (Pass 23 — chore/updates branch review; fixed N-136, the persist-credentials regression in 7 auto-commit fix-actions; all open findings resolved)
 
 ## Summary
 
-- Total: 135 | Open: 0 | Fixed: 132 | Invalid: 3
+- Total: 136 | Open: 0 | Fixed: 133 | Invalid: 3
 
 ## Open Findings
 
@@ -34,6 +34,37 @@ via per-action migration in commits 3dcf7cb..2191252 + test-fixup 03adba5. Every
 that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a`.
 
 ## Fixed
+
+### Pass 23 — 2026-06-15
+
+#### [N-136] `persist-credentials: false` breaks git-auto-commit push in 7 fix-actions
+
+Category: correctness
+Area: ansible-lint-fix, biome-lint, eslint-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix (action.yml checkout step)
+Problem: Commit `9f6d2d8` set `persist-credentials: false` on every `actions/checkout` step
+across the repo as a security hardening. Seven of those actions end with a
+`stefanzweifel/git-auto-commit-action` step that commits and pushes auto-fix results.
+That action pushes using the token `actions/checkout` writes into `.git/config`; with
+`persist-credentials: false` the post-checkout step deletes that auth header, so the
+push has no credentials.
+Evidence: git-auto-commit-action README (master) states verbatim: "Value already defaults
+to true, but `persist-credentials` is required to push new commits to the repository"
+and shows `persist-credentials: true` in its canonical example. The action exposes no
+env-token / push-token alternative — the persisted checkout credential is the only auth
+path. All 7 actions had `persist-credentials: false` + an unconfigured auto-commit step.
+Impact: Whenever auto-fix is enabled and the linter changes files, the "Commit Fixes"
+step fails to authenticate (`fatal: could not read Username` / 403) and the action fails
+— the core feature of every `-fix` action is broken for all external consumers.
+Fix: Set `persist-credentials: true` on the checkout step of the 7 auto-commit actions,
+with a comment explaining the requirement and a `# zizmor: ignore[artipacked]` directive
+documenting the accepted, functionally-required credential persistence. The ~18 actions
+that never push keep `persist-credentials: false`. Verified: `action-validator` passes on
+all 7; no `persist-credentials: false` remains in them.
+Notes: No CI gate regressed — zizmor is not wired into CI (no config, not in workflows,
+pre-commit, or security-scan); the security gate is actionlint + trivy + gitleaks, none
+of which inspect persist-credentials. No integration test exercises the auto-commit push,
+which is why the regression was not caught (coverage gap noted; an end-to-end push test
+needs a throwaway remote, so it is tracked here rather than opened as a separate finding).
 
 ### Pass 22 — 2026-06-05
 
