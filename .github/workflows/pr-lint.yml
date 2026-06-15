@@ -59,6 +59,7 @@ jobs:
         with:
           token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Run MegaLinter
         id: pr-lint
@@ -78,9 +79,11 @@ jobs:
       - name: Check Results
         if: always()
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        env:
+          VALIDATION_STATUS: ${{ steps.pr-lint.outputs.validation_status }}
         with:
           script: |
-            const status = '${{ steps.pr-lint.outputs.validation_status }}';
+            const status = process.env.VALIDATION_STATUS;
             const conclusion = status === 'success' ? 'success' : 'failure';
 
             const summary = `## MegaLinter Results
