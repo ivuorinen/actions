@@ -64,6 +64,7 @@ runs:
       with:
         token: ${{ inputs.github_token }}
         fetch-depth: 0
+        persist-credentials: false
 
     - name: Validate Inputs
       shell: sh

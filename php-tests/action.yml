@@ -109,6 +109,7 @@ runs:
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
+        persist-credentials: false
 
     - name: Detect Framework
       id: detect-framework
@@ -253,7 +254,7 @@ runs:
 
     - name: Setup PHP
       id: setup-php
-      uses: shivammathur/setup-php@7c071dfe9dc99bdf297fa79cb49ea005b9fcadbc # 2.37.1
+      uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2
       with:
         php-version: ${{ steps.detect-php-version.outputs.detected-version }}
         extensions: ${{ inputs.extensions }}

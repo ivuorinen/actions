@@ -23,7 +23,7 @@ We will respond within 48 hours and work on a fix if validated.
 This repository implements:
 
 - CodeQL scanning
-- Semgrep static analysis
+- Opengrep static analysis (open-source fork of Semgrep CE)
 - Gitleaks secret scanning
 - Dependency Review
 - MegaLinter code analysis
@@ -50,12 +50,11 @@ When using these actions:
 The following table shows available secrets (auto-provisioned secrets are provided by
 GitHub, optional secrets require manual repository configuration):
 
-| Secret Name         | Description                                                       | Requirement |
-| ------------------- | ----------------------------------------------------------------- | ----------- |
-| `GITHUB_TOKEN`      | GitHub token for workflow authentication (automatically provided) | Auto        |
-| `GITLEAKS_LICENSE`  | License for Gitleaks scanning                                     | Optional    |
-| `FIXIMUS_TOKEN`     | Enhanced token for automated fix PRs                              | Optional    |
-| `SEMGREP_APP_TOKEN` | Token for Semgrep static analysis                                 | Optional    |
+| Secret Name        | Description                                                       | Requirement |
+| ------------------ | ----------------------------------------------------------------- | ----------- |
+| `GITHUB_TOKEN`     | GitHub token for workflow authentication (automatically provided) | Auto        |
+| `GITLEAKS_LICENSE` | License for Gitleaks scanning                                     | Optional    |
+| `FIXIMUS_TOKEN`    | Enhanced token for automated fix PRs                              | Optional    |
 
 ## Security Workflows
 
@@ -63,7 +62,7 @@ This repository includes several security-focused workflows:
 
 1. **PR Security Analysis** (`security-suite.yml`)
    - Comprehensive security scanning on pull requests
-   - Semgrep static analysis
+   - Opengrep static analysis
    - Dependency vulnerability checks
    - Creates automated fix PRs
 

@@ -36,6 +36,7 @@ jobs:
           fetch-depth: 0
           repository: ${{ github.event.pull_request.head.repo.full_name }}
           ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
 
       - name: Fetch PR Base
         env:
@@ -71,13 +72,23 @@ jobs:
             --enableRetired --enableExperimental --failOnCVSS 0
         continue-on-error: true
 
-      - name: Semgrep Static Analysis
-        uses: semgrep/semgrep-action@713efdd345f3035192eaa63f56867b88e63e4e5d # v1
-        with:
-          config: 'auto'
-          generateSarif: 'true'
+      - name: Opengrep Static Analysis
+        # Opengrep is the open-source (LGPL) fork of Semgrep CE and runs the same
+        # Semgrep-compatible rules. Installed from the pinned release binary,
+        # verified by SHA-256, rather than a floating install-script ref — this
+        # keeps the pin-everything trust root (a release tag is mutable; the
+        # digest is not). 'p/default' is the public registry ruleset resolvable
+        # without an account token. Update OPENGREP_SHA256 with OPENGREP_VERSION.
         env:
-          SEMGREP_APP_TOKEN: ${{ github.event_name != 'pull_request_target' && secrets.SEMGREP_APP_TOKEN || '' }}
+          OPENGREP_VERSION: v1.22.0
+          OPENGREP_SHA256: 45bcd58440e397ed52c50e953ccf5948909ea77087c9186fc7d277216f62e319
+        run: |
+          set -eu
+          curl -fsSL -o /tmp/opengrep \
+            "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86"
+          printf '%s  /tmp/opengrep\n' "$OPENGREP_SHA256" | sha256sum -c -
+          chmod +x /tmp/opengrep
+          /tmp/opengrep scan --config p/default --sarif-output=opengrep.sarif .
         continue-on-error: true
 
       - name: TruffleHog Secret Scan
@@ -176,10 +187,10 @@ jobs:
               console.log('No OWASP results found');
             }
 
-            // Parse Semgrep SARIF results
+            // Parse Opengrep SARIF results
             try {
-              if (fs.existsSync('semgrep.sarif')) {
-                const sarifContent = JSON.parse(fs.readFileSync('semgrep.sarif', 'utf8'));
+              if (fs.existsSync('opengrep.sarif')) {
+                const sarifContent = JSON.parse(fs.readFileSync('opengrep.sarif', 'utf8'));
                 if (sarifContent.runs && sarifContent.runs[0] && sarifContent.runs[0].results) {
                   const run = sarifContent.runs[0];
                   const rules = run.tool?.driver?.rules || [];
@@ -196,7 +207,7 @@ jobs:
                 }
               }
             } catch (error) {
-              console.log('Semgrep SARIF parsing completed');
+              core.warning(`Failed to parse opengrep.sarif: ${error.message}`);
             }
 
             // Parse TruffleHog results (NDJSON format - one JSON object per line)

@@ -17,7 +17,7 @@ jobs:
 ## 📦 Pre-installed Tools
 
 | Tool           | Version         | Purpose                         |
-| -------------- | --------------- | ------------------------------- |
+|----------------|-----------------|---------------------------------|
 | **ShellSpec**  | 0.28.1 (pinned) | Shell script testing framework  |
 | **nektos/act** | 0.2.71 (pinned) | Local GitHub Actions testing    |
 | **TruffleHog** | 3.86.0 (pinned) | Secrets detection               |
@@ -45,7 +45,7 @@ cd _tools/docker-testing-tools
 ## 📊 Performance Benefits
 
 | Workflow Job      | Before | After | Savings        |
-| ----------------- | ------ | ----- | -------------- |
+|-------------------|--------|-------|----------------|
 | Unit Tests        | ~90s   | ~30s  | **60s**        |
 | Integration Tests | ~120s  | ~45s  | **75s**        |
 | Coverage          | ~100s  | ~40s  | **60s**        |

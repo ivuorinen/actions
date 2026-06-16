@@ -47,12 +47,13 @@ runs:
         API_KEY: ${{ inputs.token || github.token }}
       run: |
         set -eu
-        echo "::add-mask::$API_KEY"
+        printf '::add-mask::%s\n' "$API_KEY"
 
     - name: Checkout Repository
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
+        persist-credentials: false
 
     - name: Validate Inputs
       shell: sh

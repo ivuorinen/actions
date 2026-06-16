@@ -51,6 +51,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          persist-credentials: false
 
       - name: Setup test environment
         uses: ./.github/actions/setup-test-environment
@@ -108,6 +110,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          persist-credentials: false
 
       - name: Setup test environment
         uses: ./.github/actions/setup-test-environment
@@ -172,6 +176,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          persist-credentials: false
 
       - name: Setup test environment
         uses: ./.github/actions/setup-test-environment
@@ -240,6 +246,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          persist-credentials: false
 
       - name: Setup test environment
         uses: ./.github/actions/setup-test-environment

@@ -67,6 +67,7 @@ runs:
       with:
         token: ${{ inputs.token }}
         fetch-depth: 0 # Fetch all history for tag comparison
+        persist-credentials: false
 
     # timeout-minutes is set at the calling workflow level
     - name: Create Release

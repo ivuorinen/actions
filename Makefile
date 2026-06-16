@@ -59,6 +59,8 @@ docs: ## Generate documentation for all actions
 			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
 			$(SED_CMD) "s|@main|@vYYYY.MM.DD|g" "$$dir/README.md"; \
 			[ "$(UNAME_S)" = "Darwin" ] && rm -f "$$dir/README.md.bak"; \
+			npx --yes prettier --write "$$dir/README.md" >/dev/null 2>&1; \
+			npx --yes markdown-table-formatter "$$dir/README.md" >/dev/null 2>&1; \
 			echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
 		else \
 			echo "$(RED)⚠️ Failed to update $$dir/README.md$(RESET)" | tee -a $(LOG_FILE); \

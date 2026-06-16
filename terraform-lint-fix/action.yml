@@ -75,6 +75,10 @@ runs:
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
+        # git-auto-commit-action pushes the auto-fix commit using the token that
+        # actions/checkout persists in .git/config; persist-credentials must stay
+        # true or the "Commit Fixes" step cannot authenticate its push.
+        persist-credentials: true # zizmor: ignore[artipacked]
 
     - name: Validate Inputs
       shell: sh
@@ -99,30 +103,14 @@ runs:
         fi
         python3 validate.py
 
-    - name: Write Inputs to Environment
-      # All inputs (including format and fail-on-error) are validated by the
-      # "Validate Inputs" step above before they are written to the environment.
-      shell: sh
-      env:
-        INPUT_WORKING_DIR: ${{ inputs.working-directory }}
-        INPUT_CONFIG: ${{ inputs.config-file }}
-        INPUT_FORMAT: ${{ inputs.format }}
-        INPUT_FAIL: ${{ inputs.fail-on-error }}
-        INPUT_RETRIES: ${{ inputs.max-retries }}
-      run: |
-        set -eu
-        # Write validated inputs to GITHUB_ENV with a random delimiter to prevent heredoc injection
-        _dl=$(od -vAn -N8 -tx1 /dev/urandom 2>/dev/null | tr -d ' \n')
-        [ -n "$_dl" ] || _dl="$(printf 'EOF%s' "$$")"
-        printf 'VALIDATED_WORKING_DIR<<%s\n%s\n%s\n' "$_dl" "$INPUT_WORKING_DIR" "$_dl" >> "$GITHUB_ENV"
-        printf 'VALIDATED_CONFIG<<%s\n%s\n%s\n' "$_dl" "$INPUT_CONFIG" "$_dl" >> "$GITHUB_ENV"
-        printf 'VALIDATED_FORMAT<<%s\n%s\n%s\n' "$_dl" "$INPUT_FORMAT" "$_dl" >> "$GITHUB_ENV"
-        printf 'VALIDATED_FAIL<<%s\n%s\n%s\n' "$_dl" "$INPUT_FAIL" "$_dl" >> "$GITHUB_ENV"
-        printf 'VALIDATED_RETRIES<<%s\n%s\n%s\n' "$_dl" "$INPUT_RETRIES" "$_dl" >> "$GITHUB_ENV"
-
     - name: Check for Terraform Files
       id: check-files
       shell: sh
+      # Inputs are gated by the "Validate Inputs" step above, which fails the
+      # action on invalid input before this step runs; passing them through an
+      # env: block (never inline in run:) keeps the values injection-safe.
+      env:
+        VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
       run: |
         set -eu
         # Use validated environment variable
@@ -176,6 +164,8 @@ runs:
     - name: Configure TFLint
       if: steps.check-files.outputs.found == 'true'
       shell: sh
+      env:
+        VALIDATED_CONFIG: ${{ inputs.config-file }}
       run: |
         set -eu
         # Use validated environment variable
@@ -205,6 +195,11 @@ runs:
       if: steps.check-files.outputs.found == 'true'
       id: lint
       shell: sh
+      env:
+        VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
+        VALIDATED_CONFIG: ${{ inputs.config-file }}
+        VALIDATED_FORMAT: ${{ inputs.format }}
+        VALIDATED_FAIL: ${{ inputs.fail-on-error }}
       run: |
         set -eu
         # Use validated environment variables
@@ -239,6 +234,8 @@ runs:
       if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true'
       id: fix
       shell: sh
+      env:
+        VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
       run: |
         set -eu
         # Use validated environment variable
