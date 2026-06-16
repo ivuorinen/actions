@@ -1,11 +1,11 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-15 (Pass 23 — chore/updates branch review; fixed N-136, the persist-credentials regression in 7 auto-commit fix-actions; all open findings resolved)
+Last validated: 2026-06-15 (Pass 25 — chore/updates branch review; fixed N-142, the persist-credentials regression in 7 auto-commit fix-actions; all open findings resolved)
 
 ## Summary
 
-- Total: 136 | Open: 0 | Fixed: 133 | Invalid: 3
+- Total: 142 | Open: 0 | Fixed: 139 | Invalid: 3
 
 ## Open Findings
 
@@ -35,9 +35,9 @@ that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a
 
 ## Fixed
 
-### Pass 23 — 2026-06-15
+### Pass 25 — 2026-06-15
 
-#### [N-136] `persist-credentials: false` breaks git-auto-commit push in 7 fix-actions
+#### [N-142] `persist-credentials: false` breaks git-auto-commit push in 7 fix-actions
 
 Category: correctness
 Area: ansible-lint-fix, biome-lint, eslint-lint, pre-commit, prettier-lint, python-lint-fix, terraform-lint-fix (action.yml checkout step)
@@ -65,6 +65,66 @@ pre-commit, or security-scan); the security gate is actionlint + trivy + gitleak
 of which inspect persist-credentials. No integration test exercises the auto-commit push,
 which is why the regression was not caught (coverage gap noted; an end-to-end push test
 needs a throwaway remote, so it is tracked here rather than opened as a separate finding).
+Renumbered from N-136 (the working slug used on the chore/updates branch) to N-142 after
+merging main, which had independently assigned N-136 to the sync-labels finding (Pass 23)
+and N-137..N-141 (Pass 24).
+
+### Pass 24 — 2026-06-14
+
+#### [N-140] Missing `::add-mask::` for caller-supplied PAT in `inputs.token`
+
+Fixed: 2026-06-14
+Notes: Added "Mask token" as the first composite step. It reads `inputs.token` via an env
+block and emits `::add-mask::` so any caller-supplied PAT is masked in log output before
+any subsequent step can print it. `github.token` (the default) is already auto-masked by
+the runner; re-masking it is harmless.
+
+#### [N-141] No shell-level path guard in `check-labels-file` (defense-in-depth gap)
+
+Fixed: 2026-06-14
+Notes: Added a POSIX `case` guard in `check-labels-file` before `manifest=` assignment:
+absolute paths (`/*`) and traversal (`..*`) cause `::error::` + exit 1. `validate.py` is
+the primary guard (runs first), but this ensures the step is safe even if step order is
+ever changed. Tests updated to use relative paths in `SHELLSPEC_TEST_WORKSPACE` (removing
+the `/tmp/` dependency) and two new contexts confirm absolute-path and traversal rejection.
+
+#### [N-137] `outputs.labels` returns empty string when default manifest is used
+
+Fixed: 2026-06-14
+Notes: Changed `outputs.labels.value` from `${{ inputs.labels }}` (raw input, empty when
+unset) to `${{ steps.check-labels-file.outputs.manifest-path }}` (the resolved path emitted
+by the check step). Callers now receive the actual path used — the explicit input or the
+default `{action_path}/labels.yml`.
+
+#### [N-138] Manifest path resolved in two independent places
+
+Fixed: 2026-06-14
+Notes: `check-labels-file` now emits `manifest-path` to `GITHUB_OUTPUT` before the
+`found` flag (`printf 'manifest-path=%s\n' "$manifest" >> "$GITHUB_OUTPUT"`). `Run Label
+Syncer` `with.manifest:` changed from `${{ inputs.labels || format(...) }}` to
+`${{ steps.check-labels-file.outputs.manifest-path }}`. Single resolution point; the
+duplication is gone. Also fixed N-137 as a side-effect.
+
+#### [N-139] Test temp file not managed by harness teardown
+
+Fixed: 2026-06-14
+Notes: Replaced `mktemp` + inline `rm -f` with a spec-scope variable
+`_SL_LABELS_FILE="/tmp/sync-labels-labels-$$.yml"` (defined at `Describe` level). `after()`
+now runs `rm -f "$_SL_LABELS_FILE"` unconditionally. The "file exists" `It` block uses
+`touch "$_SL_LABELS_FILE"` instead of `mktemp`. Added `Assert expect_output manifest-path`
+assertions to both deterministic contexts (file-exists and missing-file).
+
+### Pass 23 — 2026-06-14
+
+#### [N-136] `sync-labels` fails hard when labels file is absent
+
+Fixed: 2026-06-14
+Notes: Added "Check Labels File" step (id: check-labels-file) between Validate Inputs
+and Run Label Syncer. The step resolves the manifest path (`inputs.labels` or the
+default `{action_path}/labels.yml`), emits `::warning::` and sets `found=false` when
+the file is missing, or sets `found=true` when present. "Run Label Syncer" is gated
+with `if: steps.check-labels-file.outputs.found == 'true'` so a missing file causes
+a clean warning + exit 0 instead of a downstream action failure.
 
 ### Pass 22 — 2026-06-05
 
