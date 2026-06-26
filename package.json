@@ -21,7 +21,7 @@
   },
   "devDependencies": {
     "action-docs": "2.5.1",
-    "js-yaml": "^4.1.0",
+    "js-yaml": "^5.0.0",
     "markdown-table": "^3.0.3",
     "markdown-table-formatter": "^1.6.0",
     "markdownlint-cli2": "^0.22.0",
