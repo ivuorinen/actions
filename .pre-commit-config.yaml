@@ -7,10 +7,10 @@ repos:
   - repo: local
     hooks:
       - id: generate-docs-format-lint
-        name: Generate docs, format, and lint
+        name: Run format, and lint
         # Runs the docs/format/lint targets directly — NOT `make all`, whose
         # `precommit` step would re-invoke pre-commit and recurse infinitely.
-        entry: bash -c 'make docs format lint'
+        entry: bash -c 'make format lint'
         language: system
         pass_filenames: false
         # types_or (any of), not types (which is an AND — no file is markdown
