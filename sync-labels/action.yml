@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 # permissions:
-#   - issues: write # Required for syncing labels
+#   - issues: write # Required for syncing labels (and PAT for cross-repo sync)
 ---
 name: Sync labels
-description: Sync labels from a YAML file to a GitHub repository
+description: Sync GitHub labels declaratively from a YAML/JSON manifest (no Docker)
 author: Ismo Vuorinen
 
 branding:
@@ -12,17 +12,38 @@ branding:
 
 inputs:
   labels:
-    description: 'Path to the labels YAML file'
+    description: "Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when omitted (no longer the action's bundled labels.yml)."
     required: false
+    default: ''
+  repository:
+    description: 'Newline-separated list of owner/repo targets. Defaults to the current repository. Cross-repo sync requires a PAT in the token input.'
+    required: false
+    default: ''
+  prune:
+    description: 'Delete existing labels that are not listed in the manifest'
+    required: false
+    default: 'true'
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication (use a PAT for cross-repo sync)'
     required: false
     default: ${{ github.token }}
 
 outputs:
-  labels:
-    description: 'Path to the labels YAML file'
-    value: ${{ steps.check-labels-file.outputs.manifest-path }}
+  created:
+    description: 'Number of labels created'
+    value: ${{ steps.sync.outputs.created }}
+  updated:
+    description: 'Number of labels updated'
+    value: ${{ steps.sync.outputs.updated }}
+  deleted:
+    description: 'Number of labels deleted (pruned)'
+    value: ${{ steps.sync.outputs.deleted }}
+  unchanged:
+    description: 'Number of labels left unchanged'
+    value: ${{ steps.sync.outputs.unchanged }}
+  repositories:
+    description: 'Number of repositories synced'
+    value: ${{ steps.sync.outputs.repositories }}
 
 runs:
   using: 'composite'
@@ -40,6 +61,8 @@ runs:
       working-directory: ${{ github.action_path }}
       env:
         INPUT_LABELS: ${{ inputs.labels }}
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_PRUNE: ${{ inputs.prune }}
         INPUT_TOKEN: ${{ inputs.token }}
       run: |
         set -eu
@@ -49,32 +72,19 @@ runs:
         fi
         python3 validate.py
 
-    - name: Check Labels File
-      id: check-labels-file
+    - name: Sync Labels
+      id: sync
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         INPUT_LABELS: ${{ inputs.labels }}
-        DEFAULT_MANIFEST: ${{ github.action_path }}/labels.yml
+        INPUT_REPOSITORY: ${{ inputs.repository }}
+        INPUT_PRUNE: ${{ inputs.prune }}
+        GH_TOKEN: ${{ inputs.token }}
       run: |
         set -eu
-        if [ -n "$INPUT_LABELS" ]; then
-          case "$INPUT_LABELS" in
-            /*|..*) printf '::error::sync-labels: labels path must be relative and within the repository\n'; exit 1 ;;
-          esac
-        fi
-        manifest="${INPUT_LABELS:-${DEFAULT_MANIFEST}}"
-        printf 'manifest-path=%s\n' "$manifest" >> "$GITHUB_OUTPUT"
-        if [ -f "$manifest" ]; then
-          printf 'found=true\n' >> "$GITHUB_OUTPUT"
-        else
-          printf 'found=false\n' >> "$GITHUB_OUTPUT"
-          printf '::warning::sync-labels: labels file not found at "%s" — skipping label sync\n' "$manifest"
-        fi
-
-    - name: Run Label Syncer
-      if: steps.check-labels-file.outputs.found == 'true'
-      uses: micnncim/action-label-syncer@3abd5ab72fda571e69fffd97bd4e0033dd5f495c # v1.3.0
-      env:
-        GITHUB_TOKEN: ${{ inputs.token }}
-      with:
-        manifest: ${{ steps.check-labels-file.outputs.manifest-path }}
+        command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI is required to sync labels"; exit 1; }
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to sync labels"; exit 1; }
+        # Run from the repository checkout so a relative manifest path resolves
+        # against the consumer's workspace; the script itself lives in the action.
+        python3 "${ACTION_PATH}/sync.py"
