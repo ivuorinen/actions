@@ -43,6 +43,13 @@ def _is_env_ref(value: str) -> bool:
     return re.fullmatch(r"\$([A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})", value) is not None
 
 
+def check_boolean(value: str) -> str | None:
+    """Boolean flag — ``true`` or ``false`` (any case)."""
+    if _skip(value) or value.strip().lower() in ("true", "false"):
+        return None
+    return 'must be "true" or "false"'
+
+
 def check_file_path(value: str) -> str | None:
     """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
     if _skip(value):
@@ -91,10 +98,26 @@ def check_github_token(value: str) -> str | None:
     )
 
 
+def check_repository_list(value: str) -> str | None:
+    """Newline-separated ``owner/repo`` targets for cross-repo label sync."""
+    if _skip(value):
+        return None
+    bad = [
+        line.strip()
+        for line in value.splitlines()
+        if line.strip() and not re.fullmatch(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+", line.strip())
+    ]
+    if bad:
+        return "invalid repository(s) (expected owner/repo): " + ", ".join(bad)
+    return None
+
+
 ACTION = "sync-labels"
 
 CHECKS = {
     "labels": check_file_path,
+    "prune": check_boolean,
+    "repository": check_repository_list,
     "token": check_github_token,
 }
 

@@ -551,6 +551,20 @@ def check_boolean(value: str) -> str | None:
     return 'must be "true" or "false"'
 
 
+def check_repository_list(value: str) -> str | None:
+    """Newline-separated ``owner/repo`` targets for cross-repo label sync."""
+    if _skip(value):
+        return None
+    bad = [
+        line.strip()
+        for line in value.splitlines()
+        if line.strip() and not re.fullmatch(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+", line.strip())
+    ]
+    if bad:
+        return "invalid repository(s) (expected owner/repo): " + ", ".join(bad)
+    return None
+
+
 def check_mode_enum(value: str) -> str | None:
     """Linter mode."""
     return _enum(value, "check", "fix")

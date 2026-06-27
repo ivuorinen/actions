@@ -163,6 +163,10 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["a;b", "a`b`", "a\nb", "a" * 101],
     },
     "boolean": {"valid": ["true", "false", "TRUE", "False"], "invalid": ["yes", "1", "maybe"]},
+    "repository_list": {
+        "valid": ["owner/repo", "owner/repo\nowner2/repo2", "my-org/my.repo_1"],
+        "invalid": ["not-a-repo", "owner//repo", "owner/repo\nbad target", "/leading"],
+    },
     "mode_enum": {"valid": ["check", "fix"], "invalid": ["lint"]},
     "report_format": {"valid": ["json", "sarif", "github-actions"], "invalid": ["yaml"]},
     "coverage_driver": {"valid": ["none", "xdebug", "pcov", "xdebug3"], "invalid": ["phpdbg"]},

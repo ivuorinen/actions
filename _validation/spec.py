@@ -330,6 +330,8 @@ SPECS: dict[str, ActionSpec] = {
         "required": [],
         "checks": {
             "labels": "file_path",
+            "prune": "boolean",
+            "repository": "repository_list",
             "token": "github_token",
         },
     },
