@@ -62,7 +62,7 @@ jobs:
         # Only run on pull_request, not pull_request_target to prevent executing
         # untrusted third-party actions against PR head from forks
         if: github.event_name == 'pull_request'
-        uses: dependency-check/Dependency-Check_Action@3102a65fd5f36d0000297576acc56a475b0de98d # main
+        uses: dependency-check/Dependency-Check_Action@75ba02d6183445fe0761d26e836bde58b1560600 # 1.1.0
         with:
           project: 'PR Security Analysis'
           path: '.'
