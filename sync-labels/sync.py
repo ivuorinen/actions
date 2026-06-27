@@ -119,8 +119,13 @@ def normalize(entries: list[dict]) -> list[dict]:
             color = color.zfill(6)
         if not _HEX6.match(color):
             fail(f"{where} ('{name}'): color must be a 6-digit hex value, got '{color}'")
-        description = entry.get("description") or ""
-        if not isinstance(description, str):
+        description = entry.get("description", "")
+        if description is None:
+            description = ""  # YAML "description:" with no value parses to None
+        elif not isinstance(description, str):
+            # Reject falsy non-strings (0, False, []) instead of silently coercing
+            # them to "" — that would mask a malformed manifest and could clear a
+            # label's existing description.
             fail(f"{where} ('{name}'): description must be a string")
         labels.append({"name": name, "color": color, "description": description})
     if not labels:
@@ -146,18 +151,21 @@ def sync_repo(repo: str, desired: list[dict], *, prune: bool) -> dict[str, int]:
     for label in desired:
         existing = by_key.get(label["name"].lower())
         if existing is None:
+            # "--" terminates flag parsing so a label name is never misread as an
+            # option (e.g. a leading-dash name); the name is the trailing positional.
             _run(
                 [
                     "gh",
                     "label",
                     "create",
-                    label["name"],
                     "-R",
                     repo,
                     "--color",
                     label["color"],
                     "--description",
                     label["description"],
+                    "--",
+                    label["name"],
                 ]
             )
             counts["created"] += 1
@@ -172,13 +180,13 @@ def sync_repo(repo: str, desired: list[dict], *, prune: bool) -> dict[str, int]:
         ):
             counts["unchanged"] += 1
             continue
-        # --name handles case-only renames (GitHub treats names case-insensitively).
+        # --name handles case-only renames (GitHub treats names case-insensitively);
+        # "--" guards the existing name (the target positional) against a leading dash.
         _run(
             [
                 "gh",
                 "label",
                 "edit",
-                existing["name"],
                 "-R",
                 repo,
                 "--name",
@@ -187,6 +195,8 @@ def sync_repo(repo: str, desired: list[dict], *, prune: bool) -> dict[str, int]:
                 label["color"],
                 "--description",
                 label["description"],
+                "--",
+                existing["name"],
             ]
         )
         counts["updated"] += 1
@@ -195,7 +205,9 @@ def sync_repo(repo: str, desired: list[dict], *, prune: bool) -> dict[str, int]:
     if prune:
         for label in current:
             if label["name"].lower() not in desired_keys:
-                _run(["gh", "label", "delete", label["name"], "-R", repo, "--yes"])
+                # "--" lets prune remove a pre-existing label whose name starts with
+                # a dash (manifest names are dash-guarded, but repo labels may not be).
+                _run(["gh", "label", "delete", "-R", repo, "--yes", "--", label["name"]])
                 counts["deleted"] += 1
                 print(f"  - deleted '{label['name']}' from {repo}")
 

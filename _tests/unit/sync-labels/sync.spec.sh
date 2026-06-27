@@ -60,9 +60,13 @@ The contents of file "$GITHUB_OUTPUT" should include "created=1"
 The contents of file "$GITHUB_OUTPUT" should include "updated=1"
 The contents of file "$GITHUB_OUTPUT" should include "deleted=1"
 The contents of file "$GITHUB_OUTPUT" should include "unchanged=1"
-The contents of file "$GH_CALL_LOG" should include "label create feature"
-The contents of file "$GH_CALL_LOG" should include "label edit docs"
-The contents of file "$GH_CALL_LOG" should include "label delete old"
+# Label names are passed as the trailing "-- <name>" positional (flag-injection guard).
+The contents of file "$GH_CALL_LOG" should include "label create"
+The contents of file "$GH_CALL_LOG" should include "-- feature"
+The contents of file "$GH_CALL_LOG" should include "label edit"
+The contents of file "$GH_CALL_LOG" should include "-- docs"
+The contents of file "$GH_CALL_LOG" should include "label delete"
+The contents of file "$GH_CALL_LOG" should include "-- old"
 End
 End
 
@@ -203,6 +207,29 @@ export GH_LIST_JSON='[]'
 When call run_sync
 The status should be failure
 The error should include "must not start with"
+End
+
+It "rejects a non-string description instead of coercing it"
+%text >".github/labels.yml"
+#|- name: bug
+#|  color: d73a4a
+#|  description: false
+export GH_LIST_JSON='[]'
+When call run_sync
+The status should be failure
+The error should include "description must be a string"
+End
+
+It "prunes a pre-existing label whose name starts with a dash"
+%text >".github/labels.yml"
+#|- name: bug
+#|  color: d73a4a
+export GH_LIST_JSON='[{"name":"-legacy","color":"cccccc","description":"x"}]'
+When call run_sync
+The status should be success
+The output should include "1 deleted"
+The contents of file "$GH_CALL_LOG" should include "label delete"
+The contents of file "$GH_CALL_LOG" should include "-- -legacy"
 End
 End
 End
