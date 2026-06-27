@@ -1,15 +1,24 @@
 # Nitpicker Findings
 
 Generated: 2026-04-30
-Last validated: 2026-06-15 (Pass 25 — chore/updates branch review; fixed N-142, the persist-credentials regression in 7 auto-commit fix-actions; all open findings resolved)
+Last validated: 2026-06-27 (Pass 26 — sync-labels Docker-free rewrite review on feat/sync-labels-rewrite; found and fixed N-143..N-147, none Critical/High; all resolved + verified in the same pass)
 
 ## Summary
 
-- Total: 142 | Open: 0 | Fixed: 139 | Invalid: 3
+- Total: 147 | Open: 0 | Fixed: 144 | Invalid: 3
 
 ## Open Findings
 
 _No open findings._
+
+_Pass 26 (sync-labels rewrite):_ Reviewed `sync-labels/sync.py`, `action.yml`,
+`validate.py`, `README.md`, the new `_tests/unit/sync-labels/sync.spec.sh`, and the
+`.github/workflows/sync-labels.yml` change. The reconciliation logic, validation, and
+test coverage were already sound (multi-repo, JSON manifest, prune on/off, empty-manifest
+guard, invalid color/repo, missing manifest, and every output are tested; README outputs
+match `action.yml`). Five issues — N-143..N-147, none Critical/High — were found and all
+fixed + verified in the same pass (see Fixed → Pass 26): `shellspec` 12/12, `ruff` clean,
+`generate.py --check` up to date, README regenerated.
 
 _Pass 21:_ Full-repo review. N-123, N-124 (Low) and advisories N-A1, N-A2 were all
 addressed in the same pass — see Fixed → Pass 21. The rest of the repository
@@ -34,6 +43,53 @@ via per-action migration in commits 3dcf7cb..2191252 + test-fixup 03adba5. Every
 that accepts inputs now delegates to `ivuorinen/actions/validate-inputs@5cc7373a`.
 
 ## Fixed
+
+### Pass 26 — 2026-06-27
+
+#### [N-143] sync-labels default manifest silently changed from the bundled file to `.github/labels.yml`
+
+Fixed: 2026-06-27
+Notes: The rewrite moved the no-input default from the action's bundled
+`${github.action_path}/labels.yml` to the consumer repo's `.github/labels.yml`
+(`sync.py:DEFAULT_MANIFEST`), a breaking change for no-input external consumers that was
+undocumented. Documented the new effective default in the `labels` input description in
+`sync-labels/action.yml` ("Defaults to .github/labels.yml when omitted (no longer the
+action's bundled labels.yml).") and regenerated `sync-labels/README.md` via `make docs` so
+the table/usage surface shows it. Behavior left as the rewrite intended (`.github/labels.yml`
+matches the action-label-syncer convention); the repo's own workflow already passes
+`labels: sync-labels/labels.yml` explicitly. To call out for release notes as a breaking
+change on the next CalVer tag.
+
+#### [N-144] `_REPO` regex duplicates the canonical `owner/repo` pattern with no lockstep comment
+
+Fixed: 2026-06-27
+Notes: Added a comment block above `_HEX6`/`_REPO` in `sync-labels/sync.py` recording that
+`sync.py` ships standalone and cannot import `_validation.kit`, that `_REPO` mirrors
+`kit.check_repository_list` and must stay in lockstep, and that `_HEX6` validates manifest
+content (no canonical home). Pattern unchanged.
+
+#### [N-145] Label names starting with `-` are mis-parsed by `gh` as options
+
+Fixed: 2026-06-27
+Notes: `normalize` now rejects any label `name` starting with `-` (gh would parse it as a
+flag, so the label would never be created while still being counted). Added test "rejects a
+label name starting with a dash".
+
+#### [N-146] Numeric color zero-padding silently accepts malformed short colors
+
+Fixed: 2026-06-27
+Notes: Documented the limitation. Extended the `zfill(6)` comment in `sync.py` to note it is
+best-effort (a too-short numeric color like `010` is zero-padded to `000010`, not rejected,
+because the original width is unrecoverable) and to advise quoting colors in the manifest.
+Added test "zero-pads a too-short numeric color (best-effort)" pinning the behavior. Advisory
+severity — quoting is the author-side fix.
+
+#### [N-147] `resolve_repos` does not de-duplicate repository targets
+
+Fixed: 2026-06-27
+Notes: `resolve_repos` now de-duplicates targets preserving order (a `seen` set), so a repo
+listed twice in `INPUT_REPOSITORY` syncs once and `repositories` reflects the unique count.
+Added test "de-duplicates repeated repository targets" asserting `repositories=1`.
 
 ### Pass 25 — 2026-06-15
 

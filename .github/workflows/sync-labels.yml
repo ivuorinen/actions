@@ -30,8 +30,8 @@ jobs:
     timeout-minutes: 10
 
     permissions:
-      contents: read
-      issues: write
+      contents: read # Required to check out the manifest from the repository
+      issues: write # Required to create, update, and delete repository labels
 
     steps:
       - name: ⤵️ Checkout Repository
@@ -40,3 +40,5 @@ jobs:
           persist-credentials: false
       - name: ⤵️ Sync Latest Labels Definitions
         uses: ./sync-labels
+        with:
+          labels: sync-labels/labels.yml
