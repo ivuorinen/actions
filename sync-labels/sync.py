@@ -16,7 +16,8 @@ Design notes
   zero requests.
 
 Inputs (read from ``INPUT_*`` env vars, set by action.yml):
-  INPUT_LABELS      manifest path (default ``.github/labels.yml``)
+  INPUT_LABELS      manifest path (default ``.github/labels.yml``); a missing
+                    manifest is a warning + successful no-op, not an error
   INPUT_REPOSITORY  newline-separated ``owner/repo`` list (default: current repo)
   INPUT_PRUNE       ``true``/``false`` — delete labels not in the manifest (default true)
 
@@ -74,6 +75,8 @@ def _run(argv: list[str]) -> str:
 def load_manifest(path: str) -> list[dict]:
     """Load the manifest as a list of dicts. YAML via ``yq``, JSON via stdlib."""
     if not Path(path).is_file():
+        # main() already skips a missing manifest with a warning; this guards the
+        # TOCTOU window and direct callers with a clear error instead of yq noise.
         fail(f'manifest not found: "{path}"')
     if shutil.which("yq"):
         raw = _run(["yq", "-o=json", "-I=0", ".", path])
@@ -235,14 +238,33 @@ def resolve_repos() -> list[str]:
     return repos
 
 
+def write_outputs(totals: dict[str, int], repo_count: int) -> None:
+    """Append the action's outputs to GITHUB_OUTPUT (no-op outside Actions)."""
+    output = os.environ.get("GITHUB_OUTPUT")
+    if not output:
+        return
+    with Path(output).open("a", encoding="utf-8") as handle:
+        handle.write(f"created={totals['created']}\n")
+        handle.write(f"updated={totals['updated']}\n")
+        handle.write(f"deleted={totals['deleted']}\n")
+        handle.write(f"unchanged={totals['unchanged']}\n")
+        handle.write(f"repositories={repo_count}\n")
+
+
 def main() -> int:
     """Entry point: load the manifest and reconcile every target repository."""
     manifest = os.environ.get("INPUT_LABELS", "").strip() or DEFAULT_MANIFEST
+    totals = {"created": 0, "updated": 0, "deleted": 0, "unchanged": 0}
+    if not Path(manifest).is_file():
+        # A repo without a manifest has nothing to sync — warn and succeed so the
+        # action can run unconditionally across repos that opt in by adding one.
+        print(f'::warning::sync-labels: manifest not found: "{manifest}" — nothing to sync')
+        write_outputs(totals, 0)
+        return 0
     prune = _bool(os.environ.get("INPUT_PRUNE", ""), default=True)
     desired = normalize(load_manifest(manifest))
     repos = resolve_repos()
 
-    totals = {"created": 0, "updated": 0, "deleted": 0, "unchanged": 0}
     for repo in repos:
         print(f"Syncing {len(desired)} labels to {repo} (prune={'true' if prune else 'false'})")
         for key, value in sync_repo(repo, desired, prune=prune).items():
@@ -255,14 +277,7 @@ def main() -> int:
     )
     print(f"::notice::sync-labels: {summary}")
 
-    output = os.environ.get("GITHUB_OUTPUT")
-    if output:
-        with Path(output).open("a", encoding="utf-8") as handle:
-            handle.write(f"created={totals['created']}\n")
-            handle.write(f"updated={totals['updated']}\n")
-            handle.write(f"deleted={totals['deleted']}\n")
-            handle.write(f"unchanged={totals['unchanged']}\n")
-            handle.write(f"repositories={len(repos)}\n")
+    write_outputs(totals, len(repos))
     return 0
 
 

@@ -12,7 +12,7 @@ branding:
 
 inputs:
   labels:
-    description: "Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when omitted (no longer the action's bundled labels.yml)."
+    description: "Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when omitted (no longer the action's bundled labels.yml). A missing manifest is a warning + successful no-op, not an error."
     required: false
     default: ''
   repository:
