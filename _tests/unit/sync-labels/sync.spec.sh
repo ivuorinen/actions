@@ -192,9 +192,23 @@ The status should be failure
 The error should include "invalid repository"
 End
 
-It "fails clearly when the manifest is missing"
+It "warns and succeeds as a no-op when the manifest is missing"
 export INPUT_LABELS=".github/missing.yml"
 When call run_sync
+The status should be success
+The output should include '::warning::sync-labels: manifest not found: ".github/missing.yml"'
+The contents of file "$GITHUB_OUTPUT" should include "created=0"
+The contents of file "$GITHUB_OUTPUT" should include "updated=0"
+The contents of file "$GITHUB_OUTPUT" should include "deleted=0"
+The contents of file "$GITHUB_OUTPUT" should include "unchanged=0"
+The contents of file "$GITHUB_OUTPUT" should include "repositories=0"
+The contents of file "$GH_CALL_LOG" should be blank
+End
+
+# main() short-circuits before load_manifest; this covers the function's own
+# guard (TOCTOU window / direct callers) which is otherwise unreachable.
+It "load_manifest itself still rejects a missing path"
+When call python3 -c "import sys; sys.path.insert(0, '${PROJECT_ROOT}/sync-labels'); import sync; sync.load_manifest('.github/nope.yml')"
 The status should be failure
 The error should include "manifest not found"
 End
