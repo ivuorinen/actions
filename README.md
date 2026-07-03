@@ -53,7 +53,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |  📦  | [`release-monthly`][release-monthly]                 | Repository | Creates a release for the current month, incrementing patch ... | Token auth, Outputs                          |
 | 🛡️  | [`security-scan`][security-scan]                     | Security   | Comprehensive security scanning for GitHub Actions including... | Caching, Token auth, Outputs                 |
 |  📦  | [`stale`][stale]                                     | Repository | A GitHub Action to close stale issues and pull requests.        | Token auth, Outputs                          |
-| 🏷️  | [`sync-labels`][sync-labels]                         | Repository | Sync labels from a YAML file to a GitHub repository             | Token auth, Outputs                          |
+| 🏷️  | [`sync-labels`][sync-labels]                         | Repository | Sync GitHub labels declaratively from a YAML/JSON manifest (... | Token auth, Outputs                          |
 | 🖥️  | [`terraform-lint-fix`][terraform-lint-fix]           | Linting    | Lints and fixes Terraform files with advanced validation and... | Token auth, Outputs                          |
 
 ### Actions by Category
@@ -109,7 +109,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | 🖼️ [`compress-images`][compress-images] | Compress images on demand (workflow_dispatch), and... | Images, PNG, JPEG                                       | Token auth, Outputs                 |
 | 📦 [`release-monthly`][release-monthly]  | Creates a release for the current month, increment... | GitHub Actions                                          | Token auth, Outputs                 |
 | 📦 [`stale`][stale]                      | A GitHub Action to close stale issues and pull req... | GitHub Actions                                          | Token auth, Outputs                 |
-| 🏷️ [`sync-labels`][sync-labels]         | Sync labels from a YAML file to a GitHub repositor... | YAML, GitHub                                            | Token auth, Outputs                 |
+| 🏷️ [`sync-labels`][sync-labels]         | Sync GitHub labels declaratively from a YAML/JSON ... | YAML, GitHub                                            | Token auth, Outputs                 |
 
 #### 🛡️ Security (1 action)
 
