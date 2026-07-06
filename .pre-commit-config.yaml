@@ -18,7 +18,7 @@ repos:
         types_or: [markdown, python, yaml]
         files: ^(docs/.*|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|.*\.py|.*\.ya?ml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.11.25
+    rev: 0.11.26
     hooks:
       - id: uv-lock
       - id: uv-sync
