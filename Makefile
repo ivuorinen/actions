@@ -40,10 +40,10 @@ GAR_BASE_URL := https://github.com/ivuorinen/gh-action-readme/releases/download/
 GAR_ASSET := gh-action-readme_$(UNAME_S)_$(shell uname -m).tar.gz
 GAR_DIR := .tools/gh-action-readme/$(GAR_VERSION)
 GAR := $(GAR_DIR)/gh-action-readme
-# The professional theme renders inputs/outputs/permissions as markdown tables
-# (keeping markdown-table-formatter meaningful) and adds Overview, Configuration,
-# Examples and Troubleshooting sections. The default theme emits bullet lists.
-GAR_THEME := professional
+# Theme and the pinned `uses:` ref live in .gh-action-readme.yaml. It is passed
+# explicitly because gh-action-readme only auto-discovers a config in the XDG
+# config directory, never a project-local one.
+GAR_CONFIG := .gh-action-readme.yaml
 
 # Help target - shows available commands
 help: ## Show this help message
@@ -95,18 +95,15 @@ $(GAR): ## Download and verify the pinned gh-action-readme binary
 	chmod +x "$(GAR)"
 	@echo "$(GREEN)✅ gh-action-readme $(GAR_VERSION) verified and ready$(RESET)"
 
-# gh-action-readme resolves the repository from git and emits
-# `uses: ivuorinen/actions/<dir>@main`; the sed below pins every such ref to the
-# CalVer placeholder this repo documents, since floating refs are not a
-# supported way to consume these actions. It is anchored on
-# `ivuorinen/actions/<dir>` so the `actions/checkout@v4` step in the github
-# theme's example workflow — which is a genuine third-party ref — is left alone.
-#
-# When the repository cannot be resolved (output written outside the work tree,
-# or a directory git does not know about) the tool silently falls back to
-# `uses: your-org/your-action@v1`, which would ship a README telling users to
-# consume someone else's action. The post-sed grep turns that fallback into a
-# build failure instead of a silent docs regression.
+# gh-action-readme resolves org/repo/subdirectory from git and takes the ref
+# from `version:` in .gh-action-readme.yaml, so the `uses:` line needs no
+# rewriting here. That only holds while the README is written into the action's
+# own directory: writing elsewhere, or generating for a directory git does not
+# know about, makes the tool fall back **silently** to
+# `uses: your-org/your-action@v1` — a README telling users to consume someone
+# else's action, with no warning and a zero exit code. The grep after
+# generation turns that fallback into a build failure instead of a silent docs
+# regression.
 #
 # The professional theme's boilerplate links resolve relative to the README,
 # i.e. inside the action directory, where none of these targets exist:
@@ -128,8 +125,7 @@ docs: $(GAR) ## Generate documentation for all actions
 	@failed=0; \
 	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml||' | sed 's|./||'); do \
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
-		if $(GAR) gen "$$dir" --theme $(GAR_THEME) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
-			$(SED_CMD) "s|uses: ivuorinen/actions/$$dir@main|uses: ivuorinen/actions/$$dir@vYYYY.MM.DD|g" "$$dir/README.md"; \
+		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
 			$(SED_CMD) "s|](CONTRIBUTING.md)|](../CONTRIBUTING.md)|g" "$$dir/README.md"; \
 			$(SED_CMD) "s|](LICENSE)|](../LICENSE.md)|g" "$$dir/README.md"; \
 			$(SED_CMD) "/\[examples\](\.\/examples\/)/d" "$$dir/README.md"; \
