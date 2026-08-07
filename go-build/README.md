@@ -1,58 +1,258 @@
-# ivuorinen/actions/go-build
+# Go Build
 
-## Description
+<div align="center">
+  <img src="https://img.shields.io/badge/icon-package-blue" alt="package" />
+  <img src="https://img.shields.io/badge/status-stable-brightgreen" alt="Status" />
+  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
+</div>
+
+## Overview
 
 Builds the Go project.
 
-## Inputs
+This GitHub Action provides a robust solution for your CI/CD pipeline with comprehensive configuration options and detailed output information.
 
-| name          | description                                                            | required | default |
-|---------------|------------------------------------------------------------------------|----------|---------|
-| `go-version`  | <p>Go version to use.</p>                                              | `false`  | `""`    |
-| `destination` | <p>Build destination directory.</p>                                    | `false`  | `./bin` |
-| `max-retries` | <p>Maximum number of retry attempts for go mod download operations</p> | `false`  | `3`     |
-| `token`       | <p>GitHub token for authentication</p>                                 | `false`  | `""`    |
+## Table of Contents
 
-## Outputs
+- [Quick Start](#quick-start)
+- [Configuration](#configuration)
+- [Input Parameters](#input-parameters)
+- [Output Parameters](#output-parameters)
+- [Examples](#examples)
 
-| name            | description                                            |
-|-----------------|--------------------------------------------------------|
-| `build_status`  | <p>Build completion status (success/failure)</p>       |
-| `test_status`   | <p>Test execution status (success/failure/skipped)</p> |
-| `go_version`    | <p>Version of Go used</p>                              |
-| `binary_path`   | <p>Path to built binaries</p>                          |
-| `coverage_path` | <p>Path to coverage report</p>                         |
+- [Troubleshooting](#troubleshooting)
+- [Contributing](#contributing)
+- [License](#license)
 
-## Runs
+## Quick Start
 
-This action is a `composite` action.
-
-## Usage
+Add the following step to your GitHub Actions workflow:
 
 ```yaml
-- uses: ivuorinen/actions/go-build@vYYYY.MM.DD
-  with:
-    go-version:
-    # Go version to use.
-    #
-    # Required: false
-    # Default: ""
+name: CI/CD Pipeline
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
 
-    destination:
-    # Build destination directory.
-    #
-    # Required: false
-    # Default: ./bin
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-    max-retries:
-    # Maximum number of retry attempts for go mod download operations
-    #
-    # Required: false
-    # Default: 3
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
+      - name: Go Build
+        uses: ivuorinen/actions/go-build@vYYYY.MM.DD
+        with:
+          destination: './bin'
+          go-version: 'your-value-here'
+          max-retries: '3'
+          token: 'your-value-here'
 ```
+
+## Configuration
+
+This action supports various configuration options to customize its behavior according to your needs.
+
+### Input Parameters
+
+| Parameter         | Description                                                     | Type     | Required | Default Value |
+|-------------------|-----------------------------------------------------------------|----------|----------|---------------|
+| **`destination`** | Build destination directory.                                    | `string` | ❌ No     | `./bin`       |
+| **`go-version`**  | Go version to use.                                              | `string` | ❌ No     | _None_        |
+| **`max-retries`** | Maximum number of retry attempts for go mod download operations | `string` | ❌ No     | `3`           |
+| **`token`**       | GitHub token for authentication                                 | `string` | ❌ No     | _None_        |
+
+#### Parameter Details
+
+##### `destination`
+
+Build destination directory.
+
+- **Type**: String
+- **Required**: No
+- **Default**: `./bin`
+
+```yaml
+with:
+  destination: './bin'
+```
+
+##### `go-version`
+
+Go version to use.
+
+- **Type**: String
+- **Required**: No
+
+```yaml
+with:
+  go-version: 'your-value-here'
+```
+
+##### `max-retries`
+
+Maximum number of retry attempts for go mod download operations
+
+- **Type**: String
+- **Required**: No
+- **Default**: `3`
+
+```yaml
+with:
+  max-retries: '3'
+```
+
+##### `token`
+
+GitHub token for authentication
+
+- **Type**: String
+- **Required**: No
+
+```yaml
+with:
+  token: 'your-value-here'
+```
+
+### Output Parameters
+
+This action provides the following outputs that can be used in subsequent workflow steps:
+
+| Parameter           | Description                                     | Usage                                   |
+|---------------------|-------------------------------------------------|-----------------------------------------|
+| **`binary_path`**   | Path to built binaries                          | `\${{ steps. .outputs.binary_path }}`   |
+| **`build_status`**  | Build completion status (success/failure)       | `\${{ steps. .outputs.build_status }}`  |
+| **`coverage_path`** | Path to coverage report                         | `\${{ steps. .outputs.coverage_path }}` |
+| **`go_version`**    | Version of Go used                              | `\${{ steps. .outputs.go_version }}`    |
+| **`test_status`**   | Test execution status (success/failure/skipped) | `\${{ steps. .outputs.test_status }}`   |
+
+#### Using Outputs
+
+```yaml
+- name: Go Build
+  id: action-step
+  uses: ivuorinen/actions/go-build@vYYYY.MM.DD
+
+- name: Use Output
+  run: |
+    echo "binary_path: \${{ steps.action-step.outputs.binary_path }}"
+    echo "build_status: \${{ steps.action-step.outputs.build_status }}"
+    echo "coverage_path: \${{ steps.action-step.outputs.coverage_path }}"
+    echo "go_version: \${{ steps.action-step.outputs.go_version }}"
+    echo "test_status: \${{ steps.action-step.outputs.test_status }}"
+```
+
+## 🔐 Required Permissions
+
+This action requires specific GitHub permissions to function correctly. Ensure your workflow includes these permissions:
+
+| Permission | Access Level | Description                   |
+|------------|--------------|-------------------------------|
+| `contents` | `read`       | Required for action operation |
+
+### How to Set Permissions
+
+```yaml
+name: My Workflow
+on: [push]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: ivuorinen/actions/go-build@vYYYY.MM.DD
+```
+
+**Note:** If your workflow doesn't specify permissions, GitHub uses default permissions which may not include all required permissions above.
+
+## Examples
+
+### Basic Usage
+
+```yaml
+- name: Basic Go Build
+  uses: ivuorinen/actions/go-build@vYYYY.MM.DD
+  with:
+    destination: './bin'
+    go-version: 'example-value'
+    max-retries: '3'
+    token: 'example-value'
+```
+
+### Advanced Configuration
+
+```yaml
+- name: Advanced Go Build
+  uses: ivuorinen/actions/go-build@vYYYY.MM.DD
+  with:
+    destination: "./bin"
+    go-version: "\${{ vars.GO-VERSION }}"
+    max-retries: "3"
+    token: "\${{ vars.TOKEN }}"
+  env:
+    GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+```
+
+### Conditional Usage
+
+```yaml
+- name: Conditional Go Build
+  if: github.event_name == 'push'
+  uses: ivuorinen/actions/go-build@vYYYY.MM.DD
+  with:
+    destination: './bin'
+    go-version: 'production-value'
+    max-retries: '3'
+    token: 'production-value'
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Authentication Errors**: Ensure you have set up the required secrets in your repository settings.
+2. **Permission Issues**: Check that your GitHub token has the necessary permissions.
+3. **Configuration Errors**: Validate your input parameters against the schema.
+
+### Getting Help
+
+- Check the [action.yml](./action.yml) for the complete specification
+- Open an issue if you encounter problems
+
+## Contributing
+
+We welcome contributions! Please see our [Contributing Guide](../CONTRIBUTING.md) for details.
+
+### Development Setup
+
+1. Fork this repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](../LICENSE.md) file for details.
+
+## Support
+
+If you find this action helpful, please consider:
+
+- ⭐ Starring this repository
+- 🐛 Reporting issues
+- 💡 Suggesting improvements
+- 🤝 Contributing code
+
+---
+
+<div align="center">
+  <sub>📚 Documentation generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+</div>

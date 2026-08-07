@@ -70,7 +70,7 @@ result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
 When run bash -c "printf '%s' '$result'"
 The output should include "auto-generated"
-The output should include "action-docs"
+The output should include "gh-action-readme"
 End
 
 It "recommends make docs instead"
