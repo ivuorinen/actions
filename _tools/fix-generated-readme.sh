@@ -43,10 +43,37 @@ _sed 's%\]\(LICENSE\)%](../LICENSE.md)%g'
 #    dropped rather than repointed at something it is not.
 _sed '/\[examples\]\(\.\/examples\/\)/d'
 
-# 3. The quick start triggers on pull_request. For the publishing actions that
-#    invites publishing artifacts built from untrusted pull-request code, and
-#    it demonstrates nothing that `push` alone does not.
-_sed 's%^on: \[push, pull_request\]$%on: [push]%'
+# 3. The theme emits a single generic trigger, `on: [push, pull_request]`, for
+#    every action. That is wrong in two opposite directions, so the trigger is
+#    chosen per action rather than rewritten uniformly:
+#
+#    - publishing actions must not run from pull_request, or a copied workflow
+#      publishes artifacts built from untrusted pull-request code;
+#    - pr-lint exists to lint pull requests, so removing pull_request would
+#      document a workflow that never runs for its own purpose;
+#    - scheduled actions (monthly release, stale sweep, image compression) are
+#      not push-driven at all.
+#
+#    Everything else keeps the theme's default: linters and builders are safe
+#    on pull_request and genuinely useful there.
+ACTION="$(basename "$(dirname "$README")")"
+case "$ACTION" in
+npm-publish | npm-semantic-release | csharp-publish | docker-publish)
+  _sed 's%^on: \[push, pull_request\]$%on:\n  release:\n    types: [published]%'
+  ;;
+release-monthly)
+  _sed 's%^on: \[push, pull_request\]$%on:\n  schedule:\n    - cron: "0 0 1 * *"\n  workflow_dispatch:%'
+  ;;
+stale)
+  _sed 's%^on: \[push, pull_request\]$%on:\n  schedule:\n    - cron: "0 0 * * *"\n  workflow_dispatch:%'
+  ;;
+compress-images)
+  _sed 's%^on: \[push, pull_request\]$%on:\n  schedule:\n    - cron: "0 0 * * 0"\n  workflow_dispatch:%'
+  ;;
+pr-lint)
+  _sed 's%^on: \[push, pull_request\]$%on: [pull_request]%'
+  ;;
+esac
 
 # 3a. The themes render an empty badge message as a literal space, producing
 #     `.../badge/GitHub%20Action- -blue`. A raw space inside a link destination

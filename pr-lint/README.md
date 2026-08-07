@@ -8,7 +8,7 @@
 
 ```yaml
 name: My Workflow
-on: [push]
+on: [pull_request]
 
 jobs:
   build:

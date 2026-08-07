@@ -8,7 +8,9 @@
 
 ```yaml
 name: My Workflow
-on: [push]
+on:
+  release:
+    types: [published]
 
 jobs:
   build:

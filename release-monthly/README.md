@@ -8,7 +8,10 @@
 
 ```yaml
 name: My Workflow
-on: [push]
+on:
+  schedule:
+    - cron: '0 0 1 * *'
+  workflow_dispatch:
 
 jobs:
   build:
