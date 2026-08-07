@@ -6,9 +6,11 @@
 # package to publish and gates `dotnet nuget push` never ran in the suite
 # (see docs/audit/findings, tests-94a13648).
 #
-# `dotnet` is not in the harness's BLOCKED_COMMANDS list, but the child PATH is
-# restricted to the mock bin dir plus the system dirs, so it does not resolve
-# unless mocked — an unmocked call fails rather than reaching a real toolchain.
+# `dotnet` is in the harness's BLOCKED_COMMANDS, so it is shadowed by a
+# not-found stub and an unmocked call fails deterministically. It was added
+# there for these tests: the child PATH keeps /usr/bin, where .NET-equipped
+# runners install dotnet, so before that change an unmocked call would have run
+# the real toolchain against a live NuGet feed rather than failing.
 # `sleep` is mocked in the retry test so the action's 5-second backoff does not
 # make the suite wait.
 
@@ -97,6 +99,24 @@ mock_command dotnet "nuget push * --source https://nuget.pkg.github.com/acme/ind
 When call run_step "${ACTION_DIR}" "publish-package"
 The status should be success
 Assert expect_output package_url "https://github.com/acme/packages/nuget"
+End
+
+It "pushes every package when the artifacts directory holds several"
+# The action loops `for _pkg in ./artifacts/*.nupkg`. A single-package test
+# cannot tell that loop apart from one that pushes only the first match, so
+# each package gets its own exact-filename mock: if any one is not pushed, its
+# mock goes unused and the *other* files still succeed — which is why the
+# assertion is on the per-file stdout the mocks emit, not just on status.
+setup_inputs
+: >artifacts/Acme.Widgets.1.2.3.nupkg
+: >artifacts/Acme.Tools.4.5.6.nupkg
+mock_command dotnet "nuget push ./artifacts/Acme.Widgets.1.2.3.nupkg *" "pushed Acme.Widgets"
+mock_command dotnet "nuget push ./artifacts/Acme.Tools.4.5.6.nupkg *" "pushed Acme.Tools"
+
+When call run_step "${ACTION_DIR}" "publish-package"
+The status should be success
+The stdout should include "pushed Acme.Widgets"
+The stdout should include "pushed Acme.Tools"
 End
 
 It "fails when the push fails on both the first attempt and the retry"
