@@ -83,6 +83,28 @@ def test_env_forwarding_matches_spec(action):
     assert env_keys(action) == expected
 
 
+_SINGLE = re.compile(r"^\s*([a-zA-Z0-9_.-]+): '((?:[^']|'')*)'\s*$")
+_DOUBLE = re.compile(r'^\s*([a-zA-Z0-9_.-]+): "((?:[^"\\]|\\.)*)"\s*$')
+
+
+def _scalar(line: str) -> tuple[str, str] | None:
+    """Parse `key: <quoted scalar>` into (key, value), or None if the line is not one.
+
+    Quoted values are unescaped rather than skipped. The first version of this test
+    matched `['\"]([^'\"]*)['\"]`, which silently ignored any value containing a
+    quote — exactly the values most likely to be mis-serialised. It skipped the JSON
+    example for `platform-build-args` and so missed that it had been emitted as
+    `"{"linux/amd64": ...}"`, producing three unparseable YAML blocks.
+    """
+    m = _SINGLE.match(line)
+    if m:
+        return m.group(1), m.group(2).replace("''", "'")
+    m = _DOUBLE.match(line)
+    if m:
+        return m.group(1), m.group(2).replace('\\"', '"').replace("\\\\", "\\")
+    return None
+
+
 @pytest.mark.parametrize("action", ACTIONS)
 def test_documented_input_values_pass_their_own_validator(action):
     """Every input value shown in a generated README must be one the action accepts.
@@ -98,10 +120,10 @@ def test_documented_input_values_pass_their_own_validator(action):
     checks = SPECS[action]["checks"]
     invalid = []
     for line in readme.read_text(encoding="utf-8").splitlines():
-        m = re.match(r"^\s*([a-zA-Z0-9_.-]+): ['\"]([^'\"]*)['\"]\s*$", line)
-        if not m:
+        parsed = _scalar(line)
+        if parsed is None:
             continue
-        name, value = m.group(1), m.group(2)
+        name, value = parsed
         check = checks.get(name)
         if not check:
             continue

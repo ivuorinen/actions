@@ -18,33 +18,33 @@ jobs:
       - name: Docker Build
         uses: ivuorinen/actions/docker-build@vYYYY.MM.DD
         with:
-          architectures: "linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6"
-          auto-detect-platforms: "false"
-          build-args: "NODE_ENV=production"
-          build-contexts: "NODE_ENV=production"
-          buildkit-version: "v0.11.0"
-          buildx-version: "latest"
-          cache-export: "type=gha,mode=max"
-          cache-from: "type=gha,mode=max"
-          cache-import: "type=gha,mode=max"
-          cache-mode: "max"
-          context: "."
-          dockerfile: "Dockerfile"
-          dry-run: "false"
-          image-name: "myapp"
-          max-retries: "3"
-          network: "default"
-          parallel-builds: "0"
-          platform-build-args: "{"linux/amd64": "--build-arg ARCH=amd64"}"
-          platform-fallback: "true"
-          push: "true"
-          sbom-format: "spdx-json"
-          scan-image: "false"
-          secrets: "NODE_ENV=production"
-          sign-image: "false"
-          tag: "v1.0.0"
-          token: "${{ github.token }}"
-          verbose: "false"
+          architectures: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
+          auto-detect-platforms: 'false'
+          build-args: 'NODE_ENV=production'
+          build-contexts: 'NODE_ENV=production'
+          buildkit-version: 'v0.11.0'
+          buildx-version: 'latest'
+          cache-export: 'type=gha,mode=max'
+          cache-from: 'type=gha,mode=max'
+          cache-import: 'type=gha,mode=max'
+          cache-mode: 'max'
+          context: '.'
+          dockerfile: 'Dockerfile'
+          dry-run: 'false'
+          image-name: 'myapp'
+          max-retries: '3'
+          network: 'default'
+          parallel-builds: '0'
+          platform-build-args: '{"linux/amd64": "--build-arg ARCH=amd64"}'
+          platform-fallback: 'true'
+          push: 'true'
+          sbom-format: 'spdx-json'
+          scan-image: 'false'
+          secrets: 'NODE_ENV=production'
+          sign-image: 'false'
+          tag: 'v1.0.0'
+          token: '${{ github.token }}'
+          verbose: 'false'
 ```
 
 ## 📥 Inputs
@@ -101,33 +101,33 @@ jobs:
 - name: Docker Build
   uses: ivuorinen/actions/docker-build@vYYYY.MM.DD
   with:
-    architectures: "linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6"
-    auto-detect-platforms: "false"
-    build-args: "NODE_ENV=production"
-    build-contexts: "NODE_ENV=production"
-    buildkit-version: "v0.11.0"
-    buildx-version: "latest"
-    cache-export: "type=gha,mode=max"
-    cache-from: "type=gha,mode=max"
-    cache-import: "type=gha,mode=max"
-    cache-mode: "max"
-    context: "."
-    dockerfile: "Dockerfile"
-    dry-run: "false"
-    image-name: "myapp"
-    max-retries: "3"
-    network: "default"
-    parallel-builds: "0"
-    platform-build-args: "{"linux/amd64": "--build-arg ARCH=amd64"}"
-    platform-fallback: "true"
-    push: "true"
-    sbom-format: "spdx-json"
-    scan-image: "false"
-    secrets: "NODE_ENV=production"
-    sign-image: "false"
-    tag: "v1.0.0"
-    token: "${{ github.token }}"
-    verbose: "false"
+    architectures: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
+    auto-detect-platforms: 'false'
+    build-args: 'NODE_ENV=production'
+    build-contexts: 'NODE_ENV=production'
+    buildkit-version: 'v0.11.0'
+    buildx-version: 'latest'
+    cache-export: 'type=gha,mode=max'
+    cache-from: 'type=gha,mode=max'
+    cache-import: 'type=gha,mode=max'
+    cache-mode: 'max'
+    context: '.'
+    dockerfile: 'Dockerfile'
+    dry-run: 'false'
+    image-name: 'myapp'
+    max-retries: '3'
+    network: 'default'
+    parallel-builds: '0'
+    platform-build-args: '{"linux/amd64": "--build-arg ARCH=amd64"}'
+    platform-fallback: 'true'
+    push: 'true'
+    sbom-format: 'spdx-json'
+    scan-image: 'false'
+    secrets: 'NODE_ENV=production'
+    sign-image: 'false'
+    tag: 'v1.0.0'
+    token: '${{ github.token }}'
+    verbose: 'false'
 ```
 
 </details>
@@ -139,33 +139,33 @@ jobs:
 - name: Docker Build with custom settings
   uses: ivuorinen/actions/docker-build@vYYYY.MM.DD
   with:
-    architectures: "linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6"
-    auto-detect-platforms: "false"
-    build-args: "NODE_ENV=production"
-    build-contexts: "NODE_ENV=production"
-    buildkit-version: "v0.11.0"
-    buildx-version: "latest"
-    cache-export: "type=gha,mode=max"
-    cache-from: "type=gha,mode=max"
-    cache-import: "type=gha,mode=max"
-    cache-mode: "max"
-    context: "."
-    dockerfile: "Dockerfile"
-    dry-run: "false"
-    image-name: "myapp"
-    max-retries: "3"
-    network: "default"
-    parallel-builds: "0"
-    platform-build-args: "{"linux/amd64": "--build-arg ARCH=amd64"}"
-    platform-fallback: "true"
-    push: "true"
-    sbom-format: "spdx-json"
-    scan-image: "false"
-    secrets: "NODE_ENV=production"
-    sign-image: "false"
-    tag: "v1.0.0"
-    token: "${{ github.token }}"
-    verbose: "false"
+    architectures: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
+    auto-detect-platforms: 'false'
+    build-args: 'NODE_ENV=production'
+    build-contexts: 'NODE_ENV=production'
+    buildkit-version: 'v0.11.0'
+    buildx-version: 'latest'
+    cache-export: 'type=gha,mode=max'
+    cache-from: 'type=gha,mode=max'
+    cache-import: 'type=gha,mode=max'
+    cache-mode: 'max'
+    context: '.'
+    dockerfile: 'Dockerfile'
+    dry-run: 'false'
+    image-name: 'myapp'
+    max-retries: '3'
+    network: 'default'
+    parallel-builds: '0'
+    platform-build-args: '{"linux/amd64": "--build-arg ARCH=amd64"}'
+    platform-fallback: 'true'
+    push: 'true'
+    sbom-format: 'spdx-json'
+    scan-image: 'false'
+    secrets: 'NODE_ENV=production'
+    sign-image: 'false'
+    tag: 'v1.0.0'
+    token: '${{ github.token }}'
+    verbose: 'false'
 ```
 
 </details>

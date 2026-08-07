@@ -130,6 +130,20 @@ def fix_trigger(text: str, action: str) -> str:
     )
 
 
+def yaml_quote(value: str) -> str:
+    """Render a value as a YAML single-quoted scalar.
+
+    Reusing the quote character the generator happened to emit breaks whenever
+    the replacement contains that same character: the JSON example for
+    `platform-build-args` is full of double quotes, so re-emitting it inside
+    double quotes produced `platform-build-args: "{"linux/amd64": ...}"` —
+    three unparseable blocks in docker-build/README.md. Single quotes with YAML's
+    doubling escape are safe for every value here, and match prettier's
+    singleQuote style so the later pass leaves them alone.
+    """
+    return "'" + value.replace("'", "''") + "'"
+
+
 def fix_values(text: str, action: str) -> str:
     """Replace the themes' generic placeholders with a value the action accepts.
 
@@ -145,13 +159,13 @@ def fix_values(text: str, action: str) -> str:
     pattern = re.compile(rf"""^(\s*)([a-zA-Z0-9_.-]+): (["'])({alternatives})\3$""", re.MULTILINE)
 
     def replace(match: re.Match[str]) -> str:
-        indent, name, quote = match.group(1), match.group(2), match.group(3)
+        indent, name = match.group(1), match.group(2)
         if name in CREDENTIALS:
-            return f"{indent}{name}: {quote}{CREDENTIALS[name]}{quote}"
+            return f"{indent}{name}: {yaml_quote(CREDENTIALS[name])}"
         example = kit.EXAMPLES.get(checks.get(name, ""))
         if example is None:
             return match.group(0)
-        return f"{indent}{name}: {quote}{example}{quote}"
+        return f"{indent}{name}: {yaml_quote(example)}"
 
     return pattern.sub(replace, text)
 
