@@ -16,6 +16,10 @@ Always add `id:` to a step when any of its outputs OR its outcome OR its conclus
 is referenced via `steps.<id>.outputs.<key>`, `steps.<id>.outcome`, or
 `steps.<id>.conclusion`.
 
-Always test regex patterns against pre-release inputs (`1.0.0-rc.1`, `1.0.0+build`,
-`v2025.04.05-rc.1`, `2025.4.5+sha.abc1234`). "Tested" means an automated unit test
-under `_tests/` or `_validation/tests/`, not a one-off REPL check.
+Always test regex patterns against both pre-release inputs (`1.0.0-rc.1`,
+`v2025.04.05-rc.1`) and build-metadata inputs (`1.0.0+build`,
+`2025.4.5+sha.abc1234`). These are distinct SemVer constructs — `-rc.1` is a
+pre-release, `+build` is build metadata — and a regex can accept one while
+rejecting the other, so neither category substitutes for the other. "Tested"
+means an automated unit test under `_tests/` or `_validation/tests/`, not a
+one-off REPL check.

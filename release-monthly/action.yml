@@ -175,8 +175,15 @@ runs:
         # expansion, never printf '%d': POSIX printf parses a leading-zero argument as
         # octal, so "08" and "09" are invalid digits — printf exits 1 and set -e kills
         # the step for the whole of August and September.
-        _month="$(date -u +'%m')"
-        next_major_minor="$(date -u +'%Y').${_month#0}"
+        _year="$(date -u +'%Y')" || {
+          echo "::error::Failed to read the UTC year"
+          exit 1
+        }
+        _month="$(date -u +'%m')" || {
+          echo "::error::Failed to read the UTC month"
+          exit 1
+        }
+        next_major_minor="${_year}.${_month#0}"
 
         if [ -n "$previous_tag" ] && [ "${previous_major}.${previous_minor}" = "${next_major_minor}" ]; then
           echo "Month release already exists for year, incrementing patch number by 1"

@@ -6,6 +6,13 @@
 # shadows the real binary on the child PATH. Reading the real clock here made the
 # suite's result depend on the calendar month and hid a production defect that only
 # fires in August and September (see docs/audit/findings, tests-c1051f2d).
+#
+# Every example below runs with INPUT_DRY_RUN=true, and the action calls
+# `gh release create` only when DRY_RUN is "false". So no `release create` mock is
+# registered here, deliberately: an unregistered call exits 127 via the harness
+# dispatcher, which turns "the dry-run gate regressed and we published for real"
+# into a test failure. Registering the mock would satisfy that erroneous call and
+# leave the suite green. Do not add one.
 
 Describe "release-monthly create-release (behavior)"
 ACTION_DIR="${PROJECT_ROOT}/release-monthly"
@@ -37,7 +44,6 @@ export INPUT_DRY_RUN="true"
 mock_clock "2026" "04"
 # gh --json tagName --jq '.[0].tagName' returns just the tag string.
 mock_command gh "release list --limit 1*" "v2026.4.0"
-mock_command gh "release create*" ""
 
 When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
@@ -51,7 +57,6 @@ export INPUT_PREFIX=""
 export INPUT_DRY_RUN="true"
 mock_clock "2026" "04"
 mock_command gh "release list --limit 1*" "2026.3.7"
-mock_command gh "release create*" ""
 
 When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
@@ -77,7 +82,6 @@ mock_clock "2026" "04"
 mock_command gh "release list --limit 1 --json*" "2026.4.0"
 mock_command gh "release list --limit 1" \
   "$(printf 'April 2026 Release\tLatest\t2026.4.0\t2026-04-15')"
-mock_command gh "release create*" ""
 
 When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
@@ -106,7 +110,6 @@ export INPUT_PREFIX=""
 export INPUT_DRY_RUN="true"
 mock_clock "2026" "$1"
 mock_command gh "release list --limit 1*" "$2"
-mock_command gh "release create*" ""
 
 When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
