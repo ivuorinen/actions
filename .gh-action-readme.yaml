@@ -11,7 +11,7 @@
 # Renders inputs/outputs/permissions as markdown tables (keeping
 # markdown-table-formatter meaningful) plus Overview/Configuration/
 # Troubleshooting sections. The default theme emits bullet lists instead.
-theme: professional
+theme: github
 
 output_format: md
 

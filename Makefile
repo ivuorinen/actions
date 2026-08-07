@@ -105,19 +105,14 @@ $(GAR): ## Download and verify the pinned gh-action-readme binary
 # generation turns that fallback into a build failure instead of a silent docs
 # regression.
 #
-# The professional theme's boilerplate links resolve relative to the README,
-# i.e. inside the action directory, where none of these targets exist:
-#   [Contributing Guide](CONTRIBUTING.md) -> ../CONTRIBUTING.md  (root)
-#   [LICENSE](LICENSE)                    -> ../LICENSE.md       (root file is .md)
-#   [examples](./examples/)               -> no such directory anywhere; the
-#                                            bullet is dropped rather than
-#                                            repointed at something it is not.
-# Without these three fixups every generated README ships broken links.
+# _tools/fix-generated-readme.sh corrects the rest of what the theme emits:
+# links that resolve inside the action directory, a mutable checkout tag,
+# literal placeholder credentials, and a pull_request trigger in the quick
+# start. See that script for the per-fixup rationale.
 #
-# --prose-wrap always is needed because this theme renders long input
-# descriptions as prose paragraphs rather than table cells. .markdownlint.json
-# exempts tables from MD013 but not prose, so an action.yml description over 200
-# chars (sync-labels) fails lint without wrapping. printWidth comes from
+# --prose-wrap always guards against a long action.yml description being
+# rendered as a prose paragraph rather than a table cell; .markdownlint.json
+# exempts tables from MD013 but not prose. printWidth comes from
 # .prettierrc.yml; only generated READMEs are wrapped, hand-written docs are
 # left as authored.
 docs: $(GAR) ## Generate documentation for all actions
@@ -126,10 +121,7 @@ docs: $(GAR) ## Generate documentation for all actions
 	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml||' | sed 's|./||'); do \
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
-			$(SED_CMD) "s|](CONTRIBUTING.md)|](../CONTRIBUTING.md)|g" "$$dir/README.md"; \
-			$(SED_CMD) "s|](LICENSE)|](../LICENSE.md)|g" "$$dir/README.md"; \
-			$(SED_CMD) "/\[examples\](\.\/examples\/)/d" "$$dir/README.md"; \
-			[ "$(UNAME_S)" = "Darwin" ] && rm -f "$$dir/README.md.bak"; \
+			sh _tools/fix-generated-readme.sh "$$dir/README.md"; \
 			npx --yes prettier --write --prose-wrap always "$$dir/README.md" >/dev/null 2>&1; \
 			npx --yes markdown-table-formatter "$$dir/README.md" >/dev/null 2>&1; \
 			if grep -q "uses: ivuorinen/actions/$$dir@vYYYY.MM.DD" "$$dir/README.md"; then \

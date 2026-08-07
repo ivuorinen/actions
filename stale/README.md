@@ -1,237 +1,104 @@
 # Stale
 
-<div align="center">
-  <img src="https://img.shields.io/badge/icon-clock-yellow" alt="clock" />
-  <img src="https://img.shields.io/badge/status-stable-brightgreen" alt="Status" />
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-</div>
+![clock](https://img.shields.io/badge/icon-clock-yellow) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-## Overview
+> A GitHub Action to close stale issues and pull requests.
 
-A GitHub Action to close stale issues and pull requests.
-
-This GitHub Action provides a robust solution for your CI/CD pipeline with comprehensive configuration options and detailed output information.
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Input Parameters](#input-parameters)
-- [Output Parameters](#output-parameters)
-- [Examples](#examples)
-
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Quick Start
-
-Add the following step to your GitHub Actions workflow:
-
-```yaml
-name: CI/CD Pipeline
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Stale
-        uses: ivuorinen/actions/stale@vYYYY.MM.DD
-        with:
-          days-before-close: '7'
-          days-before-stale: '30'
-          token: 'your-value-here'
-```
-
-## Configuration
-
-This action supports various configuration options to customize its behavior according to your needs.
-
-### Input Parameters
-
-| Parameter               | Description                                                     | Type     | Required | Default Value |
-|-------------------------|-----------------------------------------------------------------|----------|----------|---------------|
-| **`days-before-close`** | Number of days of inactivity before a stale issue is closed     | `string` | ❌ No     | `7`           |
-| **`days-before-stale`** | Number of days of inactivity before an issue is marked as stale | `string` | ❌ No     | `30`          |
-| **`token`**             | GitHub token for authentication                                 | `string` | ❌ No     | _None_        |
-
-#### Parameter Details
-
-##### `days-before-close`
-
-Number of days of inactivity before a stale issue is closed
-
-- **Type**: String
-- **Required**: No
-- **Default**: `7`
-
-```yaml
-with:
-  days-before-close: '7'
-```
-
-##### `days-before-stale`
-
-Number of days of inactivity before an issue is marked as stale
-
-- **Type**: String
-- **Required**: No
-- **Default**: `30`
-
-```yaml
-with:
-  days-before-stale: '30'
-```
-
-##### `token`
-
-GitHub token for authentication
-
-- **Type**: String
-- **Required**: No
-
-```yaml
-with:
-  token: 'your-value-here'
-```
-
-### Output Parameters
-
-This action provides the following outputs that can be used in subsequent workflow steps:
-
-| Parameter                 | Description                      | Usage                                         |
-|---------------------------|----------------------------------|-----------------------------------------------|
-| **`closed_issues_count`** | Number of issues closed          | `\${{ steps. .outputs.closed_issues_count }}` |
-| **`staled_issues_count`** | Number of issues marked as stale | `\${{ steps. .outputs.staled_issues_count }}` |
-
-#### Using Outputs
-
-```yaml
-- name: Stale
-  id: action-step
-  uses: ivuorinen/actions/stale@vYYYY.MM.DD
-
-- name: Use Output
-  run: |
-    echo "closed_issues_count: \${{ steps.action-step.outputs.closed_issues_count }}"
-    echo "staled_issues_count: \${{ steps.action-step.outputs.staled_issues_count }}"
-```
-
-## 🔐 Required Permissions
-
-This action requires specific GitHub permissions to function correctly. Ensure your workflow includes these permissions:
-
-| Permission      | Access Level | Description                   |
-|-----------------|--------------|-------------------------------|
-| `issues`        | `write`      | Required for action operation |
-| `pull-requests` | `write`      | Required for action operation |
-
-### How to Set Permissions
+## 🚀 Quick Start
 
 ```yaml
 name: My Workflow
 on: [push]
 
-permissions:
-  issues: write
-  pull-requests: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: ivuorinen/actions/stale@vYYYY.MM.DD
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Stale
+        uses: ivuorinen/actions/stale@vYYYY.MM.DD
+        with:
+          days-before-close: '7'
+          days-before-stale: '30'
+          token: '${{ github.token }}'
 ```
 
-**Note:** If your workflow doesn't specify permissions, GitHub uses default permissions which may not include all required permissions above.
+## 📥 Inputs
 
-## Examples
+| Parameter           | Description                                                     | Required | Default |
+|---------------------|-----------------------------------------------------------------|----------|---------|
+| `days-before-close` | Number of days of inactivity before a stale issue is closed     | ❌        | `7`     |
+| `days-before-stale` | Number of days of inactivity before an issue is marked as stale | ❌        | `30`    |
+| `token`             | GitHub token for authentication                                 | ❌        | -       |
 
-### Basic Usage
+## 📤 Outputs
+
+| Parameter             | Description                      |
+|-----------------------|----------------------------------|
+| `closed_issues_count` | Number of issues closed          |
+| `staled_issues_count` | Number of issues marked as stale |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission      | Access Level |
+|-----------------|--------------|
+| `issues`        | `write`      |
+| `pull-requests` | `write`      |
+
+**Usage in workflow:**
 
 ```yaml
-- name: Basic Stale
+permissions:
+  issues: write
+  pull-requests: write
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: Stale
   uses: ivuorinen/actions/stale@vYYYY.MM.DD
   with:
     days-before-close: '7'
     days-before-stale: '30'
-    token: 'example-value'
+    token: '${{ github.token }}'
 ```
 
-### Advanced Configuration
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
 
 ```yaml
-- name: Advanced Stale
-  uses: ivuorinen/actions/stale@vYYYY.MM.DD
-  with:
-    days-before-close: "7"
-    days-before-stale: "30"
-    token: "\${{ vars.TOKEN }}"
-  env:
-    GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-```
-
-### Conditional Usage
-
-```yaml
-- name: Conditional Stale
-  if: github.event_name == 'push'
+- name: Stale with custom settings
   uses: ivuorinen/actions/stale@vYYYY.MM.DD
   with:
     days-before-close: '7'
     days-before-stale: '30'
-    token: 'production-value'
+    token: '${{ github.token }}'
 ```
 
-## Troubleshooting
+</details>
 
-### Common Issues
+## 🔧 Development
 
-1. **Authentication Errors**: Ensure you have set up the required secrets in your repository settings.
-2. **Permission Issues**: Check that your GitHub token has the necessary permissions.
-3. **Configuration Errors**: Validate your input parameters against the schema.
+See the [action.yml](./action.yml) for the complete action specification.
 
-### Getting Help
+## 📄 License
 
-- Check the [action.yml](./action.yml) for the complete specification
-- Open an issue if you encounter problems
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
 
-## Contributing
+## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](../CONTRIBUTING.md) for details.
-
-### Development Setup
-
-1. Fork this repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE.md) file for details.
-
-## Support
-
-If you find this action helpful, please consider:
-
-- ⭐ Starring this repository
-- 🐛 Reporting issues
-- 💡 Suggesting improvements
-- 🤝 Contributing code
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
 <div align="center">
-  <sub>📚 Documentation generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
 </div>

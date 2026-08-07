@@ -1,233 +1,103 @@
 # Language Version Detect
 
-<div align="center">
-  <img src="https://img.shields.io/badge/icon-code-blue" alt="code" />
-  <img src="https://img.shields.io/badge/status-stable-brightgreen" alt="Status" />
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-</div>
+![code](https://img.shields.io/badge/icon-code-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-## Overview
+> DEPRECATED: This action is deprecated. Inline version detection directly in your actions instead. Detects language version from project configuration files with support for PHP, Python, Go, and
+> .NET.
 
-DEPRECATED: This action is deprecated. Inline version detection directly in your actions instead. Detects language version from project configuration files with support for PHP, Python, Go, and .NET.
-
-This GitHub Action provides a robust solution for your CI/CD pipeline with comprehensive configuration options and detailed output information.
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Input Parameters](#input-parameters)
-- [Output Parameters](#output-parameters)
-- [Examples](#examples)
-
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Quick Start
-
-Add the following step to your GitHub Actions workflow:
-
-```yaml
-name: CI/CD Pipeline
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: Language Version Detect
-        uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
-        with:
-          default-version: 'your-value-here'
-          language: 'your-value-here'
-          token: 'your-value-here'
-```
-
-## Configuration
-
-This action supports various configuration options to customize its behavior according to your needs.
-
-### Input Parameters
-
-| Parameter             | Description                                              | Type     | Required | Default Value |
-|-----------------------|----------------------------------------------------------|----------|----------|---------------|
-| **`default-version`** | Default version to use if no version is detected         | `string` | ❌ No     | _None_        |
-| **`language`**        | Language to detect version for (php, python, go, dotnet) | `string` | ✅ Yes    | _None_        |
-| **`token`**           | GitHub token for authentication                          | `string` | ❌ No     | _None_        |
-
-#### Parameter Details
-
-##### `default-version`
-
-Default version to use if no version is detected
-
-- **Type**: String
-- **Required**: No
-
-```yaml
-with:
-  default-version: 'your-value-here'
-```
-
-##### `language`
-
-Language to detect version for (php, python, go, dotnet)
-
-- **Type**: String
-- **Required**: Yes
-
-```yaml
-with:
-  language: 'your-value-here'
-```
-
-##### `token`
-
-GitHub token for authentication
-
-- **Type**: String
-- **Required**: No
-
-```yaml
-with:
-  token: 'your-value-here'
-```
-
-### Output Parameters
-
-This action provides the following outputs that can be used in subsequent workflow steps:
-
-| Parameter              | Description                                                         | Usage                                      |
-|------------------------|---------------------------------------------------------------------|--------------------------------------------|
-| **`detected-version`** | Detected or default language version                                | `\${{ steps. .outputs.detected-version }}` |
-| **`package-manager`**  | Detected package manager (python: pip/poetry/pipenv, php: composer) | `\${{ steps. .outputs.package-manager }}`  |
-
-#### Using Outputs
-
-```yaml
-- name: Language Version Detect
-  id: action-step
-  uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
-
-- name: Use Output
-  run: |
-    echo "detected-version: \${{ steps.action-step.outputs.detected-version }}"
-    echo "package-manager: \${{ steps.action-step.outputs.package-manager }}"
-```
-
-## 🔐 Required Permissions
-
-This action requires specific GitHub permissions to function correctly. Ensure your workflow includes these permissions:
-
-| Permission | Access Level | Description                   |
-|------------|--------------|-------------------------------|
-| `contents` | `read`       | Required for action operation |
-
-### How to Set Permissions
+## 🚀 Quick Start
 
 ```yaml
 name: My Workflow
 on: [push]
 
-permissions:
-  contents: read
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Language Version Detect
+        uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
+        with:
+          default-version: 'value'
+          language: 'value'
+          token: '${{ github.token }}'
 ```
 
-**Note:** If your workflow doesn't specify permissions, GitHub uses default permissions which may not include all required permissions above.
+## 📥 Inputs
 
-## Examples
+| Parameter         | Description                                              | Required | Default |
+|-------------------|----------------------------------------------------------|----------|---------|
+| `default-version` | Default version to use if no version is detected         | ❌        | -       |
+| `language`        | Language to detect version for (php, python, go, dotnet) | ✅        | -       |
+| `token`           | GitHub token for authentication                          | ❌        | -       |
 
-### Basic Usage
+## 📤 Outputs
+
+| Parameter          | Description                                                         |
+|--------------------|---------------------------------------------------------------------|
+| `detected-version` | Detected or default language version                                |
+| `package-manager`  | Detected package manager (python: pip/poetry/pipenv, php: composer) |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission | Access Level |
+|------------|--------------|
+| `contents` | `read`       |
+
+**Usage in workflow:**
 
 ```yaml
-- name: Basic Language Version Detect
+permissions:
+  contents: read
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: Language Version Detect
   uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
   with:
     default-version: 'example-value'
     language: 'example-value'
-    token: 'example-value'
+    token: '${{ github.token }}'
 ```
 
-### Advanced Configuration
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
 
 ```yaml
-- name: Advanced Language Version Detect
+- name: Language Version Detect with custom settings
   uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
   with:
-    default-version: "\${{ vars.DEFAULT-VERSION }}"
-    language: "\${{ vars.LANGUAGE }}"
-    token: "\${{ vars.TOKEN }}"
-  env:
-    GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
+    default-version: 'custom-value'
+    language: 'custom-value'
+    token: '${{ github.token }}'
 ```
 
-### Conditional Usage
+</details>
 
-```yaml
-- name: Conditional Language Version Detect
-  if: github.event_name == 'push'
-  uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
-  with:
-    default-version: 'production-value'
-    language: 'production-value'
-    token: 'production-value'
-```
+## 🔧 Development
 
-## Troubleshooting
+See the [action.yml](./action.yml) for the complete action specification.
 
-### Common Issues
+## 📄 License
 
-1. **Authentication Errors**: Ensure you have set up the required secrets in your repository settings.
-2. **Permission Issues**: Check that your GitHub token has the necessary permissions.
-3. **Configuration Errors**: Validate your input parameters against the schema.
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
 
-### Getting Help
+## 🤝 Contributing
 
-- Check the [action.yml](./action.yml) for the complete specification
-- Open an issue if you encounter problems
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](../CONTRIBUTING.md) for details.
-
-### Development Setup
-
-1. Fork this repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE.md) file for details.
-
-## Support
-
-If you find this action helpful, please consider:
-
-- ⭐ Starring this repository
-- 🐛 Reporting issues
-- 💡 Suggesting improvements
-- 🤝 Contributing code
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
 <div align="center">
-  <sub>📚 Documentation generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
 </div>

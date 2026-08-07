@@ -1,49 +1,20 @@
 # Biome Lint
 
-<div align="center">
-  <img src="https://img.shields.io/badge/icon-check-circle-green" alt="check-circle" />
-  <img src="https://img.shields.io/badge/status-stable-brightgreen" alt="Status" />
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-</div>
+![check-circle](https://img.shields.io/badge/icon-check-circle-green) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-## Overview
+> Run Biome linter in check or fix mode
 
-Run Biome linter in check or fix mode
-
-This GitHub Action provides a robust solution for your CI/CD pipeline with comprehensive configuration options and detailed output information.
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Input Parameters](#input-parameters)
-- [Output Parameters](#output-parameters)
-- [Examples](#examples)
-
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Quick Start
-
-Add the following step to your GitHub Actions workflow:
+## 🚀 Quick Start
 
 ```yaml
-name: CI/CD Pipeline
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
+name: My Workflow
+on: [push]
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Biome Lint
         uses: ivuorinen/actions/biome-lint@vYYYY.MM.DD
         with:
@@ -51,245 +22,97 @@ jobs:
           fail-on-error: 'true'
           max-retries: '3'
           mode: 'check'
-          token: 'your-value-here'
+          token: '${{ github.token }}'
           username: 'github-actions'
 ```
 
-## Configuration
+## 📥 Inputs
 
-This action supports various configuration options to customize its behavior according to your needs.
+| Parameter       | Description                                                              | Required | Default                     |
+|-----------------|--------------------------------------------------------------------------|----------|-----------------------------|
+| `email`         | GitHub email for commits (fix mode only)                                 | ❌        | `github-actions@github.com` |
+| `fail-on-error` | Whether to fail the action if linting errors are found (check mode only) | ❌        | `true`                      |
+| `max-retries`   | Maximum number of retry attempts for npm install operations              | ❌        | `3`                         |
+| `mode`          | Mode to run (check or fix)                                               | ❌        | `check`                     |
+| `token`         | GitHub token for authentication                                          | ❌        | -                           |
+| `username`      | GitHub username for commits (fix mode only)                              | ❌        | `github-actions`            |
 
-### Input Parameters
+## 📤 Outputs
 
-| Parameter           | Description                                                              | Type     | Required | Default Value               |
-|---------------------|--------------------------------------------------------------------------|----------|----------|-----------------------------|
-| **`email`**         | GitHub email for commits (fix mode only)                                 | `string` | ❌ No     | `github-actions@github.com` |
-| **`fail-on-error`** | Whether to fail the action if linting errors are found (check mode only) | `string` | ❌ No     | `true`                      |
-| **`max-retries`**   | Maximum number of retry attempts for npm install operations              | `string` | ❌ No     | `3`                         |
-| **`mode`**          | Mode to run (check or fix)                                               | `string` | ❌ No     | `check`                     |
-| **`token`**         | GitHub token for authentication                                          | `string` | ❌ No     | _None_                      |
-| **`username`**      | GitHub username for commits (fix mode only)                              | `string` | ❌ No     | `github-actions`            |
+| Parameter        | Description                                |
+|------------------|--------------------------------------------|
+| `errors_count`   | Number of errors found (check mode only)   |
+| `files_changed`  | Number of files changed (fix mode only)    |
+| `status`         | Overall status (success/failure)           |
+| `warnings_count` | Number of warnings found (check mode only) |
 
-#### Parameter Details
+## 🔐 Permissions
 
-##### `email`
+This action requires the following permissions:
 
-GitHub email for commits (fix mode only)
+| Permission        | Access Level |
+|-------------------|--------------|
+| `contents`        | `write`      |
+| `security-events` | `write`      |
 
-- **Type**: String
-- **Required**: No
-- **Default**: `github-actions@github.com`
-
-```yaml
-with:
-  email: 'github-actions@github.com'
-```
-
-##### `fail-on-error`
-
-Whether to fail the action if linting errors are found (check mode only)
-
-- **Type**: String
-- **Required**: No
-- **Default**: `true`
+**Usage in workflow:**
 
 ```yaml
-with:
-  fail-on-error: 'true'
-```
-
-##### `max-retries`
-
-Maximum number of retry attempts for npm install operations
-
-- **Type**: String
-- **Required**: No
-- **Default**: `3`
-
-```yaml
-with:
-  max-retries: '3'
-```
-
-##### `mode`
-
-Mode to run (check or fix)
-
-- **Type**: String
-- **Required**: No
-- **Default**: `check`
-
-```yaml
-with:
-  mode: 'check'
-```
-
-##### `token`
-
-GitHub token for authentication
-
-- **Type**: String
-- **Required**: No
-
-```yaml
-with:
-  token: 'your-value-here'
-```
-
-##### `username`
-
-GitHub username for commits (fix mode only)
-
-- **Type**: String
-- **Required**: No
-- **Default**: `github-actions`
-
-```yaml
-with:
-  username: 'github-actions'
-```
-
-### Output Parameters
-
-This action provides the following outputs that can be used in subsequent workflow steps:
-
-| Parameter            | Description                                | Usage                                    |
-|----------------------|--------------------------------------------|------------------------------------------|
-| **`errors_count`**   | Number of errors found (check mode only)   | `\${{ steps. .outputs.errors_count }}`   |
-| **`files_changed`**  | Number of files changed (fix mode only)    | `\${{ steps. .outputs.files_changed }}`  |
-| **`status`**         | Overall status (success/failure)           | `\${{ steps. .outputs.status }}`         |
-| **`warnings_count`** | Number of warnings found (check mode only) | `\${{ steps. .outputs.warnings_count }}` |
-
-#### Using Outputs
-
-```yaml
-- name: Biome Lint
-  id: action-step
-  uses: ivuorinen/actions/biome-lint@vYYYY.MM.DD
-
-- name: Use Output
-  run: |
-    echo "errors_count: \${{ steps.action-step.outputs.errors_count }}"
-    echo "files_changed: \${{ steps.action-step.outputs.files_changed }}"
-    echo "status: \${{ steps.action-step.outputs.status }}"
-    echo "warnings_count: \${{ steps.action-step.outputs.warnings_count }}"
-```
-
-## 🔐 Required Permissions
-
-This action requires specific GitHub permissions to function correctly. Ensure your workflow includes these permissions:
-
-| Permission        | Access Level | Description                   |
-|-------------------|--------------|-------------------------------|
-| `contents`        | `write`      | Required for action operation |
-| `security-events` | `write`      | Required for action operation |
-
-### How to Set Permissions
-
-```yaml
-name: My Workflow
-on: [push]
-
 permissions:
   contents: write
   security-events: write
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: ivuorinen/actions/biome-lint@vYYYY.MM.DD
 ```
 
-**Note:** If your workflow doesn't specify permissions, GitHub uses default permissions which may not include all required permissions above.
+## 💡 Examples
 
-## Examples
-
-### Basic Usage
+<details>
+<summary>Basic Usage</summary>
 
 ```yaml
-- name: Basic Biome Lint
+- name: Biome Lint
   uses: ivuorinen/actions/biome-lint@vYYYY.MM.DD
   with:
     email: 'github-actions@github.com'
     fail-on-error: 'true'
     max-retries: '3'
     mode: 'check'
-    token: 'example-value'
+    token: '${{ github.token }}'
     username: 'github-actions'
 ```
 
-### Advanced Configuration
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
 
 ```yaml
-- name: Advanced Biome Lint
-  uses: ivuorinen/actions/biome-lint@vYYYY.MM.DD
-  with:
-    email: "github-actions@github.com"
-    fail-on-error: "true"
-    max-retries: "3"
-    mode: "check"
-    token: "\${{ vars.TOKEN }}"
-    username: "github-actions"
-  env:
-    GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-```
-
-### Conditional Usage
-
-```yaml
-- name: Conditional Biome Lint
-  if: github.event_name == 'push'
+- name: Biome Lint with custom settings
   uses: ivuorinen/actions/biome-lint@vYYYY.MM.DD
   with:
     email: 'github-actions@github.com'
     fail-on-error: 'true'
     max-retries: '3'
     mode: 'check'
-    token: 'production-value'
+    token: '${{ github.token }}'
     username: 'github-actions'
 ```
 
-## Troubleshooting
+</details>
 
-### Common Issues
+## 🔧 Development
 
-1. **Authentication Errors**: Ensure you have set up the required secrets in your repository settings.
-2. **Permission Issues**: Check that your GitHub token has the necessary permissions.
-3. **Configuration Errors**: Validate your input parameters against the schema.
+See the [action.yml](./action.yml) for the complete action specification.
 
-### Getting Help
+## 📄 License
 
-- Check the [action.yml](./action.yml) for the complete specification
-- Open an issue if you encounter problems
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
 
-## Contributing
+## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](../CONTRIBUTING.md) for details.
-
-### Development Setup
-
-1. Fork this repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE.md) file for details.
-
-## Support
-
-If you find this action helpful, please consider:
-
-- ⭐ Starring this repository
-- 🐛 Reporting issues
-- 💡 Suggesting improvements
-- 🤝 Contributing code
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
 <div align="center">
-  <sub>📚 Documentation generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
 </div>

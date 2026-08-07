@@ -1,237 +1,104 @@
 # PR Lint
 
-<div align="center">
-  <img src="https://img.shields.io/badge/icon-check-circle-green" alt="check-circle" />
-  <img src="https://img.shields.io/badge/status-stable-brightgreen" alt="Status" />
-  <img src="https://img.shields.io/badge/license-MIT-blue" alt="License" />
-</div>
+![check-circle](https://img.shields.io/badge/icon-check-circle-green) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-## Overview
+> Runs MegaLinter against pull requests
 
-Runs MegaLinter against pull requests
-
-This GitHub Action provides a robust solution for your CI/CD pipeline with comprehensive configuration options and detailed output information.
-
-## Table of Contents
-
-- [Quick Start](#quick-start)
-- [Configuration](#configuration)
-- [Input Parameters](#input-parameters)
-- [Output Parameters](#output-parameters)
-- [Examples](#examples)
-
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
-
-## Quick Start
-
-Add the following step to your GitHub Actions workflow:
-
-```yaml
-name: CI/CD Pipeline
-on:
-  push:
-    branches: [main, develop]
-  pull_request:
-    branches: [main]
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v4
-
-      - name: PR Lint
-        uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
-        with:
-          email: 'github-actions@github.com'
-          token: 'your-value-here'
-          username: 'github-actions'
-```
-
-## Configuration
-
-This action supports various configuration options to customize its behavior according to your needs.
-
-### Input Parameters
-
-| Parameter      | Description                     | Type     | Required | Default Value               |
-|----------------|---------------------------------|----------|----------|-----------------------------|
-| **`email`**    | GitHub email for commits        | `string` | ❌ No     | `github-actions@github.com` |
-| **`token`**    | GitHub token for authentication | `string` | ❌ No     | _None_                      |
-| **`username`** | GitHub username for commits     | `string` | ❌ No     | `github-actions`            |
-
-#### Parameter Details
-
-##### `email`
-
-GitHub email for commits
-
-- **Type**: String
-- **Required**: No
-- **Default**: `github-actions@github.com`
-
-```yaml
-with:
-  email: 'github-actions@github.com'
-```
-
-##### `token`
-
-GitHub token for authentication
-
-- **Type**: String
-- **Required**: No
-
-```yaml
-with:
-  token: 'your-value-here'
-```
-
-##### `username`
-
-GitHub username for commits
-
-- **Type**: String
-- **Required**: No
-- **Default**: `github-actions`
-
-```yaml
-with:
-  username: 'github-actions'
-```
-
-### Output Parameters
-
-This action provides the following outputs that can be used in subsequent workflow steps:
-
-| Parameter               | Description                                 | Usage                                       |
-|-------------------------|---------------------------------------------|---------------------------------------------|
-| **`errors_found`**      | Number of linting errors found              | `\${{ steps. .outputs.errors_found }}`      |
-| **`validation_status`** | Overall validation status (success/failure) | `\${{ steps. .outputs.validation_status }}` |
-
-#### Using Outputs
-
-```yaml
-- name: PR Lint
-  id: action-step
-  uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
-
-- name: Use Output
-  run: |
-    echo "errors_found: \${{ steps.action-step.outputs.errors_found }}"
-    echo "validation_status: \${{ steps.action-step.outputs.validation_status }}"
-```
-
-## 🔐 Required Permissions
-
-This action requires specific GitHub permissions to function correctly. Ensure your workflow includes these permissions:
-
-| Permission      | Access Level | Description                   |
-|-----------------|--------------|-------------------------------|
-| `contents`      | `write`      | Required for action operation |
-| `pull-requests` | `write`      | Required for action operation |
-
-### How to Set Permissions
+## 🚀 Quick Start
 
 ```yaml
 name: My Workflow
 on: [push]
 
-permissions:
-  contents: write
-  pull-requests: write
-
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: PR Lint
+        uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
+        with:
+          email: 'github-actions@github.com'
+          token: '${{ github.token }}'
+          username: 'github-actions'
 ```
 
-**Note:** If your workflow doesn't specify permissions, GitHub uses default permissions which may not include all required permissions above.
+## 📥 Inputs
 
-## Examples
+| Parameter  | Description                     | Required | Default                     |
+|------------|---------------------------------|----------|-----------------------------|
+| `email`    | GitHub email for commits        | ❌        | `github-actions@github.com` |
+| `token`    | GitHub token for authentication | ❌        | -                           |
+| `username` | GitHub username for commits     | ❌        | `github-actions`            |
 
-### Basic Usage
+## 📤 Outputs
+
+| Parameter           | Description                                 |
+|---------------------|---------------------------------------------|
+| `errors_found`      | Number of linting errors found              |
+| `validation_status` | Overall validation status (success/failure) |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission      | Access Level |
+|-----------------|--------------|
+| `contents`      | `write`      |
+| `pull-requests` | `write`      |
+
+**Usage in workflow:**
 
 ```yaml
-- name: Basic PR Lint
+permissions:
+  contents: write
+  pull-requests: write
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: PR Lint
   uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
   with:
     email: 'github-actions@github.com'
-    token: 'example-value'
+    token: '${{ github.token }}'
     username: 'github-actions'
 ```
 
-### Advanced Configuration
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
 
 ```yaml
-- name: Advanced PR Lint
-  uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
-  with:
-    email: "github-actions@github.com"
-    token: "\${{ vars.TOKEN }}"
-    username: "github-actions"
-  env:
-    GITHUB_TOKEN: \${{ secrets.GITHUB_TOKEN }}
-```
-
-### Conditional Usage
-
-```yaml
-- name: Conditional PR Lint
-  if: github.event_name == 'push'
+- name: PR Lint with custom settings
   uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
   with:
     email: 'github-actions@github.com'
-    token: 'production-value'
+    token: '${{ github.token }}'
     username: 'github-actions'
 ```
 
-## Troubleshooting
+</details>
 
-### Common Issues
+## 🔧 Development
 
-1. **Authentication Errors**: Ensure you have set up the required secrets in your repository settings.
-2. **Permission Issues**: Check that your GitHub token has the necessary permissions.
-3. **Configuration Errors**: Validate your input parameters against the schema.
+See the [action.yml](./action.yml) for the complete action specification.
 
-### Getting Help
+## 📄 License
 
-- Check the [action.yml](./action.yml) for the complete specification
-- Open an issue if you encounter problems
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
 
-## Contributing
+## 🤝 Contributing
 
-We welcome contributions! Please see our [Contributing Guide](../CONTRIBUTING.md) for details.
-
-### Development Setup
-
-1. Fork this repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests if applicable
-5. Submit a pull request
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](../LICENSE.md) file for details.
-
-## Support
-
-If you find this action helpful, please consider:
-
-- ⭐ Starring this repository
-- 🐛 Reporting issues
-- 💡 Suggesting improvements
-- 🤝 Contributing code
+Contributions are welcome! Please feel free to submit a Pull Request.
 
 ---
 
 <div align="center">
-  <sub>📚 Documentation generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
 </div>
