@@ -13,12 +13,15 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: C# Lint Check
         uses: ivuorinen/actions/csharp-lint-check@vYYYY.MM.DD
         with:
-          dotnet-version: 'value'
+          dotnet-version: '8.0.x'
           token: '${{ github.token }}'
 ```
 
@@ -63,7 +66,7 @@ permissions:
 - name: C# Lint Check
   uses: ivuorinen/actions/csharp-lint-check@vYYYY.MM.DD
   with:
-    dotnet-version: 'example-value'
+    dotnet-version: '8.0.x'
     token: '${{ github.token }}'
 ```
 
@@ -76,7 +79,7 @@ permissions:
 - name: C# Lint Check with custom settings
   uses: ivuorinen/actions/csharp-lint-check@vYYYY.MM.DD
   with:
-    dotnet-version: 'custom-value'
+    dotnet-version: '8.0.x'
     token: '${{ github.token }}'
 ```
 

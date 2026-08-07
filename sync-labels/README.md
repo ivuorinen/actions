@@ -13,14 +13,16 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      issues: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Sync labels
         uses: ivuorinen/actions/sync-labels@vYYYY.MM.DD
         with:
-          labels: 'value'
+          labels: 'config/settings.yml'
           prune: 'true'
-          repository: 'value'
+          repository: 'my-org/my-repo'
           token: '${{ github.token }}'
 ```
 
@@ -67,9 +69,9 @@ permissions:
 - name: Sync labels
   uses: ivuorinen/actions/sync-labels@vYYYY.MM.DD
   with:
-    labels: 'example-value'
+    labels: 'config/settings.yml'
     prune: 'true'
-    repository: 'example-value'
+    repository: 'my-org/my-repo'
     token: '${{ github.token }}'
 ```
 
@@ -82,9 +84,9 @@ permissions:
 - name: Sync labels with custom settings
   uses: ivuorinen/actions/sync-labels@vYYYY.MM.DD
   with:
-    labels: 'custom-value'
+    labels: 'config/settings.yml'
     prune: 'true'
-    repository: 'custom-value'
+    repository: 'my-org/my-repo'
     token: '${{ github.token }}'
 ```
 

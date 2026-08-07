@@ -14,13 +14,15 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Language Version Detect
         uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
         with:
-          default-version: 'value'
-          language: 'value'
+          default-version: '1.2.3'
+          language: 'python'
           token: '${{ github.token }}'
 ```
 
@@ -63,8 +65,8 @@ permissions:
 - name: Language Version Detect
   uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
   with:
-    default-version: 'example-value'
-    language: 'example-value'
+    default-version: '1.2.3'
+    language: 'python'
     token: '${{ github.token }}'
 ```
 
@@ -77,8 +79,8 @@ permissions:
 - name: Language Version Detect with custom settings
   uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
   with:
-    default-version: 'custom-value'
-    language: 'custom-value'
+    default-version: '1.2.3'
+    language: 'python'
     token: '${{ github.token }}'
 ```
 

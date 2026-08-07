@@ -13,6 +13,9 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Go Lint Check
@@ -21,8 +24,8 @@ jobs:
           cache: 'true'
           config-file: '.golangci.yml'
           disable-all: 'false'
-          disable-linters: 'value'
-          enable-linters: 'value'
+          disable-linters: 'gosec,govet'
+          enable-linters: 'gosec,govet'
           fail-on-error: 'true'
           go-version: 'stable'
           golangci-lint-version: 'latest'
@@ -91,8 +94,8 @@ permissions:
     cache: 'true'
     config-file: '.golangci.yml'
     disable-all: 'false'
-    disable-linters: 'example-value'
-    enable-linters: 'example-value'
+    disable-linters: 'gosec,govet'
+    enable-linters: 'gosec,govet'
     fail-on-error: 'true'
     go-version: 'stable'
     golangci-lint-version: 'latest'
@@ -116,8 +119,8 @@ permissions:
     cache: 'true'
     config-file: '.golangci.yml'
     disable-all: 'false'
-    disable-linters: 'custom-value'
-    enable-linters: 'custom-value'
+    disable-linters: 'gosec,govet'
+    enable-linters: 'gosec,govet'
     fail-on-error: 'true'
     go-version: 'stable'
     golangci-lint-version: 'latest'

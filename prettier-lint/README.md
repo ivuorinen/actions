@@ -13,6 +13,9 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Prettier Lint
@@ -26,7 +29,7 @@ jobs:
           ignore-file: '.prettierignore'
           max-retries: '3'
           mode: 'check'
-          plugins: 'value'
+          plugins: '@prettier/plugin-xml'
           prettier-version: 'latest'
           report-format: 'sarif'
           token: '${{ github.token }}'
@@ -97,7 +100,7 @@ permissions:
     ignore-file: '.prettierignore'
     max-retries: '3'
     mode: 'check'
-    plugins: 'example-value'
+    plugins: '@prettier/plugin-xml'
     prettier-version: 'latest'
     report-format: 'sarif'
     token: '${{ github.token }}'
@@ -122,7 +125,7 @@ permissions:
     ignore-file: '.prettierignore'
     max-retries: '3'
     mode: 'check'
-    plugins: 'custom-value'
+    plugins: '@prettier/plugin-xml'
     prettier-version: 'latest'
     report-format: 'sarif'
     token: '${{ github.token }}'

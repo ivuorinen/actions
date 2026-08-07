@@ -83,6 +83,34 @@ def test_env_forwarding_matches_spec(action):
     assert env_keys(action) == expected
 
 
+@pytest.mark.parametrize("action", ACTIONS)
+def test_documented_input_values_pass_their_own_validator(action):
+    """Every input value shown in a generated README must be one the action accepts.
+
+    `make docs` substitutes kit.EXAMPLES into the generated examples so a reader can
+    copy a quick start and have it run. This asserts the result: if a substitution
+    silently fails, or a check is tightened without updating its example, the README
+    ends up publishing a value the action's own validate.py rejects.
+    """
+    readme = REPO_ROOT / action / "README.md"
+    if not readme.is_file():
+        return
+    checks = SPECS[action]["checks"]
+    invalid = []
+    for line in readme.read_text(encoding="utf-8").splitlines():
+        m = re.match(r"^\s*([a-zA-Z0-9_.-]+): ['\"]([^'\"]*)['\"]\s*$", line)
+        if not m:
+            continue
+        name, value = m.group(1), m.group(2)
+        check = checks.get(name)
+        if not check:
+            continue
+        error = kit.CHECKS[check](value)
+        if error:
+            invalid.append(f"{name}={value!r}: {error}")
+    assert not invalid, f"{action}/README.md documents invalid input values: {invalid}"
+
+
 def test_no_action_uses_the_old_validate_inputs_action():
     offenders = [
         p.parent.name

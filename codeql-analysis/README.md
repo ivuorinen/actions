@@ -13,24 +13,27 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: CodeQL Analysis
         uses: ivuorinen/actions/codeql-analysis@vYYYY.MM.DD
         with:
-          build-mode: 'value'
-          category: 'value'
-          checkout-ref: 'value'
-          config: 'value'
-          config-file: 'value'
-          language: 'value'
+          build-mode: 'none'
+          category: 'my-analysis'
+          checkout-ref: 'main'
+          config: 'name: my-config'
+          config-file: 'config/settings.yml'
+          language: 'javascript,python'
           output: '../results'
-          packs: 'value'
-          queries: 'value'
-          ram: 'value'
+          packs: 'my-org/my-queries@1.0.0'
+          queries: 'security-and-quality'
+          ram: '4096'
           skip-queries: 'false'
-          source-root: 'value'
-          threads: 'value'
+          source-root: 'config/settings.yml'
+          threads: '2'
           token: '${{ github.token }}'
           upload-results: 'true'
           working-directory: '.'
@@ -91,19 +94,19 @@ permissions:
 - name: CodeQL Analysis
   uses: ivuorinen/actions/codeql-analysis@vYYYY.MM.DD
   with:
-    build-mode: 'example-value'
-    category: 'example-value'
-    checkout-ref: 'example-value'
-    config: 'example-value'
-    config-file: 'example-value'
-    language: 'example-value'
+    build-mode: 'none'
+    category: 'my-analysis'
+    checkout-ref: 'main'
+    config: 'name: my-config'
+    config-file: 'config/settings.yml'
+    language: 'javascript,python'
     output: '../results'
-    packs: 'example-value'
-    queries: 'example-value'
-    ram: 'example-value'
+    packs: 'my-org/my-queries@1.0.0'
+    queries: 'security-and-quality'
+    ram: '4096'
     skip-queries: 'false'
-    source-root: 'example-value'
-    threads: 'example-value'
+    source-root: 'config/settings.yml'
+    threads: '2'
     token: '${{ github.token }}'
     upload-results: 'true'
     working-directory: '.'
@@ -118,19 +121,19 @@ permissions:
 - name: CodeQL Analysis with custom settings
   uses: ivuorinen/actions/codeql-analysis@vYYYY.MM.DD
   with:
-    build-mode: 'custom-value'
-    category: 'custom-value'
-    checkout-ref: 'custom-value'
-    config: 'custom-value'
-    config-file: 'custom-value'
-    language: 'custom-value'
+    build-mode: 'none'
+    category: 'my-analysis'
+    checkout-ref: 'main'
+    config: 'name: my-config'
+    config-file: 'config/settings.yml'
+    language: 'javascript,python'
     output: '../results'
-    packs: 'custom-value'
-    queries: 'custom-value'
-    ram: 'custom-value'
+    packs: 'my-org/my-queries@1.0.0'
+    queries: 'security-and-quality'
+    ram: '4096'
     skip-queries: 'false'
-    source-root: 'custom-value'
-    threads: 'custom-value'
+    source-root: 'config/settings.yml'
+    threads: '2'
     token: '${{ github.token }}'
     upload-results: 'true'
     working-directory: '.'

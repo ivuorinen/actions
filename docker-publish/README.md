@@ -15,17 +15,20 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Docker Publish
         uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
         with:
-          build-args: 'value'
+          build-args: 'NODE_ENV=production'
           context: '.'
           dockerfile: 'Dockerfile'
           dockerhub-token: '${{ secrets.DOCKERHUB_TOKEN }}'
-          dockerhub-username: 'value'
-          image-name: 'value'
+          dockerhub-username: 'github-actions'
+          image-name: 'myapp'
           platforms: 'linux/amd64,linux/arm64'
           push: 'true'
           registry: 'both'
@@ -84,12 +87,12 @@ permissions:
 - name: Docker Publish
   uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
   with:
-    build-args: 'example-value'
+    build-args: 'NODE_ENV=production'
     context: '.'
     dockerfile: 'Dockerfile'
     dockerhub-token: '${{ secrets.DOCKERHUB_TOKEN }}'
-    dockerhub-username: 'example-value'
-    image-name: 'example-value'
+    dockerhub-username: 'github-actions'
+    image-name: 'myapp'
     platforms: 'linux/amd64,linux/arm64'
     push: 'true'
     registry: 'both'
@@ -106,12 +109,12 @@ permissions:
 - name: Docker Publish with custom settings
   uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
   with:
-    build-args: 'custom-value'
+    build-args: 'NODE_ENV=production'
     context: '.'
     dockerfile: 'Dockerfile'
     dockerhub-token: '${{ secrets.DOCKERHUB_TOKEN }}'
-    dockerhub-username: 'custom-value'
-    image-name: 'custom-value'
+    dockerhub-username: 'github-actions'
+    image-name: 'myapp'
     platforms: 'linux/amd64,linux/arm64'
     push: 'true'
     registry: 'both'

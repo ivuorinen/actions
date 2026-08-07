@@ -13,12 +13,14 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: C# Build
         uses: ivuorinen/actions/csharp-build@vYYYY.MM.DD
         with:
-          dotnet-version: 'value'
+          dotnet-version: '8.0.x'
           max-retries: '3'
           token: '${{ github.token }}'
 ```
@@ -65,7 +67,7 @@ permissions:
 - name: C# Build
   uses: ivuorinen/actions/csharp-build@vYYYY.MM.DD
   with:
-    dotnet-version: 'example-value'
+    dotnet-version: '8.0.x'
     max-retries: '3'
     token: '${{ github.token }}'
 ```
@@ -79,7 +81,7 @@ permissions:
 - name: C# Build with custom settings
   uses: ivuorinen/actions/csharp-build@vYYYY.MM.DD
   with:
-    dotnet-version: 'custom-value'
+    dotnet-version: '8.0.x'
     max-retries: '3'
     token: '${{ github.token }}'
 ```

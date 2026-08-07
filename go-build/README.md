@@ -13,13 +13,15 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Go Build
         uses: ivuorinen/actions/go-build@vYYYY.MM.DD
         with:
           destination: './bin'
-          go-version: 'value'
+          go-version: '1.2.3'
           max-retries: '3'
           token: '${{ github.token }}'
 ```
@@ -68,7 +70,7 @@ permissions:
   uses: ivuorinen/actions/go-build@vYYYY.MM.DD
   with:
     destination: './bin'
-    go-version: 'example-value'
+    go-version: '1.2.3'
     max-retries: '3'
     token: '${{ github.token }}'
 ```
@@ -83,7 +85,7 @@ permissions:
   uses: ivuorinen/actions/go-build@vYYYY.MM.DD
   with:
     destination: './bin'
-    go-version: 'custom-value'
+    go-version: '1.2.3'
     max-retries: '3'
     token: '${{ github.token }}'
 ```

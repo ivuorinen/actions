@@ -13,12 +13,14 @@ on: [push, pull_request]
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: pre-commit
         uses: ivuorinen/actions/pre-commit@vYYYY.MM.DD
         with:
-          base-branch: 'value'
+          base-branch: 'main'
           commit_email: 'github-actions@github.com'
           commit_user: 'GitHub Actions'
           pre-commit-config: '.pre-commit-config.yaml'
@@ -66,7 +68,7 @@ permissions:
 - name: pre-commit
   uses: ivuorinen/actions/pre-commit@vYYYY.MM.DD
   with:
-    base-branch: 'example-value'
+    base-branch: 'main'
     commit_email: 'github-actions@github.com'
     commit_user: 'GitHub Actions'
     pre-commit-config: '.pre-commit-config.yaml'
@@ -82,7 +84,7 @@ permissions:
 - name: pre-commit with custom settings
   uses: ivuorinen/actions/pre-commit@vYYYY.MM.DD
   with:
-    base-branch: 'custom-value'
+    base-branch: 'main'
     commit_email: 'github-actions@github.com'
     commit_user: 'GitHub Actions'
     pre-commit-config: '.pre-commit-config.yaml'

@@ -105,7 +105,7 @@ $(GAR): ## Download and verify the pinned gh-action-readme binary
 # generation turns that fallback into a build failure instead of a silent docs
 # regression.
 #
-# _tools/fix-generated-readme.sh corrects the rest of what the theme emits:
+# _tools/fix-generated-readme.py corrects the rest of what the theme emits:
 # links that resolve inside the action directory, a mutable checkout tag,
 # literal placeholder credentials, and a pull_request trigger in the quick
 # start. See that script for the per-fixup rationale.
@@ -121,7 +121,7 @@ docs: $(GAR) ## Generate documentation for all actions
 	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml||' | sed 's|./||'); do \
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
-			sh _tools/fix-generated-readme.sh "$$dir/README.md"; \
+			python3 _tools/fix-generated-readme.py "$$dir/README.md"; \
 			npx --yes prettier --write --prose-wrap always "$$dir/README.md" >/dev/null 2>&1; \
 			npx --yes markdown-table-formatter "$$dir/README.md" >/dev/null 2>&1; \
 			if grep -q "uses: ivuorinen/actions/$$dir@vYYYY.MM.DD" "$$dir/README.md"; then \
