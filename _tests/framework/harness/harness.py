@@ -241,6 +241,11 @@ sys.exit(127)
         "bun",
         "bunx",
         "rsync",
+        # dotnet reaches the network via `dotnet nuget push` (csharp-publish) and
+        # `dotnet restore`. It ships in /usr/bin on .NET-equipped runners, which is
+        # on the child PATH, so without this entry an unmocked call runs the real
+        # toolchain against a live feed instead of failing.
+        "dotnet",
     )
 
     NOT_FOUND_TEMPLATE = """#!/bin/sh
