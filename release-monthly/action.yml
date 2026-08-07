@@ -171,8 +171,12 @@ runs:
           }
         fi
 
-        # Determine next release tag (printf '%d' strips leading zeros for POSIX-safe arithmetic)
-        next_major_minor="$(date -u +'%Y').$(printf '%d' "$(date -u +'%m')")"
+        # Determine next release tag. Strip the leading zero from %m with parameter
+        # expansion, never printf '%d': POSIX printf parses a leading-zero argument as
+        # octal, so "08" and "09" are invalid digits — printf exits 1 and set -e kills
+        # the step for the whole of August and September.
+        _month="$(date -u +'%m')"
+        next_major_minor="$(date -u +'%Y').${_month#0}"
 
         if [ -n "$previous_tag" ] && [ "${previous_major}.${previous_minor}" = "${next_major_minor}" ]; then
           echo "Month release already exists for year, incrementing patch number by 1"
