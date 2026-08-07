@@ -85,6 +85,7 @@ runs:
         python3 validate.py
 
     - name: Verify package.json
+      id: verify-package-json
       shell: sh
       run: |
         set -eu
