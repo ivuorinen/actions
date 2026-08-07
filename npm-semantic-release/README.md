@@ -1,6 +1,6 @@
 # NPM Semantic Release
 
-![package](https://img.shields.io/badge/icon-package-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![package](https://img.shields.io/badge/icon-package-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Runs semantic-release for automated npm versioning and publishing with OIDC provenance support.
 

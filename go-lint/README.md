@@ -1,6 +1,6 @@
 # Go Lint Check
 
-![code](https://img.shields.io/badge/icon-code-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![code](https://img.shields.io/badge/icon-code-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Run golangci-lint with advanced configuration, caching, and reporting
 

@@ -1,6 +1,6 @@
 # Do Monthly Release
 
-![calendar](https://img.shields.io/badge/icon-calendar-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![calendar](https://img.shields.io/badge/icon-calendar-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Creates a release for the current month, incrementing patch number if necessary.
 

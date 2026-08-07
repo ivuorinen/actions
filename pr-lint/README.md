@@ -1,6 +1,6 @@
 # PR Lint
 
-![check-circle](https://img.shields.io/badge/icon-check-circle-green) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![check-circle](https://img.shields.io/badge/icon-check-circle-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Runs MegaLinter against pull requests
 

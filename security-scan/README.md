@@ -1,6 +1,6 @@
 # Security Scan
 
-![shield](https://img.shields.io/badge/icon-shield-red) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![shield](https://img.shields.io/badge/icon-shield-red) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Comprehensive security scanning for GitHub Actions including actionlint, Gitleaks (optional), and Trivy vulnerability scanning. Requires 'security-events: write' and 'contents: read' permissions in
 > the workflow.

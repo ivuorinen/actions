@@ -48,6 +48,23 @@ _sed '/\[examples\]\(\.\/examples\/\)/d'
 #    it demonstrates nothing that `push` alone does not.
 _sed 's%^on: \[push, pull_request\]$%on: [push]%'
 
+# 3a. The themes render an empty badge message as a literal space, producing
+#     `.../badge/GitHub%20Action- -blue`. A raw space inside a link destination
+#     is invalid, so the markdown parser reads it as a bare URL and
+#     markdownlint's MD034 fix (via `make format`) rewrites it to `<...>` —
+#     while `make docs` alone leaves it. The two passes then disagree and the
+#     docs-check drift gate fails in CI, where only `make docs` runs.
+#     Encoding the space makes the URL valid, so every pass agrees.
+#
+#     Delimited with `#` rather than `%`: the replacement contains `%20`, and
+#     with `%` as the delimiter sed reads that as an early terminator.
+_sed 's#(img\.shields\.io/badge/[^) ]*)- -#\1-%20-#g'
+
+# 3b. If the space already slipped through and markdownlint wrapped the URL in
+#     angle brackets, unwrap it — otherwise regenerating over a previously
+#     formatted tree leaves the `<...>` form behind and the drift persists.
+_sed 's#\(<(https://img\.shields\.io/badge/[^>]*)>#(\1#g'
+
 # 4. Pin the checkout step. A copied example should not open with a mutable tag
 #    in a repository whose own rule is to SHA-pin every external action.
 _sed "s%uses: actions/checkout@v4\$%uses: actions/checkout@${CHECKOUT_SHA} # v4%"

@@ -1,6 +1,6 @@
 # Sync labels
 
-![tag](https://img.shields.io/badge/icon-tag-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![tag](https://img.shields.io/badge/icon-tag-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Sync GitHub labels declaratively from a YAML/JSON manifest (no Docker)
 

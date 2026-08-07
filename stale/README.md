@@ -1,6 +1,6 @@
 # Stale
 
-![clock](https://img.shields.io/badge/icon-clock-yellow) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![clock](https://img.shields.io/badge/icon-clock-yellow) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > A GitHub Action to close stale issues and pull requests.
 

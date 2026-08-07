@@ -1,6 +1,6 @@
 # Publish to NPM
 
-![package](https://img.shields.io/badge/icon-package-green) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![package](https://img.shields.io/badge/icon-package-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Publishes the package to the NPM registry with configurable scope and registry URL.
 

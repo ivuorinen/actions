@@ -1,6 +1,6 @@
 # Compress Images
 
-![image](https://img.shields.io/badge/icon-image-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![image](https://img.shields.io/badge/icon-image-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
 

@@ -1,6 +1,6 @@
 # Terraform Lint and Fix
 
-![server](https://img.shields.io/badge/icon-server-green) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![server](https://img.shields.io/badge/icon-server-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Lints and fixes Terraform files with advanced validation and security checks.
 

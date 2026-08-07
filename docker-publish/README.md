@@ -1,6 +1,6 @@
 # Docker Publish
 
-![upload-cloud](https://img.shields.io/badge/icon-upload-cloud-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![upload-cloud](https://img.shields.io/badge/icon-upload-cloud-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
 

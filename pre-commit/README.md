@@ -1,6 +1,6 @@
 # pre-commit
 
-![check-square](https://img.shields.io/badge/icon-check-square-green) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![check-square](https://img.shields.io/badge/icon-check-square-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Runs pre-commit on the repository and pushes the fixes back to the repository
 

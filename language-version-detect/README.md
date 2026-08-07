@@ -1,6 +1,6 @@
 # Language Version Detect
 
-![code](https://img.shields.io/badge/icon-code-blue) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![code](https://img.shields.io/badge/icon-code-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > DEPRECATED: This action is deprecated. Inline version detection directly in your actions instead. Detects language version from project configuration files with support for PHP, Python, Go, and
 > .NET.

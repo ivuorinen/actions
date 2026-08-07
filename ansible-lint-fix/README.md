@@ -1,6 +1,6 @@
 # Ansible Lint and Fix
 
-![play](https://img.shields.io/badge/icon-play-green) ![GitHub](<https://img.shields.io/badge/GitHub%20Action-> -blue) ![License](https://img.shields.io/badge/license-MIT-green)
+![play](https://img.shields.io/badge/icon-play-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Lints and fixes Ansible playbooks, commits changes, and uploads SARIF report.
 
