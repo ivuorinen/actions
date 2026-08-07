@@ -198,6 +198,7 @@ runs:
 
     # timeout-minutes is set at the calling workflow level
     - name: Publish Package
+      id: publish
       shell: sh
       env:
         REGISTRY_URL: ${{ inputs.registry-url }}

@@ -85,8 +85,17 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["windows/amd64", "linux/amd64,bogus"],
     },
     "docker_image_name": {
-        "valid": ["myapp", "registry.example.com/ns/app", "my-app", "ns/sub/app"],
-        "invalid": ["MyApp", "my app", "/leading"],
+        "valid": [
+            "myapp",
+            "registry.example.com/ns/app",
+            "my-app",
+            "ns/sub/app",
+            # dots are legal in both the bare name and the registry host
+            "my.app",
+            "docker.io/library/nginx",
+            "my.registry.local/app.name",
+        ],
+        "invalid": ["MyApp", "my app", "/leading", "-myapp", "myapp-", "_myapp"],
     },
     "docker_tag": {
         "valid": ["v1.0.0", "latest", "sha-1234567", "1.0.0", "a"],

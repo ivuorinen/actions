@@ -1,5 +1,18 @@
 #!/usr/bin/env shellspec
 # Behavior-level tests for release-monthly using the composite-step harness.
+#
+# The clock is mocked, never read. The create-release step calls `date` exactly
+# twice (`-u +%Y` and `-u +%m`), so both are registered as mocks and the harness
+# shadows the real binary on the child PATH. Reading the real clock here made the
+# suite's result depend on the calendar month and hid a production defect that only
+# fires in August and September (see docs/audit/findings, tests-c1051f2d).
+#
+# Every example below runs with INPUT_DRY_RUN=true, and the action calls
+# `gh release create` only when DRY_RUN is "false". So no `release create` mock is
+# registered here, deliberately: an unregistered call exits 127 via the harness
+# dispatcher, which turns "the dry-run gate regressed and we published for real"
+# into a test failure. Registering the mock would satisfy that erroneous call and
+# leave the suite green. Do not add one.
 
 Describe "release-monthly create-release (behavior)"
 ACTION_DIR="${PROJECT_ROOT}/release-monthly"
@@ -16,21 +29,40 @@ after() {
 }
 AfterEach 'after'
 
+# Registers the two `date` calls the create-release step makes.
+mock_clock() {
+  mock_command date "-u +%Y" "$1"
+  mock_command date "-u +%m" "$2"
+}
+
 It "increments patch when a release already exists for the current month and prefix=v"
 # With prefix=v and an existing release for the current month, the
 # action should bump the patch rather than reset to 0 or fail.
 export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 export INPUT_PREFIX="v"
 export INPUT_DRY_RUN="true"
-current_ym="$(date -u +'%Y.%-m')"
+mock_clock "2026" "04"
 # gh --json tagName --jq '.[0].tagName' returns just the tag string.
-mock_command gh "release list --limit 1*" "v${current_ym}.0"
-mock_command gh "release create*" ""
+mock_command gh "release list --limit 1*" "v2026.4.0"
 
 When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
-The stdout should include "v${current_ym}.1"
-Assert expect_output release_tag "v${current_ym}.1"
+The stdout should include "v2026.4.1"
+Assert expect_output release_tag "v2026.4.1"
+End
+
+It "resets patch to 0 when the latest release is from an earlier month"
+export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+export INPUT_PREFIX=""
+export INPUT_DRY_RUN="true"
+mock_clock "2026" "04"
+mock_command gh "release list --limit 1*" "2026.3.7"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "2026.4.0"
+Assert expect_output release_tag "2026.4.0"
+Assert expect_output previous_tag "2026.3.7"
 End
 
 It "uses gh's structured JSON output (not awk on a TITLE column)"
@@ -46,15 +78,44 @@ It "uses gh's structured JSON output (not awk on a TITLE column)"
 export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 export INPUT_PREFIX=""
 export INPUT_DRY_RUN="true"
-current_ym="$(date -u +'%Y.%-m')"
-mock_command gh "release list --limit 1 --json*" "${current_ym}.0"
+mock_clock "2026" "04"
+mock_command gh "release list --limit 1 --json*" "2026.4.0"
 mock_command gh "release list --limit 1" \
-  "$(printf 'April 2026 Release\tLatest\t%s.0\t2026-04-15' "${current_ym}")"
-mock_command gh "release create*" ""
+  "$(printf 'April 2026 Release\tLatest\t2026.4.0\t2026-04-15')"
 
 When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
-The stdout should include "${current_ym}.1"
-Assert expect_output release_tag "${current_ym}.1"
+The stdout should include "2026.4.1"
+Assert expect_output release_tag "2026.4.1"
+End
+
+Describe "month normalization"
+# The step must strip the leading zero from `date -u +%m` without POSIX printf,
+# which parses a leading-zero argument as octal. 08 and 09 are the discriminating
+# cases (invalid octal digits → printf exits 1 → set -e kills the step); 01, 07
+# and 10 are controls that catch a normalization that over-strips or stops
+# stripping. Every month is pinned, so this is calendar-independent.
+Parameters
+"01" "2026.1.0" "2026.1.1"
+"07" "2026.7.0" "2026.7.1"
+"08" "2026.8.0" "2026.8.1"
+"09" "2026.9.0" "2026.9.1"
+"10" "2026.10.0" "2026.10.1"
+"12" "2026.12.0" "2026.12.1"
+End
+
+It "normalizes month $1 without treating it as octal"
+export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+export INPUT_PREFIX=""
+export INPUT_DRY_RUN="true"
+mock_clock "2026" "$1"
+mock_command gh "release list --limit 1*" "$2"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "$3"
+The stderr should not include "not completely converted"
+Assert expect_output release_tag "$3"
+End
 End
 End
