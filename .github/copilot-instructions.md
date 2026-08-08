@@ -23,7 +23,7 @@ make test-action ACTION=node-setup  # Test specific action
 
 ### Documentation Generation
 
-- `make docs` auto-generates all README.md files from action.yml using action-docs
+- `make docs` auto-generates all README.md files from action.yml using gh-action-readme
 - `npm run update-catalog` rebuilds the main README.md action listing
 - **Never manually edit** generated sections marked with `<!--LISTING-->`
 

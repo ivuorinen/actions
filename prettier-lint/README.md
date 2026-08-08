@@ -1,128 +1,154 @@
-# ivuorinen/actions/prettier-lint
+# Prettier Lint
 
-## Description
+![check-circle](https://img.shields.io/badge/icon-check-circle-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-Run Prettier in check or fix mode with advanced configuration and reporting
+> Run Prettier in check or fix mode with advanced configuration and reporting
 
-## Inputs
-
-| name                | description                                                | required | default                                          |
-|---------------------|------------------------------------------------------------|----------|--------------------------------------------------|
-| `mode`              | <p>Mode to run (check or fix)</p>                          | `false`  | `check`                                          |
-| `working-directory` | <p>Directory containing files to format</p>                | `false`  | `.`                                              |
-| `prettier-version`  | <p>Prettier version to use</p>                             | `false`  | `latest`                                         |
-| `config-file`       | <p>Path to Prettier config file</p>                        | `false`  | `.prettierrc`                                    |
-| `ignore-file`       | <p>Path to Prettier ignore file</p>                        | `false`  | `.prettierignore`                                |
-| `file-pattern`      | <p>Files to include (glob pattern)</p>                     | `false`  | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
-| `cache`             | <p>Enable Prettier caching</p>                             | `false`  | `true`                                           |
-| `fail-on-error`     | <p>Fail workflow if issues are found (check mode only)</p> | `false`  | `true`                                           |
-| `report-format`     | <p>Output format for check mode (json, sarif)</p>          | `false`  | `sarif`                                          |
-| `max-retries`       | <p>Maximum number of retry attempts</p>                    | `false`  | `3`                                              |
-| `plugins`           | <p>Comma-separated list of Prettier plugins to install</p> | `false`  | `""`                                             |
-| `token`             | <p>GitHub token for authentication</p>                     | `false`  | `""`                                             |
-| `username`          | <p>GitHub username for commits (fix mode only)</p>         | `false`  | `github-actions`                                 |
-| `email`             | <p>GitHub email for commits (fix mode only)</p>            | `false`  | `github-actions@github.com`                      |
-
-## Outputs
-
-| name                | description                                                     |
-|---------------------|-----------------------------------------------------------------|
-| `status`            | <p>Overall status (success/failure)</p>                         |
-| `files-checked`     | <p>Number of files checked (check mode only)</p>                |
-| `unformatted-files` | <p>Number of files with formatting issues (check mode only)</p> |
-| `sarif-file`        | <p>Path to SARIF report file (check mode only)</p>              |
-| `files-changed`     | <p>Number of files changed (fix mode only)</p>                  |
-
-## Runs
-
-This action is a `composite` action.
-
-## Usage
+## 🚀 Quick Start
 
 ```yaml
-- uses: ivuorinen/actions/prettier-lint@vYYYY.MM.DD
-  with:
-    mode:
-    # Mode to run (check or fix)
-    #
-    # Required: false
-    # Default: check
+name: My Workflow
+on: [push, pull_request]
 
-    working-directory:
-    # Directory containing files to format
-    #
-    # Required: false
-    # Default: .
-
-    prettier-version:
-    # Prettier version to use
-    #
-    # Required: false
-    # Default: latest
-
-    config-file:
-    # Path to Prettier config file
-    #
-    # Required: false
-    # Default: .prettierrc
-
-    ignore-file:
-    # Path to Prettier ignore file
-    #
-    # Required: false
-    # Default: .prettierignore
-
-    file-pattern:
-    # Files to include (glob pattern)
-    #
-    # Required: false
-    # Default: **/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}
-
-    cache:
-    # Enable Prettier caching
-    #
-    # Required: false
-    # Default: true
-
-    fail-on-error:
-    # Fail workflow if issues are found (check mode only)
-    #
-    # Required: false
-    # Default: true
-
-    report-format:
-    # Output format for check mode (json, sarif)
-    #
-    # Required: false
-    # Default: sarif
-
-    max-retries:
-    # Maximum number of retry attempts
-    #
-    # Required: false
-    # Default: 3
-
-    plugins:
-    # Comma-separated list of Prettier plugins to install
-    #
-    # Required: false
-    # Default: ""
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-
-    username:
-    # GitHub username for commits (fix mode only)
-    #
-    # Required: false
-    # Default: github-actions
-
-    email:
-    # GitHub email for commits (fix mode only)
-    #
-    # Required: false
-    # Default: github-actions@github.com
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # `mode: 'fix'` needs write to push
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Prettier Lint
+        uses: ivuorinen/actions/prettier-lint@vYYYY.MM.DD
+        with:
+          cache: 'true'
+          config-file: '.prettierrc'
+          email: 'github-actions@github.com'
+          fail-on-error: 'true'
+          file-pattern: '**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}'
+          ignore-file: '.prettierignore'
+          max-retries: '3'
+          mode: 'check'
+          plugins: '@prettier/plugin-xml'
+          prettier-version: 'latest'
+          report-format: 'sarif'
+          token: '${{ github.token }}'
+          username: 'github-actions'
+          working-directory: '.'
 ```
+
+## 📥 Inputs
+
+| Parameter           | Description                                         | Required | Default                                          |
+|---------------------|-----------------------------------------------------|----------|--------------------------------------------------|
+| `cache`             | Enable Prettier caching                             | ❌        | `true`                                           |
+| `config-file`       | Path to Prettier config file                        | ❌        | `.prettierrc`                                    |
+| `email`             | GitHub email for commits (fix mode only)            | ❌        | `github-actions@github.com`                      |
+| `fail-on-error`     | Fail workflow if issues are found (check mode only) | ❌        | `true`                                           |
+| `file-pattern`      | Files to include (glob pattern)                     | ❌        | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
+| `ignore-file`       | Path to Prettier ignore file                        | ❌        | `.prettierignore`                                |
+| `max-retries`       | Maximum number of retry attempts                    | ❌        | `3`                                              |
+| `mode`              | Mode to run (check or fix)                          | ❌        | `check`                                          |
+| `plugins`           | Comma-separated list of Prettier plugins to install | ❌        | -                                                |
+| `prettier-version`  | Prettier version to use                             | ❌        | `latest`                                         |
+| `report-format`     | Output format for check mode (json, sarif)          | ❌        | `sarif`                                          |
+| `token`             | GitHub token for authentication                     | ❌        | -                                                |
+| `username`          | GitHub username for commits (fix mode only)         | ❌        | `github-actions`                                 |
+| `working-directory` | Directory containing files to format                | ❌        | `.`                                              |
+
+## 📤 Outputs
+
+| Parameter           | Description                                              |
+|---------------------|----------------------------------------------------------|
+| `files-changed`     | Number of files changed (fix mode only)                  |
+| `files-checked`     | Number of files checked (check mode only)                |
+| `sarif-file`        | Path to SARIF report file (check mode only)              |
+| `status`            | Overall status (success/failure)                         |
+| `unformatted-files` | Number of files with formatting issues (check mode only) |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission        | Access Level |
+|-------------------|--------------|
+| `contents`        | `write`      |
+| `security-events` | `write`      |
+
+**Usage in workflow:**
+
+```yaml
+permissions:
+  contents: write
+  security-events: write
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: Prettier Lint
+  uses: ivuorinen/actions/prettier-lint@vYYYY.MM.DD
+  with:
+    cache: 'true'
+    config-file: '.prettierrc'
+    email: 'github-actions@github.com'
+    fail-on-error: 'true'
+    file-pattern: '**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}'
+    ignore-file: '.prettierignore'
+    max-retries: '3'
+    mode: 'check'
+    plugins: '@prettier/plugin-xml'
+    prettier-version: 'latest'
+    report-format: 'sarif'
+    token: '${{ github.token }}'
+    username: 'github-actions'
+    working-directory: '.'
+```
+
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
+
+```yaml
+- name: Prettier Lint with custom settings
+  uses: ivuorinen/actions/prettier-lint@vYYYY.MM.DD
+  with:
+    cache: 'true'
+    config-file: '.prettierrc'
+    email: 'github-actions@github.com'
+    fail-on-error: 'true'
+    file-pattern: '**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}'
+    ignore-file: '.prettierignore'
+    max-retries: '3'
+    mode: 'check'
+    plugins: '@prettier/plugin-xml'
+    prettier-version: 'latest'
+    report-format: 'sarif'
+    token: '${{ github.token }}'
+    username: 'github-actions'
+    working-directory: '.'
+```
+
+</details>
+
+## 🔧 Development
+
+See the [action.yml](./action.yml) for the complete action specification.
+
+## 📄 License
+
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+<div align="center">
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+</div>

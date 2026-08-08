@@ -1,56 +1,114 @@
-# ivuorinen/actions/csharp-publish
+# C# Publish
 
-## Description
+![package](https://img.shields.io/badge/icon-package-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-Publishes a C# project to GitHub Packages.
+> Publishes a C# project to GitHub Packages.
 
-## Inputs
-
-| name             | description                                                        | required | default     |
-|------------------|--------------------------------------------------------------------|----------|-------------|
-| `dotnet-version` | <p>Version of .NET SDK to use.</p>                                 | `false`  | `""`        |
-| `namespace`      | <p>GitHub namespace for the package.</p>                           | `true`   | `ivuorinen` |
-| `token`          | <p>GitHub token with package write permissions</p>                 | `false`  | `""`        |
-| `max-retries`    | <p>Maximum number of retry attempts for dependency restoration</p> | `false`  | `3`         |
-
-## Outputs
-
-| name              | description                                     |
-|-------------------|-------------------------------------------------|
-| `publish_status`  | <p>Overall publish status (success/failure)</p> |
-| `package_version` | <p>Version of the published package</p>         |
-| `package_url`     | <p>URL of the published package</p>             |
-
-## Runs
-
-This action is a `composite` action.
-
-## Usage
+## 🚀 Quick Start
 
 ```yaml
-- uses: ivuorinen/actions/csharp-publish@vYYYY.MM.DD
-  with:
-    dotnet-version:
-    # Version of .NET SDK to use.
-    #
-    # Required: false
-    # Default: ""
+name: My Workflow
+on:
+  release:
+    types: [published]
 
-    namespace:
-    # GitHub namespace for the package.
-    #
-    # Required: true
-    # Default: ivuorinen
-
-    token:
-    # GitHub token with package write permissions
-    #
-    # Required: false
-    # Default: ""
-
-    max-retries:
-    # Maximum number of retry attempts for dependency restoration
-    #
-    # Required: false
-    # Default: 3
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: C# Publish
+        uses: ivuorinen/actions/csharp-publish@vYYYY.MM.DD
+        with:
+          dotnet-version: '8.0.x'
+          max-retries: '3'
+          namespace: 'ivuorinen'
+          token: '${{ github.token }}'
 ```
+
+## 📥 Inputs
+
+| Parameter        | Description                                                 | Required | Default     |
+|------------------|-------------------------------------------------------------|----------|-------------|
+| `dotnet-version` | Version of .NET SDK to use.                                 | ❌        | -           |
+| `max-retries`    | Maximum number of retry attempts for dependency restoration | ❌        | `3`         |
+| `namespace`      | GitHub namespace for the package.                           | ✅        | `ivuorinen` |
+| `token`          | GitHub token with package write permissions                 | ❌        | -           |
+
+## 📤 Outputs
+
+| Parameter         | Description                              |
+|-------------------|------------------------------------------|
+| `package_url`     | URL of the published package             |
+| `package_version` | Version of the published package         |
+| `publish_status`  | Overall publish status (success/failure) |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission | Access Level |
+|------------|--------------|
+| `contents` | `read`       |
+| `packages` | `write`      |
+
+**Usage in workflow:**
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: C# Publish
+  uses: ivuorinen/actions/csharp-publish@vYYYY.MM.DD
+  with:
+    dotnet-version: '8.0.x'
+    max-retries: '3'
+    namespace: 'ivuorinen'
+    token: '${{ github.token }}'
+```
+
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
+
+```yaml
+- name: C# Publish with custom settings
+  uses: ivuorinen/actions/csharp-publish@vYYYY.MM.DD
+  with:
+    dotnet-version: '8.0.x'
+    max-retries: '3'
+    namespace: 'ivuorinen'
+    token: '${{ github.token }}'
+```
+
+</details>
+
+## 🔧 Development
+
+See the [action.yml](./action.yml) for the complete action specification.
+
+## 📄 License
+
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+<div align="center">
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+</div>

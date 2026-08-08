@@ -1,106 +1,143 @@
-# ivuorinen/actions/docker-publish
+# Docker Publish
 
-## Description
+![upload-cloud](https://img.shields.io/badge/icon-upload-cloud-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
+> Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
 
-## Inputs
-
-| name                 | description                                                       | required | default                   |
-|----------------------|-------------------------------------------------------------------|----------|---------------------------|
-| `registry`           | <p>Registry to publish to (dockerhub, github, or both)</p>        | `false`  | `both`                    |
-| `image-name`         | <p>Docker image name (defaults to repository name)</p>            | `false`  | `""`                      |
-| `tags`               | <p>Comma-separated list of tags (e.g., latest,v1.0.0)</p>         | `false`  | `latest`                  |
-| `platforms`          | <p>Platforms to build for (comma-separated)</p>                   | `false`  | `linux/amd64,linux/arm64` |
-| `context`            | <p>Build context path</p>                                         | `false`  | `.`                       |
-| `dockerfile`         | <p>Path to Dockerfile</p>                                         | `false`  | `Dockerfile`              |
-| `build-args`         | <p>Build arguments (newline-separated KEY=VALUE pairs)</p>        | `false`  | `""`                      |
-| `push`               | <p>Whether to push the image</p>                                  | `false`  | `true`                    |
-| `token`              | <p>GitHub token for authentication (for GitHub registry)</p>      | `false`  | `""`                      |
-| `dockerhub-username` | <p>Docker Hub username (required if publishing to Docker Hub)</p> | `false`  | `""`                      |
-| `dockerhub-token`    | <p>Docker Hub token (required if publishing to Docker Hub)</p>    | `false`  | `""`                      |
-
-## Outputs
-
-| name         | description                          |
-|--------------|--------------------------------------|
-| `image-name` | <p>Full image name with registry</p> |
-| `tags`       | <p>Tags that were published</p>      |
-| `digest`     | <p>Image digest</p>                  |
-| `metadata`   | <p>Build metadata</p>                |
-
-## Runs
-
-This action is a `composite` action.
-
-## Usage
+## 🚀 Quick Start
 
 ```yaml
-- uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
-  with:
-    registry:
-    # Registry to publish to (dockerhub, github, or both)
-    #
-    # Required: false
-    # Default: both
+name: My Workflow
+on:
+  release:
+    types: [published]
 
-    image-name:
-    # Docker image name (defaults to repository name)
-    #
-    # Required: false
-    # Default: ""
-
-    tags:
-    # Comma-separated list of tags (e.g., latest,v1.0.0)
-    #
-    # Required: false
-    # Default: latest
-
-    platforms:
-    # Platforms to build for (comma-separated)
-    #
-    # Required: false
-    # Default: linux/amd64,linux/arm64
-
-    context:
-    # Build context path
-    #
-    # Required: false
-    # Default: .
-
-    dockerfile:
-    # Path to Dockerfile
-    #
-    # Required: false
-    # Default: Dockerfile
-
-    build-args:
-    # Build arguments (newline-separated KEY=VALUE pairs)
-    #
-    # Required: false
-    # Default: ""
-
-    push:
-    # Whether to push the image
-    #
-    # Required: false
-    # Default: true
-
-    token:
-    # GitHub token for authentication (for GitHub registry)
-    #
-    # Required: false
-    # Default: ""
-
-    dockerhub-username:
-    # Docker Hub username (required if publishing to Docker Hub)
-    #
-    # Required: false
-    # Default: ""
-
-    dockerhub-token:
-    # Docker Hub token (required if publishing to Docker Hub)
-    #
-    # Required: false
-    # Default: ""
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Docker Publish
+        uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
+        with:
+          build-args: 'NODE_ENV=production'
+          context: '.'
+          dockerfile: 'Dockerfile'
+          dockerhub-token: '${{ secrets.DOCKERHUB_TOKEN }}'
+          dockerhub-username: 'github-actions'
+          image-name: 'myapp'
+          platforms: 'linux/amd64,linux/arm64'
+          push: 'true'
+          registry: 'both'
+          tags: 'latest'
+          token: '${{ github.token }}'
 ```
+
+## 📥 Inputs
+
+| Parameter            | Description                                                | Required | Default                   |
+|----------------------|------------------------------------------------------------|----------|---------------------------|
+| `build-args`         | Build arguments (newline-separated KEY=VALUE pairs)        | ❌        | -                         |
+| `context`            | Build context path                                         | ❌        | `.`                       |
+| `dockerfile`         | Path to Dockerfile                                         | ❌        | `Dockerfile`              |
+| `dockerhub-token`    | Docker Hub token (required if publishing to Docker Hub)    | ❌        | -                         |
+| `dockerhub-username` | Docker Hub username (required if publishing to Docker Hub) | ❌        | -                         |
+| `image-name`         | Docker image name (defaults to repository name)            | ❌        | -                         |
+| `platforms`          | Platforms to build for (comma-separated)                   | ❌        | `linux/amd64,linux/arm64` |
+| `push`               | Whether to push the image                                  | ❌        | `true`                    |
+| `registry`           | Registry to publish to (dockerhub, github, or both)        | ❌        | `both`                    |
+| `tags`               | Comma-separated list of tags (e.g., latest,v1.0.0)         | ❌        | `latest`                  |
+| `token`              | GitHub token for authentication (for GitHub registry)      | ❌        | -                         |
+
+## 📤 Outputs
+
+| Parameter    | Description                   |
+|--------------|-------------------------------|
+| `digest`     | Image digest                  |
+| `image-name` | Full image name with registry |
+| `metadata`   | Build metadata                |
+| `tags`       | Tags that were published      |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission | Access Level |
+|------------|--------------|
+| `contents` | `read`       |
+| `packages` | `write`      |
+
+**Usage in workflow:**
+
+```yaml
+permissions:
+  contents: read
+  packages: write
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: Docker Publish
+  uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
+  with:
+    build-args: 'NODE_ENV=production'
+    context: '.'
+    dockerfile: 'Dockerfile'
+    dockerhub-token: '${{ secrets.DOCKERHUB_TOKEN }}'
+    dockerhub-username: 'github-actions'
+    image-name: 'myapp'
+    platforms: 'linux/amd64,linux/arm64'
+    push: 'true'
+    registry: 'both'
+    tags: 'latest'
+    token: '${{ github.token }}'
+```
+
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
+
+```yaml
+- name: Docker Publish with custom settings
+  uses: ivuorinen/actions/docker-publish@vYYYY.MM.DD
+  with:
+    build-args: 'NODE_ENV=production'
+    context: '.'
+    dockerfile: 'Dockerfile'
+    dockerhub-token: '${{ secrets.DOCKERHUB_TOKEN }}'
+    dockerhub-username: 'github-actions'
+    image-name: 'myapp'
+    platforms: 'linux/amd64,linux/arm64'
+    push: 'true'
+    registry: 'both'
+    tags: 'latest'
+    token: '${{ github.token }}'
+```
+
+</details>
+
+## 🔧 Development
+
+See the [action.yml](./action.yml) for the complete action specification.
+
+## 📄 License
+
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+<div align="center">
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+</div>

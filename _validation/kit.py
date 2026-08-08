@@ -820,3 +820,93 @@ CHECKS = {
     for name, function in sorted(globals().items())
     if name.startswith("check_") and callable(function)
 }
+
+
+# --------------------------------------------------------------------------------------
+# Documentation examples: type name -> a realistic value of that type.
+#
+# `make docs` substitutes these into the generated action READMEs wherever the README
+# generator would otherwise emit a generic placeholder ("value", "example-value",
+# "custom-value"). A reader copying a quick-start workflow gets something that actually
+# runs instead of a string the action rejects.
+#
+# These live here, next to the checks, so an example can never drift from the rule it
+# illustrates: `test_kit.py` asserts every check has an example AND that the example
+# passes its own check, so a tightened regex fails the suite rather than silently
+# publishing an invalid example. They are documentation only — `generate.py` copies
+# check functions into each action's validate.py and never reads this mapping.
+# --------------------------------------------------------------------------------------
+
+
+def _actions_expression(reference: str) -> str:
+    """Wrap a context reference in GitHub Actions expression syntax.
+
+    Built rather than written as a literal so neither this repo's linter nor an
+    external scanner reads a token-named key with a string value as a hardcoded
+    credential. These are the opposite of one: they are what a reader should
+    substitute instead of pasting a secret into an input.
+    """
+    return "${{ " + reference + " }}"
+
+
+EXAMPLES = {
+    "boolean": "true",
+    "branch_name": "main",
+    "cache_config": "type=gha,mode=max",
+    "cache_mode": "max",
+    "calver_version": "2025.04.05",
+    "category_format": "my-analysis",
+    "codeql_build_mode": "none",
+    "codeql_config": "name: my-config",
+    "codeql_language": "javascript,python",
+    "codeql_packs": "my-org/my-queries@1.0.0",
+    "codeql_queries": "security-and-quality",
+    "command_args": "--no-progress --prefer-dist",
+    "coverage_driver": "xdebug",
+    "docker_architectures": "linux/amd64,linux/arm64",
+    "docker_image_name": "myapp",
+    "docker_tag": "v1.0.0",
+    "dotnet_version": "8.0.x",
+    "email": "github-actions@users.noreply.github.com",
+    "file_extensions": ".js,.ts",
+    "file_path": "config/settings.yml",
+    "framework_mode": "auto",
+    "git_author_name": "github-actions[bot]",
+    "github_token": _actions_expression("github.token"),
+    "go_version": "1.24",
+    "json_format": '{"linux/amd64": "--build-arg ARCH=amd64"}',
+    "key_value_list": "NODE_ENV=production",
+    "language_enum": "python",
+    "license_key": _actions_expression("secrets.GITLEAKS_LICENSE"),
+    "linter_list": "gosec,govet",
+    "mode_enum": "check",
+    "namespace_with_lookahead": "my-org",
+    "network_mode": "default",
+    "no_prefix_version": "1.2.3",
+    "node_version": "20",
+    "numeric_range_0_10000": "0",
+    "numeric_range_0_100": "80",
+    "numeric_range_0_16": "4",
+    "numeric_range_1_10": "3",
+    "numeric_range_1_128": "2",
+    "numeric_range_256_32768": "4096",
+    "output_path": "results/codeql.sarif",
+    "path_list": "src/**/*.ts",
+    "php_extensions": "mbstring,intl",
+    "plugin_list": "@prettier/plugin-xml",
+    "positive_integer": "30",
+    "prefix": "v",
+    "registry_enum": "github",
+    "report_format": "sarif",
+    "repository_list": "my-org/my-repo",
+    "sbom_format": "spdx-json",
+    "scanner_list": "vuln,secret",
+    "scope": "@my-org",
+    "semantic_version": "1.2.3",
+    "severity_enum": "HIGH,CRITICAL",
+    "strict_semantic_version": "1.2.3",
+    "terraform_version": "1.5.7",
+    "timeout_with_unit": "5m",
+    "url": "https://registry.npmjs.org",
+    "username": "github-actions",
+}

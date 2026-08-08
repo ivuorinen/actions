@@ -137,7 +137,7 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 - All actions SHA-pinned (external + internal), use `${{ github.token }}`, POSIX shell (`set -eu`)
 - EditorConfig: 2-space indent, UTF-8, LF, max 200 chars (120 for MD)
-- Auto-gen README via `action-docs` (note: `npx action-docs --update-readme` doesn't work)
+- Auto-gen README via `gh-action-readme` (Go binary, pinned + checksum-verified by `make docs`; not an npm dependency)
 - Required error handling, POSIX-compliant scripts
 
 ### Action References

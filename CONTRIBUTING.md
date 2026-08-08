@@ -64,7 +64,7 @@ See [\_tests/README.md](_tests/README.md) for details on the ShellSpec testing f
 Each action is a self-contained directory at the repository root containing:
 
 - `action.yml` with inputs, outputs, and runs definition
-- `README.md` generated via `action-docs` (`make docs`)
+- `README.md` generated via `gh-action-readme` (`make docs`)
 - Tests in `_tests/`
 
 Do not manually edit sections between `<!--LISTING-->` markers in the root README.

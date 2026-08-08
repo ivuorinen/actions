@@ -36,9 +36,11 @@ jobs:
       - name: Regenerate action documentation
         run: |
           set -eu
-          # npm ci installed the pinned action-docs + prettier; `make docs`
-          # generates each action README and prettier-formats it in place, so
-          # its output is the committed style and this gate stays reproducible.
+          # npm ci installed the pinned prettier + markdown-table-formatter.
+          # `make docs` additionally downloads the pinned, checksum-verified
+          # gh-action-readme binary, generates each action README and formats it
+          # in place, so its output is the committed style and this gate stays
+          # reproducible.
           make docs
 
       - name: Check for action README drift

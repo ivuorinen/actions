@@ -1,0 +1,23 @@
+---
+# Codacy configuration.
+#
+# Codacy runs its own Bandit rather than this repository's configured linter, so
+# without this it reports findings the repo has already ruled on in
+# pyproject.toml. This file states the same policy once more, in the only place
+# Codacy reads.
+#
+# Test trees are excluded because Bandit's B101 ("use of assert") fires on every
+# pytest assertion. Asserts *are* the assertion mechanism there, and B101 exists
+# to catch asserts in production code, where `python -O` strips them. This
+# mirrors the per-file-ignores already in pyproject.toml:
+#
+#   "**/tests/**"  = ["S101", ...]   # Allow assert statements in tests
+#   "**/_tests/**" = ["S101", ...]   # Allow assert statements in tests
+#
+# Production code is deliberately NOT excluded. The Bandit "hardcoded password"
+# findings that prompted this file were fixed in the source instead, by building
+# the GitHub Actions expressions rather than writing them as literals — see
+# `actions_expression()` in _tools/fix-generated-readme.py and kit.py.
+exclude_paths:
+  - '_tests/**'
+  - '_validation/tests/**'

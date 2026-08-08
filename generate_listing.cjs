@@ -173,7 +173,10 @@ function getActionDetails(actionPath) {
       path: actionPath,
     };
   } catch (error) {
-    console.error(`Error parsing ${actionYmlPath}:`, error.message);
+    // Format string separated from data: interpolating the path into the format
+    // position lets a directory named e.g. `%s` consume the next argument and
+    // forge the log line. Same rule the repo applies to GITHUB_OUTPUT writes.
+    console.error('Error parsing %s: %s', actionYmlPath, error.message);
     return null;
   }
 }

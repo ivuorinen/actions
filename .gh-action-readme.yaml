@@ -1,0 +1,27 @@
+---
+# Configuration for gh-action-readme, the generator behind `make docs`.
+# Passed explicitly via --config: the tool only auto-discovers a config in the
+# XDG config directory, so a project-local file is not picked up on its own.
+#
+# Keys below are the ones v1.1.0 actually honours. `config init` also emits
+# template/header/footer, and docs/configuration.md documents template_vars,
+# organization, docs_url and support_email — none of those take effect in this
+# version, so they are deliberately absent rather than set-and-ignored.
+
+# Renders inputs/outputs/permissions as markdown tables (keeping
+# markdown-table-formatter meaningful) plus Overview/Configuration/
+# Troubleshooting sections. The default theme emits bullet lists instead.
+theme: github
+
+output_format: md
+
+# Pins the `uses:` ref in generated examples. Without this the tool emits the
+# repository's default branch (`@main`), and floating refs are not a supported
+# way to consume these actions.
+#
+# Only `version` is set here, never `organization`/`repository`: the tool
+# resolves those from git along with the action's subdirectory, giving
+# `ivuorinen/actions/<action>@<version>`. Setting them explicitly switches it to
+# a manual mode that drops the subdirectory and emits `ivuorinen/actions@<version>`,
+# which points at the repository root rather than at an action.
+version: vYYYY.MM.DD

@@ -13,13 +13,15 @@
         "patch"
       ],
       "matchCurrentVersion": "!/^0/",
-      "automerge": true
+      "automerge": true,
+      "minimumReleaseAge": "7 days"
     },
     {
       "matchDepTypes": [
         "devDependencies"
       ],
-      "automerge": true
+      "automerge": true,
+      "minimumReleaseAge": "7 days"
     }
   ],
   "schedule": [

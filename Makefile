@@ -26,6 +26,25 @@ else
 	SED_CMD := sed -i
 endif
 
+# gh-action-readme — generates each action's README.md from its action.yml.
+# Pinned rather than tracking "latest": `make docs` output is gated by
+# .github/workflows/docs-check.yml, so an unpinned generator would let an
+# upstream release turn that gate red on an unrelated PR. Renovate bumps the
+# version below; the checksum is verified against the release's checksums.txt
+# on every download, so the pin is enforced and not merely declarative.
+# renovate: datasource=github-releases depName=ivuorinen/gh-action-readme
+GAR_VERSION := v1.1.0
+GAR_BASE_URL := https://github.com/ivuorinen/gh-action-readme/releases/download/$(GAR_VERSION)
+# uname's values map straight onto the release asset names (Linux/Darwin,
+# x86_64/arm64), so no translation table is needed.
+GAR_ASSET := gh-action-readme_$(UNAME_S)_$(shell uname -m).tar.gz
+GAR_DIR := .tools/gh-action-readme/$(GAR_VERSION)
+GAR := $(GAR_DIR)/gh-action-readme
+# Theme and the pinned `uses:` ref live in .gh-action-readme.yaml. It is passed
+# explicitly because gh-action-readme only auto-discovers a config in the XDG
+# config directory, never a project-local one.
+GAR_CONFIG := .gh-action-readme.yaml
+
 # Help target - shows available commands
 help: ## Show this help message
 	@echo "$(BLUE)GitHub Actions Repository Management$(RESET)"
@@ -46,22 +65,72 @@ help: ## Show this help message
 all: install-tools update-validators docs update-catalog format lint precommit ## Generate docs, format, lint, and run pre-commit
 	@echo "$(GREEN)✅ All tasks completed successfully$(RESET)"
 
-docs: ## Generate documentation for all actions
+$(GAR): ## Download and verify the pinned gh-action-readme binary
+	@echo "$(BLUE)⬇️  Fetching gh-action-readme $(GAR_VERSION) ($(GAR_ASSET))...$(RESET)"
+	@command -v curl >/dev/null 2>&1 || { echo "$(RED)❌ curl required to fetch gh-action-readme$(RESET)"; exit 1; }
+	@if command -v sha256sum >/dev/null 2>&1; then :; \
+	elif command -v shasum >/dev/null 2>&1; then :; \
+	else echo "$(RED)❌ sha256sum or shasum required to verify the download$(RESET)"; exit 1; fi
+	@mkdir -p $(GAR_DIR)
+	@tmp=$$(mktemp -d) || exit 1; \
+	trap 'rm -rf "$$tmp"' EXIT INT TERM; \
+	curl -fsSL -o "$$tmp/$(GAR_ASSET)" "$(GAR_BASE_URL)/$(GAR_ASSET)" || { \
+		echo "$(RED)❌ Failed to download $(GAR_ASSET)$(RESET)"; exit 1; }; \
+	curl -fsSL -o "$$tmp/checksums.txt" "$(GAR_BASE_URL)/checksums.txt" || { \
+		echo "$(RED)❌ Failed to download checksums.txt$(RESET)"; exit 1; }; \
+	expected=$$(awk -v f="$(GAR_ASSET)" '$$2 == f { print $$1 }' "$$tmp/checksums.txt"); \
+	[ -n "$$expected" ] || { \
+		echo "$(RED)❌ No checksum entry for $(GAR_ASSET) — unsupported platform?$(RESET)"; exit 1; }; \
+	if command -v sha256sum >/dev/null 2>&1; then \
+		actual=$$(sha256sum "$$tmp/$(GAR_ASSET)" | cut -d' ' -f1); \
+	else \
+		actual=$$(shasum -a 256 "$$tmp/$(GAR_ASSET)" | cut -d' ' -f1); \
+	fi; \
+	[ "$$expected" = "$$actual" ] || { \
+		echo "$(RED)❌ Checksum mismatch for $(GAR_ASSET)$(RESET)"; \
+		echo "  expected: $$expected"; echo "  actual:   $$actual"; exit 1; }; \
+	tar -xzf "$$tmp/$(GAR_ASSET)" -C "$$tmp" gh-action-readme || { \
+		echo "$(RED)❌ Failed to extract gh-action-readme$(RESET)"; exit 1; }; \
+	mv "$$tmp/gh-action-readme" "$(GAR)"; \
+	chmod +x "$(GAR)"
+	@echo "$(GREEN)✅ gh-action-readme $(GAR_VERSION) verified and ready$(RESET)"
+
+# gh-action-readme resolves org/repo/subdirectory from git and takes the ref
+# from `version:` in .gh-action-readme.yaml, so the `uses:` line needs no
+# rewriting here. That only holds while the README is written into the action's
+# own directory: writing elsewhere, or generating for a directory git does not
+# know about, makes the tool fall back **silently** to
+# `uses: your-org/your-action@v1` — a README telling users to consume someone
+# else's action, with no warning and a zero exit code. The grep after
+# generation turns that fallback into a build failure instead of a silent docs
+# regression.
+#
+# _tools/fix-generated-readme.py corrects the rest of what the theme emits:
+# links that resolve inside the action directory, a mutable checkout tag,
+# literal placeholder credentials, and a pull_request trigger in the quick
+# start. See that script for the per-fixup rationale.
+#
+# --prose-wrap always guards against a long action.yml description being
+# rendered as a prose paragraph rather than a table cell; .markdownlint.json
+# exempts tables from MD013 but not prose. printWidth comes from
+# .prettierrc.yml; only generated READMEs are wrapped, hand-written docs are
+# left as authored.
+docs: $(GAR) ## Generate documentation for all actions
 	@echo "$(BLUE)📂 Generating documentation...$(RESET)"
 	@failed=0; \
 	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml||' | sed 's|./||'); do \
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
-		repo="ivuorinen/actions/$$dir"; \
-		printf "# %s\n\n" "$$repo" > "$$dir/README.md"; \
-		if npx --yes action-docs -a "$$dir/action.yml" --no-banner >> "$$dir/README.md" 2>/dev/null; then \
-			$(SED_CMD) "s|\*\*\*PROJECT\*\*\*|$$repo|g" "$$dir/README.md"; \
-			$(SED_CMD) "s|\*\*\*VERSION\*\*\*|main|g" "$$dir/README.md"; \
-			$(SED_CMD) "s|\*\*\*||g" "$$dir/README.md"; \
-			$(SED_CMD) "s|@main|@vYYYY.MM.DD|g" "$$dir/README.md"; \
-			[ "$(UNAME_S)" = "Darwin" ] && rm -f "$$dir/README.md.bak"; \
-			npx --yes prettier --write "$$dir/README.md" >/dev/null 2>&1; \
+		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
+			python3 _tools/fix-generated-readme.py "$$dir/README.md"; \
+			npx --yes prettier --write --prose-wrap always "$$dir/README.md" >/dev/null 2>&1; \
 			npx --yes markdown-table-formatter "$$dir/README.md" >/dev/null 2>&1; \
-			echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
+			if grep -q "uses: ivuorinen/actions/$$dir@vYYYY.MM.DD" "$$dir/README.md"; then \
+				echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
+			else \
+				echo "$(RED)❌ $$dir/README.md has no usable 'uses:' line$(RESET)" | tee -a $(LOG_FILE); \
+				grep -n 'uses:' "$$dir/README.md" | head -1 | tee -a $(LOG_FILE); \
+				failed=$$((failed + 1)); \
+			fi; \
 		else \
 			echo "$(RED)⚠️ Failed to update $$dir/README.md$(RESET)" | tee -a $(LOG_FILE); \
 			failed=$$((failed + 1)); \
@@ -287,7 +356,7 @@ lint-python: ## Lint Python files with ruff and pyright
 			ruff_passed=false; \
 		fi; \
 		if command -v uvx >/dev/null 2>&1; then \
-			if ! (cd _validation && uvx --with pytest --with pytest-cov pyright .); then \
+			if ! (cd _validation && uvx --with pytest --with pytest-cov --with pyyaml pyright .); then \
 				echo "$(YELLOW)⚠️ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
 				pyright_passed=false; \
 			fi; \
@@ -347,11 +416,12 @@ check-syntax: ## Check syntax of shell scripts and YAML files
 install-tools: ## Install/update required tools
 	@echo "$(BLUE)📦 Installing/updating tools...$(RESET)"
 	@echo "$(YELLOW)Installing NPM tools...$(RESET)"
-	@npx --yes action-docs --version >/dev/null
 	@npx --yes markdownlint-cli2 --version >/dev/null
 	@npx --yes prettier --version >/dev/null
 	@npx --yes markdown-table-formatter --version >/dev/null
 	@npx --yes yaml-lint --version >/dev/null
+	@echo "$(YELLOW)Fetching gh-action-readme...$(RESET)"
+	@$(MAKE) --no-print-directory $(GAR)
 	@echo "$(YELLOW)Checking shellcheck...$(RESET)"
 	@if ! command -v shellcheck >/dev/null 2>&1; then \
 		echo "$(RED)⚠️ shellcheck not found. Please install:$(RESET)"; \
@@ -444,7 +514,7 @@ test-actions: ## Run GitHub Actions tests (unit + integration)
 test-python: ## Run the validation kit + generator test suite
 	@echo "$(BLUE)🐍 Running Python tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uvx pytest _validation/tests -q; then \
+		if uvx --with pyyaml pytest _validation/tests -q; then \
 			echo "$(GREEN)✅ Python tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Python tests failed$(RESET)"; \
@@ -457,7 +527,7 @@ test-python: ## Run the validation kit + generator test suite
 test-python-coverage: ## Run the validation tests with coverage
 	@echo "$(BLUE)📊 Running Python tests with coverage...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uvx --with pytest-cov pytest --cov=_validation --cov-report=term-missing _validation/tests; \
+		uvx --with pytest-cov --with pyyaml pytest --cov=_validation --cov-report=term-missing _validation/tests; \
 	else \
 		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
 	fi

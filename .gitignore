@@ -12,6 +12,8 @@
 .DS_Store
 .cache
 .cache/
+# Version-pinned tool binaries fetched by the Makefile (gh-action-readme)
+.tools/
 .coverage
 .worktrees/
 .coverage.*

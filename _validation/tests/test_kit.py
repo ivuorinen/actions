@@ -281,6 +281,25 @@ def test_semver_prerelease_and_build_metadata():
     assert kit.check_semantic_version("1.0.0-") is not None
 
 
+def test_every_check_has_a_documentation_example():
+    """`make docs` substitutes kit.EXAMPLES into generated READMEs; a check with no
+    example would leave a generic placeholder in published documentation."""
+    assert set(kit.EXAMPLES) == set(kit.CHECKS), (
+        "every kit check must have an EXAMPLE (and vice versa) — see kit.EXAMPLES"
+    )
+
+
+@pytest.mark.parametrize("check", sorted(kit.EXAMPLES))
+def test_documentation_example_passes_its_own_check(check):
+    """The example is published as copy-pasteable documentation, so it has to be a value
+    the action would actually accept. Tightening a regex without updating its example
+    fails here rather than shipping an invalid example."""
+    value = kit.EXAMPLES[check]
+    assert kit.CHECKS[check](value) is None, (
+        f"kit.EXAMPLES[{check!r}] = {value!r} is rejected by its own check"
+    )
+
+
 def test_returns_are_strings_or_none():
     for check, fn in kit.CHECKS.items():
         result = fn("definitely-not-valid-%%%")

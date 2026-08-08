@@ -1,127 +1,153 @@
-# ivuorinen/actions/go-lint
+# Go Lint Check
 
-## Description
+![code](https://img.shields.io/badge/icon-code-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-Run golangci-lint with advanced configuration, caching, and reporting
+> Run golangci-lint with advanced configuration, caching, and reporting
 
-## Inputs
-
-| name                    | description                                         | required | default         |
-|-------------------------|-----------------------------------------------------|----------|-----------------|
-| `working-directory`     | <p>Directory containing Go files</p>                | `false`  | `.`             |
-| `golangci-lint-version` | <p>Version of golangci-lint to use</p>              | `false`  | `latest`        |
-| `go-version`            | <p>Go version to use</p>                            | `false`  | `stable`        |
-| `config-file`           | <p>Path to golangci-lint config file</p>            | `false`  | `.golangci.yml` |
-| `timeout`               | <p>Timeout for analysis (e.g., 5m, 1h)</p>          | `false`  | `5m`            |
-| `cache`                 | <p>Enable golangci-lint caching</p>                 | `false`  | `true`          |
-| `fail-on-error`         | <p>Fail workflow if issues are found</p>            | `false`  | `true`          |
-| `report-format`         | <p>Output format (json, sarif, github-actions)</p>  | `false`  | `sarif`         |
-| `max-retries`           | <p>Maximum number of retry attempts</p>             | `false`  | `3`             |
-| `only-new-issues`       | <p>Report only new issues since main branch</p>     | `false`  | `true`          |
-| `disable-all`           | <p>Disable all linters (useful with --enable-*)</p> | `false`  | `false`         |
-| `enable-linters`        | <p>Comma-separated list of linters to enable</p>    | `false`  | `""`            |
-| `disable-linters`       | <p>Comma-separated list of linters to disable</p>   | `false`  | `""`            |
-| `token`                 | <p>GitHub token for authentication</p>              | `false`  | `""`            |
-
-## Outputs
-
-| name             | description                               |
-|------------------|-------------------------------------------|
-| `error-count`    | <p>Number of errors found</p>             |
-| `sarif-file`     | <p>Path to SARIF report file</p>          |
-| `cache-hit`      | <p>Indicates if there was a cache hit</p> |
-| `analyzed-files` | <p>Number of files analyzed</p>           |
-
-## Runs
-
-This action is a `composite` action.
-
-## Usage
+## 🚀 Quick Start
 
 ```yaml
-- uses: ivuorinen/actions/go-lint@vYYYY.MM.DD
-  with:
-    working-directory:
-    # Directory containing Go files
-    #
-    # Required: false
-    # Default: .
+name: My Workflow
+on: [push, pull_request]
 
-    golangci-lint-version:
-    # Version of golangci-lint to use
-    #
-    # Required: false
-    # Default: latest
-
-    go-version:
-    # Go version to use
-    #
-    # Required: false
-    # Default: stable
-
-    config-file:
-    # Path to golangci-lint config file
-    #
-    # Required: false
-    # Default: .golangci.yml
-
-    timeout:
-    # Timeout for analysis (e.g., 5m, 1h)
-    #
-    # Required: false
-    # Default: 5m
-
-    cache:
-    # Enable golangci-lint caching
-    #
-    # Required: false
-    # Default: true
-
-    fail-on-error:
-    # Fail workflow if issues are found
-    #
-    # Required: false
-    # Default: true
-
-    report-format:
-    # Output format (json, sarif, github-actions)
-    #
-    # Required: false
-    # Default: sarif
-
-    max-retries:
-    # Maximum number of retry attempts
-    #
-    # Required: false
-    # Default: 3
-
-    only-new-issues:
-    # Report only new issues since main branch
-    #
-    # Required: false
-    # Default: true
-
-    disable-all:
-    # Disable all linters (useful with --enable-*)
-    #
-    # Required: false
-    # Default: false
-
-    enable-linters:
-    # Comma-separated list of linters to enable
-    #
-    # Required: false
-    # Default: ""
-
-    disable-linters:
-    # Comma-separated list of linters to disable
-    #
-    # Required: false
-    # Default: ""
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: Go Lint Check
+        uses: ivuorinen/actions/go-lint@vYYYY.MM.DD
+        with:
+          cache: 'true'
+          config-file: '.golangci.yml'
+          disable-all: 'false'
+          disable-linters: 'gosec,govet'
+          enable-linters: 'gosec,govet'
+          fail-on-error: 'true'
+          go-version: 'stable'
+          golangci-lint-version: 'latest'
+          max-retries: '3'
+          only-new-issues: 'true'
+          report-format: 'sarif'
+          timeout: '5m'
+          token: '${{ github.token }}'
+          working-directory: '.'
 ```
+
+## 📥 Inputs
+
+| Parameter               | Description                                  | Required | Default         |
+|-------------------------|----------------------------------------------|----------|-----------------|
+| `cache`                 | Enable golangci-lint caching                 | ❌        | `true`          |
+| `config-file`           | Path to golangci-lint config file            | ❌        | `.golangci.yml` |
+| `disable-all`           | Disable all linters (useful with --enable-*) | ❌        | `false`         |
+| `disable-linters`       | Comma-separated list of linters to disable   | ❌        | -               |
+| `enable-linters`        | Comma-separated list of linters to enable    | ❌        | -               |
+| `fail-on-error`         | Fail workflow if issues are found            | ❌        | `true`          |
+| `go-version`            | Go version to use                            | ❌        | `stable`        |
+| `golangci-lint-version` | Version of golangci-lint to use              | ❌        | `latest`        |
+| `max-retries`           | Maximum number of retry attempts             | ❌        | `3`             |
+| `only-new-issues`       | Report only new issues since main branch     | ❌        | `true`          |
+| `report-format`         | Output format (json, sarif, github-actions)  | ❌        | `sarif`         |
+| `timeout`               | Timeout for analysis (e.g., 5m, 1h)          | ❌        | `5m`            |
+| `token`                 | GitHub token for authentication              | ❌        | -               |
+| `working-directory`     | Directory containing Go files                | ❌        | `.`             |
+
+## 📤 Outputs
+
+| Parameter        | Description                        |
+|------------------|------------------------------------|
+| `analyzed-files` | Number of files analyzed           |
+| `cache-hit`      | Indicates if there was a cache hit |
+| `error-count`    | Number of errors found             |
+| `sarif-file`     | Path to SARIF report file          |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission        | Access Level |
+|-------------------|--------------|
+| `contents`        | `read`       |
+| `security-events` | `write`      |
+
+**Usage in workflow:**
+
+```yaml
+permissions:
+  contents: read
+  security-events: write
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: Go Lint Check
+  uses: ivuorinen/actions/go-lint@vYYYY.MM.DD
+  with:
+    cache: 'true'
+    config-file: '.golangci.yml'
+    disable-all: 'false'
+    disable-linters: 'gosec,govet'
+    enable-linters: 'gosec,govet'
+    fail-on-error: 'true'
+    go-version: 'stable'
+    golangci-lint-version: 'latest'
+    max-retries: '3'
+    only-new-issues: 'true'
+    report-format: 'sarif'
+    timeout: '5m'
+    token: '${{ github.token }}'
+    working-directory: '.'
+```
+
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
+
+```yaml
+- name: Go Lint Check with custom settings
+  uses: ivuorinen/actions/go-lint@vYYYY.MM.DD
+  with:
+    cache: 'true'
+    config-file: '.golangci.yml'
+    disable-all: 'false'
+    disable-linters: 'gosec,govet'
+    enable-linters: 'gosec,govet'
+    fail-on-error: 'true'
+    go-version: 'stable'
+    golangci-lint-version: 'latest'
+    max-retries: '3'
+    only-new-issues: 'true'
+    report-format: 'sarif'
+    timeout: '5m'
+    token: '${{ github.token }}'
+    working-directory: '.'
+```
+
+</details>
+
+## 🔧 Development
+
+See the [action.yml](./action.yml) for the complete action specification.
+
+## 📄 License
+
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+<div align="center">
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+</div>

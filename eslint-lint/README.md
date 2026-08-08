@@ -1,130 +1,156 @@
-# ivuorinen/actions/eslint-lint
+# ESLint Lint
 
-## Description
+![check-circle](https://img.shields.io/badge/icon-check-circle-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-Run ESLint in check or fix mode with advanced configuration and reporting
+> Run ESLint in check or fix mode with advanced configuration and reporting
 
-## Inputs
-
-| name                | description                                                 | required | default                     |
-|---------------------|-------------------------------------------------------------|----------|-----------------------------|
-| `mode`              | <p>Mode to run (check or fix)</p>                           | `false`  | `check`                     |
-| `working-directory` | <p>Directory containing files to lint</p>                   | `false`  | `.`                         |
-| `eslint-version`    | <p>ESLint version to use</p>                                | `false`  | `latest`                    |
-| `config-file`       | <p>Path to ESLint config file</p>                           | `false`  | `.eslintrc`                 |
-| `ignore-file`       | <p>Path to ESLint ignore file</p>                           | `false`  | `.eslintignore`             |
-| `file-extensions`   | <p>File extensions to lint (comma-separated)</p>            | `false`  | `.js,.jsx,.ts,.tsx`         |
-| `cache`             | <p>Enable ESLint caching</p>                                | `false`  | `true`                      |
-| `max-warnings`      | <p>Maximum number of warnings allowed (check mode only)</p> | `false`  | `0`                         |
-| `fail-on-error`     | <p>Fail workflow if issues are found (check mode only)</p>  | `false`  | `true`                      |
-| `report-format`     | <p>Output format for check mode (stylish, json, sarif)</p>  | `false`  | `sarif`                     |
-| `max-retries`       | <p>Maximum number of retry attempts</p>                     | `false`  | `3`                         |
-| `token`             | <p>GitHub token for authentication</p>                      | `false`  | `""`                        |
-| `username`          | <p>GitHub username for commits (fix mode only)</p>          | `false`  | `github-actions`            |
-| `email`             | <p>GitHub email for commits (fix mode only)</p>             | `false`  | `github-actions@github.com` |
-
-## Outputs
-
-| name            | description                                        |
-|-----------------|----------------------------------------------------|
-| `status`        | <p>Overall status (success/failure)</p>            |
-| `error-count`   | <p>Number of errors found (check mode only)</p>    |
-| `warning-count` | <p>Number of warnings found (check mode only)</p>  |
-| `sarif-file`    | <p>Path to SARIF report file (check mode only)</p> |
-| `files-checked` | <p>Number of files checked (check mode only)</p>   |
-| `files-changed` | <p>Number of files changed (fix mode only)</p>     |
-| `errors-fixed`  | <p>Number of errors fixed (fix mode only)</p>      |
-
-## Runs
-
-This action is a `composite` action.
-
-## Usage
+## 🚀 Quick Start
 
 ```yaml
-- uses: ivuorinen/actions/eslint-lint@vYYYY.MM.DD
-  with:
-    mode:
-    # Mode to run (check or fix)
-    #
-    # Required: false
-    # Default: check
+name: My Workflow
+on: [push, pull_request]
 
-    working-directory:
-    # Directory containing files to lint
-    #
-    # Required: false
-    # Default: .
-
-    eslint-version:
-    # ESLint version to use
-    #
-    # Required: false
-    # Default: latest
-
-    config-file:
-    # Path to ESLint config file
-    #
-    # Required: false
-    # Default: .eslintrc
-
-    ignore-file:
-    # Path to ESLint ignore file
-    #
-    # Required: false
-    # Default: .eslintignore
-
-    file-extensions:
-    # File extensions to lint (comma-separated)
-    #
-    # Required: false
-    # Default: .js,.jsx,.ts,.tsx
-
-    cache:
-    # Enable ESLint caching
-    #
-    # Required: false
-    # Default: true
-
-    max-warnings:
-    # Maximum number of warnings allowed (check mode only)
-    #
-    # Required: false
-    # Default: 0
-
-    fail-on-error:
-    # Fail workflow if issues are found (check mode only)
-    #
-    # Required: false
-    # Default: true
-
-    report-format:
-    # Output format for check mode (stylish, json, sarif)
-    #
-    # Required: false
-    # Default: sarif
-
-    max-retries:
-    # Maximum number of retry attempts
-    #
-    # Required: false
-    # Default: 3
-
-    token:
-    # GitHub token for authentication
-    #
-    # Required: false
-    # Default: ""
-
-    username:
-    # GitHub username for commits (fix mode only)
-    #
-    # Required: false
-    # Default: github-actions
-
-    email:
-    # GitHub email for commits (fix mode only)
-    #
-    # Required: false
-    # Default: github-actions@github.com
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read # `mode: 'fix'` needs write to push
+      security-events: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: ESLint Lint
+        uses: ivuorinen/actions/eslint-lint@vYYYY.MM.DD
+        with:
+          cache: 'true'
+          config-file: '.eslintrc'
+          email: 'github-actions@github.com'
+          eslint-version: 'latest'
+          fail-on-error: 'true'
+          file-extensions: '.js,.jsx,.ts,.tsx'
+          ignore-file: '.eslintignore'
+          max-retries: '3'
+          max-warnings: '0'
+          mode: 'check'
+          report-format: 'sarif'
+          token: '${{ github.token }}'
+          username: 'github-actions'
+          working-directory: '.'
 ```
+
+## 📥 Inputs
+
+| Parameter           | Description                                          | Required | Default                     |
+|---------------------|------------------------------------------------------|----------|-----------------------------|
+| `cache`             | Enable ESLint caching                                | ❌        | `true`                      |
+| `config-file`       | Path to ESLint config file                           | ❌        | `.eslintrc`                 |
+| `email`             | GitHub email for commits (fix mode only)             | ❌        | `github-actions@github.com` |
+| `eslint-version`    | ESLint version to use                                | ❌        | `latest`                    |
+| `fail-on-error`     | Fail workflow if issues are found (check mode only)  | ❌        | `true`                      |
+| `file-extensions`   | File extensions to lint (comma-separated)            | ❌        | `.js,.jsx,.ts,.tsx`         |
+| `ignore-file`       | Path to ESLint ignore file                           | ❌        | `.eslintignore`             |
+| `max-retries`       | Maximum number of retry attempts                     | ❌        | `3`                         |
+| `max-warnings`      | Maximum number of warnings allowed (check mode only) | ❌        | `0`                         |
+| `mode`              | Mode to run (check or fix)                           | ❌        | `check`                     |
+| `report-format`     | Output format for check mode (stylish, json, sarif)  | ❌        | `sarif`                     |
+| `token`             | GitHub token for authentication                      | ❌        | -                           |
+| `username`          | GitHub username for commits (fix mode only)          | ❌        | `github-actions`            |
+| `working-directory` | Directory containing files to lint                   | ❌        | `.`                         |
+
+## 📤 Outputs
+
+| Parameter       | Description                                 |
+|-----------------|---------------------------------------------|
+| `error-count`   | Number of errors found (check mode only)    |
+| `errors-fixed`  | Number of errors fixed (fix mode only)      |
+| `files-changed` | Number of files changed (fix mode only)     |
+| `files-checked` | Number of files checked (check mode only)   |
+| `sarif-file`    | Path to SARIF report file (check mode only) |
+| `status`        | Overall status (success/failure)            |
+| `warning-count` | Number of warnings found (check mode only)  |
+
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission        | Access Level |
+|-------------------|--------------|
+| `contents`        | `write`      |
+| `security-events` | `write`      |
+
+**Usage in workflow:**
+
+```yaml
+permissions:
+  contents: write
+  security-events: write
+```
+
+## 💡 Examples
+
+<details>
+<summary>Basic Usage</summary>
+
+```yaml
+- name: ESLint Lint
+  uses: ivuorinen/actions/eslint-lint@vYYYY.MM.DD
+  with:
+    cache: 'true'
+    config-file: '.eslintrc'
+    email: 'github-actions@github.com'
+    eslint-version: 'latest'
+    fail-on-error: 'true'
+    file-extensions: '.js,.jsx,.ts,.tsx'
+    ignore-file: '.eslintignore'
+    max-retries: '3'
+    max-warnings: '0'
+    mode: 'check'
+    report-format: 'sarif'
+    token: '${{ github.token }}'
+    username: 'github-actions'
+    working-directory: '.'
+```
+
+</details>
+
+<details>
+<summary>Advanced Configuration</summary>
+
+```yaml
+- name: ESLint Lint with custom settings
+  uses: ivuorinen/actions/eslint-lint@vYYYY.MM.DD
+  with:
+    cache: 'true'
+    config-file: '.eslintrc'
+    email: 'github-actions@github.com'
+    eslint-version: 'latest'
+    fail-on-error: 'true'
+    file-extensions: '.js,.jsx,.ts,.tsx'
+    ignore-file: '.eslintignore'
+    max-retries: '3'
+    max-warnings: '0'
+    mode: 'check'
+    report-format: 'sarif'
+    token: '${{ github.token }}'
+    username: 'github-actions'
+    working-directory: '.'
+```
+
+</details>
+
+## 🔧 Development
+
+See the [action.yml](./action.yml) for the complete action specification.
+
+## 📄 License
+
+This action is distributed under the MIT License. See [LICENSE](../LICENSE.md) for more information.
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+---
+
+<div align="center">
+  <sub>🚀 Generated with <a href="https://github.com/ivuorinen/gh-action-readme">gh-action-readme</a></sub>
+</div>
