@@ -356,7 +356,7 @@ lint-python: ## Lint Python files with ruff and pyright
 			ruff_passed=false; \
 		fi; \
 		if command -v uvx >/dev/null 2>&1; then \
-			if ! (cd _validation && uvx --with pytest --with pytest-cov pyright .); then \
+			if ! (cd _validation && uvx --with pytest --with pytest-cov --with pyyaml pyright .); then \
 				echo "$(YELLOW)⚠️ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
 				pyright_passed=false; \
 			fi; \
@@ -514,7 +514,7 @@ test-actions: ## Run GitHub Actions tests (unit + integration)
 test-python: ## Run the validation kit + generator test suite
 	@echo "$(BLUE)🐍 Running Python tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uvx pytest _validation/tests -q; then \
+		if uvx --with pyyaml pytest _validation/tests -q; then \
 			echo "$(GREEN)✅ Python tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Python tests failed$(RESET)"; \
@@ -527,7 +527,7 @@ test-python: ## Run the validation kit + generator test suite
 test-python-coverage: ## Run the validation tests with coverage
 	@echo "$(BLUE)📊 Running Python tests with coverage...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uvx --with pytest-cov pytest --cov=_validation --cov-report=term-missing _validation/tests; \
+		uvx --with pytest-cov --with pyyaml pytest --cov=_validation --cov-report=term-missing _validation/tests; \
 	else \
 		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
 	fi

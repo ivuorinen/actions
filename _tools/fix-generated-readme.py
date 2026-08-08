@@ -209,8 +209,16 @@ def add_permissions(text: str, action: str) -> str:
         for scope, level in read_permissions(text)
     ]
 
-    # Only inside the fenced quick-start workflow, and only when the job has not
-    # already declared permissions.
+    # Only the quick start's own workflow. Scoping by `runs-on:` alone would also
+    # rewrite any later runnable workflow the docs happen to show — a setup or
+    # development example that never invokes this action would be handed its
+    # permission contract. Today the theme emits exactly one job block, so that is
+    # latent rather than live, and it stays that way by construction here.
+    section = re.search(r"## [^\n]*Quick Start\b.*?(?=\n## |\Z)", text, re.DOTALL)
+    if not section:
+        return text
+
+    # Only when the job has not already declared permissions.
     def inject(match: re.Match[str]) -> str:
         body = match.group(0)
         if "runs-on: ubuntu-latest\n" not in body:
@@ -233,7 +241,8 @@ def add_permissions(text: str, action: str) -> str:
             1,
         )
 
-    return re.sub(r"```yaml\n.*?\n```", inject, text, flags=re.DOTALL)
+    fixed = re.sub(r"```yaml\n.*?\n```", inject, section.group(0), count=1, flags=re.DOTALL)
+    return text[: section.start()] + fixed + text[section.end() :]
 
 
 def main(argv: list[str]) -> int:

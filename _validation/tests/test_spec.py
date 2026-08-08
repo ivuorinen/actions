@@ -13,6 +13,7 @@ import re
 import kit
 import pytest
 from spec import SPECS
+import yaml
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTIONS = sorted(SPECS)
@@ -131,6 +132,47 @@ def test_documented_input_values_pass_their_own_validator(action):
         if error:
             invalid.append(f"{name}={value!r}: {error}")
     assert not invalid, f"{action}/README.md documents invalid input values: {invalid}"
+
+
+_YAML_BLOCK = re.compile(r"```yaml\n(.*?)\n```", re.DOTALL)
+
+
+def _yaml_error(block: str) -> str | None:
+    """Return the parse error for one YAML block, or None if it parses.
+
+    Kept out of the caller's loop so the try/except is not re-entered per block
+    (ruff PERF203); it also keeps the failure message to a single line.
+    """
+    try:
+        yaml.safe_load(block)
+    except yaml.YAMLError as exc:
+        return str(exc).replace("\n", " ")
+    return None
+
+
+@pytest.mark.parametrize("action", ACTIONS)
+def test_documented_yaml_blocks_parse(action):
+    """Every fenced YAML block in a generated README must actually parse.
+
+    The value-level test above cannot catch this on its own: it asserts that each
+    documented *value* is one the action accepts, so a line that fails to parse as
+    YAML at all slips past it. That was the real defect behind 2d899a9 — reusing the
+    generator's quote character emitted `platform-build-args: "{"linux/amd64": ...}"`
+    and broke three blocks in docker-build/README.md while the value test reported
+    clean. Emission is correct by construction now; this is the guard that keeps it
+    that way, and it covers every block, not just the lines carrying a known input.
+    """
+    readme = REPO_ROOT / action / "README.md"
+    if not readme.is_file():
+        return
+    blocks = _YAML_BLOCK.findall(readme.read_text(encoding="utf-8"))
+    assert blocks, f"{action}/README.md has no YAML examples — the generator emits at least one"
+    unparseable = [
+        f"block {i}: {error}"
+        for i, block in enumerate(blocks, 1)
+        if (error := _yaml_error(block)) is not None
+    ]
+    assert not unparseable, f"{action}/README.md has unparseable YAML: {unparseable}"
 
 
 def test_no_action_uses_the_old_validate_inputs_action():

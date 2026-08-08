@@ -33,6 +33,11 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Run'
 
+# Number of job-level `permissions:` blocks the tool injected into the README.
+count_permission_blocks() {
+  grep -c '^    permissions:$' "$FIX_ROOT/pre-commit/README.md"
+}
+
 setup_fixture() { FIX_ROOT="$(mktemp -d)"; }
 cleanup_fixture() { rm -rf "$FIX_ROOT"; }
 BeforeEach 'setup_fixture'
@@ -106,6 +111,24 @@ When run python3 "$TOOL" "$FIX_ROOT/codeql-analysis/README.md"
 The status should be success
 # The only `permissions:` left is the table's own usage snippet.
 The contents of file "$FIX_ROOT/codeql-analysis/README.md" should not include "    permissions:"
+End
+
+It "leaves a second runnable workflow outside the Quick Start untouched"
+mkdir -p "$FIX_ROOT/pre-commit"
+{
+  printf '# pre-commit\n\n## Quick Start\n\n```yaml\n%s\n```\n\n' "$JOB_WITH_CHECKOUT"
+  printf '## Permissions\n\n| Permission | Access Level |\n| --- | --- |\n| `contents` | `write` |\n\n'
+  # A development workflow that never invokes this action must not inherit its
+  # permission contract just because it is a runnable job.
+  printf '## Development\n\n```yaml\nname: Setup\non: [push]\n\njobs:\n  build:\n    runs-on: ubuntu-latest\n    steps:\n      - run: npm ci\n```\n'
+} >"$FIX_ROOT/pre-commit/README.md"
+When run python3 "$TOOL" "$FIX_ROOT/pre-commit/README.md"
+The status should be success
+# Exactly one injected block, and it is the Quick Start's.
+The result of function count_permission_blocks should equal 1
+The contents of file "$FIX_ROOT/pre-commit/README.md" should include "    runs-on: ubuntu-latest
+    steps:
+      - run: npm ci"
 End
 
 It "does not override a job that already declares permissions"
