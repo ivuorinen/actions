@@ -77,6 +77,18 @@ TRIGGERS = {
 
 GENERIC_TRIGGER = "on: [push, pull_request]"
 
+# The Permissions table states an action's contract across every mode it supports,
+# so a mode-gated scope is documented at its widest. A quick start demonstrates one
+# concrete mode, and copying the widest grant into it hands a check-only workflow
+# write access it never uses. Entries here override that scope for the example only;
+# the value is the YAML scalar as it should appear, trailing comment included, so
+# the reader can see why it differs from the table.
+QUICK_START_PERMISSIONS = {
+    ("biome-lint", "contents"): "read # `mode: 'fix'` needs write to push",
+    ("eslint-lint", "contents"): "read # `mode: 'fix'` needs write to push",
+    ("prettier-lint", "contents"): "read # `mode: 'fix'` needs write to push",
+}
+
 
 def fix_links(text: str) -> str:
     """Repoint links that would resolve inside the action directory.
@@ -184,7 +196,7 @@ def read_permissions(text: str) -> list[tuple[str, str]]:
     return [(scope, level) for scope, level in rows]
 
 
-def add_permissions(text: str) -> str:
+def add_permissions(text: str, action: str) -> str:
     """Declare the documented permission contract in the quick-start job.
 
     A copied quick start with no `permissions:` block either fails on a
@@ -192,17 +204,29 @@ def add_permissions(text: str) -> str:
     permissive default. Declaring the documented contract in the example makes it
     self-contained and least-privilege.
     """
-    perms = read_permissions(text)
-    if not perms:
-        return text
-    block = "\n".join(f"      {scope}: {level}" for scope, level in perms)
+    perms = [
+        (scope, QUICK_START_PERMISSIONS.get((action, scope), level))
+        for scope, level in read_permissions(text)
+    ]
 
     # Only inside the fenced quick-start workflow, and only when the job has not
     # already declared permissions.
     def inject(match: re.Match[str]) -> str:
         body = match.group(0)
+        if "runs-on: ubuntu-latest\n" not in body:
+            return body
         if re.search(r"^\s+permissions:", body, re.MULTILINE):
             return body
+        needed = list(perms)
+        # The theme opens every quick start with a checkout step. That step reads
+        # the repository, so an action whose own contract never touches `contents`
+        # still needs the scope granted here or the copied workflow fails on a
+        # repository whose default token is read-only.
+        if "actions/checkout@" in body and not any(scope == "contents" for scope, _ in needed):
+            needed.insert(0, ("contents", "read"))
+        if not needed:
+            return body
+        block = "\n".join(f"      {scope}: {level}" for scope, level in needed)
         return body.replace(
             "    runs-on: ubuntu-latest\n",
             f"    runs-on: ubuntu-latest\n    permissions:\n{block}\n",
@@ -230,7 +254,7 @@ def main(argv: list[str]) -> int:
     text = fix_checkout(text)
     text = fix_trigger(text, action)
     text = fix_values(text, action)
-    text = add_permissions(text)
+    text = add_permissions(text, action)
 
     readme.write_text(text, encoding="utf-8")
     return 0
