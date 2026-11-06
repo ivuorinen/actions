@@ -33,10 +33,10 @@ jobs:
 
 | Parameter        | Description                                                 | Required | Default     |
 |------------------|-------------------------------------------------------------|----------|-------------|
-| `dotnet-version` | Version of .NET SDK to use.                                 | ❌        | -           |
-| `max-retries`    | Maximum number of retry attempts for dependency restoration | ❌        | `3`         |
-| `namespace`      | GitHub namespace for the package.                           | ✅        | `ivuorinen` |
-| `token`          | GitHub token with package write permissions                 | ❌        | -           |
+| `dotnet-version` | Version of .NET SDK to use.                                 | ❌       | -           |
+| `max-retries`    | Maximum number of retry attempts for dependency restoration | ❌       | `3`         |
+| `namespace`      | GitHub namespace for the package.                           | ✅       | `ivuorinen` |
+| `token`          | GitHub token with package write permissions                 | ❌       | -           |
 
 ## 📤 Outputs
 

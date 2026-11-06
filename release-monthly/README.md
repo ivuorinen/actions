@@ -32,9 +32,9 @@ jobs:
 
 | Parameter | Description                                       | Required | Default               |
 |-----------|---------------------------------------------------|----------|-----------------------|
-| `dry-run` | Run in dry-run mode without creating the release. | ❌        | `false`               |
-| `prefix`  | Optional prefix for release tags.                 | ❌        | -                     |
-| `token`   | GitHub token with permission to create releases.  | ✅        | `${{ github.token }}` |
+| `dry-run` | Run in dry-run mode without creating the release. | ❌       | `false`               |
+| `prefix`  | Optional prefix for release tags.                 | ❌       | -                     |
+| `token`   | GitHub token with permission to create releases.  | ✅       | `${{ github.token }}` |
 
 ## 📤 Outputs
 
