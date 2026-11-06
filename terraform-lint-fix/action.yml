@@ -45,7 +45,7 @@ inputs:
     required: false
     default: 'sarif'
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Stays in git config after checkout only when auto-fix is true.'
     required: false
     default: ''
   username:
@@ -75,10 +75,9 @@ runs:
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
-        # git-auto-commit-action pushes the auto-fix commit using the token that
-        # actions/checkout persists in .git/config; persist-credentials must stay
-        # true or the "Commit Fixes" step cannot authenticate its push.
-        persist-credentials: true # zizmor: ignore[artipacked]
+        # Only auto-fix pushes; git-auto-commit-action authenticates with the
+        # credentials actions/checkout leaves in git config.
+        persist-credentials: ${{ inputs.auto-fix == 'true' }}
 
     - name: Validate Inputs
       shell: sh
