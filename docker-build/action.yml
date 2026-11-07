@@ -15,7 +15,7 @@ inputs:
     description: 'The name of the Docker image to build. Defaults to the repository name.'
     required: false
   tag:
-    description: 'The tag for the Docker image. Must follow semver or valid Docker tag format.'
+    description: 'Docker image tag: letters, digits, _ . and -, up to 128 characters, not starting with . or -'
     required: true
   architectures:
     description: 'Comma-separated list of architectures to build for.'
@@ -36,11 +36,11 @@ inputs:
     description: 'External cache source, one spec on one line (e.g., type=registry,ref=user/app:cache)'
     required: false
   push:
-    description: 'Whether to push the image after building'
+    description: 'Whether to push the image after building (lowercase true or false)'
     required: false
     default: 'true'
   max-retries:
-    description: 'Maximum number of retry attempts for build and push operations'
+    description: 'Maximum number of retry attempts for build and push operations (1-10, must not be empty)'
     required: false
     default: '3'
   token:
@@ -70,7 +70,7 @@ inputs:
     description: 'Build secrets in format id=path,id2=path2, on one line. Each path is a file relative to the workspace (spaces allowed, no comma or newline).'
     required: false
   auto-detect-platforms:
-    description: 'Automatically detect and build for all available platforms'
+    description: 'Automatically detect and build for all available platforms (lowercase true or false)'
     required: false
     default: 'false'
   platform-build-args:
@@ -87,23 +87,23 @@ inputs:
     description: 'Import cache source, one spec on one line (e.g., type=local,src=/tmp/cache)'
     required: false
   dry-run:
-    description: 'Perform a dry run without actually building'
+    description: 'Perform a dry run without actually building (lowercase true or false)'
     required: false
     default: 'false'
   verbose:
-    description: 'Enable verbose logging with platform-specific output'
+    description: 'Enable verbose logging with platform-specific output (lowercase true or false)'
     required: false
     default: 'false'
   platform-fallback:
-    description: 'Continue building other platforms if one fails'
+    description: 'Continue building other platforms if one fails (lowercase true or false)'
     required: false
     default: 'true'
   scan-image:
-    description: 'Scan built image for vulnerabilities'
+    description: 'Scan built image for vulnerabilities (lowercase true or false)'
     required: false
     default: 'false'
   sign-image:
-    description: 'Sign the built image with cosign'
+    description: 'Sign the built image with cosign (lowercase true or false)'
     required: false
     default: 'false'
   sbom-format:
@@ -482,7 +482,7 @@ runs:
               mv /tmp/.buildx-cache-new /tmp/.buildx-cache
             fi
 
-            break
+            exit 0
           fi
 
           attempt=$((attempt + 1))
@@ -494,6 +494,11 @@ runs:
             exit 1
           fi
         done
+
+        # Every attempt above exits, so this runs only when the loop test itself errored. An error
+        # there does not trip set -e, and without this the step would pass having built nothing.
+        echo "::error::No build attempted: max-retries is not a usable number"
+        exit 1
 
     - name: Scan Image for Vulnerabilities
       id: scan

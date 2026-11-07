@@ -27,11 +27,11 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter        | Description                                                    | Required | Default |
-|------------------|----------------------------------------------------------------|----------|---------|
-| `dotnet-version` | Version of .NET SDK to use.                                    | ❌       | -       |
-| `max-retries`    | Maximum number of retry attempts for dotnet restore operations | ❌       | `3`     |
-| `token`          | GitHub token for authentication                                | ❌       | -       |
+| Parameter        | Description                                                                              | Required | Default |
+|------------------|------------------------------------------------------------------------------------------|----------|---------|
+| `dotnet-version` | Version of .NET SDK to use.                                                              | ❌       | -       |
+| `max-retries`    | Maximum number of retry attempts for dotnet restore operations (1-10, must not be empty) | ❌       | `3`     |
+| `token`          | GitHub token for authentication                                                          | ❌       | -       |
 
 ## 📤 Outputs
 

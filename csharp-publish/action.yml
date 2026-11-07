@@ -23,7 +23,7 @@ inputs:
     description: 'GitHub token with package write permissions'
     required: false
   max-retries:
-    description: 'Maximum number of retry attempts for dependency restoration'
+    description: 'Maximum number of retry attempts for dependency restoration (1-10, must not be empty)'
     required: false
     default: '3'
 

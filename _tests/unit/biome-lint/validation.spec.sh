@@ -130,9 +130,9 @@ When call validate_input_python "biome-lint" "max-retries" "10"
 The status should be success
 End
 
-It "accepts empty max-retries (uses default)"
+It "rejects empty max-retries"
 When call validate_input_python "biome-lint" "max-retries" ""
-The status should be success
+The status should be failure
 End
 
 It "rejects negative retry count"
@@ -162,9 +162,9 @@ When call validate_input_python "biome-lint" "fail-on-error" "false"
 The status should be success
 End
 
-It "accepts empty (uses default)"
+It "rejects empty"
 When call validate_input_python "biome-lint" "fail-on-error" ""
-The status should be success
+The status should be failure
 End
 
 It "rejects invalid boolean value"

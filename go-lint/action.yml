@@ -33,11 +33,11 @@ inputs:
     required: false
     default: '5m'
   cache:
-    description: 'Enable golangci-lint caching'
+    description: 'Enable golangci-lint caching (lowercase true or false)'
     required: false
     default: 'true'
   fail-on-error:
-    description: 'Fail workflow if issues are found'
+    description: 'Fail workflow if issues are found (lowercase true or false)'
     required: false
     default: 'true'
   report-format:
@@ -45,15 +45,15 @@ inputs:
     required: false
     default: 'sarif'
   max-retries:
-    description: 'Maximum number of retry attempts'
+    description: 'Maximum number of retry attempts (1-10, must not be empty)'
     required: false
     default: '3'
   only-new-issues:
-    description: 'Report only new issues since main branch'
+    description: 'Report only new issues since main branch (lowercase true or false)'
     required: false
     default: 'true'
   disable-all:
-    description: 'Disable all linters (useful with --enable-*)'
+    description: 'Disable all linters, useful with --enable-* (lowercase true or false)'
     required: false
     default: 'false'
   enable-linters:
@@ -135,6 +135,7 @@ runs:
           ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-
 
     - name: Install golangci-lint
+      id: install-golangci-lint
       shell: sh
       env:
         MAX_RETRIES: ${{ inputs.max-retries }}

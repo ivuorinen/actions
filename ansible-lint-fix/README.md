@@ -29,12 +29,12 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter     | Description                                                 | Required | Default                     |
-|---------------|-------------------------------------------------------------|----------|-----------------------------|
-| `email`       | GitHub email for commits                                    | ❌       | `github-actions@github.com` |
-| `max-retries` | Maximum number of retry attempts for pip install operations | ❌       | `3`                         |
-| `token`       | GitHub token for authentication                             | ❌       | -                           |
-| `username`    | GitHub username for commits                                 | ❌       | `github-actions`            |
+| Parameter     | Description                                                                           | Required | Default                     |
+|---------------|---------------------------------------------------------------------------------------|----------|-----------------------------|
+| `email`       | GitHub email for commits                                                              | ❌       | `github-actions@github.com` |
+| `max-retries` | Maximum number of retry attempts for pip install operations (1-10, must not be empty) | ❌       | `3`                         |
+| `token`       | GitHub token for authentication                                                       | ❌       | -                           |
+| `username`    | GitHub username for commits                                                           | ❌       | `github-actions`            |
 
 ## 📤 Outputs
 

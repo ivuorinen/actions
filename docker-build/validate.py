@@ -5,9 +5,10 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
-every expression in INPUT_*, so all other values are checked as literal data. Inputs named in
-MASKED_INPUTS are masked in the job's logs before any check runs.
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them. The runner has already expanded every expression in INPUT_*, so all other values
+are checked as literal data. Inputs named in MASKED_INPUTS are masked in the job's logs before
+any check runs.
 """
 
 from __future__ import annotations
@@ -58,12 +59,24 @@ def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> l
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is an integer within ``[low, high]``."""
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
     if _skip(value):
         return None
     if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
+
+
+def _is_docker_tag(tag: str) -> bool:
+    """Return True if ``tag`` follows the tag rule of the Distribution reference grammar.
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``.
+    """
+    return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
 
 
 def _shell_meta_error(value: str) -> str | None:
@@ -205,10 +218,15 @@ def _docker_named_sources_error(value: str, *, contexts: bool) -> str | None:
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_cache_config(value: str) -> str | None:
@@ -334,10 +352,12 @@ def check_docker_secrets(value: str) -> str | None:
 
 
 def check_docker_tag(value: str) -> str | None:
-    """Docker tag: alphanumeric start/end with ``-._:/@`` inside (e.g. ``v1.0.0``, ``latest``)."""
-    if _skip(value):
-        return None
-    if re.fullmatch(r"[a-zA-Z0-9]([-a-zA-Z0-9._:/@]*[a-zA-Z0-9])?", value):
+    """Docker tag, per the Distribution reference grammar (e.g. ``v1.0.0``, ``latest``).
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``. So no registry or path
+    part, and no SemVer ``+build`` metadata.
+    """
+    if _skip(value) or _is_docker_tag(value):
         return None
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
 
@@ -392,7 +412,9 @@ def check_numeric_range_0_16(value: str) -> str | None:
 
 
 def check_numeric_range_1_10(value: str) -> str | None:
-    """Integer in [1, 10] (e.g. retry counts)."""
+    """Integer in [1, 10] (retry counts); blank is refused, see the module contract."""
+    if value.strip() == "":
+        return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
 
 
@@ -450,9 +472,14 @@ REQUIRED = {"tag"}
 MASKED_INPUTS: list[str] = ["token"]
 
 
+def _variable(name: str) -> str:
+    """Return the name of the INPUT_* env var that carries an input."""
+    return "INPUT_" + name.upper().replace("-", "_")
+
+
 def _input(name: str) -> str:
     """Return an input's raw value from its INPUT_* env var."""
-    return os.environ.get("INPUT_" + name.upper().replace("-", "_"), "")
+    return os.environ.get(_variable(name), "")
 
 
 def main() -> None:
@@ -469,7 +496,8 @@ def main() -> None:
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if _variable(input_name) in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

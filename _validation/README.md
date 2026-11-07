@@ -28,7 +28,10 @@ env vars, masks those inputs, and exits non-zero with `::error::` annotations on
 ## Contract every check follows
 
 - **Empty or whitespace-only** value → accepted (inputs are optional unless listed in
-  `REQUIRED`).
+  `REQUIRED`). `boolean` and `numeric_range_1_10` refuse it: those inputs all declare a default,
+  so blank means the caller passed it, and the steps reading them would otherwise quietly skip
+  their work. An `INPUT_*` variable that is unset is not checked; `action.yml` forwards every
+  input, so that only happens when a validator runs standalone.
 - **Everything else** → checked as literal data, exactly as the action will use it. The runner
   expands `${{ … }}` before `validate.py` reads `INPUT_*` and never expands `$VAR` in an input,
   so no check skips either as a reference. A value that still contains one passes only where

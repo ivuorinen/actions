@@ -5,9 +5,10 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
-every expression in INPUT_*, so all other values are checked as literal data. Inputs named in
-MASKED_INPUTS are masked in the job's logs before any check runs.
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them. The runner has already expanded every expression in INPUT_*, so all other values
+are checked as literal data. Inputs named in MASKED_INPUTS are masked in the job's logs before
+any check runs.
 """
 
 from __future__ import annotations
@@ -23,7 +24,11 @@ def _skip(value: str) -> bool:
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is an integer within ``[low, high]``."""
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
     if _skip(value):
         return None
     if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
@@ -78,7 +83,9 @@ def check_namespace_with_lookahead(value: str) -> str | None:
 
 
 def check_numeric_range_1_10(value: str) -> str | None:
-    """Integer in [1, 10] (e.g. retry counts)."""
+    """Integer in [1, 10] (retry counts); blank is refused, see the module contract."""
+    if value.strip() == "":
+        return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
 
 
@@ -98,9 +105,14 @@ REQUIRED = {"namespace"}
 MASKED_INPUTS: list[str] = ["token"]
 
 
+def _variable(name: str) -> str:
+    """Return the name of the INPUT_* env var that carries an input."""
+    return "INPUT_" + name.upper().replace("-", "_")
+
+
 def _input(name: str) -> str:
     """Return an input's raw value from its INPUT_* env var."""
-    return os.environ.get("INPUT_" + name.upper().replace("-", "_"), "")
+    return os.environ.get(_variable(name), "")
 
 
 def main() -> None:
@@ -117,7 +129,8 @@ def main() -> None:
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if _variable(input_name) in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

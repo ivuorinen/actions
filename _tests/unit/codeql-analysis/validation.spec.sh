@@ -309,15 +309,14 @@ When call validate_input_python "codeql-analysis" "upload-results" "false"
 The status should be success
 End
 
-It "accepts uppercase TRUE (case-insensitive)"
-# The kit's boolean check is case-insensitive: "true"/"false" in any case pass.
+It "rejects uppercase TRUE (shell tests compare case-sensitively)"
 When call validate_input_python "codeql-analysis" "upload-results" "TRUE"
-The status should be success
+The status should be failure
 End
 
-It "accepts uppercase FALSE (case-insensitive)"
+It "rejects uppercase FALSE (shell tests compare case-sensitively)"
 When call validate_input_python "codeql-analysis" "upload-results" "FALSE"
-The status should be success
+The status should be failure
 End
 
 It "rejects invalid boolean"
@@ -325,9 +324,9 @@ When call validate_input_python "codeql-analysis" "upload-results" "yes"
 The status should be failure
 End
 
-It "accepts empty value (optional)"
+It "rejects empty value (it would skip the upload)"
 When call validate_input_python "codeql-analysis" "upload-results" ""
-The status should be success
+The status should be failure
 End
 End
 

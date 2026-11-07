@@ -35,7 +35,7 @@ jobs:
 
 | Parameter            | Description                                           | Required | Default              |
 |----------------------|-------------------------------------------------------|----------|----------------------|
-| `actionlint-enabled` | Enable actionlint scanning                            | ❌       | `true`               |
+| `actionlint-enabled` | Enable actionlint scanning (lowercase true or false)  | ❌       | `true`               |
 | `gitleaks-config`    | Path to Gitleaks config file                          | ❌       | `.gitleaks.toml`     |
 | `gitleaks-license`   | Gitleaks license key (required for Gitleaks scanning) | ❌       | -                    |
 | `token`              | GitHub token for authentication                       | ❌       | -                    |
