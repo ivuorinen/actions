@@ -11,10 +11,10 @@
 #
 # Input Validation: The action validates `context` and `dockerfile` inputs to prevent code injection attacks:
 #
-# - `context`: Must be a relative path (e.g., `.`, `./app`, `subdir/`). Absolute paths are rejected.
-#   Remote URLs trigger a warning and should only be used from trusted sources.
-# - `dockerfile`: Must be a relative path (e.g., `Dockerfile`, `./docker/Dockerfile`). Absolute paths
-#   and URLs are rejected.
+# - `context`: Must be a relative path (e.g., `.`, `./app`, `subdir/`). Absolute paths, URLs and
+#   `user@host:path` or `github.com/...` Git references are rejected.
+# - `dockerfile`: Must be a relative path (e.g., `Dockerfile`, `./docker/Dockerfile`). Absolute paths,
+#   URLs and Git references are rejected.
 #
 # These validations help prevent malicious actors from:
 # - Building Docker images from arbitrary file system locations
@@ -52,11 +52,11 @@ inputs:
     required: false
     default: 'linux/amd64,linux/arm64'
   context:
-    description: 'Build context path'
+    description: 'Build context path, relative to the workspace. Remote sources are rejected.'
     required: false
     default: '.'
   dockerfile:
-    description: 'Path to Dockerfile'
+    description: 'Path to Dockerfile, relative to the workspace. Remote sources are rejected.'
     required: false
     default: 'Dockerfile'
   build-args:

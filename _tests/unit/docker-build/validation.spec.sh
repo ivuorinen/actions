@@ -68,6 +68,10 @@ It "rejects malicious dockerfile path"
 When call validate_input_python "docker-build" "dockerfile" "../../../etc/passwd"
 The status should be failure
 End
+It "rejects a remote dockerfile"
+When call validate_input_python "docker-build" "dockerfile" "https://example.com/Dockerfile"
+The status should be failure
+End
 End
 
 Context "when validating context input"
@@ -80,9 +84,111 @@ When call validate_input_python "docker-build" "context" "src/app"
 The status should be success
 End
 It "rejects path traversal in context"
-# The action's validator runs the kit's file_path check, which rejects '..'.
+# The action's validator runs the kit's docker_local_path check, which rejects '..'.
 When call validate_input_python "docker-build" "context" "../../../etc"
 The status should be failure
+End
+It "rejects a remote URL context"
+When call validate_input_python "docker-build" "context" "https://example.com/repo.git"
+The status should be failure
+End
+It "rejects an scp-style Git context"
+When call validate_input_python "docker-build" "context" "git@example.com:org/repo.git"
+The status should be failure
+End
+It "rejects a bare github.com Git context"
+When call validate_input_python "docker-build" "context" "github.com/org/repo"
+The status should be failure
+End
+End
+
+Context "when validating build-contexts input"
+It "accepts a relative path"
+When call validate_input_python "docker-build" "build-contexts" "shared=./libs/shared"
+The status should be success
+End
+It "accepts several entries with hyphenated names"
+When call validate_input_python "docker-build" "build-contexts" "my-libs=libs,other=services/other"
+The status should be success
+End
+It "accepts a docker-image reference"
+When call validate_input_python "docker-build" "build-contexts" "alpine=docker-image://alpine:3.20"
+The status should be success
+End
+It "accepts a target reference"
+When call validate_input_python "docker-build" "build-contexts" "base=target:builder"
+The status should be success
+End
+It "accepts a Git URL"
+When call validate_input_python "docker-build" "build-contexts" "project=https://github.com/org/project.git"
+The status should be success
+End
+It "accepts an OCI layout inside the workspace"
+When call validate_input_python "docker-build" "build-contexts" "layout=oci-layout://./layout:1.0.0-rc.1"
+The status should be success
+End
+It "rejects an absolute path"
+When call validate_input_python "docker-build" "build-contexts" "shared=/etc"
+The status should be failure
+End
+It "rejects path traversal"
+When call validate_input_python "docker-build" "build-contexts" "shared=../.."
+The status should be failure
+End
+It "rejects an absolute path in a later entry"
+When call validate_input_python "docker-build" "build-contexts" "ok=./libs,bad=/etc"
+The status should be failure
+End
+It "rejects an OCI layout outside the workspace"
+When call validate_input_python "docker-build" "build-contexts" "layout=oci-layout:///etc/layout:1.3"
+The status should be failure
+End
+It "rejects whitespace in a reference"
+When call validate_input_python "docker-build" "build-contexts" "alpine=docker-image://alpine --flag"
+The status should be failure
+End
+It "rejects a multi-line value"
+When call validate_input_python "docker-build" "build-contexts" "$(printf 'a=./a\nb=./b')"
+The status should be failure
+End
+It "accepts the trailing newline of a block scalar"
+When call validate_input_python "docker-build" "build-contexts" "$(printf 'a=./a\n ')"
+The status should be success
+End
+End
+
+Context "when validating secrets input"
+It "accepts a relative file"
+When call validate_input_python "docker-build" "secrets" "npmrc=.npmrc"
+The status should be success
+End
+It "accepts several entries with hyphenated ids"
+When call validate_input_python "docker-build" "secrets" "npm-token=.secrets/npm,aws=config/aws"
+The status should be success
+End
+It "rejects an absolute path"
+When call validate_input_python "docker-build" "secrets" "aws=/home/runner/.aws/credentials"
+The status should be failure
+End
+It "rejects path traversal"
+When call validate_input_python "docker-build" "secrets" "npmrc=../../.npmrc"
+The status should be failure
+End
+It "rejects an absolute path in a later entry"
+When call validate_input_python "docker-build" "secrets" "ok=.npmrc,bad=/etc/passwd"
+The status should be failure
+End
+It "rejects a quoted absolute path"
+When call validate_input_python "docker-build" "secrets" 'npmrc="/etc/passwd"'
+The status should be failure
+End
+It "rejects a multi-line value"
+When call validate_input_python "docker-build" "secrets" "$(printf 'a=.a\nb=.b')"
+The status should be failure
+End
+It "accepts the trailing newline of a block scalar"
+When call validate_input_python "docker-build" "secrets" "$(printf 'a=.a\n ')"
+The status should be success
 End
 End
 

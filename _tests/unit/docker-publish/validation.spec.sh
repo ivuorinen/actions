@@ -35,6 +35,48 @@ The status should be success
 End
 End
 
+Context "when validating context input"
+It "accepts the default context"
+When call validate_input_python "docker-publish" "context" "."
+The status should be success
+End
+It "accepts a relative context"
+When call validate_input_python "docker-publish" "context" "./app"
+The status should be success
+End
+It "rejects an absolute context"
+When call validate_input_python "docker-publish" "context" "/etc"
+The status should be failure
+End
+It "rejects a remote URL context"
+When call validate_input_python "docker-publish" "context" "https://example.com/repo.git"
+The status should be failure
+End
+It "rejects an scp-style Git context"
+When call validate_input_python "docker-publish" "context" "git@example.com:org/repo.git"
+The status should be failure
+End
+It "rejects a bare github.com Git context"
+When call validate_input_python "docker-publish" "context" "github.com/org/repo"
+The status should be failure
+End
+End
+
+Context "when validating dockerfile input"
+It "accepts a relative dockerfile"
+When call validate_input_python "docker-publish" "dockerfile" "docker/Dockerfile.prod"
+The status should be success
+End
+It "rejects path traversal"
+When call validate_input_python "docker-publish" "dockerfile" "../Dockerfile"
+The status should be failure
+End
+It "rejects a remote dockerfile"
+When call validate_input_python "docker-publish" "dockerfile" "https://example.com/Dockerfile"
+The status should be failure
+End
+End
+
 Context "when checking action.yml structure"
 It "has valid YAML syntax"
 When call validate_action_yml_quiet "$ACTION_FILE"

@@ -93,6 +93,98 @@ def _shell_meta_error(value: str) -> str | None:
     return None
 
 
+def _file_path_error(value: str) -> str | None:
+    """Return why ``value`` is not a relative path below the working directory, or None."""
+    import urllib.parse
+
+    decoded = urllib.parse.unquote(value)
+    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
+        return "absolute paths are not allowed"
+    if ".." in decoded:
+        return "path traversal (..) is not allowed"
+    if value.startswith("~"):
+        return "home directory expansion (~) is not allowed"
+    if re.fullmatch(r"[a-zA-Z0-9._/\-@+~!#=:]+", value):
+        return None
+    return "contains invalid path characters"
+
+
+def _is_docker_remote_source(value: str) -> bool:
+    """Return True for a value buildx fetches instead of reading from the runner.
+
+    Matches buildx ``urlutil.IsRemoteURL`` exactly, because a match skips the path checks: an
+    http(s), git or ssh URL, scp-style ``user@host:path``, or a bare ``github.com/...``.
+    """
+    remote = r"(https?|git|ssh)://|github\.com/|[A-Za-z0-9_-]+@[A-Za-z0-9.-]+:"
+    return re.match(remote, value) is not None
+
+
+def _docker_local_path_error(value: str) -> str | None:
+    """Return why buildx would not read ``value`` as a path inside the workspace, or None.
+
+    ``://`` and ``@host:`` cover more than buildx fetches today, any scheme and any user part.
+    A leading ``-`` is stdin or a flag.
+    """
+    if "://" in value or re.search(r"@[^/]*:", value) or _is_docker_remote_source(value):
+        return "remote sources are not allowed, use a path relative to the workspace"
+    if value.startswith("-"):
+        return "must not start with -"
+    return _file_path_error(value)
+
+
+def _docker_context_source_error(source: str) -> str | None:
+    """Return why ``source`` is not acceptable as a ``--build-context`` value, or None.
+
+    Only a local directory and the path in ``oci-layout://<path>[:tag][@digest]`` are read
+    from the runner. buildx hands remote sources, ``docker-image://`` and ``target:`` to the
+    builder, so those hold no runner path and are not path-checked.
+    """
+    if source.startswith("oci-layout://"):
+        path = re.sub(
+            r"(:\w[\w.-]*)?(@[\w+.-]+:[0-9a-fA-F]{32,})?$", "", source[len("oci-layout://") :]
+        )
+        return _docker_local_path_error(path)
+    if source.startswith(("docker-image://", "target:")) or _is_docker_remote_source(source):
+        # The action word-splits these into arguments, so whitespace would add buildx flags.
+        return "must not contain whitespace" if re.search(r"\s", source) else None
+    return _docker_local_path_error(source)
+
+
+def _docker_entry_error(entry: str, *, contexts: bool) -> str | None:
+    """Return why one ``name=source`` entry is invalid, or None.
+
+    Names are image references for build contexts (``alpine:3.20``) and free-form ids for
+    secrets. The action always passes a secret's source as ``src=``, which buildx reads as
+    a file even for a value such as ``env=NAME``, so every secret source is a path.
+    """
+    name, separator, source = entry.partition("=")
+    if not separator or not source:
+        return f"invalid entry (expected NAME=SOURCE): {entry}"
+    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+/:@-]*", name):
+        return f"invalid name: {name}"
+    error = _docker_context_source_error(source) if contexts else _file_path_error(source)
+    return f"{name}: {error}" if error else None
+
+
+def _docker_named_sources_error(value: str, *, contexts: bool) -> str | None:
+    """Return why a one-line, comma-separated ``name=source`` list is invalid, or None.
+
+    Mirrors the action, which splits on commas only and writes the result to GITHUB_OUTPUT:
+    whitespace around the value (a YAML block scalar's trailing newline) and around entries
+    is ignored, and a line break anywhere else is rejected.
+    """
+    if _skip(value):
+        return None
+    if meta := _shell_meta_error(value):
+        return meta
+    if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", value.strip()):
+        return "must be a single line without control characters"
+    for entry in (part.strip() for part in value.split(",")):
+        if entry and (error := _docker_entry_error(entry, contexts=contexts)):
+            return error
+    return None
+
+
 def check_boolean(value: str) -> str | None:
     """Boolean flag — ``true`` or ``false`` (any case)."""
     if _skip(value) or value.strip().lower() in ("true", "false"):
@@ -137,6 +229,11 @@ def check_docker_architectures(value: str) -> str | None:
     return None
 
 
+def check_docker_build_contexts(value: str) -> str | None:
+    """``name=source`` build contexts — paths stay in the workspace, references pass through."""
+    return _docker_named_sources_error(value, contexts=True)
+
+
 def check_docker_image_name(value: str) -> str | None:
     """Docker image reference: lowercase name with optional registry/namespace path."""
     if _skip(value):
@@ -144,6 +241,18 @@ def check_docker_image_name(value: str) -> str | None:
     if re.match(r"^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$", value):
         return None
     return "must be a lowercase Docker image name (e.g. myapp, registry.example.com/ns/app)"
+
+
+def check_docker_local_path(value: str) -> str | None:
+    """Docker ``context`` / ``dockerfile`` — a path in the workspace, never a remote source."""
+    if _skip(value):
+        return None
+    return _docker_local_path_error(value)
+
+
+def check_docker_secrets(value: str) -> str | None:
+    """``id=path`` build secrets — each path is a file in the workspace."""
+    return _docker_named_sources_error(value, contexts=False)
 
 
 def check_docker_tag(value: str) -> str | None:
@@ -155,24 +264,6 @@ def check_docker_tag(value: str) -> str | None:
     ):
         return None
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
-
-
-def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
-    if _skip(value):
-        return None
-    import urllib.parse
-
-    decoded = urllib.parse.unquote(value)
-    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
-        return "absolute paths are not allowed"
-    if ".." in decoded:
-        return "path traversal (..) is not allowed"
-    if value.startswith("~"):
-        return "home directory expansion (~) is not allowed"
-    if re.match(r"^[a-zA-Z0-9._/\-@+~!#=:]+$", value):
-        return None
-    return "contains invalid path characters"
 
 
 def check_github_token(value: str) -> str | None:
@@ -219,7 +310,7 @@ def check_json_format(value: str) -> str | None:
 
 
 def check_key_value_list(value: str) -> str | None:
-    """Newline-separated ``KEY=VALUE`` pairs (e.g. build args / secrets)."""
+    """Newline-separated ``KEY=VALUE`` pairs (e.g. build args)."""
     if _skip(value):
         return None
     if meta := _shell_meta_error(value):
@@ -272,15 +363,15 @@ CHECKS = {
     "architectures": check_docker_architectures,
     "auto-detect-platforms": check_boolean,
     "build-args": check_key_value_list,
-    "build-contexts": check_key_value_list,
+    "build-contexts": check_docker_build_contexts,
     "buildkit-version": check_semantic_version,
     "buildx-version": check_semantic_version,
     "cache-export": check_cache_config,
     "cache-from": check_cache_config,
     "cache-import": check_cache_config,
     "cache-mode": check_cache_mode,
-    "context": check_file_path,
-    "dockerfile": check_file_path,
+    "context": check_docker_local_path,
+    "dockerfile": check_docker_local_path,
     "dry-run": check_boolean,
     "image-name": check_docker_image_name,
     "max-retries": check_numeric_range_1_10,
@@ -291,7 +382,7 @@ CHECKS = {
     "push": check_boolean,
     "sbom-format": check_sbom_format,
     "scan-image": check_boolean,
-    "secrets": check_key_value_list,
+    "secrets": check_docker_secrets,
     "sign-image": check_boolean,
     "tag": check_docker_tag,
     "token": check_github_token,

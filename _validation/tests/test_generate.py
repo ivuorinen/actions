@@ -96,3 +96,49 @@ def test_invalid_input_is_rejected_with_annotation():
     assert result.returncode == 1
     assert "::error::docker-build:" in result.stdout
     assert "max-retries" in result.stdout
+
+
+@pytest.mark.parametrize(
+    ("action", "name", "value"),
+    [
+        ("docker-publish", "context", "https://example.com/repo.git"),
+        ("docker-publish", "context", "git@example.com:org/repo.git"),
+        ("docker-publish", "context", "github.com/org/repo"),
+        ("docker-publish", "dockerfile", "https://example.com/Dockerfile"),
+        ("docker-build", "context", "https://example.com/repo.git"),
+        ("docker-build", "context", "git@example.com:org/repo.git"),
+        ("docker-build", "dockerfile", "https://example.com/Dockerfile"),
+        ("docker-build", "build-contexts", "shared=/etc"),
+        ("docker-build", "build-contexts", "layout=oci-layout:///etc/layout"),
+        ("docker-build", "secrets", "npmrc=/etc/passwd"),
+        ("docker-build", "secrets", "npmrc=../.npmrc"),
+        ("docker-build", "build-contexts", "a=./a\nb=./b"),
+        ("docker-build", "secrets", "a=.a\nb=.b"),
+    ],
+)
+def test_docker_sources_outside_the_workspace_are_rejected(action, name, value):
+    env = {f"INPUT_{name.upper().replace('-', '_')}": value, "INPUT_TAG": "v1.0.0"}
+    result = _run(action, env)
+    assert result.returncode == 1
+    assert f"::error::{action}:" in result.stdout
+    assert name in result.stdout
+
+
+def test_docker_sources_inside_the_workspace_are_accepted():
+    # runs the generated validators, so a helper the generator failed to inline shows up here
+    assert (
+        _run("docker-publish", {"INPUT_CONTEXT": "./app", "INPUT_DOCKERFILE": "app/Dockerfile"})
+    ).returncode == 0
+    result = _run(
+        "docker-build",
+        {
+            "INPUT_TAG": "v1.0.0",
+            "INPUT_CONTEXT": "./app",
+            "INPUT_DOCKERFILE": "app/Dockerfile",
+            "INPUT_BUILD_CONTEXTS": (
+                "shared=./shared,base=docker-image://alpine:3.20,layout=oci-layout://layout:1.3"
+            ),
+            "INPUT_SECRETS": "npmrc=.npmrc,token=env=API_KEY\n",
+        },
+    )
+    assert result.returncode == 0, result.stdout
