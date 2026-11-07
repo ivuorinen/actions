@@ -116,7 +116,7 @@ SPECS: dict[str, ActionSpec] = {
             "auto-detect-platforms": "boolean",
             "build-args": "key_value_list",
             "build-contexts": "key_value_list",
-            "buildkit-version": "semantic_version",
+            "buildkit-version": "docker_image_version",
             "buildx-version": "semantic_version",
             "cache-export": "cache_config",
             "cache-from": "cache_config",
