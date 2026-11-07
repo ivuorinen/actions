@@ -145,6 +145,23 @@ def check_github_token(value: str) -> str | None:
     )
 
 
+def check_opaque_token(value: str) -> str | None:
+    """Token whose format its issuer owns (npm, Docker Hub): rejects only what cannot be one.
+
+    No prefix, length or alphabet is enforced, so a real token never fails on a format this
+    repo guessed. Whitespace and control characters are refused because a line break would add
+    lines to the ``.npmrc`` or ``GITHUB_OUTPUT`` file a token is written to. Only a plain space
+    consults ``_skip``, so nothing that can break a line passes by starting like an expression.
+    Shell metacharacters are not refused: consumers read the value from a quoted env var and
+    never parse it as shell.
+    """
+    if value.strip() == "":
+        return None
+    if re.search(r"[^\S ]|[\x00-\x1f\x7f-\x9f]", value) or (" " in value and not _skip(value)):
+        return "must not contain whitespace or control characters"
+    return None
+
+
 # --------------------------------------------------------------------------------------
 # Versions
 # --------------------------------------------------------------------------------------
@@ -162,12 +179,12 @@ def check_semantic_version(value: str) -> str | None:
 
 
 def check_strict_semantic_version(value: str) -> str | None:
-    """Strict SemVer: exactly ``X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
+    """Strict SemVer: ``[v]X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
     if _skip(value) or value.strip().lower() == "latest":
         return None
-    if re.match(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$", value.strip()):
+    if re.match(r"^[vV]?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$", value.strip()):
         return None
-    return "must be a strict semantic version X.Y.Z (optionally -prerelease / +build)"
+    return "must be a strict semantic version X.Y.Z or vX.Y.Z (optionally -prerelease / +build)"
 
 
 def check_no_prefix_version(value: str) -> str | None:
@@ -297,6 +314,21 @@ def check_docker_tag(value: str) -> str | None:
     ):
         return None
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
+
+
+def check_docker_tag_list(value: str) -> str | None:
+    """Comma-separated Docker tags (e.g. ``latest,v1.0.0``), with no spaces around the commas.
+
+    Each entry becomes the tag of an ``image:tag`` reference, so it follows the tag rule of the
+    Distribution reference grammar: a letter, digit or ``_``, then up to 127 of those, ``.`` or
+    ``-``.
+    """
+    if _skip(value):
+        return None
+    for tag in value.split(","):
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
+            return f"invalid Docker tag: {tag!r} (letters, digits, _ . -, at most 128 characters)"
+    return None
 
 
 def check_cache_mode(value: str) -> str | None:
@@ -866,6 +898,7 @@ EXAMPLES = {
     "docker_architectures": "linux/amd64,linux/arm64",
     "docker_image_name": "myapp",
     "docker_tag": "v1.0.0",
+    "docker_tag_list": "latest,v1.0.0",
     "dotnet_version": "8.0.x",
     "email": "github-actions@users.noreply.github.com",
     "file_extensions": ".js,.ts",
@@ -890,6 +923,8 @@ EXAMPLES = {
     "numeric_range_1_10": "3",
     "numeric_range_1_128": "2",
     "numeric_range_256_32768": "4096",
+    # Unspaced so the example satisfies its own check: a token cannot contain whitespace.
+    "opaque_token": _actions_expression("secrets.NPM_TOKEN").replace(" ", ""),
     "output_path": "results/codeql.sarif",
     "path_list": "src/**/*.ts",
     "php_extensions": "mbstring,intl",

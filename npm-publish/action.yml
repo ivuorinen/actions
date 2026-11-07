@@ -13,7 +13,7 @@ branding:
 
 inputs:
   npm_token:
-    description: 'NPM token.'
+    description: 'NPM token, in any format the registry issues. Must not contain whitespace or control characters.'
     required: true
   registry-url:
     description: 'Registry URL for publishing.'
@@ -24,7 +24,7 @@ inputs:
     required: false
     default: '@ivuorinen'
   package-version:
-    description: 'The version to publish.'
+    description: 'The version to publish: X.Y.Z or vX.Y.Z, optionally with -prerelease and +build. Must match package.json.'
     required: false
     default: ${{ github.event.release.tag_name }}
   token:
@@ -185,6 +185,7 @@ runs:
         echo "✅ Dependencies installed successfully"
 
     - name: Authenticate NPM
+      id: authenticate
       shell: sh
       env:
         REGISTRY_URL: ${{ inputs.registry-url }}
@@ -192,8 +193,8 @@ runs:
       run: |
         set -eu
 
-        registry_host="$(echo "$REGISTRY_URL" | sed -E 's#^https?://##; s#/$##')"
-        echo "//${registry_host}/:_authToken=$NPM_TOKEN" > ~/.npmrc
+        registry_host="$(printf '%s\n' "$REGISTRY_URL" | sed -E 's#^https?://##; s#/$##')"
+        printf '//%s/:_authToken=%s\n' "$registry_host" "$NPM_TOKEN" > ~/.npmrc
         echo "always-auth=true" >> ~/.npmrc
 
     # timeout-minutes is set at the calling workflow level

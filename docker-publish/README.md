@@ -38,19 +38,19 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter            | Description                                                | Required | Default                   |
-|----------------------|------------------------------------------------------------|----------|---------------------------|
-| `build-args`         | Build arguments (newline-separated KEY=VALUE pairs)        | ❌       | -                         |
-| `context`            | Build context path                                         | ❌       | `.`                       |
-| `dockerfile`         | Path to Dockerfile                                         | ❌       | `Dockerfile`              |
-| `dockerhub-token`    | Docker Hub token (required if publishing to Docker Hub)    | ❌       | -                         |
-| `dockerhub-username` | Docker Hub username (required if publishing to Docker Hub) | ❌       | -                         |
-| `image-name`         | Docker image name (defaults to repository name)            | ❌       | -                         |
-| `platforms`          | Platforms to build for (comma-separated)                   | ❌       | `linux/amd64,linux/arm64` |
-| `push`               | Whether to push the image                                  | ❌       | `true`                    |
-| `registry`           | Registry to publish to (dockerhub, github, or both)        | ❌       | `both`                    |
-| `tags`               | Comma-separated list of tags (e.g., latest,v1.0.0)         | ❌       | `latest`                  |
-| `token`              | GitHub token for authentication (for GitHub registry)      | ❌       | -                         |
+| Parameter            | Description                                                                                                 | Required | Default                   |
+|----------------------|-------------------------------------------------------------------------------------------------------------|----------|---------------------------|
+| `build-args`         | Build arguments (newline-separated KEY=VALUE pairs)                                                         | ❌       | -                         |
+| `context`            | Build context path                                                                                          | ❌       | `.`                       |
+| `dockerfile`         | Path to Dockerfile                                                                                          | ❌       | `Dockerfile`              |
+| `dockerhub-token`    | Docker Hub token (required if publishing to Docker Hub). Must not contain whitespace or control characters. | ❌       | -                         |
+| `dockerhub-username` | Docker Hub username (required if publishing to Docker Hub)                                                  | ❌       | -                         |
+| `image-name`         | Docker image name (defaults to repository name)                                                             | ❌       | -                         |
+| `platforms`          | Platforms to build for (comma-separated)                                                                    | ❌       | `linux/amd64,linux/arm64` |
+| `push`               | Whether to push the image                                                                                   | ❌       | `true`                    |
+| `registry`           | Registry to publish to (dockerhub, github, or both)                                                         | ❌       | `both`                    |
+| `tags`               | Comma-separated list of tags with no spaces (e.g., latest,v1.0.0)                                           | ❌       | `latest`                  |
+| `token`              | GitHub token for authentication (for GitHub registry)                                                       | ❌       | -                         |
 
 ## 📤 Outputs
 
