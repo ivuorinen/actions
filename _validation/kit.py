@@ -299,6 +299,21 @@ def check_docker_tag(value: str) -> str | None:
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
 
 
+def check_docker_image_version(value: str) -> str | None:
+    """Image tag in SemVer form or ``latest``, optionally pinned ``@sha256:<64 hex>``."""
+    if _skip(value):
+        return None
+    # Repeats check_semantic_version's core: generated validators inline each check alone,
+    # so one check cannot call another.
+    tag, at, digest = value.strip().partition("@")
+    if at and not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        return "digest must be sha256: followed by 64 lowercase hex characters"
+    core = tag[1:] if tag[:1] in ("v", "V") else tag
+    if tag.lower() == "latest" or _is_semver(core):
+        return None
+    return "must be a semantic version with an optional @sha256 digest (e.g. v1.2.3@sha256:abc...)"
+
+
 def check_cache_mode(value: str) -> str | None:
     """Docker buildx cache mode."""
     return _enum(value, "max", "min", "inline")
@@ -865,6 +880,7 @@ EXAMPLES = {
     "coverage_driver": "xdebug",
     "docker_architectures": "linux/amd64,linux/arm64",
     "docker_image_name": "myapp",
+    "docker_image_version": "v1.2.3",
     "docker_tag": "v1.0.0",
     "dotnet_version": "8.0.x",
     "email": "github-actions@users.noreply.github.com",

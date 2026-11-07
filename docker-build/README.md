@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
+      packages: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Docker Build
@@ -24,8 +26,8 @@ jobs:
           auto-detect-platforms: 'false'
           build-args: 'NODE_ENV=production'
           build-contexts: 'NODE_ENV=production'
-          buildkit-version: 'v0.11.0'
-          buildx-version: 'latest'
+          buildkit-version: 'v1.2.3'
+          buildx-version: '1.2.3'
           cache-export: 'type=gha,mode=max'
           cache-from: 'type=gha,mode=max'
           cache-import: 'type=gha,mode=max'
@@ -51,35 +53,35 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter               | Description                                                                  | Required | Default                                             |
-|-------------------------|------------------------------------------------------------------------------|----------|-----------------------------------------------------|
-| `architectures`         | Comma-separated list of architectures to build for.                          | ❌       | `linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6` |
-| `auto-detect-platforms` | Automatically detect and build for all available platforms                   | ❌       | `false`                                             |
-| `build-args`            | Build arguments in format KEY=VALUE,KEY2=VALUE2                              | ❌       | -                                                   |
-| `build-contexts`        | Additional build contexts in format name=path,name2=path2                    | ❌       | -                                                   |
-| `buildkit-version`      | Specific BuildKit version to use                                             | ❌       | `v0.11.0`                                           |
-| `buildx-version`        | Specific Docker Buildx version to use                                        | ❌       | `latest`                                            |
-| `cache-export`          | Export cache destination (e.g., type=local,dest=/tmp/cache)                  | ❌       | -                                                   |
-| `cache-from`            | External cache sources (e.g., type=registry,ref=user/app:cache)              | ❌       | -                                                   |
-| `cache-import`          | Import cache sources (e.g., type=local,src=/tmp/cache)                       | ❌       | -                                                   |
-| `cache-mode`            | Cache mode for build layers (min, max, or inline)                            | ❌       | `max`                                               |
-| `context`               | Docker build context                                                         | ❌       | `.`                                                 |
-| `dockerfile`            | Path to the Dockerfile                                                       | ❌       | `Dockerfile`                                        |
-| `dry-run`               | Perform a dry run without actually building                                  | ❌       | `false`                                             |
-| `image-name`            | The name of the Docker image to build. Defaults to the repository name.      | ❌       | -                                                   |
-| `max-retries`           | Maximum number of retry attempts for build and push operations               | ❌       | `3`                                                 |
-| `network`               | Network mode for build (host, none, or default)                              | ❌       | `default`                                           |
-| `parallel-builds`       | Number of parallel platform builds (0 for auto)                              | ❌       | `0`                                                 |
-| `platform-build-args`   | Platform-specific build args in JSON format                                  | ❌       | -                                                   |
-| `platform-fallback`     | Continue building other platforms if one fails                               | ❌       | `true`                                              |
-| `push`                  | Whether to push the image after building                                     | ❌       | `true`                                              |
-| `sbom-format`           | SBOM format (spdx-json, cyclonedx-json, or syft-json)                        | ❌       | `spdx-json`                                         |
-| `scan-image`            | Scan built image for vulnerabilities                                         | ❌       | `false`                                             |
-| `secrets`               | Build secrets in format id=path,id2=path2                                    | ❌       | -                                                   |
-| `sign-image`            | Sign the built image with cosign                                             | ❌       | `false`                                             |
-| `tag`                   | The tag for the Docker image. Must follow semver or valid Docker tag format. | ✅       | -                                                   |
-| `token`                 | GitHub token for authentication                                              | ❌       | -                                                   |
-| `verbose`               | Enable verbose logging with platform-specific output                         | ❌       | `false`                                             |
+| Parameter               | Description                                                                                                   | Required | Default                                             |
+|-------------------------|---------------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
+| `architectures`         | Comma-separated list of architectures to build for.                                                           | ❌       | `linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6` |
+| `auto-detect-platforms` | Automatically detect and build for all available platforms                                                    | ❌       | `false`                                             |
+| `build-args`            | Build arguments in format KEY=VALUE,KEY2=VALUE2                                                               | ❌       | -                                                   |
+| `build-contexts`        | Additional build contexts in format name=path,name2=path2                                                     | ❌       | -                                                   |
+| `buildkit-version`      | BuildKit image tag (e.g., v0.34.2), optionally with @sha256:<digest>. Empty uses the digest this action pins. | ❌       | -                                                   |
+| `buildx-version`        | Docker Buildx version to install (e.g., v0.38.2). Empty uses the release this action pins.                    | ❌       | -                                                   |
+| `cache-export`          | Export cache destination (e.g., type=gha,mode=max). Replaces the per-ref registry cache export.               | ❌       | -                                                   |
+| `cache-from`            | External cache sources (e.g., type=registry,ref=user/app:cache)                                               | ❌       | -                                                   |
+| `cache-import`          | Import cache sources (e.g., type=gha)                                                                         | ❌       | -                                                   |
+| `cache-mode`            | Cache mode for build layers (min, max, or inline)                                                             | ❌       | `max`                                               |
+| `context`               | Docker build context                                                                                          | ❌       | `.`                                                 |
+| `dockerfile`            | Path to the Dockerfile                                                                                        | ❌       | `Dockerfile`                                        |
+| `dry-run`               | Perform a dry run without actually building                                                                   | ❌       | `false`                                             |
+| `image-name`            | The name of the Docker image to build. Defaults to the repository name.                                       | ❌       | -                                                   |
+| `max-retries`           | Maximum number of retry attempts for build and push operations                                                | ❌       | `3`                                                 |
+| `network`               | Network mode for build (host, none, or default)                                                               | ❌       | `default`                                           |
+| `parallel-builds`       | Number of parallel platform builds (0 for auto)                                                               | ❌       | `0`                                                 |
+| `platform-build-args`   | Platform-specific build args in JSON format                                                                   | ❌       | -                                                   |
+| `platform-fallback`     | Continue building other platforms if one fails                                                                | ❌       | `true`                                              |
+| `push`                  | Whether to push the image after building. Also enables the per-ref registry build cache on ghcr.io.           | ❌       | `true`                                              |
+| `sbom-format`           | SBOM format (spdx-json, cyclonedx-json, or syft-json)                                                         | ❌       | `spdx-json`                                         |
+| `scan-image`            | Scan built image for vulnerabilities                                                                          | ❌       | `false`                                             |
+| `secrets`               | Build secrets in format id=path,id2=path2                                                                     | ❌       | -                                                   |
+| `sign-image`            | Sign the built image with cosign                                                                              | ❌       | `false`                                             |
+| `tag`                   | The tag for the Docker image. Must follow semver or valid Docker tag format.                                  | ✅       | -                                                   |
+| `token`                 | GitHub token for authentication                                                                               | ❌       | -                                                   |
+| `verbose`               | Enable plain build progress and print BuildKit daemon debug logs in the job log                               | ❌       | `false`                                             |
 
 ## 📤 Outputs
 
@@ -94,6 +96,25 @@ jobs:
 | `scan-results`    | Vulnerability scan results if scanning enabled |
 | `signature`       | Image signature if signing enabled             |
 
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission | Access Level |
+|------------|--------------|
+| `contents` | `read`       |
+| `id-token` | `write`      |
+| `packages` | `write`      |
+
+**Usage in workflow:**
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+```
+
 ## 💡 Examples
 
 <details>
@@ -107,8 +128,8 @@ jobs:
     auto-detect-platforms: 'false'
     build-args: 'NODE_ENV=production'
     build-contexts: 'NODE_ENV=production'
-    buildkit-version: 'v0.11.0'
-    buildx-version: 'latest'
+    buildkit-version: 'v1.2.3'
+    buildx-version: '1.2.3'
     cache-export: 'type=gha,mode=max'
     cache-from: 'type=gha,mode=max'
     cache-import: 'type=gha,mode=max'
@@ -145,8 +166,8 @@ jobs:
     auto-detect-platforms: 'false'
     build-args: 'NODE_ENV=production'
     build-contexts: 'NODE_ENV=production'
-    buildkit-version: 'v0.11.0'
-    buildx-version: 'latest'
+    buildkit-version: 'v1.2.3'
+    buildx-version: '1.2.3'
     cache-export: 'type=gha,mode=max'
     cache-from: 'type=gha,mode=max'
     cache-import: 'type=gha,mode=max'

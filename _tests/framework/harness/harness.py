@@ -311,10 +311,20 @@ def _inputs_from_env() -> dict[str, str]:
     return out
 
 
+def _event_payload() -> dict:
+    """Return the payload behind github.event, as the runner does from GITHUB_EVENT_PATH."""
+    path = Path(os.environ.get("GITHUB_EVENT_PATH", ""))
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
 def _build_context(action_dir: Path | None = None) -> dict:
     return {
         "inputs": _inputs_from_env(),
         "github": {
+            "event": _event_payload(),
             "token": os.environ.get("GITHUB_TOKEN", "ghp_fixture_token_0000000000000000000000"),
             "actor": os.environ.get("GITHUB_ACTOR", "test-actor"),
             "repository": os.environ.get("GITHUB_REPOSITORY", "ivuorinen/actions"),
