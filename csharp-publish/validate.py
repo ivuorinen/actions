@@ -111,6 +111,12 @@ def check_numeric_range_1_10(value: str) -> str | None:
     return _int_in_range(value, 1, 10)
 
 
+def is_detected_dotnet_version(value: str) -> bool:
+    """The dotted forms, plus the bare majors setup-dotnet documents: 8 and 8.x."""
+    pattern = r"[0-9]+(\.[0-9A-Za-z]+)*([-+][0-9A-Za-z.+-]+)?"
+    return re.fullmatch(pattern, value) is not None
+
+
 ACTION = "csharp-publish"
 
 CHECKS = {
@@ -142,4 +148,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--detected-version"]:
+        sys.exit(0 if is_detected_dotnet_version(sys.argv[2]) else 1)
     main()

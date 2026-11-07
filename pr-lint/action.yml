@@ -225,21 +225,16 @@ runs:
       id: php-version
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         DEFAULT_VERSION: '8.4'
       run: |
         set -eu
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
 
-        # Function to validate version format
+        # Repository files are untrusted: the rule lives in _validation/kit.py and ships in
+        # validate.py. Run from the action directory so the checkout cannot steer python3.
         validate_version() {
-          version=$1
-          case "$version" in
-            [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-              return 0
-              ;;
-            *)
-              return 1
-              ;;
-          esac
+          (cd "$ACTION_PATH" && python3 validate.py --detected-version "$1")
         }
 
         # Function to clean version string
@@ -381,21 +376,16 @@ runs:
       id: python-version
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         DEFAULT_VERSION: '3.14'
       run: |
         set -eu
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
 
-        # Function to validate version format
+        # Repository files are untrusted: the rule lives in _validation/kit.py and ships in
+        # validate.py. Run from the action directory so the checkout cannot steer python3.
         validate_version() {
-          version=$1
-          case "$version" in
-            [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-              return 0
-              ;;
-            *)
-              return 1
-              ;;
-          esac
+          (cd "$ACTION_PATH" && python3 validate.py --detected-version "$1")
         }
 
         # Function to clean version string
@@ -518,21 +508,16 @@ runs:
       id: go-version
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         DEFAULT_VERSION: '1.25'
       run: |
         set -eu
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
 
-        # Function to validate version format
+        # Repository files are untrusted: the rule lives in _validation/kit.py and ships in
+        # validate.py. Run from the action directory so the checkout cannot steer python3.
         validate_version() {
-          version=$1
-          case "$version" in
-            [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-              return 0
-              ;;
-            *)
-              return 1
-              ;;
-          esac
+          (cd "$ACTION_PATH" && python3 validate.py --detected-version "$1")
         }
 
         # Function to clean version string

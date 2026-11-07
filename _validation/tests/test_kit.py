@@ -281,6 +281,96 @@ def test_semver_prerelease_and_build_metadata():
     assert kit.check_semantic_version("1.0.0-") is not None
 
 
+# Accepted by both repository-file version rules. The forms come from what the setup
+# actions and the tools themselves document: setup-go (1.25.x, 1.24.0-rc.1), go.dev
+# toolchains (1.23rc1), setup-python (3.13t, 3.13-dev, 3.14t-dev), setup-dotnet (8.0.x,
+# 8.0.4xx, 10.0.100-preview.1.25120.13).
+DETECTED_DOTTED = [
+    "8.0",
+    "8.0.100",
+    "3.12",
+    "1.22.3",
+    "8.4",
+    "1.25.x",
+    "1.23rc1",
+    "3.13t",
+    "3.13.1t",
+    "3.13-dev",
+    "3.14t-dev",
+    "8.0.x",
+    "8.0.4xx",
+    "10.0.100-preview.1.25120.13",
+    # pre-release and build metadata are distinct SemVer constructs; test both, and CalVer
+    "1.0.0-rc.1",
+    "1.0.0+build",
+    "1.0.0-rc.1+build.5",
+    "2025.04.05-rc.1",
+    "2025.4.5+sha.abc1234",
+]
+
+# Rejected by both. `$` would accept the trailing newline; `\d` would accept the Arabic digit.
+DETECTED_REJECTED = [
+    "",
+    " ",
+    "latest",
+    "v1.2.3",  # clean_version strips the prefix before the check runs
+    "${{ inputs.x }}",  # no _skip gate: this is file content, not an action input
+    "8.4;evil",
+    "8.4&evil",
+    "8.4|evil",
+    "8.4`evil`",
+    "8.4$(evil)",
+    "8.4$IFS",
+    "8.4 evil",
+    "8.4\tevil",
+    "8.4>evil",
+    "8.4<evil",
+    '8.4"evil',
+    "8.4'evil",
+    "8.4\\evil",
+    "8.4=evil",
+    "8.4/../evil",
+    "8.4\n",
+    "8.4\nkey=value",
+    "8.4\r\nkey=value",
+    "8.0\npackage-manager=evil\ninjected=1",
+    "\n8.4",
+    "8.4\x00",
+    "٣.١٢",  # Arabic-Indic digits
+    "8.0.*",
+    "8.0.",
+    "8..0",
+    ".8.0",
+    "1.0.0-",
+    "1.0.0+",
+    "-8.0",
+    "+8.0",
+]
+
+
+@pytest.mark.parametrize("value", DETECTED_DOTTED)
+@pytest.mark.parametrize("rule", [kit.is_detected_version, kit.is_detected_dotnet_version])
+def test_detected_version_rules_accept(rule, value):
+    assert rule(value) is True
+
+
+@pytest.mark.parametrize("value", DETECTED_REJECTED)
+@pytest.mark.parametrize("rule", [kit.is_detected_version, kit.is_detected_dotnet_version])
+def test_detected_version_rules_reject(rule, value):
+    assert rule(value) is False
+
+
+@pytest.mark.parametrize("value", ["8", "10", "8.x"])
+def test_only_dotnet_accepts_a_bare_major(value):
+    assert kit.is_detected_dotnet_version(value) is True
+    assert kit.is_detected_version(value) is False
+
+
+def test_detected_version_rules_are_not_input_checks():
+    """They reject empty and ``${{ }}``, which every entry in ``CHECKS`` must accept."""
+    assert not any(name.startswith("is_detected") for name in kit.CHECKS)
+
+
 def test_every_check_has_a_documentation_example():
     """`make docs` substitutes kit.EXAMPLES into generated READMEs; a check with no
     example would leave a generic placeholder in published documentation."""
