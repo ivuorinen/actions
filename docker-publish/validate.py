@@ -160,7 +160,7 @@ def check_github_token(value: str) -> str | None:
 
 
 def check_key_value_list(value: str) -> str | None:
-    """Newline-separated ``KEY=VALUE`` pairs (e.g. build args / secrets)."""
+    """Newline-separated ``KEY=VALUE`` pairs, for a consumer that reads them line by line."""
     if _skip(value):
         return None
     if meta := _shell_meta_error(value):

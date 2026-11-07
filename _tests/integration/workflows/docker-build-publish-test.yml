@@ -86,9 +86,7 @@ jobs:
           tag: 'latest'
           dockerfile: './Dockerfile'
           context: '.'
-          build-args: |
-            ARG1=value1
-            ARG2=value2
+          build-args: 'ARG1=value1,ARG2=two words'
           platforms: 'linux/amd64'
           push: 'false'
           scan-image: 'false'
