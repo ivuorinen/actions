@@ -198,10 +198,12 @@ class MockRegistry:
 """
 
     DISPATCHER_TEMPLATE = '''#!/usr/bin/env python3
-"""Runtime stub dispatcher. Reads mocks.json, matches argv glob, emits output."""
-import fnmatch, json, sys
+"""Runtime stub dispatcher. Records the call, matches argv glob, emits output."""
+import fnmatch, json, os, sys
 cmd = sys.argv[1]
 mocks_path = sys.argv[2]
+with open(os.path.join(os.path.dirname(mocks_path), "calls.jsonl"), "a", encoding="utf-8") as f:
+    f.write(json.dumps([cmd, *sys.argv[3:]]) + "\\n")
 argv_joined = " ".join(sys.argv[3:])
 with open(mocks_path, encoding="utf-8") as f:
     mocks = json.load(f)

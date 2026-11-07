@@ -93,6 +93,27 @@ def _shell_meta_error(value: str) -> str | None:
     return None
 
 
+def _comma_key_value_error(value: str, value_pattern: str) -> str | None:
+    """Check a one-line list of comma-separated ``KEY=VALUE`` items.
+
+    Mirrors the consumer, which splits on commas only and trims each item: a VALUE may hold
+    spaces but no comma, and whitespace around items (``A=1, B=2``, a YAML block scalar's
+    trailing newline) is ignored. A line break anywhere else is rejected. Bad items are named
+    by position, so a build argument's value never reaches the log.
+    """
+    if _skip(value):
+        return None
+    if meta := _shell_meta_error(value):
+        return meta
+    if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", value.strip()):
+        return "must be a single line without control characters"
+    for position, item in enumerate(value.split(","), start=1):
+        item = item.strip()
+        if item and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=" + value_pattern, item):
+            return f"item {position} is not a valid KEY=VALUE pair"
+    return None
+
+
 def check_boolean(value: str) -> str | None:
     """Boolean flag — ``true`` or ``false`` (any case)."""
     if _skip(value) or value.strip().lower() in ("true", "false"):
@@ -101,21 +122,80 @@ def check_boolean(value: str) -> str | None:
 
 
 def check_cache_config(value: str) -> str | None:
-    """Docker buildx cache spec: ``type=<backend>[,key=value...]`` (e.g. ``type=gha,mode=max``)."""
+    """One buildx cache spec: ``type=<backend>[,key=value...]`` (e.g. ``type=gha,mode=max``).
+
+    The spec reaches buildx as one argument, which parses it as one CSV record, so a value
+    holds no whitespace, comma or quote. Keys are the ones each backend documents at
+    https://docs.docker.com/build/cache/backends/ and in the BuildKit README.
+    """
     if _skip(value):
         return None
-    match = re.match(r"^type=([a-z0-9-]+)", value)
+    match = re.fullmatch(
+        r"type=([a-z0-9-]+)((?:,[a-z0-9._-]+=[A-Za-z0-9._~:;/@+=%#?&\[\]-]+)*)", value.strip()
+    )
     if not match:
-        return "must start with type=<backend> (e.g. type=gha, type=registry,ref=...)"
-    allowed = ("registry", "local", "gha", "inline", "s3", "azblob", "oci")
-    if match.group(1) not in allowed:
-        return "cache backend must be one of: " + ", ".join(allowed)
+        return "must be one spec, type=<backend>[,key=value...], without spaces or newlines"
+    common = ("mode", "ignore-error")
+    compression = ("compression", "compression-level", "force-compression")
+    image = ("oci-mediatypes", "image-manifest")
+    storage = ("prefix", "blobs_prefix", "manifests_prefix", "name", "secret_access_key")
+    backends = {
+        "registry": (*common, *compression, *image, "ref", "registry.insecure"),
+        "local": (*common, *compression, *image, "src", "dest", "digest", "tag", "reset"),
+        "gha": (
+            *common,
+            *compression,
+            "url",
+            "url_v2",
+            "token",
+            "scope",
+            "timeout",
+            "repository",
+            "ghtoken",
+            "version",
+        ),
+        "inline": common,
+        "s3": (
+            *common,
+            *compression,
+            *storage,
+            "region",
+            "bucket",
+            "endpoint_url",
+            "use_path_style",
+            "access_key_id",
+            "session_token",
+            "touch_refresh",
+            "upload_parallelism",
+            "disable_accept_encoding",
+            "retry_mode",
+            "retry_max_attempts",
+        ),
+        "azblob": (*common, *compression, *storage, "account_url", "account_name", "container"),
+    }
+    backend = match.group(1)
+    if backend not in backends:
+        return "cache backend must be one of: " + ", ".join(backends)
+    for field in match.group(2).split(",")[1:]:
+        key = field.split("=", 1)[0]
+        if key not in backends[backend]:
+            return f"type={backend} does not accept the key {key}"
     return None
 
 
 def check_cache_mode(value: str) -> str | None:
     """Docker buildx cache mode."""
     return _enum(value, "max", "min", "inline")
+
+
+def check_comma_key_value_list(value: str) -> str | None:
+    """One line of comma-separated ``KEY=VALUE`` items; a VALUE may be empty or hold spaces."""
+    return _comma_key_value_error(value, ".*")
+
+
+def check_comma_name_path_list(value: str) -> str | None:
+    """One line of comma-separated ``name=path`` items; the path may hold spaces."""
+    return _comma_key_value_error(value, ".+")
 
 
 def check_docker_architectures(value: str) -> str | None:
@@ -218,23 +298,6 @@ def check_json_format(value: str) -> str | None:
     return None
 
 
-def check_key_value_list(value: str) -> str | None:
-    """Newline-separated ``KEY=VALUE`` pairs (e.g. build args / secrets)."""
-    if _skip(value):
-        return None
-    if meta := _shell_meta_error(value):
-        return meta
-    for pair in (line.strip() for line in value.splitlines()):
-        if not pair:
-            continue
-        if "=" not in pair:
-            return f"invalid pair (expected KEY=VALUE): {pair}"
-        key = pair.split("=", 1)[0]
-        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key):
-            return f"invalid key: {key}"
-    return None
-
-
 def check_network_mode(value: str) -> str | None:
     """Docker build network mode."""
     return _enum(value, "host", "none", "default")
@@ -271,8 +334,8 @@ ACTION = "docker-build"
 CHECKS = {
     "architectures": check_docker_architectures,
     "auto-detect-platforms": check_boolean,
-    "build-args": check_key_value_list,
-    "build-contexts": check_key_value_list,
+    "build-args": check_comma_key_value_list,
+    "build-contexts": check_comma_name_path_list,
     "buildkit-version": check_semantic_version,
     "buildx-version": check_semantic_version,
     "cache-export": check_cache_config,
@@ -291,7 +354,7 @@ CHECKS = {
     "push": check_boolean,
     "sbom-format": check_sbom_format,
     "scan-image": check_boolean,
-    "secrets": check_key_value_list,
+    "secrets": check_comma_name_path_list,
     "sign-image": check_boolean,
     "tag": check_docker_tag,
     "token": check_github_token,

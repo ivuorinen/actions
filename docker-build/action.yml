@@ -30,10 +30,10 @@ inputs:
     required: false
     default: '.'
   build-args:
-    description: 'Build arguments in format KEY=VALUE,KEY2=VALUE2'
+    description: 'Build arguments in format KEY=VALUE,KEY2=VALUE2, on one line. A VALUE may contain spaces, but no comma or newline.'
     required: false
   cache-from:
-    description: 'External cache sources (e.g., type=registry,ref=user/app:cache)'
+    description: 'External cache source, one spec on one line (e.g., type=registry,ref=user/app:cache)'
     required: false
   push:
     description: 'Whether to push the image after building'
@@ -60,14 +60,14 @@ inputs:
     required: false
     default: 'max'
   build-contexts:
-    description: 'Additional build contexts in format name=path,name2=path2'
+    description: 'Additional build contexts in format name=path,name2=path2, on one line. A path may contain spaces, but no comma or newline.'
     required: false
   network:
     description: 'Network mode for build (host, none, or default)'
     required: false
     default: 'default'
   secrets:
-    description: 'Build secrets in format id=path,id2=path2'
+    description: 'Build secrets in format id=path,id2=path2, on one line. A path may contain spaces, but no comma or newline.'
     required: false
   auto-detect-platforms:
     description: 'Automatically detect and build for all available platforms'
@@ -81,10 +81,10 @@ inputs:
     required: false
     default: '0'
   cache-export:
-    description: 'Export cache destination (e.g., type=local,dest=/tmp/cache)'
+    description: 'Export cache destination, one spec on one line (e.g., type=local,dest=/tmp/cache)'
     required: false
   cache-import:
-    description: 'Import cache sources (e.g., type=local,src=/tmp/cache)'
+    description: 'Import cache source, one spec on one line (e.g., type=local,src=/tmp/cache)'
     required: false
   dry-run:
     description: 'Perform a dry run without actually building'
@@ -253,107 +253,6 @@ runs:
           printf 'name=%s\n' "$IMAGE_NAME" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Parse Build Arguments
-      id: build-args
-      shell: sh
-      env:
-        BUILD_ARGS_INPUT: ${{ inputs.build-args }}
-      run: |
-        set -eu
-
-        args=""
-        if [ -n "$BUILD_ARGS_INPUT" ]; then
-          # Save IFS and disable pathname expansion so glob chars (`*`, `?`,
-          # `[...]`) in build-arg values aren't expanded against the runner's
-          # working directory.
-          old_ifs="$IFS"
-          set -f
-          IFS=','
-          set -- $BUILD_ARGS_INPUT
-          IFS="$old_ifs"
-          set +f
-
-          # Append each arg as " --build-arg VALUE" (space-separated, leading space)
-          for arg; do
-            args="$args --build-arg $arg"
-          done
-        fi
-        printf 'args=%s\n' "$args" >> "$GITHUB_OUTPUT"
-
-    # All inputs are validated by the "Validate Inputs" step above (validate.py),
-    # which fails the action on invalid input before these parsing steps run.
-    - name: Parse Build Contexts
-      id: build-contexts
-      shell: sh
-      env:
-        BUILD_CONTEXTS: ${{ inputs.build-contexts }}
-      run: |
-        set -eu
-
-        contexts=""
-        if [ -n "$BUILD_CONTEXTS" ]; then
-          # Save IFS and disable globbing (see Parse Build Arguments).
-          old_ifs="$IFS"
-          set -f
-          IFS=','
-          set -- $BUILD_CONTEXTS
-          IFS="$old_ifs"
-          set +f
-
-          # Iterate through positional parameters
-          for ctx; do
-            contexts="$contexts --build-context $ctx"
-          done
-        fi
-        printf 'contexts=%s\n' "$contexts" >> "$GITHUB_OUTPUT"
-
-    - name: Parse Secrets
-      id: secrets
-      shell: sh
-      env:
-        INPUT_SECRETS: ${{ inputs.secrets }}
-      run: |
-        set -eu
-
-        secrets=""
-        if [ -n "$INPUT_SECRETS" ]; then
-          # Save IFS and disable globbing (see Parse Build Arguments).
-          old_ifs="$IFS"
-          set -f
-          IFS=','
-          set -- $INPUT_SECRETS
-          IFS="$old_ifs"
-          set +f
-
-          # Iterate through positional parameters
-          for secret; do
-            # Trim whitespace
-            secret=$(echo "$secret" | xargs)
-
-            case "$secret" in
-              *=*)
-                # Parse id=src format
-                id="${secret%%=*}"
-                src="${secret#*=}"
-
-                # Validate id and src are not empty
-                if [ -z "$id" ] || [ -z "$src" ]; then
-                  echo "::error::Invalid secret format: '$secret'. Expected 'id=src' where both id and src are non-empty"
-                  exit 1
-                fi
-
-                secrets="$secrets --secret id=$id,src=$src"
-                ;;
-              *)
-                # Handle legacy format - treat as id only (error for now)
-                echo "::error::Invalid secret format: '$secret'. Expected 'id=src' format for Buildx compatibility"
-                exit 1
-                ;;
-            esac
-          done
-        fi
-        printf 'secrets=%s\n' "$secrets" >> "$GITHUB_OUTPUT"
-
     - name: Login to GitHub Container Registry
       if: ${{ inputs.push == 'true' }}
       uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
@@ -361,63 +260,6 @@ runs:
         registry: ghcr.io
         username: ${{ github.actor }}
         password: ${{ inputs.token || github.token }}
-
-    - name: Set up Build Cache
-      id: cache
-      shell: sh
-      env:
-        CACHE_IMPORT: ${{ inputs.cache-import }}
-        CACHE_FROM: ${{ inputs.cache-from }}
-        CACHE_EXPORT: ${{ inputs.cache-export }}
-        PUSH: ${{ inputs.push }}
-        INPUT_TOKEN: ${{ inputs.token }}
-        CACHE_MODE: ${{ inputs.cache-mode }}
-      run: |
-        set -eu
-
-        # Use provided token or fall back to GITHUB_TOKEN
-        TOKEN="${INPUT_TOKEN:-${GITHUB_TOKEN:-}}"
-
-        cache_from=""
-        cache_to=""
-        cache_mode="${CACHE_MODE:-min}"
-
-        # Handle cache import
-        if [ -n "$CACHE_IMPORT" ]; then
-          cache_from="--cache-from $CACHE_IMPORT"
-        elif [ -n "$CACHE_FROM" ]; then
-          cache_from="--cache-from $CACHE_FROM"
-        fi
-
-        # Handle cache export
-        if [ -n "$CACHE_EXPORT" ]; then
-          cache_to="--cache-to $CACHE_EXPORT"
-        fi
-
-        # Registry cache configuration for better performance (only if authenticated)
-        if [ "$PUSH" = "true" ] || [ -n "$TOKEN" ]; then
-          normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
-          registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
-          cache_from="$cache_from --cache-from type=registry,ref=$registry_cache_ref"
-
-          if [ -z "$cache_to" ]; then
-            cache_to="--cache-to type=registry,ref=$registry_cache_ref,mode=${cache_mode}"
-          fi
-        fi
-
-        # Also include local cache as fallback
-        cache_from="$cache_from --cache-from type=local,src=/tmp/.buildx-cache"
-        case "$cache_to" in
-          *"type=local"*)
-            # Already has local cache, don't add
-            ;;
-          *)
-            cache_to="$cache_to --cache-to type=local,dest=/tmp/.buildx-cache-new,mode=${cache_mode}"
-            ;;
-        esac
-
-        printf 'from=%s\n' "$cache_from" >> "$GITHUB_OUTPUT"
-        printf 'to=%s\n' "$cache_to" >> "$GITHUB_OUTPUT"
 
     - name: Build Multi-Architecture Docker Image
       id: build
@@ -433,11 +275,14 @@ runs:
         SBOM_FORMAT: ${{ inputs.sbom-format }}
         IMAGE_NAME: ${{ steps.image-name.outputs.name }}
         TAG: ${{ inputs.tag }}
-        BUILD_ARGS: ${{ steps.build-args.outputs.args }}
-        BUILD_CONTEXTS: ${{ steps.build-contexts.outputs.contexts }}
-        SECRETS: ${{ steps.secrets.outputs.secrets }}
-        CACHE_FROM: ${{ steps.cache.outputs.from }}
-        CACHE_TO: ${{ steps.cache.outputs.to }}
+        BUILD_ARGS: ${{ inputs.build-args }}
+        BUILD_CONTEXTS: ${{ inputs.build-contexts }}
+        SECRETS: ${{ inputs.secrets }}
+        CACHE_IMPORT: ${{ inputs.cache-import }}
+        CACHE_FROM: ${{ inputs.cache-from }}
+        CACHE_EXPORT: ${{ inputs.cache-export }}
+        CACHE_MODE: ${{ inputs.cache-mode }}
+        HAS_TOKEN: ${{ inputs.token != '' }}
         DOCKERFILE: ${{ inputs.dockerfile }}
         CONTEXT: ${{ inputs.context }}
       run: |
@@ -475,16 +320,22 @@ runs:
         attempt=1
         max_attempts="$MAX_RETRIES"
 
-        # Prepare verbose flag
-        verbose_flag=""
-        if [ "$VERBOSE" = "true" ]; then
-          verbose_flag="--progress=plain"
-        fi
+        # Whitespace around a value is not part of it: `A=1, B=2`, or the trailing
+        # newline of a YAML block scalar.
+        trim() {
+          _trimmed="${1#"${1%%[![:space:]]*}"}"
+          printf '%s' "${_trimmed%"${_trimmed##*[![:space:]]}"}"
+        }
 
-        # Prepare SBOM options
-        sbom_flag="--sbom=true"
-        if [ -n "$SBOM_FORMAT" ]; then
-          sbom_flag="--sbom=true --sbom-format=$SBOM_FORMAT"
+        cache_source=$(trim "${CACHE_IMPORT:-$CACHE_FROM}")
+        cache_export=$(trim "$CACHE_EXPORT")
+        cache_mode="${CACHE_MODE:-min}"
+
+        # Registry cache configuration for better performance (only if authenticated)
+        registry_cache_ref=""
+        if [ "$PUSH" = "true" ] || [ "$HAS_TOKEN" = "true" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+          normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
+          registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
         fi
 
         while [ $attempt -le $max_attempts ]; do
@@ -502,55 +353,50 @@ runs:
             --platform="${platforms}" \
             --tag "$IMAGE_NAME:$TAG"
 
-          # Append space-separated flag groups; set -f prevents glob expansion of
-          # values like "*.go" that appear in build-arg strings.
-          if [ -n "$BUILD_ARGS" ]; then
-            _oi="$IFS"; IFS=' '; set -f
-            for _tok in $BUILD_ARGS; do
-              [ -n "$_tok" ] && set -- "$@" "$_tok"
+          # One input item is one argv entry: split on commas only, never on whitespace.
+          # set -f keeps glob characters in a value (`*.go`) from expanding.
+          _oi="$IFS"; IFS=','; set -f
+          for _flag in --build-arg --build-context --secret; do
+            case "$_flag" in
+              --build-arg) _items="$BUILD_ARGS" ;;
+              --build-context) _items="$BUILD_CONTEXTS" ;;
+              --secret) _items="$SECRETS" ;;
+            esac
+            for _item in $_items; do
+              _item=$(trim "$_item")
+              [ -n "$_item" ] || continue
+              # The input says id=path; buildx wants id=id,src=path
+              [ "$_flag" != "--secret" ] || _item="id=${_item%%=*},src=${_item#*=}"
+              set -- "$@" "$_flag" "$_item"
             done
-            set +f; IFS="$_oi"
+          done
+          set +f; IFS="$_oi"
+
+          [ -z "$cache_source" ] || set -- "$@" --cache-from "$cache_source"
+          [ -z "$registry_cache_ref" ] || set -- "$@" --cache-from "type=registry,ref=$registry_cache_ref"
+          # Also include local cache as fallback
+          set -- "$@" --cache-from "type=local,src=/tmp/.buildx-cache"
+
+          if [ -n "$cache_export" ]; then
+            set -- "$@" --cache-to "$cache_export"
+          elif [ -n "$registry_cache_ref" ]; then
+            set -- "$@" --cache-to "type=registry,ref=$registry_cache_ref,mode=$cache_mode"
           fi
-          if [ -n "$BUILD_CONTEXTS" ]; then
-            _oi="$IFS"; IFS=' '; set -f
-            for _tok in $BUILD_CONTEXTS; do
-              [ -n "$_tok" ] && set -- "$@" "$_tok"
-            done
-            set +f; IFS="$_oi"
-          fi
-          if [ -n "$SECRETS" ]; then
-            _oi="$IFS"; IFS=' '; set -f
-            for _tok in $SECRETS; do
-              [ -n "$_tok" ] && set -- "$@" "$_tok"
-            done
-            set +f; IFS="$_oi"
-          fi
-          if [ -n "$CACHE_FROM" ]; then
-            _oi="$IFS"; IFS=' '; set -f
-            for _tok in $CACHE_FROM; do
-              [ -n "$_tok" ] && set -- "$@" "$_tok"
-            done
-            set +f; IFS="$_oi"
-          fi
-          if [ -n "$CACHE_TO" ]; then
-            _oi="$IFS"; IFS=' '; set -f
-            for _tok in $CACHE_TO; do
-              [ -n "$_tok" ] && set -- "$@" "$_tok"
-            done
-            set +f; IFS="$_oi"
-          fi
+          case "$cache_export" in
+            *type=local*) ;;
+            *) set -- "$@" --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=$cache_mode" ;;
+          esac
 
           set -- "$@" \
             --file "$DOCKERFILE" \
             "${build_action}" \
-            --provenance=true
+            --provenance=true \
+            --sbom=true
 
-          # Append optional flags (non-empty only)
-          for _flag in $sbom_flag $verbose_flag; do
-            set -- "$@" "$_flag"
-          done
+          [ -z "$SBOM_FORMAT" ] || set -- "$@" "--sbom-format=$SBOM_FORMAT"
+          [ "$VERBOSE" != "true" ] || set -- "$@" --progress=plain
 
-          set -- "$@" --metadata-file=/tmp/build-metadata.json "$CONTEXT"
+          set -- "$@" --metadata-file=/tmp/build-metadata.json -- "$CONTEXT"
 
           if "$@"; then
 

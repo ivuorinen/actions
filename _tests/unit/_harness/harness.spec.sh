@@ -41,6 +41,15 @@ When call run_step "${FIXTURES}/uses-gh" "fetch"
 The status should be success
 Assert expect_output tag "v2026.4.0"
 End
+
+It "records each argv entry of a mocked call separately"
+argv_entries_are_not_joined() { ! expect_argv gh "release list" 2>/dev/null; }
+mock_command gh "release list *" "v2026.4.0"
+When call run_step "${FIXTURES}/uses-gh" "fetch"
+The status should be success
+Assert expect_argv gh release list
+Assert argv_entries_are_not_joined
+End
 End
 
 Describe "uses-curl fixture (external CLI present in /usr/bin)"

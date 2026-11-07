@@ -124,6 +124,61 @@ The status should be success
 End
 End
 
+Describe "values one input may hold"
+Parameters
+"build-args" "FOO=hello world"
+"build-args" "A=1, B=2"
+"build-args" "CFLAGS=-O2 -Wall,OPTS=--enable-foo --disable-bar"
+"build-args" "VERSION=1.0.0-rc.1"
+"build-args" "VERSION=1.0.0+build"
+"build-args" "$(printf 'A=1,B=2\n ')"
+"build-contexts" "base=./my dir,img=docker-image://alpine:3.18"
+"build-contexts" "project=https://github.com/user/project.git"
+"secrets" "npm=.npmrc,aws=config/aws credentials"
+"cache-from" "type=registry,ref=ghcr.io/user/app:cache"
+"cache-from" "type=registry,ref=ghcr.io/user/app:1.0.0-rc.1"
+"cache-from" "type=registry,ref=ghcr.io/user/app:1.0.0+build"
+"cache-import" "type=local,src=/tmp/cache"
+"cache-import" "type=gha,scope=my-image"
+"cache-export" "type=local,dest=/tmp/cache,mode=max"
+"cache-export" "type=s3,region=eu-west-1,bucket=my_bucket,name=main;abc123"
+End
+
+It "accepts $1 '$2'"
+When call validate_input_python "docker-build" "$1" "$2"
+The status should be success
+End
+End
+
+Describe "values that would add docker buildx arguments or step outputs"
+Parameters
+"build-args" "$(printf 'A=1\nB=2')"
+"build-args" "$(printf 'A=1\ninjected=1')"
+"build-args" "A=1,--flag=value"
+"build-args" "A=1,noequals"
+"build-contexts" "$(printf 'a=b\ninjected=1')"
+"build-contexts" "a=b,--flag=value"
+"build-contexts" "a="
+"secrets" "$(printf 'a=b\ninjected=1')"
+"secrets" "a=b,--flag=value"
+"secrets" "a="
+"cache-from" "type=gha --flag"
+"cache-from" "$(printf 'type=gha\ninjected=1')"
+"cache-from" "type=gha,evil=1"
+"cache-import" "type=gha --flag"
+"cache-import" "$(printf 'type=gha\ninjected=1')"
+"cache-import" "type=oci"
+"cache-export" "type=gha,mode=max --flag"
+"cache-export" "$(printf 'type=gha\ninjected=1')"
+"cache-export" "type=registry,ref=x,src=/tmp/cache"
+End
+
+It "rejects $1 '$2'"
+When call validate_input_python "docker-build" "$1" "$2"
+The status should be failure
+End
+End
+
 Context "when validating security features"
 It "accepts scan-image boolean"
 When call validate_input_python "docker-build" "scan-image" "true"
