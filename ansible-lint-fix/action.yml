@@ -154,6 +154,7 @@ runs:
         commit_message: 'style: apply ansible lint fixes'
         commit_user_name: ${{ inputs.username }}
         commit_user_email: ${{ inputs.email }}
+        add_options: '-u'
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.files_found == 'true'

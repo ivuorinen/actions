@@ -46,4 +46,13 @@ check_line=$(grep -n '^    - name: Check for Ansible Files' "${ACTION_DIR}/actio
 When call test "$checkout_line" -lt "$check_line"
 The status should be success
 End
+
+# The SARIF report is written to the workspace as an untracked file, so the
+# commit step must stage tracked files only (git add -u) or it commits the
+# report to the caller's repository.
+It "commits tracked files only so the SARIF report is not committed"
+commit_block=$(sed -n '/^    - name: Commit Fixes/,/^    - name: Upload SARIF Report/p' "${ACTION_DIR}/action.yml")
+When call printf '%s\n' "$commit_block"
+The output should include "add_options: '-u'"
+End
 End
