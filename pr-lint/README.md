@@ -2,7 +2,7 @@
 
 ![check-circle](https://img.shields.io/badge/icon-check-circle-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-> Runs MegaLinter against pull requests
+> Runs MegaLinter against pull requests. Refuses pull_request_target and workflow_run.
 
 ## 🚀 Quick Start
 
@@ -14,7 +14,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
+      contents: read
       pull-requests: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -47,14 +47,14 @@ This action requires the following permissions:
 
 | Permission      | Access Level |
 |-----------------|--------------|
-| `contents`      | `write`      |
+| `contents`      | `read`       |
 | `pull-requests` | `write`      |
 
 **Usage in workflow:**
 
 ```yaml
 permissions:
-  contents: write
+  contents: read
   pull-requests: write
 ```
 
