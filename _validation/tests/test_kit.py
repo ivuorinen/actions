@@ -195,11 +195,15 @@ CASES: dict[str, dict[str, list[str]]] = {
             "prettier-plugin-x",
             "@scope/plugin",
             "a,b",
-            "a|b",
+            "a, b",
             "conventional-changelog-conventionalcommits@^9.3.1",
             "@scope/plugin@1.0.0",
+            "plugin@1.0.0-rc.1",
+            "plugin@1.0.0+build",
+            "a@1.0.0-rc.1,@scope/b@2.0.0+build",
         ],
-        "invalid": ["a,,b", "bad plugin"],
+        # "|" is not a separator: the install splits on commas only, so "a|b" is one name.
+        "invalid": ["a,,b", "bad plugin", "a|b", "a|b,c"],
     },
     "php_extensions": {
         "valid": ["mbstring", "mbstring, gd", "intl,bcmath"],

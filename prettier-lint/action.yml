@@ -53,7 +53,7 @@ inputs:
     required: false
     default: '3'
   plugins:
-    description: 'Comma-separated list of Prettier plugins to install'
+    description: 'Comma-separated list of Prettier plugins to install (name or name@version; separate entries with commas only). Installed without running lifecycle scripts and without changing package.json or the lockfile.'
     required: false
     default: ''
   token:
@@ -235,20 +235,39 @@ runs:
         # Convert comma-separated list to space-separated
         plugins_list=$(echo "$PLUGINS" | tr ',' ' ')
 
+        # Install for this run only: no lifecycle scripts, and package.json and
+        # the lockfile stay as committed, because the auto-commit step stages
+        # every tracked file that changed. npm and bun have --no-save; pnpm and
+        # yarn have no equivalent, so their manifests are restored afterwards.
+        backup=$(mktemp -d)
+        trap 'rm -rf "$backup"' EXIT
+        for f in package.json pnpm-lock.yaml yarn.lock; do
+          if [ -f "$f" ]; then cp -p "$f" "$backup/$f"; fi
+        done
+
         case "$PACKAGE_MANAGER" in
           "pnpm")
-            pnpm add -D $plugins_list
+            pnpm add -D --ignore-scripts $plugins_list
             ;;
           "yarn")
-            yarn add -D $plugins_list
+            if [ -f ".yarnrc.yml" ]; then
+              # Yarn Berry has no --ignore-scripts flag; the setting does the same
+              YARN_ENABLE_SCRIPTS=false yarn add -D $plugins_list
+            else
+              yarn add -D --ignore-scripts $plugins_list
+            fi
             ;;
           "bun")
-            bun add -D $plugins_list
+            bun add --no-save --ignore-scripts $plugins_list
             ;;
           "npm"|*)
-            npm install --save-dev $plugins_list
+            npm install --no-save --ignore-scripts $plugins_list
             ;;
         esac
+
+        for f in package.json pnpm-lock.yaml yarn.lock; do
+          if [ -f "$backup/$f" ]; then cp -p "$backup/$f" "$f"; fi
+        done
 
         echo "✅ Plugins installed successfully"
 
