@@ -167,7 +167,8 @@ runs:
       uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6.0.0
       with:
         dotnet-version: ${{ steps.detect-dotnet-version.outputs.detected-version }}
-        cache: true
+        # setup-dotnet fails the step when the cache is on and no lock file matches.
+        cache: ${{ hashFiles('**/packages.lock.json') != '' }}
         cache-dependency-path: '**/packages.lock.json'
 
     - name: Restore Dependencies
@@ -179,7 +180,9 @@ runs:
         max_attempts: ${{ inputs.max-retries }}
         # Windows defaults to PowerShell, which cannot read this expansion, and retry refuses sh there.
         shell: bash
-        command: dotnet restore ${PROJECT:+"$PROJECT"} --verbosity normal
+        # --locked-mode fails on a stale lock file instead of rewriting it. A project with
+        # no lock file restores as before.
+        command: dotnet restore ${PROJECT:+"$PROJECT"} --locked-mode --verbosity normal
 
     - name: Build Solution
       id: build
