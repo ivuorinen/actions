@@ -79,6 +79,26 @@ The status should be failure
 End
 End
 
+Context "when pinning what the MegaLinter step runs"
+It "runs the MegaLinter image by digest"
+When run grep -Eq '^ +uses: docker://ghcr\.io/oxsecurity/megalinter-cupcake:[^@ ]+@sha256:[0-9a-f]{64}$' "$ACTION_FILE"
+The status should be success
+End
+
+It "has no container image reference without a digest"
+When run bash -c "grep -E 'docker://' '$ACTION_FILE' | grep -Ev '@sha256:[0-9a-f]{64}'"
+The status should be failure
+The output should equal ""
+End
+End
+
+Context "when uploading the MegaLinter reports"
+It "leaves hidden files out of the artifact"
+When run grep -q 'include-hidden-files' "$ACTION_FILE"
+The status should be failure
+End
+End
+
 Context "when testing outputs"
 It "produces all expected outputs"
 When call test_action_outputs "$ACTION_DIR" "token" "ghp_test" "username" "test" "email" "test@example.com"

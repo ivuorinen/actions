@@ -662,7 +662,9 @@ runs:
     - name: MegaLinter
       # You can override MegaLinter flavor used to have faster performances
       # More info at https://megalinter.io/latest/flavors/
-      uses: oxsecurity/megalinter/flavors/cupcake@f2fe8c1cba37091848df3e524066c8c23ef353ed # v10.2.0
+      # Runs the image directly: the flavor action starts it by a mutable tag, so
+      # pinning that action's SHA would not pin the image that gets GITHUB_TOKEN.
+      uses: docker://ghcr.io/oxsecurity/megalinter-cupcake:v10.2.0@sha256:0e62d95de2e4388530579e1cdf531e3752ac70549ab78666c64429bd734dbae7
       id: ml
 
       # All available variables are described in documentation
@@ -710,7 +712,6 @@ runs:
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: MegaLinter reports
-        include-hidden-files: 'true'
         path: |
           megalinter-reports
           mega-linter.log
