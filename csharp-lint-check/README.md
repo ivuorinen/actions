@@ -15,7 +15,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: C# Lint Check
@@ -34,27 +33,25 @@ jobs:
 
 ## 📤 Outputs
 
-| Parameter        | Description                           |
-|------------------|---------------------------------------|
-| `errors_count`   | Number of formatting errors found     |
-| `lint_status`    | Overall lint status (success/failure) |
-| `warnings_count` | Number of formatting warnings found   |
+| Parameter        | Description                                                                        |
+|------------------|------------------------------------------------------------------------------------|
+| `errors_count`   | Number of formatting changes dotnet format would make                              |
+| `lint_status`    | Overall lint status (success/failure)                                              |
+| `warnings_count` | Always 0; the dotnet format report has no severity, so all changes count as errors |
 
 ## 🔐 Permissions
 
 This action requires the following permissions:
 
-| Permission        | Access Level |
-|-------------------|--------------|
-| `contents`        | `read`       |
-| `security-events` | `write`      |
+| Permission | Access Level |
+|------------|--------------|
+| `contents` | `read`       |
 
 **Usage in workflow:**
 
 ```yaml
 permissions:
   contents: read
-  security-events: write
 ```
 
 ## 💡 Examples
