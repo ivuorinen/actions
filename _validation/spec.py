@@ -225,7 +225,7 @@ SPECS: dict[str, ActionSpec] = {
     "npm-semantic-release": {
         "required": ["npm_token"],
         "checks": {
-            "extra_plugins": "plugin_list",
+            "extra_plugins": "npm_spec_list",
             "github_token": "github_token",
             "node-version": "node_version",
             "npm_token": "github_token",
