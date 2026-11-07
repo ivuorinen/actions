@@ -70,4 +70,19 @@ The status should be success
 The output should include "hello_world"
 End
 End
+
+Describe "step-outputs fixture"
+It "resolves an earlier step's output from HARNESS_STEP_OUTPUTS in run_step"
+export HARNESS_STEP_OUTPUTS='{"first":{"outputs":{"flag":"seeded"}}}'
+When call run_step "${FIXTURES}/step-outputs" "reader"
+The status should be success
+Assert expect_output seen seeded
+End
+
+It "resolves an earlier step's output to empty without HARNESS_STEP_OUTPUTS"
+When call run_step "${FIXTURES}/step-outputs" "reader"
+The status should be success
+Assert expect_output seen ""
+End
+End
 End
