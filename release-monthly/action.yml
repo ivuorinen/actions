@@ -74,14 +74,13 @@ runs:
       id: create-release
       shell: sh
       env:
-        INPUT_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ inputs.token }}
         INPUT_PREFIX: ${{ inputs.prefix }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
       run: |
         set -eu
         # Consume inputs via this step's env block (no $GITHUB_ENV round-trip,
         # which would be an env-var injection sink for newline-bearing values)
-        GITHUB_TOKEN="$INPUT_TOKEN"
         PREFIX="$INPUT_PREFIX"
         DRY_RUN="$INPUT_DRY_RUN"
 
@@ -212,6 +211,7 @@ runs:
           echo "Creating release ${release_tag}..."
           release_url=$(gh release create "${release_tag}" \
               --repo="${GITHUB_REPOSITORY}" \
+              --target="${GITHUB_SHA}" \
               --title="${release_tag}" \
               --generate-notes 2>/dev/null) || {
             echo "::error::Failed to create release"
@@ -229,11 +229,9 @@ runs:
       shell: sh
       env:
         RELEASE_TAG: ${{ steps.create-release.outputs.release_tag }}
-        INPUT_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ inputs.token }}
       run: |-
         set -eu
-        # Use input token directly
-        GITHUB_TOKEN="$INPUT_TOKEN"
 
         # Verify the release was created
         if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
