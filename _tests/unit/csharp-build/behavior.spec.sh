@@ -88,4 +88,42 @@ The status should be success
 The stdout should include "Tests completed successfully"
 End
 End
+
+Describe "test-project detection"
+# The file names below must decide detection on their own, so the test project the
+# outer setup writes at the workspace root is removed first.
+remove_default_project() { rm -f Tests.csproj; }
+Before 'remove_default_project'
+
+It "detects a test project whose path contains a space"
+mkdir -p "my tests"
+printf '<PackageReference Include="xunit" />\n' >"my tests/my tests.csproj"
+mock_command dotnet "test*" "" 0
+
+When call run_step "${ACTION_DIR}" "test"
+The status should be success
+The stdout should include "Tests completed successfully"
+Assert expect_output status success
+End
+
+It "detects a test project whose filename starts with a dash"
+printf '<PackageReference Include="xunit" />\n' >-tests.csproj
+mock_command dotnet "test*" "" 0
+
+When call run_step "${ACTION_DIR}" "test"
+The status should be success
+The stdout should include "Tests completed successfully"
+Assert expect_output status success
+End
+
+It "skips tests when no test project exists"
+mkdir -p "my app"
+printf '<Project />\n' >"my app/my app.csproj"
+
+When call run_step "${ACTION_DIR}" "test"
+The status should be success
+The stdout should include "No test projects found"
+Assert expect_output status skipped
+End
+End
 End
