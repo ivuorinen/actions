@@ -3,9 +3,19 @@
 The two copies must accept exactly the same targets, so this holds them to one input set.
 """
 
+import importlib.util
+from pathlib import Path
+
 import kit
 import pytest
-import sync
+
+_SYNC_PATH = Path(__file__).resolve().parents[2] / "sync-labels" / "sync.py"
+_SPEC = importlib.util.spec_from_file_location("sync_labels_sync", _SYNC_PATH)
+if _SPEC is None or _SPEC.loader is None:
+    _MSG = f"cannot load {_SYNC_PATH}"
+    raise ImportError(_MSG)
+sync = importlib.util.module_from_spec(_SPEC)
+_SPEC.loader.exec_module(sync)
 
 TARGETS = [
     "owner/repo",
