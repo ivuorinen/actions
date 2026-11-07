@@ -89,6 +89,29 @@ The stdout should include "2026.4.1"
 Assert expect_output release_tag "2026.4.1"
 End
 
+Describe "release creation target"
+# `gh release create` cuts a missing tag from the default branch tip unless
+# --target is given, so the release must be pinned to the commit the workflow
+# ran on (GITHUB_SHA). `--target` only applies when the tag does not exist yet,
+# which is the only case here: the tag is computed as the next unused version.
+# The create mock matches only when --target carries GITHUB_SHA; without it the
+# call is unregistered, exits 127, and the step fails.
+It "pins the new release to GITHUB_SHA"
+export GITHUB_SHA="0123456789abcdef0123456789abcdef01234567"
+export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+export INPUT_PREFIX=""
+export INPUT_DRY_RUN="false"
+mock_clock "2026" "04"
+mock_command gh "release list --limit 1*" "2026.3.7"
+mock_command gh "release create 2026.4.0*--target=${GITHUB_SHA}*" "https://example.test/release/2026.4.0"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "Release created successfully"
+Assert expect_output release_url "https://example.test/release/2026.4.0"
+End
+End
+
 Describe "month normalization"
 # The step must strip the leading zero from `date -u +%m` without POSIX printf,
 # which parses a leading-zero argument as octal. 08 and 09 are the discriminating

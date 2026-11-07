@@ -95,6 +95,33 @@ The output should include "previous-tag"
 End
 End
 
+Context "when passing the token to gh"
+# gh reads GH_TOKEN (or an exported GITHUB_TOKEN). A plain shell assignment is
+# not exported, so the token must arrive through the step's env block, and only
+# on the steps that run gh.
+It "sets GH_TOKEN on the Create Release step"
+When call yq -r '.runs.steps[] | select(.id == "create-release") | .env.GH_TOKEN' "$ACTION_FILE"
+The output should equal '${{ inputs.token }}'
+End
+
+It "sets GH_TOKEN on the Verify Release step"
+When call yq -r '.runs.steps[] | select(.name == "Verify Release") | .env.GH_TOKEN' "$ACTION_FILE"
+The output should equal '${{ inputs.token }}'
+End
+
+It "does not assign GITHUB_TOKEN in a shell script"
+When call yq -r '.runs.steps[].run // ""' "$ACTION_FILE"
+The output should not include 'GITHUB_TOKEN='
+End
+
+It "gives GH_TOKEN only to steps that call gh"
+When call yq -r '.runs.steps[] | select(.env.GH_TOKEN != null) | .name' "$ACTION_FILE"
+The line 1 of output should equal "Create Release"
+The line 2 of output should equal "Verify Release"
+The lines of output should equal 2
+End
+End
+
 Context "when validating security"
 It "validates token is required"
 When call validate_input_python "release-monthly" "token" ""
