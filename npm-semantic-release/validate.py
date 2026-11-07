@@ -69,6 +69,21 @@ def check_node_version(value: str) -> str | None:
     return "must be a Node version (e.g. 20, 20.11.0, lts/*, latest)"
 
 
+def check_opaque_token(value: str) -> str | None:
+    """Token whose format its issuer owns (npm, Docker Hub): rejects only what cannot be one.
+
+    No prefix, length or alphabet is enforced, so a real token never fails on a format this
+    repo guessed. Whitespace and control characters are refused because a line break would add
+    lines to the ``.npmrc`` or ``GITHUB_OUTPUT`` file a token is written to. Shell metacharacters
+    are not refused: consumers read the value from a quoted env var and never parse it as shell.
+    """
+    if _skip(value):
+        return None
+    if re.search(r"[\s\x00-\x1f\x7f-\x9f]", value):
+        return "must not contain whitespace or control characters"
+    return None
+
+
 def check_plugin_list(value: str) -> str | None:
     """Comma/pipe-separated plugin specs: name, @scope/name, optional @version (e.g. pkg@^9.3.1)."""
     if _skip(value):
@@ -116,7 +131,7 @@ CHECKS = {
     "extra_plugins": check_plugin_list,
     "github_token": check_github_token,
     "node-version": check_node_version,
-    "npm_token": check_github_token,
+    "npm_token": check_opaque_token,
     "registry-url": check_url,
     "scope": check_scope,
 }

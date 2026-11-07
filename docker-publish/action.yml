@@ -44,7 +44,7 @@ inputs:
     description: 'Docker image name (defaults to repository name)'
     required: false
   tags:
-    description: 'Comma-separated list of tags (e.g., latest,v1.0.0)'
+    description: 'Comma-separated list of tags with no spaces (e.g., latest,v1.0.0)'
     required: false
     default: 'latest'
   platforms:
@@ -74,7 +74,7 @@ inputs:
     description: 'Docker Hub username (required if publishing to Docker Hub)'
     required: false
   dockerhub-token:
-    description: 'Docker Hub token (required if publishing to Docker Hub)'
+    description: 'Docker Hub token (required if publishing to Docker Hub). Must not contain whitespace or control characters.'
     required: false
 
 outputs:

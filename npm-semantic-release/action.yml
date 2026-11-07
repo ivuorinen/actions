@@ -15,7 +15,7 @@ branding:
 
 inputs:
   npm_token:
-    description: 'NPM token for publishing.'
+    description: 'NPM token for publishing, in any format the registry issues. Must not contain whitespace or control characters.'
     required: true
   github_token:
     description: 'GitHub token for creating releases, tags, and PR comments.'

@@ -47,6 +47,21 @@ def check_github_token(value: str) -> str | None:
     return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
+def check_opaque_token(value: str) -> str | None:
+    """Token whose format its issuer owns (npm, Docker Hub): rejects only what cannot be one.
+
+    No prefix, length or alphabet is enforced, so a real token never fails on a format this
+    repo guessed. Whitespace and control characters are refused because a line break would add
+    lines to the ``.npmrc`` or ``GITHUB_OUTPUT`` file a token is written to. Shell metacharacters
+    are not refused: consumers read the value from a quoted env var and never parse it as shell.
+    """
+    if _skip(value):
+        return None
+    if re.search(r"[\s\x00-\x1f\x7f-\x9f]", value):
+        return "must not contain whitespace or control characters"
+    return None
+
+
 def check_scope(value: str) -> str | None:
     """Npm scope — ``@`` followed by a lowercase name (e.g. ``@my-org``)."""
     if _skip(value):
@@ -59,12 +74,12 @@ def check_scope(value: str) -> str | None:
 
 
 def check_strict_semantic_version(value: str) -> str | None:
-    """Strict SemVer: exactly ``X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
+    """Strict SemVer: ``[v]X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
     if _skip(value) or value.lower() == "latest":
         return None
-    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", value):
+    if re.fullmatch(r"[vV]?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", value):
         return None
-    return "must be a strict semantic version X.Y.Z (optionally -prerelease / +build)"
+    return "must be a strict semantic version X.Y.Z or vX.Y.Z (optionally -prerelease / +build)"
 
 
 def check_url(value: str) -> str | None:
@@ -88,7 +103,7 @@ def check_url(value: str) -> str | None:
 ACTION = "npm-publish"
 
 CHECKS = {
-    "npm_token": check_github_token,
+    "npm_token": check_opaque_token,
     "package-version": check_strict_semantic_version,
     "registry-url": check_url,
     "scope": check_scope,

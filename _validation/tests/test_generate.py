@@ -118,6 +118,60 @@ def test_rejected_value_cannot_start_a_workflow_command(separator):
     assert all(line.startswith("::error::") for line in result.stdout.splitlines())
 
 
+# Fabricated, shaped like the real thing. The generated validators are what callers run, so
+# these go through them rather than through kit.CHECKS.
+NPM_TOKEN = "npm_" + "aB3dE6gH9j" * 3 + "k1M2n3"
+DOCKERHUB_PAT = "dckr_pat_" + "aB3-dE6_gH9" * 2 + "k1M2n"
+
+
+@pytest.mark.parametrize(
+    ("action", "env"),
+    [
+        ("npm-publish", {"INPUT_NPM_TOKEN": NPM_TOKEN}),
+        ("npm-semantic-release", {"INPUT_NPM_TOKEN": NPM_TOKEN}),
+        ("docker-publish", {"INPUT_DOCKERHUB_TOKEN": DOCKERHUB_PAT}),
+        ("docker-publish", {"INPUT_TAGS": "latest,v1.0.0"}),
+        ("docker-publish", {"INPUT_TAGS": "v2025.04.05-rc.1,latest"}),
+        ("npm-publish", {"INPUT_NPM_TOKEN": NPM_TOKEN, "INPUT_PACKAGE_VERSION": "v1.0.0"}),
+        ("npm-publish", {"INPUT_NPM_TOKEN": NPM_TOKEN, "INPUT_PACKAGE_VERSION": "v1.0.0-rc.1"}),
+        ("npm-publish", {"INPUT_NPM_TOKEN": NPM_TOKEN, "INPUT_PACKAGE_VERSION": "v1.0.0+build"}),
+    ],
+)
+def test_real_world_values_pass_the_generated_validator(action, env):
+    result = _run(action, env)
+    assert result.returncode == 0, result.stdout
+
+
+@pytest.mark.parametrize(
+    ("action", "env", "input_name"),
+    [
+        ("npm-publish", {"INPUT_NPM_TOKEN": NPM_TOKEN + "\nsecond-line"}, "npm_token"),
+        ("npm-publish", {"INPUT_NPM_TOKEN": NPM_TOKEN + " x"}, "npm_token"),
+        ("npm-semantic-release", {"INPUT_NPM_TOKEN": NPM_TOKEN + "\n"}, "npm_token"),
+        ("docker-publish", {"INPUT_DOCKERHUB_TOKEN": DOCKERHUB_PAT + "\n"}, "dockerhub-token"),
+        ("docker-publish", {"INPUT_TAGS": "latest, v1.0.0"}, "tags"),
+        ("docker-publish", {"INPUT_TAGS": "1.0.0+build"}, "tags"),
+        (
+            "npm-publish",
+            {"INPUT_NPM_TOKEN": NPM_TOKEN, "INPUT_PACKAGE_VERSION": "v1.0"},
+            "package-version",
+        ),
+    ],
+)
+def test_unsafe_values_fail_the_generated_validator(action, env, input_name):
+    result = _run(action, env)
+    assert result.returncode == 1
+    assert f"::error::{action}: " in result.stdout
+    assert input_name in result.stdout
+
+
+@pytest.mark.parametrize("action", ["npm-publish", "npm-semantic-release"])
+def test_blank_required_token_is_reported_as_missing(action):
+    result = _run(action, {"INPUT_NPM_TOKEN": " \n"})
+    assert result.returncode == 1
+    assert "npm_token: required input is missing" in result.stdout
+
+
 def test_invalid_input_is_rejected_with_annotation():
     result = _run("docker-build", {"INPUT_TAG": "bad tag", "INPUT_MAX_RETRIES": "999"})
     assert result.returncode == 1

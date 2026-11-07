@@ -35,6 +35,63 @@ The status should be success
 End
 End
 
+Context "when validating dockerhub-token input"
+# Fabricated. Assembled at runtime so secret scanners don't read the fixture as a real token.
+TOKEN_BODY="aaaaaaaaaaaaaaaaaaaaaaaaaaa"
+
+It "accepts a personal access token"
+When call validate_input_python "docker-publish" "dockerhub-token" "dckr_pat_${TOKEN_BODY}"
+The status should be success
+End
+It "accepts an organization access token"
+When call validate_input_python "docker-publish" "dockerhub-token" "dckr_oat_${TOKEN_BODY}"
+The status should be success
+End
+It "accepts an empty token (publishing to GitHub only)"
+When call validate_input_python "docker-publish" "dockerhub-token" ""
+The status should be success
+End
+It "rejects a token containing whitespace"
+When call validate_input_python "docker-publish" "dockerhub-token" "dckr_pat_aaaa bbbb"
+The status should be failure
+End
+It "rejects a token containing a line break"
+When call validate_input_python "docker-publish" "dockerhub-token" "$(printf 'dckr_pat_aaaa\nsecond-line')"
+The status should be failure
+End
+End
+
+Context "when validating tags input"
+It "accepts a single tag"
+When call validate_input_python "docker-publish" "tags" "latest"
+The status should be success
+End
+It "accepts a comma-separated list"
+When call validate_input_python "docker-publish" "tags" "latest,v1.0.0"
+The status should be success
+End
+It "accepts a pre-release tag"
+When call validate_input_python "docker-publish" "tags" "latest,v2025.04.05-rc.1"
+The status should be success
+End
+It "rejects build metadata, which a Docker tag cannot carry"
+When call validate_input_python "docker-publish" "tags" "1.0.0+build"
+The status should be failure
+End
+It "rejects whitespace around a comma, which the action would refuse later"
+When call validate_input_python "docker-publish" "tags" "latest, v1.0.0"
+The status should be failure
+End
+It "rejects an empty entry"
+When call validate_input_python "docker-publish" "tags" "latest,,v1.0.0"
+The status should be failure
+End
+It "rejects an entry that is not a bare tag"
+When call validate_input_python "docker-publish" "tags" "latest,registry/image:v1"
+The status should be failure
+End
+End
+
 Context "when checking action.yml structure"
 It "has valid YAML syntax"
 When call validate_action_yml_quiet "$ACTION_FILE"

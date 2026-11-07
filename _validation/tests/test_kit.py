@@ -41,6 +41,36 @@ CASES: dict[str, dict[str, list[str]]] = {
             "${{ secrets.GITHUB_TOKEN }}",
         ],
     },
+    "opaque_token": {
+        # fabricated values shaped like real tokens, built up so no scanner reads them as secrets
+        "valid": [
+            "npm_" + "aB3dE6gH9j" * 3 + "k1M2n3",
+            "dckr_pat_" + "aB3-dE6_gH9" * 2 + "k1M2n",
+            "dckr_oat_" + "aB3-dE6_gH9" * 2 + "k1M2n",
+            "ghp_" + "a" * 36,
+            # a JWT-shaped and a base64-shaped token from a self-hosted registry
+            "aGVhZGVy" + "." + "cGF5bG9hZA" + "." + "c2ln-_",
+            "YWJj" + "+ZGVm/Z2hp=",
+            # the format is the issuer's to define, so an unrecognised one is not an error
+            "some-registry-token-format",
+        ],
+        "invalid": [
+            "has space",
+            " npm_leading",
+            "npm_trailing ",
+            "npm_abc\n",
+            "npm_abc\nsecond-line",
+            "npm_abc\r\nsecond-line",
+            "npm\tabc",
+            "npm\x00abc",
+            "npm\x7fabc",
+            "npm\x85abc",
+            "npm\xa0abc",
+            "npm" + chr(0x2028) + "abc",
+            "ghp_" + "a" * 36 + "; rm -rf /",
+            "$(rm -rf /)",
+        ],
+    },
     "semantic_version": {
         "valid": [
             "1.2.3",
@@ -55,8 +85,8 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["1.2.a", "a.b.c", "1.2.3-", "1.2.3+", "1.2.3.4.5"],
     },
     "strict_semantic_version": {
-        "valid": ["1.2.3", "1.2.3-rc.1", "1.2.3+build.7", "latest"],
-        "invalid": ["1.2", "1", "v1.2.3", "abc"],
+        "valid": ["1.2.3", "v1.2.3", "V1.2.3", "1.2.3-rc.1", "1.2.3+build.7", "latest"],
+        "invalid": ["1.2", "1", "v1.2", "v1", "vv1.2.3", "abc"],
     },
     "no_prefix_version": {
         "valid": ["1.2.3", "1.2", "1"],
@@ -125,6 +155,35 @@ CASES: dict[str, dict[str, list[str]]] = {
     "docker_tag": {
         "valid": ["v1.0.0", "latest", "sha-1234567", "1.0.0", "a"],
         "invalid": ["-bad", "bad-", "in valid"],
+    },
+    "docker_tag_list": {
+        "valid": [
+            "latest",
+            "latest,v1.0.0",
+            "v1.0.0,v1.0,v1,latest",
+            "sha-1234567",
+            "_private",
+            "trailing-",
+            "a" * 128,
+        ],
+        "invalid": [
+            "latest,,v1.0.0",
+            "latest,",
+            ",latest",
+            "latest, v1.0.0",
+            "latest ,v1.0.0",
+            "-bad",
+            ".bad",
+            "in valid",
+            "latest\n",
+            "latest\nv1.0.0",
+            "a:b",
+            "a/b",
+            "a@b",
+            "täg",
+            "a" * 129,
+            "latest," + "a" * 129,
+        ],
     },
     "cache_mode": {"valid": ["max", "min", "inline"], "invalid": ["fast", "MAX"]},
     "network_mode": {"valid": ["host", "none", "default"], "invalid": ["bridge"]},
@@ -409,6 +468,50 @@ def test_semver_prerelease_and_build_metadata():
     assert kit.check_semantic_version("1.0.0-rc.1") is None
     assert kit.check_semantic_version("2.0.0-rc.1+build.1") is None
     assert kit.check_semantic_version("1.0.0-") is not None
+
+
+@pytest.mark.parametrize(
+    "value",
+    [
+        "1.0.0-rc.1",
+        "v1.0.0-rc.1",
+        "v2025.04.05-rc.1",
+        "1.0.0+build",
+        "v1.0.0+build",
+        "2025.4.5+sha.abc1234",
+        "v1.0.0-rc.1+build.7",
+    ],
+)
+def test_strict_semver_prerelease_and_build_metadata(value):
+    assert kit.check_strict_semantic_version(value) is None
+
+
+def test_docker_tag_list_prerelease_and_build_metadata():
+    # `-` is legal in a Docker tag and `+` is not, so the two SemVer suffixes part ways here
+    assert kit.check_docker_tag_list("1.0.0-rc.1") is None
+    assert kit.check_docker_tag_list("latest,v2025.04.05-rc.1") is None
+    assert kit.check_docker_tag_list("1.0.0+build") is not None
+    assert kit.check_docker_tag_list("latest,2025.4.5+sha.abc1234") is not None
+
+
+def test_opaque_token_refuses_line_breaks_behind_an_expression():
+    # a value that merely *starts* as an expression must not carry a line to a file sink
+    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}\n") is not None
+    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}\nsecond-line") is not None
+    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}\x00") is not None
+
+
+def test_opaque_token_verdicts_do_not_rely_on_the_expression_bypass(monkeypatch):
+    # with `_skip` narrowed to its empty-value half, real tokens still pass, unsafe values
+    # still fail, and a literal expression (which no runner resolved) no longer gets through
+    monkeypatch.setattr(kit, "_skip", lambda value: value.strip() == "")
+    assert kit.check_opaque_token("") is None
+    assert kit.check_opaque_token("   ") is None
+    assert kit.check_opaque_token("npm_" + "a" * 36) is None
+    assert kit.check_opaque_token("dckr_pat_" + "a" * 27) is None
+    assert kit.check_opaque_token("has space") is not None
+    assert kit.check_opaque_token("npm_abc\n") is not None
+    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}") is not None
 
 
 def test_every_check_has_a_documentation_example():
