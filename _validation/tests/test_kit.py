@@ -212,9 +212,60 @@ CASES: dict[str, dict[str, list[str]]] = {
     "timeout_with_unit": {"valid": ["5m", "30s", "500ms", "1h"], "invalid": ["5", "5min", "m5"]},
     "prefix": {"valid": ["v", "rel-", "a.b_c"], "invalid": ["a b", "a@b", "a:b"]},
     "json_format": {"valid": ["{}", '{"a": 1}', "[1, 2, 3]"], "invalid": ["{bad", "not json"]},
-    "command_args": {
-        "valid": ["--no-progress --prefer-dist", "--optimize-autoloader"],
-        "invalid": ["rm; foo", "$(whoami)", "a`b`"],
+    "composer_args": {
+        "valid": [
+            "--no-progress --prefer-dist --optimize-autoloader",
+            "--no-dev -o -a -n -q -vvv",
+            "  --no-scripts   --no-plugins  ",
+            "--prefer-install=source",
+            "--audit --audit-format=json",
+            "--ignore-platform-reqs",
+            "--ignore-platform-req=ext-*",
+            "--ignore-platform-req=php+",
+            "--apcu-autoloader-prefix=1.0.0-rc.1",
+        ],
+        "invalid": [
+            "rm; foo",
+            "$(whoami)",
+            "a`b`",
+            # Move the install. Composer also accepts abbreviated long options.
+            "--working-dir=/tmp",
+            "--working-dir",
+            "--work=/tmp",
+            "-d/tmp",
+            "-d",
+            "--no-dev --working-dir=/tmp",
+            # Turn off Composer's security blocking.
+            "--no-blocking",
+            "--no-security-blocking",
+            # Leave no usable vendor/ for the rest of the action.
+            "--dry-run",
+            "--download-only",
+            "--no-install",
+            "--no-autoloader",
+            "--help",
+            "--version",
+            # Not options, or options outside the exact spellings.
+            "--",
+            "vendor/package",
+            "-oa",
+            "1.0.0-rc.1",
+            "1.0.0+build",
+            # Only a space separates words, as the old check also required.
+            "--no-dev\t--no-scripts",
+            "--no-dev\n--no-scripts",
+            # Option values are restricted too.
+            "--prefer-install=vendor/*",
+            "--audit-format=xml",
+            "--ignore-platform-req=a/b",
+            "--ignore-platform-req=1.0.0+build+",
+            "--apcu-autoloader-prefix=1.0.0+build",
+            # These words reach Composer as arguments, so an expression cannot hide them.
+            "${{ x }} --working-dir=/tmp",
+            "${{ x }}--working-dir=/tmp",
+            "${{ --working-dir=/tmp }}",
+            "${{ -d/tmp }}",
+        ],
     },
     "license_key": {
         "valid": ["ABC-123_x", "$GITLEAKS_LICENSE", "${{ secrets.LIC }}", "b64+val/ue="],
