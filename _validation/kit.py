@@ -643,10 +643,10 @@ def check_linter_list(value: str) -> str | None:
 
 
 def check_plugin_list(value: str) -> str | None:
-    """Comma/pipe-separated plugin specs: name, @scope/name, optional @version (e.g. pkg@^9.3.1)."""
+    """Comma-separated plugin specs: name, @scope/name, optional @version (e.g. pkg@^9.3.1)."""
     if _skip(value):
         return None
-    for item in (part.strip() for part in re.split(r"[,|]", value)):
+    for item in (part.strip() for part in value.split(",")):
         if not item:
             return "plugin list must not contain empty entries"
         if not re.fullmatch(r"(@[a-zA-Z0-9][\w.-]*/)?[a-zA-Z0-9][\w.-]*(@[\w.^~*+-]+)?", item):
