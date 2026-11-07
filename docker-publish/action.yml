@@ -164,6 +164,7 @@ runs:
         esac
 
         # Build full tags (image:tag format)
+        # Deliberate split on commas; set -f keeps glob characters literal.
         tags=""
         _IFS="$IFS"
         IFS=','

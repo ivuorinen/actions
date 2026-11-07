@@ -89,6 +89,21 @@ The stdout should include "2026.4.1"
 Assert expect_output release_tag "2026.4.1"
 End
 
+It "strips the prefix as literal text, not as a pattern"
+# run_step skips the input validator, which is the only thing keeping pattern
+# characters out of the prefix. Read as a pattern, `v*` strips only the `v`, so
+# the version check sees `*2026.4.0` and rejects the tag.
+export INPUT_PREFIX="v*"
+export INPUT_DRY_RUN="true"
+mock_clock "2026" "04"
+mock_command gh "release list --limit 100*" ""
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "2026.4.0"
+Assert expect_output release_tag "v*2026.4.0"
+End
+
 Describe "month normalization"
 # The step must strip the leading zero from `date -u +%m` without POSIX printf,
 # which parses a leading-zero argument as octal. 08 and 09 are the discriminating
