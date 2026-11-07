@@ -70,4 +70,33 @@ The status should be success
 The output should include "hello_world"
 End
 End
+
+Describe "retry-step fixture"
+It "reports success when only an earlier line of an unguarded command fails"
+When call run_retry_step "${FIXTURES}/retry-step" "Unguarded"
+The status should be success
+End
+
+It "stops at the first failure when the command begins with set -eu"
+When call run_retry_step "${FIXTURES}/retry-step" "Guarded"
+The status should be failure
+End
+
+It "fails when a single-line command fails"
+When call run_retry_step "${FIXTURES}/retry-step" "Single line"
+The status should be failure
+End
+
+It "fails loudly when the named retry step does not exist"
+When call run_retry_step "${FIXTURES}/retry-step" "Missing"
+The status should be failure
+The stderr should include "retry step 'Missing' not found"
+End
+
+It "names only the multi-line command that does not begin with set -eu"
+When call list_unguarded_retry_commands "${FIXTURES}"
+The status should be success
+The output should equal "retry-step: Unguarded"
+End
+End
 End
