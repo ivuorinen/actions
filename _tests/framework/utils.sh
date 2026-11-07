@@ -369,6 +369,45 @@ run_action_tests() {
   fi
 }
 
+# Print each problem with the hash-locked requirements an action ships: a line in
+# requirements.txt without an exact pin and a sha256 hash, or an exact pin from
+# requirements.in that requirements.txt does not hold. Prints nothing for a
+# complete lock.
+requirements_lock_problems() {
+  python3 - "$1" <<'PY'
+import pathlib
+import re
+import sys
+
+action_dir = pathlib.Path(sys.argv[1])
+locked = set()
+lock_text = (action_dir / "requirements.txt").read_text(encoding="utf-8")
+for line in lock_text.replace("\\\n", " ").splitlines():
+    line = line.strip()
+    if not line or line.startswith("#"):
+        continue
+    pin = re.match(r"[A-Za-z0-9._-]+==[^\s;]+", line)
+    if pin is None or "--hash=sha256:" not in line:
+        print(f"not locked: {line[:80]}")
+    else:
+        locked.add(pin.group().lower())
+if not locked:
+    print("requirements.txt holds no requirements")
+for line in (action_dir / "requirements.in").read_text(encoding="utf-8").splitlines():
+    line = line.strip()
+    if "==" in line and not line.startswith("#") and line.lower() not in locked:
+        print(f"missing from requirements.txt: {line}")
+PY
+}
+
+# Print the setup-dotnet cache line of an action.yml, and fail unless it turns the
+# cache on only when a lock file exists: with `cache: true` and no matching file,
+# setup-dotnet fails the step.
+lock_aware_dotnet_cache() {
+  ! grep -Fq 'cache: true' "$1" && grep -F "cache: \${{ hashFiles('**/packages.lock.json') != '' }}" "$1"
+}
+
 # Export all functions
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name get_action_runs_using is_input_required
 export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests
+export -f requirements_lock_problems lock_aware_dotnet_cache

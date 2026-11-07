@@ -111,10 +111,14 @@ runs:
       id: install-ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      env:
+        ACTION_PATH: ${{ github.action_path }}
       with:
         timeout_minutes: 5
         max_attempts: ${{ inputs.max-retries }}
-        command: 'pip install ansible-lint==6.22.1'
+        # requirements.txt is generated from requirements.in by the command in its header.
+        # --only-binary keeps a package's setup.py from running, which hash checking alone does not.
+        command: 'pip install --require-hashes --only-binary=:all: -r "$ACTION_PATH/requirements.txt"'
 
     - name: Run ansible-lint
       if: steps.check-files.outputs.files_found == 'true'
