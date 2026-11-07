@@ -16,6 +16,9 @@ Sourced automatically by `_tests/unit/spec_helper.sh`.
   registered glob that matches wins.
 - `expect_output <key> <value>` — assert `key=value` is present as a whole
   line in `$GITHUB_OUTPUT`.
+- `expect_argv <cmd> <arg>...` — assert a mocked `<cmd>` received these exact
+  argv entries next to each other in one call. Use it where word splitting
+  matters: `mock_command` globs match the space-joined argv and cannot see it.
 - `harness_reset` — clear per-test session state. Call this from `BeforeEach`
   and `AfterEach`.
 

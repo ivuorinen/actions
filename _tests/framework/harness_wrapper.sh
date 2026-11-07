@@ -6,6 +6,7 @@
 #   run_all_owned_steps <action-dir>   -- execute every run: step in order
 #   mock_command <cmd> <argv-glob> <stdout> [exit-code]
 #   expect_output <key> <value>        -- whole-line grep on $GITHUB_OUTPUT
+#   expect_argv <cmd> <arg>...         -- exact, consecutive argv entries of a mocked call
 #
 # $GITHUB_OUTPUT and $GITHUB_ENV must be set by the spec (shellspec_setup_test_env).
 
@@ -108,5 +109,20 @@ expect_output() {
   return 0
 }
 
-export -f run_step run_all_owned_steps mock_command expect_output harness_reset
+# mock_command matches a space-joined argv, so it cannot tell `--flag "a b"` from
+# `--flag a b`. This compares the entries the mocked command really received.
+expect_argv() {
+  python3 - "${HARNESS_SESSION:?HARNESS_SESSION not set}/calls.jsonl" "$@" <<'PY'
+import json, sys
+path, cmd, *want = sys.argv[1:]
+with open(path, encoding="utf-8") as f:
+    argvs = [call[1:] for call in map(json.loads, f) if call[0] == cmd]
+if any(argv[i : i + len(want)] == want for argv in argvs for i in range(len(argv))):
+    sys.exit(0)
+sys.stderr.write(f"expect_argv: {want} not found in calls to {cmd}: {argvs}\n")
+sys.exit(1)
+PY
+}
+
+export -f run_step run_all_owned_steps mock_command expect_output expect_argv harness_reset
 export -f _harness_py _harness_ensure_session _harness_python _harness_project_root

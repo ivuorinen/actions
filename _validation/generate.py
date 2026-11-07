@@ -43,6 +43,7 @@ _HELPERS = (
     "_enum_list",
     "_int_in_range",
     "_shell_meta_error",
+    "_comma_key_value_error",
 )
 _HELPER_SOURCES = {name: inspect.getsource(getattr(kit, name)).strip() for name in _HELPERS}
 
