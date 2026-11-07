@@ -44,14 +44,10 @@ jobs:
     timeout-minutes: 30
 
     permissions:
-      actions: write
-      checks: write # Create and update check runs
-      contents: write
-      issues: write
-      packages: read # Access private packages
-      pull-requests: write
-      security-events: write
-      statuses: write
+      contents: read # Checkout; MegaLinter runs with APPLY_FIXES: none and never pushes
+      pull-requests: write # MegaLinter comment reporter and dependency review summary
+      security-events: write # Upload SARIF report
+      statuses: write # MegaLinter GitHub status reporter (commit statuses)
 
     steps:
       - name: Checkout Code
