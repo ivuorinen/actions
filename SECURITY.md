@@ -38,24 +38,15 @@ run: |
 
 ### 2. Secret Masking
 
-**Status**: ✅ Implemented in 7 critical actions
+Every action masks its credential inputs. Each action's generated `validate.py` registers those values with
+`::add-mask::` before it runs any check, so log output from that point on shows `***` instead of the value. An input
+counts as a credential when its check type in `_validation/spec.py` is listed in `MASKED_CHECKS` in
+`_validation/kit.py`.
 
-Actions that handle sensitive data use GitHub Actions secret masking to prevent accidental exposure in logs:
-
-- `npm-publish` - NPM authentication tokens
-- `docker-publish` - Docker Hub credentials (defense-in-depth masking)
-- `docker-publish-hub` - Docker Hub passwords
-- `docker-publish-gh` - GitHub tokens
-- `csharp-publish` - NuGet API keys
-- `php-composer` - Composer authentication tokens
-- `php-laravel-phpunit` - Database credentials
-
-**Implementation**:
-
-```yaml
-run: |
-  echo "::add-mask::$SECRET_VALUE"
-```
+**Limit**: the runner prints an action's `with:` values, and each step's `with:` and `env:` values, before that step
+starts. A value the runner does not already treat as a secret is visible in those lines, and an action cannot prevent
+that. The runner masks `secrets.*` and `github.token` from the start. Mask any other credential in your own workflow,
+in the step that creates it (see [Protect Secrets](#2-protect-secrets)).
 
 ### 3. SHA Pinning
 
@@ -124,15 +115,14 @@ permissions:
 - Never log sensitive values
 - Use GitHub Secrets for all credentials
 - Avoid exposing secrets in error messages
-- Use secret masking for custom secrets
+- Mask any credential that does not come from GitHub Secrets in the step that creates it
 
 ```yaml
-- name: Use Secret
-  env:
-    API_KEY: ${{ secrets.API_KEY }}
+- name: Use Generated Credential
   run: |
-    echo "::add-mask::$API_KEY"
-    # Use API_KEY safely
+    generated="$(fetch-credential)"
+    printf '::add-mask::%s\n' "$generated"
+    # Use the masked value in later commands
 ```
 
 ### 3. Validate Inputs

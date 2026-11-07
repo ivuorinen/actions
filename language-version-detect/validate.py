@@ -6,7 +6,8 @@ runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
 values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime).
+pass unchecked (their value is substituted at runtime). Inputs named in MASKED_INPUTS are
+masked in the job's logs before any check runs.
 """
 
 from __future__ import annotations
@@ -124,11 +125,25 @@ CHECKS = {
 REQUIRED = {"language"}
 
 
+MASKED_INPUTS: list[str] = ["token"]
+
+
+def _input(name: str) -> str:
+    """Return an input's raw value from its INPUT_* env var."""
+    return os.environ.get("INPUT_" + name.upper().replace("-", "_"), "")
+
+
 def main() -> None:
-    """Validate every declared input from its INPUT_* env var; fail with all reasons."""
+    """Mask secret inputs, then validate every declared input; fail with all reasons."""
+    # Masks come first so nothing printed below can reveal a secret. The runner decodes %25
+    # in command data, so a literal % has to be encoded to register the real value.
+    for input_name in MASKED_INPUTS:
+        for line in _input(input_name).splitlines():
+            if line.strip():
+                sys.stdout.write("::add-mask::" + line.strip().replace("%", "%25") + "\n")
     errors = []
     for input_name, check in CHECKS.items():
-        value = os.environ.get("INPUT_" + input_name.upper().replace("-", "_"), "")
+        value = _input(input_name)
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
