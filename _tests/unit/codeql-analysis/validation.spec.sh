@@ -331,6 +331,19 @@ The status should be success
 End
 End
 
+Describe "upload-results mapping to the analyze upload input"
+# Upstream treats a raw 'false' as 'failure-only' (still uploads on failure);
+# only 'never' disables the upload.
+upload_line() {
+  grep -E '^        upload: ' codeql-analysis/action.yml
+}
+
+It "maps true to always and anything else to never"
+When call upload_line
+The output should equal "        upload: \${{ inputs.upload-results == 'true' && 'always' || 'never' }}"
+End
+End
+
 Describe "complete action validation"
 It "validates the required language input with minimal config"
 When call validate_input_python "codeql-analysis" "language" "javascript"
