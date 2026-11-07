@@ -370,9 +370,9 @@ run_action_tests() {
 }
 
 # Print each problem with the hash-locked requirements an action ships: a line in
-# requirements.txt without an exact pin and a sha256 hash, or an exact pin from
-# requirements.in that requirements.txt does not hold. Prints nothing for a
-# complete lock.
+# requirements.lock.txt without an exact pin and a sha256 hash, or an exact pin
+# from requirements.in that the lock does not hold. Prints nothing for a complete
+# lock.
 requirements_lock_problems() {
   python3 - "$1" <<'PY'
 import pathlib
@@ -381,7 +381,7 @@ import sys
 
 action_dir = pathlib.Path(sys.argv[1])
 locked = set()
-lock_text = (action_dir / "requirements.txt").read_text(encoding="utf-8")
+lock_text = (action_dir / "requirements.lock.txt").read_text(encoding="utf-8")
 for line in lock_text.replace("\\\n", " ").splitlines():
     line = line.strip()
     if not line or line.startswith("#"):
@@ -392,11 +392,11 @@ for line in lock_text.replace("\\\n", " ").splitlines():
     else:
         locked.add(pin.group().lower())
 if not locked:
-    print("requirements.txt holds no requirements")
+    print("requirements.lock.txt holds no requirements")
 for line in (action_dir / "requirements.in").read_text(encoding="utf-8").splitlines():
     line = line.strip()
     if "==" in line and not line.startswith("#") and line.lower() not in locked:
-        print(f"missing from requirements.txt: {line}")
+        print(f"missing from requirements.lock.txt: {line}")
 PY
 }
 

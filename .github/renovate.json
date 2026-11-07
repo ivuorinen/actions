@@ -20,7 +20,7 @@
   "platformAutomerge": true,
   "pip-compile": {
     "managerFilePatterns": [
-      "/(^|/)requirements\\.txt$/"
+      "/(^|/)requirements\\.lock\\.txt$/"
     ]
   },
   "pip_requirements": {

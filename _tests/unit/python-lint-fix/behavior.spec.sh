@@ -120,7 +120,7 @@ It "installs the lint tools from the action's hash-locked requirements and no SA
 export INPUT_MAX_RETRIES="3"
 When call run_action
 The status should be success
-The contents of file "$TOOL_LOG" should include "pip install --require-hashes --only-binary=:all: --retries 3 -r ${ACTION_DIR}/requirements.txt"
+The contents of file "$TOOL_LOG" should include "pip install --require-hashes --only-binary=:all: --retries 3 -r ${ACTION_DIR}/requirements.lock.txt"
 The contents of file "$TOOL_LOG" should not include "flake8=="
 The contents of file "$TOOL_LOG" should not include "autopep8=="
 The contents of file "$TOOL_LOG" should not include "sarif"
