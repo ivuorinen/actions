@@ -9,6 +9,8 @@ on:
     paths:
       - '*/action.yml'
       - '_tests/**'
+      - '_tools/**'
+      - '.claude/hooks/**'
       - 'Makefile'
       - '.github/workflows/test-actions.yml'
   pull_request:
@@ -17,6 +19,8 @@ on:
     paths:
       - '*/action.yml'
       - '_tests/**'
+      - '_tools/**'
+      - '.claude/hooks/**'
       - 'Makefile'
       - '.github/workflows/test-actions.yml'
   # checkov:skip=CKV_GHA_7:Test-only workflow; inputs passed through env: blocks, never interpolated directly into shell

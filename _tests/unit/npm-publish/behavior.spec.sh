@@ -68,6 +68,16 @@ The status should be success
 End
 End
 
+It "emits an add-mask workflow command for the npm token"
+# Replaces an integration job that only echoed a message: a workflow step cannot
+# read its own job log, so masking can only be asserted at the step that issues it.
+setup_inputs "1.0.0"
+
+When call run_step "${ACTION_DIR}" "mask"
+The status should be success
+The stdout should equal "::add-mask::${INPUT_NPM_TOKEN}"
+End
+
 It "refuses to publish when the manifest version disagrees with the input version"
 # Guards against shipping a build whose manifest version is not the one the
 # caller asked for. No npm mock is registered, so if the guard is removed the

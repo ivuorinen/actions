@@ -18,6 +18,13 @@ DEFAULT_ACTION_FILTER=""
 PARALLEL_JOBS=4
 COVERAGE_ENABLED=true
 REPORT_FORMAT="console"
+# Overridable so a spec can run the runner without touching the outer run's reports
+REPORTS_DIR="${TEST_REPORTS_DIR:-${TEST_ROOT}/reports}"
+# Integration outcome counters, set by run_integration_tests. A workflow that was
+# skipped (no act, no workflow file) is counted separately and never as a run.
+INTEGRATION_ATTEMPTED=false
+INTEGRATION_RUN=0
+INTEGRATION_SKIPPED=0
 
 # Usage information
 usage() {
@@ -198,6 +205,16 @@ check_dependencies() {
     fi
   fi
 
+  # Unit specs call `uv run`; on a fresh clone or stale .venv uv prints its
+  # "creating/rebuilding .venv" progress to stderr, which ShellSpec counts as a
+  # warning and fails the first spec. Sync once here, quietly, before any spec runs.
+  if [[ $TEST_TYPE == "unit" || $TEST_TYPE == "all" ]] && command -v uv >/dev/null 2>&1; then
+    if ! (cd "${TEST_ROOT}/.." && uv sync --quiet); then
+      log_error "uv sync failed"
+      exit 1
+    fi
+  fi
+
   # Check for coverage tools (if enabled)
   if [[ $COVERAGE_ENABLED == "true" ]]; then
     if ! command -v kcov >/dev/null 2>&1; then
@@ -290,7 +307,7 @@ run_unit_tests() {
   log_info "Running unit tests for ${#actions[@]} actions..."
 
   # Create test results directory
-  mkdir -p "${TEST_ROOT}/reports/unit"
+  mkdir -p "${REPORTS_DIR}/unit"
 
   for action in "${actions[@]}"; do
     local unit_test_dir="${TEST_ROOT}/unit/${action}"
@@ -300,7 +317,7 @@ run_unit_tests() {
 
       # Run ShellSpec tests
       local test_result=0
-      local output_file="${TEST_ROOT}/reports/unit/${action}.txt"
+      local output_file="${REPORTS_DIR}/unit/${action}.txt"
 
       # Run shellspec and capture both exit code and output.
       # Pass the full relative path _tests/unit/$action so ShellSpec resolves the
@@ -376,7 +393,10 @@ run_integration_tests() {
   log_info "Running integration tests for ${#actions[@]} actions..."
 
   # Create test results directory
-  mkdir -p "${TEST_ROOT}/reports/integration"
+  mkdir -p "${REPORTS_DIR}/integration"
+  INTEGRATION_ATTEMPTED=true
+  INTEGRATION_RUN=0
+  INTEGRATION_SKIPPED=0
 
   for action in "${actions[@]}"; do
     local workflow_file="${TEST_ROOT}/integration/workflows/${action}-test.yml"
@@ -386,7 +406,7 @@ run_integration_tests() {
 
       # Run with act if available, otherwise skip
       if command -v act >/dev/null 2>&1; then
-        local output_file="${TEST_ROOT}/reports/integration/${action}.txt"
+        local output_file="${REPORTS_DIR}/integration/${action}.txt"
 
         # Create temp directory for artifacts
         local artifacts_dir
@@ -415,15 +435,22 @@ run_integration_tests() {
         rm -rf "$artifacts_dir"
       else
         log_warning "Skipping integration test for $action (act not available)"
+        INTEGRATION_SKIPPED=$((INTEGRATION_SKIPPED + 1))
       fi
     else
       log_warning "No integration test workflow found for: $action"
+      INTEGRATION_SKIPPED=$((INTEGRATION_SKIPPED + 1))
     fi
   done
+
+  INTEGRATION_RUN=$((${#passed_tests[@]} + ${#failed_tests[@]}))
 
   # Report results
   log_info "Integration test results:"
   log_success "  Passed: ${#passed_tests[@]} actions"
+  if [[ $INTEGRATION_SKIPPED -gt 0 ]]; then
+    log_warning "  Skipped: ${INTEGRATION_SKIPPED} actions"
+  fi
   if [[ ${#failed_tests[@]} -gt 0 ]]; then
     log_error "  Failed: ${#failed_tests[@]} actions (${failed_tests[*]})"
     return 1
@@ -480,7 +507,7 @@ EOF
 generate_test_report() {
   log_info "Generating test report in format: $REPORT_FORMAT"
 
-  local report_dir="${TEST_ROOT}/reports"
+  local report_dir="${REPORTS_DIR}"
   mkdir -p "$report_dir"
 
   case "$REPORT_FORMAT" in
@@ -502,7 +529,7 @@ generate_test_report() {
 
 # Generate JSON test report
 generate_json_report() {
-  local report_file="${TEST_ROOT}/reports/test-results.json"
+  local report_file="${REPORTS_DIR}/test-results.json"
 
   cat >"$report_file" <<EOF
 {
@@ -514,8 +541,9 @@ generate_json_report() {
     "coverage_enabled": $COVERAGE_ENABLED
   },
   "results": {
-    "unit_tests": $(find "${TEST_ROOT}/reports/unit" -name "*.txt" 2>/dev/null | wc -l | tr -d ' '),
-    "integration_tests": $(find "${TEST_ROOT}/reports/integration" -name "*.txt" 2>/dev/null | wc -l | tr -d ' ')
+    "unit_tests": $(find "${REPORTS_DIR}/unit" -name "*.txt" 2>/dev/null | wc -l | tr -d ' '),
+    "integration_tests": $INTEGRATION_RUN,
+    "integration_skipped": $INTEGRATION_SKIPPED
   }
 }
 EOF
@@ -531,7 +559,7 @@ generate_sarif_report() {
     return 0
   fi
 
-  local report_file="${TEST_ROOT}/reports/test-results.sarif"
+  local report_file="${REPORTS_DIR}/test-results.sarif"
   local run_id
   run_id="github-actions-test-$(date +%s)"
   local timestamp
@@ -586,8 +614,8 @@ generate_sarif_report() {
   _sarif_need_int_rule=1
 
   # Process unit test failures
-  if [[ -d "${TEST_ROOT}/reports/unit" ]]; then
-    for test_file in "${TEST_ROOT}/reports/unit"/*.txt; do
+  if [[ -d "${REPORTS_DIR}/unit" ]]; then
+    for test_file in "${REPORTS_DIR}/unit"/*.txt; do
       if [[ -f "$test_file" ]]; then
         local action_name
         action_name=$(basename "$test_file" .txt)
@@ -620,8 +648,8 @@ generate_sarif_report() {
   fi
 
   # Process integration test failures similarly
-  if [[ -d "${TEST_ROOT}/reports/integration" ]]; then
-    for test_file in "${TEST_ROOT}/reports/integration"/*.txt; do
+  if [[ -d "${REPORTS_DIR}/integration" ]]; then
+    for test_file in "${REPORTS_DIR}/integration"/*.txt; do
       if [[ -f "$test_file" ]]; then
         local action_name
         action_name=$(basename "$test_file" .txt)
@@ -682,16 +710,15 @@ generate_console_report() {
   echo "Coverage Enabled: $COVERAGE_ENABLED"
   echo ""
 
-  if [[ -d "${TEST_ROOT}/reports/unit" ]]; then
+  if [[ -d "${REPORTS_DIR}/unit" ]]; then
     local unit_tests
-    unit_tests=$(find "${TEST_ROOT}/reports/unit" -name "*.txt" 2>/dev/null | wc -l | tr -d ' ')
+    unit_tests=$(find "${REPORTS_DIR}/unit" -name "*.txt" 2>/dev/null | wc -l | tr -d ' ')
     printf "%-25s %4s\n" "Unit Tests Run:" "$unit_tests"
   fi
 
-  if [[ -d "${TEST_ROOT}/reports/integration" ]]; then
-    local integration_tests
-    integration_tests=$(find "${TEST_ROOT}/reports/integration" -name "*.txt" 2>/dev/null | wc -l | tr -d ' ')
-    printf "%-25s %4s\n" "Integration Tests Run:" "$integration_tests"
+  if [[ $INTEGRATION_ATTEMPTED == "true" ]]; then
+    printf "%-25s %4s\n" "Integration Tests Run:" "$INTEGRATION_RUN"
+    printf "%-25s %4s\n" "Integration Skipped:" "$INTEGRATION_SKIPPED"
   fi
 
   if [[ -f "${TEST_ROOT}/coverage/summary.json" ]]; then
@@ -730,6 +757,9 @@ main() {
     log_error "No actions found to test"
     exit 1
   fi
+
+  # Drop reports left by earlier runs so the summary only counts this run
+  rm -rf "${REPORTS_DIR}/unit" "${REPORTS_DIR}/integration"
 
   # Run tests based on type
   local test_failed=false

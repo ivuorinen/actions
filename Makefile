@@ -521,7 +521,8 @@ test-python: ## Run the validation kit + generator test suite
 			exit 1; \
 		fi; \
 	else \
-		echo "$(BLUE)ℹ️ uv not available, skipping Python tests$(RESET)"; \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
 	fi
 
 test-python-coverage: ## Run the validation tests with coverage
@@ -529,7 +530,8 @@ test-python-coverage: ## Run the validation tests with coverage
 	@if command -v uv >/dev/null 2>&1; then \
 		uvx --with pytest-cov --with pyyaml pytest --cov=_validation --cov-report=term-missing _validation/tests; \
 	else \
-		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
+		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
+		exit 1; \
 	fi
 
 test-update-validators: ## Verify every generated validate.py is current (fails if stale)
