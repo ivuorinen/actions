@@ -161,6 +161,17 @@ def check_semantic_version(value: str) -> str | None:
     return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
 
 
+def check_golangci_lint_version(value: str) -> str | None:
+    """``semantic_version`` at major 2 or newer: v1 has another module path and other CLI flags."""
+    if _skip(value) or value.strip().lower() == "latest":
+        return None
+    core = value.strip()
+    core = core[1:] if core[:1] in ("v", "V") else core
+    if _is_semver(core) and int(re.split(r"\D", core, maxsplit=1)[0]) >= 2:
+        return None
+    return 'must be golangci-lint v2 or newer (e.g. 2.1.0, v2.1.0, or "latest")'
+
+
 def check_strict_semantic_version(value: str) -> str | None:
     """Strict SemVer: exactly ``X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
     if _skip(value) or value.strip().lower() == "latest":
@@ -874,6 +885,7 @@ EXAMPLES = {
     "git_author_name": "github-actions[bot]",
     "github_token": _actions_expression("github.token"),
     "go_version": "1.24",
+    "golangci_lint_version": "2.1.0",
     "json_format": '{"linux/amd64": "--build-arg ARCH=amd64"}',
     "key_value_list": "NODE_ENV=production",
     "language_enum": "python",

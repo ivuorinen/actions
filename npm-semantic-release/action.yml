@@ -34,9 +34,9 @@ inputs:
     required: false
     default: '24'
   extra_plugins:
-    description: 'Extra semantic-release plugins (pipe-separated).'
+    description: 'Extra semantic-release plugins (pipe-separated). Empty: conventional-changelog-conventionalcommits at the version pinned in this action.'
     required: false
-    default: 'conventional-changelog-conventionalcommits@^9.3.1'
+    default: ''
 
 outputs:
   new-release-published:
@@ -149,18 +149,23 @@ runs:
         corepack enable
 
     - name: Install Package Manager
+      id: install-pm
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        # renovate: datasource=npm depName=pnpm
+        PNPM_VERSION: '12.18.0'
+        # renovate: datasource=npm depName=@yarnpkg/cli-dist
+        YARN_VERSION: '4.18.1'
       run: |
         set -eu
 
         case "$PACKAGE_MANAGER" in
           pnpm)
-            corepack prepare pnpm@latest --activate
+            corepack prepare "pnpm@$PNPM_VERSION" --activate
             ;;
           yarn)
-            corepack prepare yarn@stable --activate
+            corepack prepare "yarn@$YARN_VERSION" --activate
             ;;
           bun|npm)
             # Bun installed separately, npm built-in
@@ -170,8 +175,11 @@ runs:
     - name: Setup Bun
       if: steps.detect-pm.outputs.package-manager == 'bun'
       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      env:
+        # renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
+        BUN_VERSION: '1.4.4'
       with:
-        bun-version: latest
+        bun-version: ${{ env.BUN_VERSION }}
 
     - name: Cache Node Dependencies
       id: cache
@@ -216,7 +224,14 @@ runs:
       id: semantic-release
       uses: cycjimmy/semantic-release-action@ad51787758d9654d5a75150a89a6fa9b3ccef95e # v8.1.4
       with:
-        extra_plugins: ${{ inputs.extra_plugins }}
+        # With no semantic_version the upstream action installs the newest release.
+        semantic_version: ${{ env.SEMANTIC_RELEASE_VERSION }}
+        extra_plugins: ${{ inputs.extra_plugins || format('conventional-changelog-conventionalcommits@{0}', env.CONVENTIONAL_COMMITS_VERSION) }}
       env:
         GITHUB_TOKEN: ${{ inputs.github_token }}
         NPM_TOKEN: ${{ inputs.npm_token }}
+        # renovate: datasource=npm depName=semantic-release
+        SEMANTIC_RELEASE_VERSION: '25.0.9'
+        # v10 needs conventional-changelog-writer 9; semantic-release 25's notes generator uses 8.
+        # renovate: datasource=npm depName=conventional-changelog-conventionalcommits
+        CONVENTIONAL_COMMITS_VERSION: '9.3.1'
