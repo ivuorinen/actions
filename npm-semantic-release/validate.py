@@ -74,26 +74,36 @@ def check_github_token(value: str) -> str | None:
 
 
 def check_node_version(value: str) -> str | None:
-    """Node version: 20, 20.1, 20.1.0, a keyword (latest/lts/current/node), or lts/<name>."""
+    """Node version: 20, 20.1, 20.1.0, latest/current/node, or an LTS alias.
+
+    The aliases are what actions/setup-node resolves: lts/<name>, lts/* and lts/-n. It matches the
+    keywords and the ``lts/`` prefix case-sensitively, and only the <name> in any case.
+    """
     if _skip(value):
         return None
-    low = value.strip().lower()
-    if low in ("latest", "lts", "current", "node") or low.startswith("lts/"):
+    if re.fullmatch(r"latest|current|node|lts/(\*|-[1-9][0-9]*|[a-zA-Z]+)", value.strip()):
         return None
     if re.match(r"^v?\d+(\.\d+(\.\d+)?)?$", value.strip()):
         return None
     return "must be a Node version (e.g. 20, 20.11.0, lts/*, latest)"
 
 
-def check_plugin_list(value: str) -> str | None:
-    """Comma/pipe-separated plugin specs: name, @scope/name, optional @version (e.g. pkg@^9.3.1)."""
+def check_npm_spec_list(value: str) -> str | None:
+    """Whitespace- or newline-separated npm specs: name, @scope/name, optional @version.
+
+    This is how cycjimmy/semantic-release-action splits ``extra_plugins``. Its v6 hands the list
+    to a shell, so the pattern is ASCII-only and leaves out ``<`` and ``>``. It stays separate
+    from ``plugin_list`` because that one's accepted values must not change for prettier-lint.
+    """
     if _skip(value):
         return None
-    for item in (part.strip() for part in re.split(r"[,|]", value)):
-        if not item:
-            return "plugin list must not contain empty entries"
-        if not re.fullmatch(r"(@[a-zA-Z0-9][\w.-]*/)?[a-zA-Z0-9][\w.-]*(@[\w.^~*+-]+)?", item):
-            return f"invalid plugin spec: {item}"
+    for item in filter(None, re.split(r"[ \t\r\n]+", value)):
+        if not re.fullmatch(
+            r"(@[a-zA-Z0-9][a-zA-Z0-9._-]*/)?[a-zA-Z0-9][a-zA-Z0-9._-]*"
+            r"(@[a-zA-Z0-9^~*][a-zA-Z0-9._^~*+-]*)?",
+            item,
+        ):
+            return f"invalid npm package spec: {item}"
     return None
 
 
@@ -129,7 +139,7 @@ def check_url(value: str) -> str | None:
 ACTION = "npm-semantic-release"
 
 CHECKS = {
-    "extra_plugins": check_plugin_list,
+    "extra_plugins": check_npm_spec_list,
     "github_token": check_github_token,
     "node-version": check_node_version,
     "npm_token": check_github_token,
