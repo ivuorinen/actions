@@ -25,18 +25,18 @@ jobs:
         with:
           dotnet-version: '8.0.x'
           max-retries: '3'
-          namespace: 'ivuorinen'
+          namespace: 'my-org'
           token: '${{ github.token }}'
 ```
 
 ## 📥 Inputs
 
-| Parameter        | Description                                                 | Required | Default     |
-|------------------|-------------------------------------------------------------|----------|-------------|
-| `dotnet-version` | Version of .NET SDK to use.                                 | ❌       | -           |
-| `max-retries`    | Maximum number of retry attempts for dependency restoration | ❌       | `3`         |
-| `namespace`      | GitHub namespace for the package.                           | ✅       | `ivuorinen` |
-| `token`          | GitHub token with package write permissions                 | ❌       | -           |
+| Parameter        | Description                                                                    | Required | Default |
+|------------------|--------------------------------------------------------------------------------|----------|---------|
+| `dotnet-version` | Version of .NET SDK to use.                                                    | ❌       | -       |
+| `max-retries`    | Maximum number of retry attempts for dependency restoration                    | ❌       | `3`     |
+| `namespace`      | GitHub namespace for the package (user or organization). Required, no default. | ✅       | -       |
+| `token`          | GitHub token with package write permissions                                    | ❌       | -       |
 
 ## 📤 Outputs
 
@@ -74,7 +74,7 @@ permissions:
   with:
     dotnet-version: '8.0.x'
     max-retries: '3'
-    namespace: 'ivuorinen'
+    namespace: 'my-org'
     token: '${{ github.token }}'
 ```
 
@@ -89,7 +89,7 @@ permissions:
   with:
     dotnet-version: '8.0.x'
     max-retries: '3'
-    namespace: 'ivuorinen'
+    namespace: 'my-org'
     token: '${{ github.token }}'
 ```
 
