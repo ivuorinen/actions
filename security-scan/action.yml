@@ -22,7 +22,7 @@ inputs:
     required: false
     default: ''
   gitleaks-config:
-    description: 'Path to Gitleaks config file'
+    description: 'Path to Gitleaks config file. If missing, Gitleaks uses a root .gitleaks.toml or its default rules'
     required: false
     default: '.gitleaks.toml'
   trivy-severity:
@@ -98,19 +98,30 @@ runs:
       run: |
         set -eu
 
-        # Initialize all flags as false
+        # A report in the checkout is not a scan result. Remove it so that any
+        # report found after the scans was written by this run.
+        rm -rf results.sarif trivy-results.sarif
+
+        # Initialize flags: Gitleaks stays off unless a license is available
         {
           printf 'run_gitleaks=%s\n' "false"
           printf 'run_trivy=%s\n' "true"
           printf 'run_actionlint=%s\n' "$ACTIONLINT_ENABLED"
         } >> "$GITHUB_OUTPUT"
 
-        # Check Gitleaks configuration and license
-        if [ -f "$GITLEAKS_CONFIG" ] && [ -n "$GITLEAKS_LICENSE" ]; then
-          printf 'Gitleaks config and license found\n'
+        # A config file is optional. With no GITLEAKS_CONFIG, gitleaks reads
+        # .gitleaks.toml at the repository root, then its default rules. A path
+        # that does not exist would make it exit before scanning, so it is not
+        # passed on.
+        if [ -n "$GITLEAKS_LICENSE" ]; then
           printf 'run_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
+          if [ -f "$GITLEAKS_CONFIG" ]; then
+            printf 'gitleaks_config=%s\n' "$GITLEAKS_CONFIG" >> "$GITHUB_OUTPUT"
+          else
+            printf '::warning::Gitleaks config not found - using a root .gitleaks.toml if present, otherwise the default rules\n'
+          fi
         else
-          printf '::warning::Gitleaks config or license missing - skipping Gitleaks scan\n'
+          printf '::warning::Gitleaks license missing - skipping Gitleaks scan\n'
         fi
 
     - name: Run actionlint
@@ -127,10 +138,7 @@ runs:
       env:
         GITHUB_TOKEN: ${{ inputs.token || github.token }}
         GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
-      with:
-        config-path: ${{ inputs.gitleaks-config }}
-        report-format: sarif
-        report-path: gitleaks-report.sarif
+        GITLEAKS_CONFIG: ${{ steps.check-configs.outputs.gitleaks_config }}
 
     - name: Run Trivy vulnerability scanner
       if: steps.check-configs.outputs.run_trivy == 'true'
@@ -145,6 +153,10 @@ runs:
 
     - name: Verify SARIF files
       id: verify-sarif
+      # Leaks fail the Gitleaks step and its report is still the scan result, so
+      # this also runs after a failure. Reports from the checkout are gone once
+      # check-configs has succeeded.
+      if: always() && steps.check-configs.outcome == 'success'
       shell: sh
       env:
         RUN_GITLEAKS: ${{ steps.check-configs.outputs.run_gitleaks }}
@@ -168,12 +180,14 @@ runs:
 
         # Check Gitleaks results if it ran
         if [ "$RUN_GITLEAKS" = "true" ]; then
-          if [ -f "gitleaks-report.sarif" ]; then
-            if jq -e . <"gitleaks-report.sarif" >/dev/null 2>&1; then
+          if [ -f "results.sarif" ]; then
+            if jq -e . <"results.sarif" >/dev/null 2>&1; then
               printf 'has_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
             else
               printf '::warning::Gitleaks SARIF file exists but is not valid JSON\n'
             fi
+          else
+            printf '::warning::Gitleaks left no report - nothing was scanned or the scan did not finish\n'
           fi
         fi
 
@@ -185,10 +199,10 @@ runs:
         category: 'trivy'
 
     - name: Upload Gitleaks results
-      if: steps.verify-sarif.outputs.has_gitleaks == 'true'
+      if: always() && steps.verify-sarif.outputs.has_gitleaks == 'true'
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
-        sarif_file: 'gitleaks-report.sarif'
+        sarif_file: 'results.sarif'
         category: 'gitleaks'
 
     - name: Archive Trivy results
@@ -204,7 +218,7 @@ runs:
       uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
       with:
         name: security-reports-gitleaks-${{ github.run_id }}
-        path: gitleaks-report.sarif
+        path: results.sarif
         retention-days: 30
 
     - name: Analyze Results
@@ -224,7 +238,12 @@ runs:
           let totalIssues = 0;
           let criticalIssues = 0;
 
-          const analyzeSarif = (file, tool) => {
+          const isCriticalLevel = r =>
+            r.level === 'error' ||
+            r.level === 'critical' ||
+            (r.ruleId || '').toLowerCase().includes('critical');
+
+          const analyzeSarif = (file, tool, isCritical) => {
             if (!fs.existsSync(file)) {
               console.log(`No results file found for ${tool}`);
               return null;
@@ -235,11 +254,7 @@ runs:
               return sarif.runs.reduce((acc, run) => {
                 if (!run.results) return acc;
 
-                const critical = run.results.filter(r =>
-                  r.level === 'error' ||
-                  r.level === 'critical' ||
-                  (r.ruleId || '').toLowerCase().includes('critical')
-                ).length;
+                const critical = run.results.filter(isCritical).length;
 
                 return {
                   total: acc.total + run.results.length,
@@ -252,14 +267,15 @@ runs:
             }
           };
 
-          // Only analyze results from tools that ran successfully.
+          // Only analyze reports that verification accepted.
           // Read step outputs via env so apostrophes/backticks in values
           // cannot break the JS literal.
           const results = {
             trivy: process.env.HAS_TRIVY === 'true' ?
-              analyzeSarif('trivy-results.sarif', 'trivy') : null,
+              analyzeSarif('trivy-results.sarif', 'trivy', isCriticalLevel) : null,
+            // Gitleaks results carry no level, and each one is a detected secret.
             gitleaks: process.env.HAS_GITLEAKS === 'true' ?
-              analyzeSarif('gitleaks-report.sarif', 'gitleaks') : null
+              analyzeSarif('results.sarif', 'gitleaks', () => true) : null
           };
 
           // Aggregate results
