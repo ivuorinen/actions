@@ -320,6 +320,7 @@ def _build_context(action_dir: Path | None = None) -> dict:
             "repository": os.environ.get("GITHUB_REPOSITORY", "ivuorinen/actions"),
             "workspace": os.environ.get("GITHUB_WORKSPACE", str(Path.cwd())),
             "run_id": os.environ.get("GITHUB_RUN_ID", "1"),
+            "event_name": os.environ.get("GITHUB_EVENT_NAME", "push"),
             "action_path": str(action_dir.resolve()) if action_dir else "",
         },
         "env": dict(os.environ),
