@@ -5,8 +5,9 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime).
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them, and `${{ ... }}` expressions pass unchecked (their value is substituted at
+runtime).
 """
 
 from __future__ import annotations
@@ -43,6 +44,19 @@ def _is_env_ref(value: str) -> bool:
     return re.fullmatch(r"\$([A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})", value) is not None
 
 
+def _int_in_range(value: str, low: int, high: int) -> str | None:
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
+    if _skip(value):
+        return None
+    if re.fullmatch(r"[0-9]{1,9}", value) and low <= int(value) <= high:
+        return None
+    return f"must be an integer between {low} and {high}"
+
+
 def check_github_token(value: str) -> str | None:
     """GitHub/registry token: a known token format, a ``${{ }}`` expression, or ``$VAR``.
 
@@ -75,15 +89,7 @@ def check_github_token(value: str) -> str | None:
 
 def check_positive_integer(value: str) -> str | None:
     """Positive integer (> 0)."""
-    if _skip(value):
-        return None
-    try:
-        number = int(value.strip())
-    except ValueError:
-        return "must be a positive integer (> 0)"
-    if number > 0:
-        return None
-    return "must be a positive integer (> 0)"
+    return _int_in_range(value, 1, 999_999_999)
 
 
 ACTION = "stale"
@@ -102,11 +108,13 @@ def main() -> None:
     """Validate every declared input from its INPUT_* env var; fail with all reasons."""
     errors = []
     for input_name, check in CHECKS.items():
-        value = os.environ.get("INPUT_" + input_name.upper().replace("-", "_"), "")
+        variable = "INPUT_" + input_name.upper().replace("-", "_")
+        value = os.environ.get(variable, "")
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if variable in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

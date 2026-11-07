@@ -84,6 +84,39 @@ def test_env_forwarding_matches_spec(action):
     assert env_keys(action) == expected
 
 
+@pytest.mark.parametrize("action", ACTIONS)
+def test_input_whose_check_refuses_blank_declares_a_default(action):
+    # Without a default, a caller leaving the input out reaches the validator as blank and fails.
+    inputs = yaml.safe_load((REPO_ROOT / action / "action.yml").read_text(encoding="utf-8"))[
+        "inputs"
+    ]
+    refusing = [n for n, check in SPECS[action]["checks"].items() if kit.CHECKS[check]("")]
+    assert [n for n in refusing if not inputs[n].get("default")] == []
+
+
+def _local_action_steps():
+    """Yield (workflow name, step, action.yml path) for each step running an in-repo action."""
+    for pattern in ("_tests/integration/workflows/*.yml", ".github/workflows/*.yml"):
+        for workflow in sorted(REPO_ROOT.glob(pattern)):
+            jobs = yaml.safe_load(workflow.read_text(encoding="utf-8"))["jobs"]
+            for job in jobs.values():
+                for step in job.get("steps", []):
+                    action_yml = REPO_ROOT / step.get("uses", "") / "action.yml"
+                    if step.get("uses", "").startswith("./") and action_yml.is_file():
+                        yield workflow.name, step, action_yml
+
+
+def test_workflows_pass_only_declared_inputs_to_local_actions():
+    # The runner only warns about an undeclared input and drops its value, so a misnamed one
+    # leaves the step testing something other than what it says.
+    undeclared = []
+    for workflow, step, action_yml in _local_action_steps():
+        metadata = yaml.safe_load(action_yml.read_text(encoding="utf-8"))
+        extra = set(step.get("with", {})) - set(metadata.get("inputs") or {})
+        undeclared += [f"{workflow}: {step['uses']} {name}" for name in sorted(extra)]
+    assert undeclared == []
+
+
 _SINGLE = re.compile(r"^\s*([a-zA-Z0-9_.-]+): '((?:[^']|'')*)'\s*$")
 _DOUBLE = re.compile(r'^\s*([a-zA-Z0-9_.-]+): "((?:[^"\\]|\\.)*)"\s*$')
 

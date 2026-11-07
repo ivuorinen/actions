@@ -19,7 +19,7 @@ inputs:
     required: false
     default: './bin'
   max-retries:
-    description: 'Maximum number of retry attempts for go mod download operations'
+    description: 'Maximum number of retry attempts for go mod download operations (1-10, must not be empty)'
     required: false
     default: '3'
   token:

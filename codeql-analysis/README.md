@@ -53,11 +53,11 @@ jobs:
 | `packs`             | Comma-separated list of CodeQL query packs to run                                    | ❌       | -                     |
 | `queries`           | Comma-separated list of additional queries to run                                    | ❌       | -                     |
 | `ram`               | Amount of memory in MB that can be used by CodeQL                                    | ❌       | -                     |
-| `skip-queries`      | Build database but skip running queries                                              | ❌       | `false`               |
+| `skip-queries`      | Build database but skip running queries (lowercase true or false)                    | ❌       | `false`               |
 | `source-root`       | Path of the root source code directory                                               | ❌       | -                     |
 | `threads`           | Number of threads that can be used by CodeQL                                         | ❌       | -                     |
 | `token`             | GitHub token for API access                                                          | ❌       | `${{ github.token }}` |
-| `upload-results`    | Upload results to GitHub Security tab                                                | ❌       | `true`                |
+| `upload-results`    | Upload results to GitHub Security tab (lowercase true or false)                      | ❌       | `true`                |
 | `working-directory` | Working directory for the analysis                                                   | ❌       | `.`                   |
 
 ## 📤 Outputs

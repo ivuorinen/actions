@@ -5,8 +5,9 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime).
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them, and `${{ ... }}` expressions pass unchecked (their value is substituted at
+runtime).
 """
 
 from __future__ import annotations
@@ -44,10 +45,15 @@ def _is_env_ref(value: str) -> bool:
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.strip().lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if _is_expr(value) or value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_github_token(value: str) -> str | None:
@@ -107,11 +113,13 @@ def main() -> None:
     """Validate every declared input from its INPUT_* env var; fail with all reasons."""
     errors = []
     for input_name, check in CHECKS.items():
-        value = os.environ.get("INPUT_" + input_name.upper().replace("-", "_"), "")
+        variable = "INPUT_" + input_name.upper().replace("-", "_")
+        value = os.environ.get(variable, "")
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if variable in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

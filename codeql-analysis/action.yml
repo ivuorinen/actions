@@ -67,7 +67,7 @@ inputs:
     default: '.'
 
   upload-results:
-    description: 'Upload results to GitHub Security tab'
+    description: 'Upload results to GitHub Security tab (lowercase true or false)'
     required: false
     default: 'true'
 
@@ -87,7 +87,7 @@ inputs:
     default: '../results'
 
   skip-queries:
-    description: 'Build database but skip running queries'
+    description: 'Build database but skip running queries (lowercase true or false)'
     required: false
     default: 'false'
 

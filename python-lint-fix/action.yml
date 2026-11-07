@@ -25,7 +25,7 @@ inputs:
     required: false
     default: '2.0.4'
   max-retries:
-    description: 'Maximum number of retry attempts for installations and linting'
+    description: 'Maximum number of retry attempts for installations and linting (1-10, must not be empty)'
     required: false
     default: '3'
   working-directory:
@@ -33,7 +33,7 @@ inputs:
     required: false
     default: '.'
   fail-on-error:
-    description: 'Whether to fail the action if linting errors are found'
+    description: 'Whether to fail the action if linting errors are found (lowercase true or false)'
     required: false
     default: 'true'
   token:

@@ -27,7 +27,11 @@ only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map
 
 ## Contract every check follows
 
-- **Empty** value → accepted (inputs are optional unless listed in `REQUIRED`).
+- **Empty** value → accepted (inputs are optional unless listed in `REQUIRED`). `boolean` and
+  `numeric_range_1_10` refuse it: those inputs all declare a default, so blank means the caller
+  passed it, and the steps reading them would otherwise quietly skip their work. An `INPUT_*`
+  variable that is unset is not checked; `action.yml` forwards every input, so that only happens
+  when a validator runs standalone.
 - **`${{ … }}` expression** → accepted unchanged (its real value is substituted at runtime).
 - Tokens additionally accept `$VAR` / `${VAR}` env references.
 
