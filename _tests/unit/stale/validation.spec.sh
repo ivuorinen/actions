@@ -120,6 +120,20 @@ Describe "stale action"
     End
   End
 
+  Context "when checking workspace and permission needs"
+    It "does not check out the repository"
+      When call grep -c 'actions/checkout' "$ACTION_FILE"
+      The output should equal "0"
+      The status should be failure
+    End
+
+    It "does not grant contents: write in the repo workflow"
+      When call grep -c 'contents: write' ".github/workflows/stale.yml"
+      The output should equal "0"
+      The status should be failure
+    End
+  End
+
   Context "when testing security validations"
     It "validates against command injection in token"
       When call validate_input_python "stale" "token" "ghp_token\`whoami\`"
