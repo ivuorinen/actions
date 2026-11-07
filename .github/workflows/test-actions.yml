@@ -125,10 +125,14 @@ jobs:
         uses: ./.github/actions/setup-test-environment
 
       - name: Run validation test suite
+        id: pytest
         shell: sh
         run: make test-python
 
+      # The drift check does not depend on the test results, so a failing suite must not hide a
+      # stale validator. It still skips when setup failed and the suite never ran.
       - name: Check generated validators are current
+        if: ${{ !cancelled() && (steps.pytest.outcome == 'success' || steps.pytest.outcome == 'failure') }}
         shell: sh
         run: make test-update-validators
 
