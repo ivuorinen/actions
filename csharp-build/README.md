@@ -29,9 +29,9 @@ jobs:
 
 | Parameter        | Description                                                    | Required | Default |
 |------------------|----------------------------------------------------------------|----------|---------|
-| `dotnet-version` | Version of .NET SDK to use.                                    | ❌        | -       |
-| `max-retries`    | Maximum number of retry attempts for dotnet restore operations | ❌        | `3`     |
-| `token`          | GitHub token for authentication                                | ❌        | -       |
+| `dotnet-version` | Version of .NET SDK to use.                                    | ❌       | -       |
+| `max-retries`    | Maximum number of retry attempts for dotnet restore operations | ❌       | `3`     |
+| `token`          | GitHub token for authentication                                | ❌       | -       |
 
 ## 📤 Outputs
 
