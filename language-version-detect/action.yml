@@ -154,7 +154,7 @@ runs:
         if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
           echo "Checking Dockerfile for $DOCKERFILE_IMAGE..." >&2
           version=$(grep -iF "FROM" Dockerfile | grep -F "$DOCKERFILE_IMAGE:" | head -1 | \
-            sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+            sed -n -E "s/.*$DOCKERFILE_IMAGE:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -168,7 +168,7 @@ runs:
         if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
           echo "Checking devcontainer.json for $DOCKERFILE_IMAGE..." >&2
           if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*$DOCKERFILE_IMAGE:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
@@ -198,9 +198,9 @@ runs:
             php)
               # Check composer.json
               if [ -f composer.json ] && command -v jq >/dev/null 2>&1; then
-                version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+                version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p')
                 if [ -z "$version" ]; then
-                  version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+                  version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p')
                 fi
                 if [ -n "$version" ] && validate_version "$version"; then
                   echo "Found PHP version in composer.json: $version" >&2
@@ -217,7 +217,7 @@ runs:
               # Check pyproject.toml
               if [ -f pyproject.toml ]; then
                 if grep -q '^\[project\]' pyproject.toml; then
-                  version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+                  version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^[[:space:]]*requires-python[[:space:]]*=' | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p' | head -1)
                   if [ -n "$version" ] && validate_version "$version"; then
                     echo "Found Python version in pyproject.toml: $version" >&2
                     detected_version="$version"

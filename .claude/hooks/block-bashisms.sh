@@ -32,7 +32,7 @@ fi
 
 # Strip comment lines before checking — avoids false positives on prose
 # For action.yml, the new_string from Edit is already scoped to the snippet
-CHECKABLE=$(printf '%s\n' "$NEW_CONTENT" | grep -v '^\s*#' || true)
+CHECKABLE=$(printf '%s\n' "$NEW_CONTENT" | grep -v '^[[:space:]]*#' || true)
 
 if [ -z "$CHECKABLE" ]; then
   exit 0

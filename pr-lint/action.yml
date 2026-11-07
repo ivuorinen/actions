@@ -86,7 +86,7 @@ runs:
           else
             # Fallback: check with grep if jq not available
             # Use robust pattern to verify non-empty value
-            if grep -q '"packageManager"[[:space:]]*:[[:space:]]*"[^"]\+"' package.json 2>/dev/null; then
+            if grep -Eq '"packageManager"[[:space:]]*:[[:space:]]*"[^"]+"' package.json 2>/dev/null; then
               printf 'has-package-manager=%s\n' "true" >> "$GITHUB_OUTPUT"
               printf '%s\n' "Found packageManager field in package.json"
             else
@@ -310,9 +310,9 @@ runs:
         if [ -z "$detected_version" ] && [ -f composer.json ]; then
           printf 'Checking composer.json...\n' >&2
           if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p')
             if [ -z "$version" ]; then
-              version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+              version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p')
             fi
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
@@ -466,7 +466,7 @@ runs:
         if [ -z "$detected_version" ] && [ -f pyproject.toml ]; then
           printf 'Checking pyproject.toml...\n' >&2
           if grep -q '^\[project\]' pyproject.toml; then
-            version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+            version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^[[:space:]]*requires-python[[:space:]]*=' | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p' | head -1)
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
