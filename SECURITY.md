@@ -120,9 +120,9 @@ permissions:
 ```yaml
 - name: Use Generated Credential
   run: |
-    API_KEY="$(fetch-credential)"
-    printf '::add-mask::%s\n' "$API_KEY"
-    # Use API_KEY safely
+    generated="$(fetch-credential)"
+    printf '::add-mask::%s\n' "$generated"
+    # Use the masked value in later commands
 ```
 
 ### 3. Validate Inputs
