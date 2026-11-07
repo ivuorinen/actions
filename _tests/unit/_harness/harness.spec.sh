@@ -26,6 +26,21 @@ Assert expect_output echoed hello
 End
 End
 
+Describe "step-outputs fixture"
+It "resolves an earlier step's output from HARNESS_STEPS"
+export HARNESS_STEPS='{"detect":{"outputs":{"kind":"pnpm"}}}'
+When call run_step "${FIXTURES}/step-outputs" "emit"
+The status should be success
+Assert expect_output kind pnpm
+End
+
+It "resolves it empty when HARNESS_STEPS is not set"
+When call run_step "${FIXTURES}/step-outputs" "emit"
+The status should be success
+Assert expect_output kind ""
+End
+End
+
 Describe "uses-gh fixture"
 It "fails not-found when gh is not mocked"
 # The harness shadows unmocked external commands with a not-found stub, so an

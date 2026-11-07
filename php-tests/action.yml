@@ -16,9 +16,9 @@ inputs:
     required: false
     default: 'auto'
   php-version:
-    description: 'PHP Version to use (latest, 8.4, 8.3, etc.)'
+    description: 'PHP version to use when the repository states none, such as 8.4 (empty: the version pinned in this action, "latest": the newest release)'
     required: false
-    default: 'latest'
+    default: ''
   extensions:
     description: 'PHP extensions to install (comma-separated)'
     required: false
@@ -141,7 +141,10 @@ runs:
       id: detect-php-version
       shell: sh
       env:
-        DEFAULT_VERSION: ${{ inputs.php-version }}
+        REQUESTED_VERSION: ${{ inputs.php-version }}
+        # setup-php takes major.minor, so that is the finest pin it can hold.
+        # renovate: datasource=github-tags depName=php/php-src extractVersion=^php-(?<version>\d+\.\d+)\.\d+$
+        DEFAULT_VERSION: '8.5'
       run: |
         set -eu
 
@@ -244,7 +247,7 @@ runs:
 
         # Use default version if nothing detected
         if [ -z "$detected_version" ]; then
-          detected_version="$DEFAULT_VERSION"
+          detected_version="${REQUESTED_VERSION:-$DEFAULT_VERSION}"
           echo "Using default PHP version: $detected_version" >&2
         fi
 
@@ -255,8 +258,12 @@ runs:
     - name: Setup PHP
       id: setup-php
       uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+      env:
+        # renovate: datasource=github-releases depName=composer/composer
+        COMPOSER_TOOL_VERSION: '2.11.1'
       with:
         php-version: ${{ steps.detect-php-version.outputs.detected-version }}
+        tools: composer:${{ env.COMPOSER_TOOL_VERSION }}
         extensions: ${{ inputs.extensions }}
         coverage: ${{ inputs.coverage }}
         ini-values: memory_limit=1G, max_execution_time=600

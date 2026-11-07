@@ -18,6 +18,9 @@ Sourced automatically by `_tests/unit/spec_helper.sh`.
   line in `$GITHUB_OUTPUT`.
 - `harness_reset` — clear per-test session state. Call this from `BeforeEach`
   and `AfterEach`.
+- `HARNESS_STEPS` — JSON for the `steps` context, for a step that reads an
+  earlier step's outputs when `run_step` runs it alone, e.g.
+  `export HARNESS_STEPS='{"detect":{"outputs":{"kind":"pnpm"}}}'`.
 
 ## Example
 
