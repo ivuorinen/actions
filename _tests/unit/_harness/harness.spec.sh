@@ -156,4 +156,21 @@ The status should be success
 Assert expect_output seen ""
 End
 End
+
+Describe "event-payload fixture"
+It "resolves github.event fields from the file at GITHUB_EVENT_PATH"
+printf '%s' '{"repository":{"default_branch":"trunk"}}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_step "${FIXTURES}/event-payload" "emit"
+The status should be success
+Assert expect_output default-branch trunk
+End
+
+It "resolves github.event fields to empty without a payload file"
+export GITHUB_EVENT_PATH="${PWD}/absent.json"
+When call run_step "${FIXTURES}/event-payload" "emit"
+The status should be success
+Assert expect_output default-branch ""
+End
+End
 End

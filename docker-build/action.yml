@@ -1,6 +1,8 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 # permissions:
-#   - (none required)  # Build action, publishing handled by separate actions
+#   - contents: read   # Required for checking out repository
+#   - packages: write  # Required for pushing the image and build cache to ghcr.io (push: true)
+#   - id-token: write  # Required for keyless image signing with cosign (sign-image: true)
 ---
 name: Docker Build
 description: 'Builds a Docker image for multiple architectures with enhanced security and reliability.'
@@ -36,7 +38,7 @@ inputs:
     description: 'External cache source, one spec on one line (e.g., type=registry,ref=user/app:cache)'
     required: false
   push:
-    description: 'Whether to push the image after building (lowercase true or false)'
+    description: 'Whether to push the image after building (lowercase true or false). Also enables the per-ref registry build cache on ghcr.io.'
     required: false
     default: 'true'
   max-retries:
@@ -48,13 +50,11 @@ inputs:
     required: false
     default: ''
   buildx-version:
-    description: 'Specific Docker Buildx version to use'
+    description: 'Docker Buildx version to install (e.g., v0.38.2). Empty uses the release this action pins.'
     required: false
-    default: 'latest'
   buildkit-version:
-    description: 'Specific BuildKit version to use'
+    description: 'BuildKit image tag (e.g., v0.34.2), optionally with @sha256:<digest>. Empty uses the digest this action pins.'
     required: false
-    default: 'v0.11.0'
   cache-mode:
     description: 'Cache mode for build layers (min, max, or inline)'
     required: false
@@ -81,17 +81,17 @@ inputs:
     required: false
     default: '0'
   cache-export:
-    description: 'Export cache destination, one spec on one line (e.g., type=local,dest=/tmp/cache)'
+    description: 'Export cache destination, one spec on one line (e.g., type=gha,mode=max). Replaces the per-ref registry cache export.'
     required: false
   cache-import:
-    description: 'Import cache source, one spec on one line (e.g., type=local,src=/tmp/cache)'
+    description: 'Import cache source, one spec on one line (e.g., type=gha)'
     required: false
   dry-run:
     description: 'Perform a dry run without actually building (lowercase true or false)'
     required: false
     default: 'false'
   verbose:
-    description: 'Enable verbose logging with platform-specific output (lowercase true or false)'
+    description: 'Enable plain build progress and print BuildKit daemon debug logs in the job log (lowercase true or false)'
     required: false
     default: 'false'
   platform-fallback:
@@ -211,13 +211,23 @@ runs:
     - name: Set up Docker Buildx
       id: buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      env:
+        # These pins live here rather than in the input defaults, because a default is
+        # copied into the generated README and a bump would then fail the docs drift check.
+        # renovate: datasource=github-releases depName=docker/buildx
+        DEFAULT_BUILDX_VERSION: 'v0.38.2'
+        # renovate: datasource=docker depName=moby/buildkit
+        DEFAULT_BUILDKIT_IMAGE_TAG: 'v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe'
       with:
-        version: ${{ inputs.buildx-version }}
+        version: ${{ inputs.buildx-version || env.DEFAULT_BUILDX_VERSION }}
         platforms: ${{ inputs.architectures }}
-        buildkitd-flags: --debug
+        # setup-buildx prints the daemon log in the job log whenever --debug is set, so only
+        # on request. The other arm is a no-op flag that has to stay non-empty: an empty value
+        # restores setup-buildx's defaults, which allow insecure entitlements on the daemon.
+        buildkitd-flags: ${{ inputs.verbose == 'true' && '--debug' || '--oci-worker=auto' }}
         driver-opts: |
           network=${{ inputs.network }}
-          image=moby/buildkit:${{ inputs.buildkit-version }}
+          image=moby/buildkit:${{ inputs.buildkit-version || env.DEFAULT_BUILDKIT_IMAGE_TAG }}
 
     - name: Detect Available Platforms
       id: detect-platforms
@@ -324,7 +334,7 @@ runs:
         CACHE_FROM: ${{ inputs.cache-from }}
         CACHE_EXPORT: ${{ inputs.cache-export }}
         CACHE_MODE: ${{ inputs.cache-mode }}
-        HAS_TOKEN: ${{ inputs.token != '' }}
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         DOCKERFILE: ${{ inputs.dockerfile }}
         CONTEXT: ${{ inputs.context }}
       run: |
@@ -383,11 +393,21 @@ runs:
         cache_export=$(trim "$CACHE_EXPORT")
         cache_mode="${CACHE_MODE:-min}"
 
-        # Registry cache configuration for better performance (only if authenticated)
+        # Registry cache, only when the login step above has run. Every ref reads the default
+        # branch's tag for a warm start, and writes only its own, so another ref's build does
+        # not change what the default branch restores. Tags of other refs start with "refs-",
+        # so no ref name can reduce to the reserved "default-branch" tag.
+        default_cache_ref=""
         registry_cache_ref=""
-        if [ "$PUSH" = "true" ] || [ "$HAS_TOKEN" = "true" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
+        if [ "$PUSH" = "true" ] && [ -n "${GITHUB_REF:-}" ]; then
           normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._\/-]/-/g')
-          registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
+          cache_image="ghcr.io/${normalized_repo}/cache"
+          default_cache_ref="$cache_image:default-branch"
+          registry_cache_ref="$default_cache_ref"
+          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
+            ref_tag=$(printf '%s' "$GITHUB_REF" | tr -c 'A-Za-z0-9._-' '-' | cut -c1-128)
+            registry_cache_ref="$cache_image:$ref_tag"
+          fi
         fi
 
         while [ "$attempt" -le "$max_attempts" ]; do
@@ -425,19 +445,14 @@ runs:
           set +f; IFS="$_oi"
 
           [ -z "$cache_source" ] || set -- "$@" --cache-from "$cache_source"
-          [ -z "$registry_cache_ref" ] || set -- "$@" --cache-from "type=registry,ref=$registry_cache_ref"
-          # Also include local cache as fallback
-          set -- "$@" --cache-from "type=local,src=/tmp/.buildx-cache"
+          [ -z "$default_cache_ref" ] || set -- "$@" --cache-from "type=registry,ref=$default_cache_ref"
+          [ "$registry_cache_ref" = "$default_cache_ref" ] || set -- "$@" --cache-from "type=registry,ref=$registry_cache_ref"
 
           if [ -n "$cache_export" ]; then
             set -- "$@" --cache-to "$cache_export"
           elif [ -n "$registry_cache_ref" ]; then
             set -- "$@" --cache-to "type=registry,ref=$registry_cache_ref,mode=$cache_mode"
           fi
-          case "$cache_export" in
-            type=local | type=local,*) ;;
-            *) set -- "$@" --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=$cache_mode" ;;
-          esac
 
           set -- "$@" \
             --file "$DOCKERFILE" \
@@ -503,12 +518,6 @@ runs:
             done
             platform_matrix="${platform_matrix%,}}"
             printf 'platform-matrix=%s\n' "$platform_matrix" >> "$GITHUB_OUTPUT"
-
-            # Move cache
-            if [ -d /tmp/.buildx-cache-new ]; then
-              rm -rf /tmp/.buildx-cache
-              mv /tmp/.buildx-cache-new /tmp/.buildx-cache
-            fi
 
             exit 0
           fi
@@ -615,18 +624,4 @@ runs:
           fi
           platforms=$(docker image inspect --format '{{.Os}}/{{.Architecture}}{{if .Variant}}/{{.Variant}}{{end}}' "$IMAGE_REF")
           printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Cleanup
-      if: always()
-      shell: sh
-      run: |-
-        set -eu
-
-        # Cleanup temporary files
-        rm -rf /tmp/.buildx-cache*
-
-        # Remove builder instance if created
-        if docker buildx ls | grep -q builder; then
-          docker buildx rm builder || true
         fi
