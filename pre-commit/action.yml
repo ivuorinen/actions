@@ -68,44 +68,44 @@ runs:
         fi
         python3 validate.py
 
-    - name: Set option
-      id: set-option
+    # The next three steps inline pre-commit/action v3.0.1 instead of using it: its
+    # action.yml runs a floating actions/cache tag and an unpinned pip install, so
+    # pinning it by SHA would not pin what runs.
+    - name: Install pre-commit
+      id: install-pre-commit
       shell: sh
       env:
-        BASE_BRANCH: ${{ inputs.base-branch }}
+        # renovate: datasource=pypi depName=pre-commit
+        PRE_COMMIT_VERSION: '4.7.0'
       run: |
         set -eu
+        python3 -m pip install "pre-commit==$PRE_COMMIT_VERSION"
+        python3 -m pip freeze --local
 
-        if [ -z "$BASE_BRANCH" ]; then
-          printf 'option=%s\n' "--all-files" >> "$GITHUB_OUTPUT"
-          printf 'from-ref=%s\n' "" >> "$GITHUB_OUTPUT"
-          printf 'to-ref=%s\n' "" >> "$GITHUB_OUTPUT"
-          exit 0
-        fi
-
-        # Validate branch name: only allow safe characters
-        case "$BASE_BRANCH" in
-          *[!a-zA-Z0-9._/-]*)
-            echo "::error::Invalid base-branch value: $BASE_BRANCH"
-            exit 1
-            ;;
-        esac
-
-        printf 'option=%s\n' "diff" >> "$GITHUB_OUTPUT"
-        printf 'from-ref=%s\n' "$BASE_BRANCH" >> "$GITHUB_OUTPUT"
-        printf 'to-ref=%s\n' "HEAD" >> "$GITHUB_OUTPUT"
+    - name: Cache pre-commit environments
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/pre-commit
+        key: pre-commit-3|${{ env.pythonLocation }}|${{ hashFiles(inputs.pre-commit-config) }}
 
     - name: Run pre-commit
       id: pre-commit
-      uses: pre-commit/action@2c7b3805fd2a0fd8c1884dcaebf91fc102a13ecd # v3.0.1
+      shell: sh
       env:
-        PRE_COMMIT_USE_UV: '1'
-      with:
-        extra_args: >-
-          --config ${{ inputs.pre-commit-config }}
-          ${{ steps.set-option.outputs.option == 'diff'
-            && format('--from-ref {0} --to-ref {1}', steps.set-option.outputs.from-ref, steps.set-option.outputs.to-ref)
-            || '--all-files' }}
+        BASE_BRANCH: ${{ inputs.base-branch }}
+        CONFIG_FILE: ${{ inputs.pre-commit-config }}
+      run: |
+        set -eu
+
+        if [ -n "$BASE_BRANCH" ]; then
+          set -- --from-ref "$BASE_BRANCH" --to-ref HEAD
+        else
+          set -- --all-files
+        fi
+
+        # -m runs the pinned install whatever else is on PATH. -P keeps the checkout off
+        # sys.path, so a pre_commit directory in it cannot replace the pinned module.
+        python3 -P -m pre_commit run --show-diff-on-failure --color=always --config "$CONFIG_FILE" "$@"
 
     - name: Push pre-commit fixes
       id: push-fixes

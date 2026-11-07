@@ -277,25 +277,6 @@ jobs:
 
           echo "✓ files_changed output correct"
 
-  test-pre-commit-uv-integration:
-    name: Test UV Integration
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
-
-      - name: Test PRE_COMMIT_USE_UV environment variable
-        run: |
-          PRE_COMMIT_USE_UV='1'
-
-          if [[ "$PRE_COMMIT_USE_UV" != "1" ]]; then
-            echo "❌ ERROR: PRE_COMMIT_USE_UV should be set to 1"
-            exit 1
-          fi
-
-          echo "✓ PRE_COMMIT_USE_UV correctly set"
-          echo "✓ pre-commit will use UV for faster installations"
-
   test-pre-commit-workflow-scenarios:
     name: Test Workflow Scenarios
     runs-on: ubuntu-latest
@@ -410,7 +391,6 @@ jobs:
       - test-pre-commit-config-file-detection
       - test-pre-commit-hook-execution
       - test-pre-commit-outputs
-      - test-pre-commit-uv-integration
       - test-pre-commit-workflow-scenarios
       - test-pre-commit-autofix-behavior
     steps:
@@ -426,7 +406,6 @@ jobs:
           echo "✓ Config file detection tests"
           echo "✓ Hook execution tests"
           echo "✓ Output verification tests"
-          echo "✓ UV integration tests"
           echo "✓ Workflow scenario tests"
           echo "✓ Autofix behavior tests"
           echo ""
