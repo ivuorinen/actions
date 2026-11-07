@@ -335,7 +335,7 @@ Describe "upload-results mapping to the analyze upload input"
 # Upstream treats a raw 'false' as 'failure-only' (still uploads on failure);
 # only 'never' disables the upload.
 upload_line() {
-  rg -N '^        upload: ' codeql-analysis/action.yml
+  grep -E '^        upload: ' codeql-analysis/action.yml
 }
 
 It "maps true to always and anything else to never"
