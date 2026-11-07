@@ -34,11 +34,11 @@ jobs:
 
 | Parameter         | Description                     | Required | Default                                |
 |-------------------|---------------------------------|----------|----------------------------------------|
-| `npm_token`       | NPM token.                      | ✅        | -                                      |
-| `package-version` | The version to publish.         | ❌        | `${{ github.event.release.tag_name }}` |
-| `registry-url`    | Registry URL for publishing.    | ❌        | `https://registry.npmjs.org/`          |
-| `scope`           | Package scope to use.           | ❌        | `@ivuorinen`                           |
-| `token`           | GitHub token for authentication | ❌        | -                                      |
+| `npm_token`       | NPM token.                      | ✅       | -                                      |
+| `package-version` | The version to publish.         | ❌       | `${{ github.event.release.tag_name }}` |
+| `registry-url`    | Registry URL for publishing.    | ❌       | `https://registry.npmjs.org/`          |
+| `scope`           | Package scope to use.           | ❌       | `@ivuorinen`                           |
+| `token`           | GitHub token for authentication | ❌       | -                                      |
 
 ## 📤 Outputs
 

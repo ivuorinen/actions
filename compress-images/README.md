@@ -37,13 +37,13 @@ jobs:
 
 | Parameter           | Description                                        | Required | Default                            |
 |---------------------|----------------------------------------------------|----------|------------------------------------|
-| `email`             | GitHub email for commits                           | ❌        | `github-actions@github.com`        |
-| `ignore-paths`      | Paths to ignore during compression (glob patterns) | ❌        | `node_modules/**,dist/**,build/**` |
-| `image-quality`     | JPEG compression quality (0-100)                   | ❌        | `85`                               |
-| `png-quality`       | PNG compression quality (0-100)                    | ❌        | `95`                               |
-| `token`             | GitHub token for authentication                    | ❌        | `${{ github.token }}`              |
-| `username`          | GitHub username for commits                        | ❌        | `github-actions`                   |
-| `working-directory` | Directory containing images to compress            | ❌        | `.`                                |
+| `email`             | GitHub email for commits                           | ❌       | `github-actions@github.com`        |
+| `ignore-paths`      | Paths to ignore during compression (glob patterns) | ❌       | `node_modules/**,dist/**,build/**` |
+| `image-quality`     | JPEG compression quality (0-100)                   | ❌       | `85`                               |
+| `png-quality`       | PNG compression quality (0-100)                    | ❌       | `95`                               |
+| `token`             | GitHub token for authentication                    | ❌       | `${{ github.token }}`              |
+| `username`          | GitHub username for commits                        | ❌       | `github-actions`                   |
+| `working-directory` | Directory containing images to compress            | ❌       | `.`                                |
 
 ## 📤 Outputs
 

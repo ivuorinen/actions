@@ -38,17 +38,17 @@ jobs:
 
 | Parameter           | Description                                             | Required | Default                     |
 |---------------------|---------------------------------------------------------|----------|-----------------------------|
-| `auto-fix`          | Automatically fix issues when possible                  | ❌        | `true`                      |
-| `config-file`       | Path to TFLint config file                              | ❌        | `.tflint.hcl`               |
-| `email`             | GitHub email for commits                                | ❌        | `github-actions@github.com` |
-| `fail-on-error`     | Fail workflow if issues are found                       | ❌        | `true`                      |
-| `format`            | Output format (compact, json, checkstyle, junit, sarif) | ❌        | `sarif`                     |
-| `max-retries`       | Maximum number of retry attempts                        | ❌        | `3`                         |
-| `terraform-version` | Terraform version to use                                | ❌        | `latest`                    |
-| `tflint-version`    | TFLint version to use                                   | ❌        | `latest`                    |
-| `token`             | GitHub token for authentication                         | ❌        | -                           |
-| `username`          | GitHub username for commits                             | ❌        | `github-actions`            |
-| `working-directory` | Directory containing Terraform files                    | ❌        | `.`                         |
+| `auto-fix`          | Automatically fix issues when possible                  | ❌       | `true`                      |
+| `config-file`       | Path to TFLint config file                              | ❌       | `.tflint.hcl`               |
+| `email`             | GitHub email for commits                                | ❌       | `github-actions@github.com` |
+| `fail-on-error`     | Fail workflow if issues are found                       | ❌       | `true`                      |
+| `format`            | Output format (compact, json, checkstyle, junit, sarif) | ❌       | `sarif`                     |
+| `max-retries`       | Maximum number of retry attempts                        | ❌       | `3`                         |
+| `terraform-version` | Terraform version to use                                | ❌       | `latest`                    |
+| `tflint-version`    | TFLint version to use                                   | ❌       | `latest`                    |
+| `token`             | GitHub token for authentication                         | ❌       | -                           |
+| `username`          | GitHub username for commits                             | ❌       | `github-actions`            |
+| `working-directory` | Directory containing Terraform files                    | ❌       | `.`                         |
 
 ## 📤 Outputs
 

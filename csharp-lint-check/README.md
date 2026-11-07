@@ -29,8 +29,8 @@ jobs:
 
 | Parameter        | Description                     | Required | Default |
 |------------------|---------------------------------|----------|---------|
-| `dotnet-version` | Version of .NET SDK to use.     | ❌        | -       |
-| `token`          | GitHub token for authentication | ❌        | -       |
+| `dotnet-version` | Version of .NET SDK to use.     | ❌       | -       |
+| `token`          | GitHub token for authentication | ❌       | -       |
 
 ## 📤 Outputs
 

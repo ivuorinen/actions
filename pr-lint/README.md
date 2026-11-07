@@ -30,9 +30,9 @@ jobs:
 
 | Parameter  | Description                     | Required | Default                     |
 |------------|---------------------------------|----------|-----------------------------|
-| `email`    | GitHub email for commits        | ❌        | `github-actions@github.com` |
-| `token`    | GitHub token for authentication | ❌        | -                           |
-| `username` | GitHub username for commits     | ❌        | `github-actions`            |
+| `email`    | GitHub email for commits        | ❌       | `github-actions@github.com` |
+| `token`    | GitHub token for authentication | ❌       | -                           |
+| `username` | GitHub username for commits     | ❌       | `github-actions`            |
 
 ## 📤 Outputs
 
