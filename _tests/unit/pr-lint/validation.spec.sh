@@ -17,28 +17,6 @@ The status should be failure
 End
 End
 
-Context "when validating username input"
-It "accepts valid username"
-When call validate_input_python "pr-lint" "username" "github-actions"
-The status should be success
-End
-It "rejects injection in username"
-When call validate_input_python "pr-lint" "username" "user; rm -rf /"
-The status should be failure
-End
-End
-
-Context "when validating email input"
-It "accepts valid email"
-When call validate_input_python "pr-lint" "email" "test@example.com"
-The status should be success
-End
-It "rejects invalid email format"
-When call validate_input_python "pr-lint" "email" "invalid-email"
-The status should be failure
-End
-End
-
 Context "when checking action.yml structure"
 It "has valid YAML syntax"
 When call validate_action_yml_quiet "$ACTION_FILE"
@@ -55,8 +33,19 @@ It "defines required inputs"
 inputs=$(get_action_inputs "$ACTION_FILE")
 When call echo "$inputs"
 The output should include "token"
-The output should include "username"
-The output should include "email"
+End
+
+It "does not declare inputs that nothing reads"
+inputs=$(get_action_inputs "$ACTION_FILE")
+When call echo "$inputs"
+The output should not include "username"
+The output should not include "email"
+End
+
+It "does not install Go, which MegaLinter's container never sees"
+When call grep -c 'setup-go' "$ACTION_FILE"
+The output should equal 0
+The status should be failure
 End
 
 It "defines expected outputs"
@@ -72,16 +61,11 @@ It "validates token format"
 When call validate_input_python "pr-lint" "token" "invalid-token;rm -rf /"
 The status should be failure
 End
-
-It "validates email format"
-When call validate_input_python "pr-lint" "email" "invalid@email"
-The status should be failure
-End
 End
 
 Context "when testing outputs"
 It "produces all expected outputs"
-When call test_action_outputs "$ACTION_DIR" "token" "ghp_test" "username" "test" "email" "test@example.com"
+When call test_action_outputs "$ACTION_DIR" "token" "ghp_test"
 The status should be success
 The stderr should include "Testing action outputs for: pr-lint"
 The stderr should include "Output test passed for: pr-lint"

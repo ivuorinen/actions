@@ -76,10 +76,6 @@ inputs:
   platform-build-args:
     description: 'Platform-specific build args in JSON format'
     required: false
-  parallel-builds:
-    description: 'Number of parallel platform builds (0 for auto)'
-    required: false
-    default: '0'
   cache-export:
     description: 'Export cache destination (e.g., type=local,dest=/tmp/cache)'
     required: false
@@ -94,10 +90,6 @@ inputs:
     description: 'Enable verbose logging with platform-specific output'
     required: false
     default: 'false'
-  platform-fallback:
-    description: 'Continue building other platforms if one fails'
-    required: false
-    default: 'true'
   scan-image:
     description: 'Scan built image for vulnerabilities'
     required: false
@@ -166,9 +158,7 @@ runs:
         INPUT_IMAGE_NAME: ${{ inputs.image-name }}
         INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
         INPUT_NETWORK: ${{ inputs.network }}
-        INPUT_PARALLEL_BUILDS: ${{ inputs.parallel-builds }}
         INPUT_PLATFORM_BUILD_ARGS: ${{ inputs.platform-build-args }}
-        INPUT_PLATFORM_FALLBACK: ${{ inputs.platform-fallback }}
         INPUT_PUSH: ${{ inputs.push }}
         INPUT_SBOM_FORMAT: ${{ inputs.sbom-format }}
         INPUT_SCAN_IMAGE: ${{ inputs.scan-image }}

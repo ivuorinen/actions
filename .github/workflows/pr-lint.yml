@@ -66,8 +66,6 @@ jobs:
         uses: ./pr-lint
         with:
           token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
-          username: fiximus
-          email: github-bot@ivuorinen.net
 
       - name: Upload SARIF Report
         if: always() && hashFiles('megalinter-reports/sarif/*.sarif')
