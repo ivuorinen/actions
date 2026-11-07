@@ -150,28 +150,38 @@ def _docker_context_source_error(source: str) -> str | None:
     return _docker_local_path_error(source)
 
 
-def _docker_named_sources_error(value: str, *, contexts: bool) -> str | None:
-    """Return why a comma- or newline-separated ``name=source`` list is invalid, or None.
+def _docker_entry_error(entry: str, *, contexts: bool) -> str | None:
+    """Return why one ``name=source`` entry is invalid, or None.
 
     Names are image references for build contexts (``alpine:3.20``) and free-form ids for
     secrets. The action always passes a secret's source as ``src=``, which buildx reads as
     a file even for a value such as ``env=NAME``, so every secret source is a path.
     """
+    name, separator, source = entry.partition("=")
+    if not separator or not source:
+        return f"invalid entry (expected NAME=SOURCE): {entry}"
+    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+/:@-]*", name):
+        return f"invalid name: {name}"
+    error = _docker_context_source_error(source) if contexts else _file_path_error(source)
+    return f"{name}: {error}" if error else None
+
+
+def _docker_named_sources_error(value: str, *, contexts: bool) -> str | None:
+    """Return why a one-line, comma-separated ``name=source`` list is invalid, or None.
+
+    Mirrors the action, which splits on commas only and writes the result to GITHUB_OUTPUT:
+    whitespace around the value (a YAML block scalar's trailing newline) and around entries
+    is ignored, and a line break anywhere else is rejected.
+    """
     if _skip(value):
         return None
     if meta := _shell_meta_error(value):
         return meta
-    for entry in (part.strip() for part in re.split(r"[,\n]", value)):
-        if not entry:
-            continue
-        name, separator, source = entry.partition("=")
-        if not separator or not source:
-            return f"invalid entry (expected NAME=SOURCE): {entry}"
-        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+/:@-]*", name):
-            return f"invalid name: {name}"
-        error = _docker_context_source_error(source) if contexts else _file_path_error(source)
-        if error:
-            return f"{name}: {error}"
+    if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", value.strip()):
+        return "must be a single line without control characters"
+    for entry in (part.strip() for part in value.split(",")):
+        if entry and (error := _docker_entry_error(entry, contexts=contexts)):
+            return error
     return None
 
 

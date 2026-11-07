@@ -60,14 +60,14 @@ inputs:
     required: false
     default: 'max'
   build-contexts:
-    description: 'Additional build contexts as name=value,name2=value2. Each value is a path relative to the workspace, oci-layout://relative-path, docker-image://, target:, or a Git/HTTP URL.'
+    description: 'Additional build contexts as name=value,name2=value2, on one line. Each value is a workspace-relative path, oci-layout://relative-path, docker-image://, target:, or a Git/HTTP URL.'
     required: false
   network:
     description: 'Network mode for build (host, none, or default)'
     required: false
     default: 'default'
   secrets:
-    description: 'Build secrets in format id=path,id2=path2. Each path is a file relative to the workspace.'
+    description: 'Build secrets in format id=path,id2=path2, on one line. Each path is a file relative to the workspace.'
     required: false
   auto-detect-platforms:
     description: 'Automatically detect and build for all available platforms'

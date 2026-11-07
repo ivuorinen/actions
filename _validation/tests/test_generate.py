@@ -112,6 +112,8 @@ def test_invalid_input_is_rejected_with_annotation():
         ("docker-build", "build-contexts", "layout=oci-layout:///etc/layout"),
         ("docker-build", "secrets", "npmrc=/etc/passwd"),
         ("docker-build", "secrets", "npmrc=../.npmrc"),
+        ("docker-build", "build-contexts", "a=./a\nb=./b"),
+        ("docker-build", "secrets", "a=.a\nb=.b"),
     ],
 )
 def test_docker_sources_outside_the_workspace_are_rejected(action, name, value):
@@ -136,7 +138,7 @@ def test_docker_sources_inside_the_workspace_are_accepted():
             "INPUT_BUILD_CONTEXTS": (
                 "shared=./shared,base=docker-image://alpine:3.20,layout=oci-layout://layout:1.3"
             ),
-            "INPUT_SECRETS": "npmrc=.npmrc,token=env=API_KEY",
+            "INPUT_SECRETS": "npmrc=.npmrc,token=env=API_KEY\n",
         },
     )
     assert result.returncode == 0, result.stdout

@@ -197,7 +197,8 @@ CASES: dict[str, dict[str, list[str]]] = {
             "shared=./shared",
             "shared=libs/shared,other=services/other",
             "shared=libs/shared, other=services/other",
-            "shared=libs/shared\nother=services/other",
+            # a YAML block scalar's trailing newline is not a second line
+            "shared=libs/shared,other=services/other\n",
             # names are image references to buildx, not environment-variable keys
             "my-context=./shared",
             "base-1.0.0-rc.1=./shared",
@@ -240,6 +241,13 @@ CASES: dict[str, dict[str, list[str]]] = {
             "shared=%2e%2e/%2e%2e",
             "ok=./a,bad=/etc",
             "ok=./a\nbad=/etc",
+            # a line break inside the value would become an extra line in GITHUB_OUTPUT
+            "shared=libs/shared\nother=services/other",
+            "shared=libs/shared,\nother=services/other",
+            "shared=libs/shared\r\nother=services/other",
+            "shared=libs/shared\rother=services/other",
+            "alpine=docker-image://alpine:3.20\ninjected=1",
+            "shared=libs/shared\x00",
             "ok=./a, bad=../b",
             # a scheme buildx does not treat as remote falls through to the local path lookup
             "shared=file:///etc",
@@ -272,7 +280,8 @@ CASES: dict[str, dict[str, list[str]]] = {
             "npmrc=.npmrc",
             "npmrc=.npmrc,aws=config/aws-credentials",
             "npmrc=.npmrc, aws=config/aws-credentials",
-            "npmrc=.npmrc\naws=config/aws-credentials",
+            # a YAML block scalar's trailing newline is not a second line
+            "npmrc=.npmrc,aws=config/aws-credentials\n",
             "GIT_AUTH_TOKEN=.secrets/token",
             "my-secret=secrets/token.txt",
             "my.secret=secrets/token.txt",
@@ -291,6 +300,12 @@ CASES: dict[str, dict[str, list[str]]] = {
             "npmrc=%2e%2e/.npmrc",
             "ok=.npmrc,bad=/etc/passwd",
             "ok=.npmrc\nbad=/etc/passwd",
+            # a line break inside the value would become an extra line in GITHUB_OUTPUT
+            "npmrc=.npmrc\naws=config/aws-credentials",
+            "npmrc=.npmrc,\naws=config/aws-credentials",
+            "npmrc=.npmrc\r\naws=config/aws-credentials",
+            "npmrc=.npmrc\raws=config/aws-credentials",
+            "npmrc=.npmrc\x00",
             "ok=.npmrc, bad=../.npmrc",
             # full buildx syntax is split on the comma, so src= here is its own file secret
             "id=npmrc,src=/etc/passwd",

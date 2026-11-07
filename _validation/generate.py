@@ -48,6 +48,7 @@ _HELPERS = (
     "_is_docker_remote_source",
     "_docker_local_path_error",
     "_docker_context_source_error",
+    "_docker_entry_error",
     "_docker_named_sources_error",
 )
 _HELPER_SOURCES = {name: inspect.getsource(getattr(kit, name)).strip() for name in _HELPERS}

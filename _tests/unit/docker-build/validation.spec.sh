@@ -147,6 +147,14 @@ It "rejects whitespace in a reference"
 When call validate_input_python "docker-build" "build-contexts" "alpine=docker-image://alpine --flag"
 The status should be failure
 End
+It "rejects a multi-line value"
+When call validate_input_python "docker-build" "build-contexts" "$(printf 'a=./a\nb=./b')"
+The status should be failure
+End
+It "accepts the trailing newline of a block scalar"
+When call validate_input_python "docker-build" "build-contexts" "$(printf 'a=./a\n ')"
+The status should be success
+End
 End
 
 Context "when validating secrets input"
@@ -173,6 +181,14 @@ End
 It "rejects a quoted absolute path"
 When call validate_input_python "docker-build" "secrets" 'npmrc="/etc/passwd"'
 The status should be failure
+End
+It "rejects a multi-line value"
+When call validate_input_python "docker-build" "secrets" "$(printf 'a=.a\nb=.b')"
+The status should be failure
+End
+It "accepts the trailing newline of a block scalar"
+When call validate_input_python "docker-build" "secrets" "$(printf 'a=.a\n ')"
+The status should be success
 End
 End
 
