@@ -30,6 +30,20 @@ after() {
 }
 AfterEach 'after'
 
+Describe "namespace input"
+namespace_block() {
+  awk '/^  namespace:/ {p=1; print; next} p && /^  [a-z]/ {exit} p {print}' "${ACTION_DIR}/action.yml"
+}
+
+It "is required and has no default"
+# A default would publish to the wrong namespace when a caller forgets it.
+When call namespace_block
+The status should be success
+The stdout should include "required: true"
+The stdout should not include "default:"
+End
+End
+
 Describe "extract-version"
 It "extracts the version from a single .nupkg filename"
 : >artifacts/Acme.Widgets.1.2.3.nupkg
@@ -92,13 +106,28 @@ End
 It "pushes each package to the namespace feed and records the package URL"
 setup_inputs
 : >artifacts/Acme.Widgets.1.2.3.nupkg
-# Matching on the source URL makes the mock discriminating: a regression that
-# pushes to the wrong feed matches no glob and the dispatcher exits 127.
-mock_command dotnet "nuget push * --source https://nuget.pkg.github.com/acme/index.json *" ""
+# The glob names the exact argv shape: the source is the config entry "github",
+# and no --api-key is passed, so the token never appears on the command line.
+# A regression that adds --api-key or another source matches no glob and the
+# dispatcher exits 127.
+mock_command dotnet "nuget push */artifacts/Acme.Widgets.1.2.3.nupkg --source github --skip-duplicate --no-symbols" ""
 
 When call run_step "${ACTION_DIR}" "publish-package"
 The status should be success
 Assert expect_output package_url "https://github.com/acme/packages/nuget"
+End
+
+It "keeps the token out of the push command line"
+setup_inputs
+: >artifacts/Acme.Widgets.1.2.3.nupkg
+# Any argv containing the token or --api-key hits this mock, which fails the push.
+mock_command dotnet "*--api-key*" "" 1
+mock_command dotnet "*ghp_aaaa*" "" 1
+mock_command dotnet "nuget push * --source github *" "pushed"
+
+When call run_step "${ACTION_DIR}" "publish-package"
+The status should be success
+The stdout should include "pushed"
 End
 
 It "pushes every package when the artifacts directory holds several"
@@ -110,8 +139,8 @@ It "pushes every package when the artifacts directory holds several"
 setup_inputs
 : >artifacts/Acme.Widgets.1.2.3.nupkg
 : >artifacts/Acme.Tools.4.5.6.nupkg
-mock_command dotnet "nuget push ./artifacts/Acme.Widgets.1.2.3.nupkg *" "pushed Acme.Widgets"
-mock_command dotnet "nuget push ./artifacts/Acme.Tools.4.5.6.nupkg *" "pushed Acme.Tools"
+mock_command dotnet "nuget push */artifacts/Acme.Widgets.1.2.3.nupkg *" "pushed Acme.Widgets"
+mock_command dotnet "nuget push */artifacts/Acme.Tools.4.5.6.nupkg *" "pushed Acme.Tools"
 
 When call run_step "${ACTION_DIR}" "publish-package"
 The status should be success
