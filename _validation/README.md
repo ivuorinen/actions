@@ -62,6 +62,33 @@ Never hand-edit a generated `<action>/validate.py` — a PreToolUse hook blocks 
     python3 validate.py
 ```
 
+## Versions read from repository files
+
+Some actions also read a tool version from a file in the checked-out repository
+(`.tool-versions`, `global.json`, `go.mod`, ...). That value is untrusted and is not an
+input, so it has its own rule: `is_detected_version` or `is_detected_dotnet_version` in
+`kit.py`, named by `detected_version` in `spec.py`. Neither has the `_skip` gate, and a
+rejected value is not an error: the step moves on to its next source.
+
+`validate.py` and `python3` are the only things a step can rely on at runtime, so the rule
+ships there and a step asks it by exit status:
+
+```yaml
+- name: Detect Version
+  shell: sh
+  env:
+    ACTION_PATH: ${{ github.action_path }}
+  run: |
+    set -eu
+    command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
+    validate_version() {
+      (cd "$ACTION_PATH" && python3 validate.py --detected-version "$1")
+    }
+```
+
+Run it from the action directory, not the checkout: a checkout's `.python-version` or
+`.tool-versions` would otherwise steer a `python3` version-manager shim.
+
 ## Tests
 
 ```sh
