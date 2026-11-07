@@ -87,7 +87,7 @@ Actions like `node-setup`, `php-version-detect` follow auto-detection patterns:
 
 ### Code Quality (Zero Tolerance)
 
-- All linting must pass: markdownlint, yamllint, shellcheck, ruff
+- All linting must pass: markdownlint, yaml-lint, shellcheck, ruff, pyright, action-validator (`make lint`); actionlint runs in the pre-commit hook
 - All tests must pass: unit + integration
 - No warnings allowed in production
 - Use `make all` before committing
