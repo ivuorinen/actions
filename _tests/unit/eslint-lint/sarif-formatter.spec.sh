@@ -13,6 +13,7 @@ before() {
   export INPUT_MODE="check"
   export INPUT_REPORT_FORMAT="sarif"
   export PACKAGE_MANAGER="npm"
+  export RUNNER_TEMP="$PWD"
 }
 BeforeEach 'before'
 
@@ -43,7 +44,7 @@ End
 It "installs the pinned formatter outside the repository and passes its entry file"
 version=$(pinned_formatter_version)
 mock_command node "-e *" "" 1
-mock_command npm "install --prefix * --no-package-lock --no-audit --no-fund --ignore-scripts @microsoft/eslint-formatter-sarif@${version}" ""
+mock_command npm "install --prefix ${RUNNER_TEMP}/eslint-sarif-formatter.* --no-package-lock --no-audit --no-fund --ignore-scripts @microsoft/eslint-formatter-sarif@${version}" ""
 mock_command node "-p *" "/tmp/prefix/node_modules/@microsoft/eslint-formatter-sarif/sarif.js"
 mock_command npx "eslint . --ext * --max-warnings * --format /tmp/prefix/node_modules/@microsoft/eslint-formatter-sarif/sarif.js --output-file eslint-results.sarif" ""
 When call run_step "${ACTION_DIR}" "check"

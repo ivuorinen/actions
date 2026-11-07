@@ -284,7 +284,7 @@ runs:
           # pass ESLint its entry file; a bare package name only resolves from the repository.
           formatter=@microsoft/eslint-formatter-sarif
           if ! node -e "require.resolve('$formatter', { paths: [process.cwd()] })" 2>/dev/null; then
-            formatter_prefix=$(mktemp -d)
+            formatter_prefix=$(mktemp -d "$RUNNER_TEMP/eslint-sarif-formatter.XXXXXX")
             npm install --prefix "$formatter_prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
               "$formatter@$SARIF_FORMATTER_VERSION"
             formatter=$(node -p "require.resolve('$formatter', { paths: [process.argv[1]] })" "$formatter_prefix")
