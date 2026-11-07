@@ -31,14 +31,14 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter       | Description                                                              | Required | Default                     |
-|-----------------|--------------------------------------------------------------------------|----------|-----------------------------|
-| `email`         | GitHub email for commits (fix mode only)                                 | ❌       | `github-actions@github.com` |
-| `fail-on-error` | Whether to fail the action if linting errors are found (check mode only) | ❌       | `true`                      |
-| `max-retries`   | Maximum number of retry attempts for npm install operations              | ❌       | `3`                         |
-| `mode`          | Mode to run (check or fix)                                               | ❌       | `check`                     |
-| `token`         | GitHub token for authentication                                          | ❌       | -                           |
-| `username`      | GitHub username for commits (fix mode only)                              | ❌       | `github-actions`            |
+| Parameter       | Description                                                                           | Required | Default                     |
+|-----------------|---------------------------------------------------------------------------------------|----------|-----------------------------|
+| `email`         | GitHub email for commits (fix mode only)                                              | ❌       | `github-actions@github.com` |
+| `fail-on-error` | Whether to fail the action if linting errors are found (check mode only)              | ❌       | `true`                      |
+| `max-retries`   | Maximum number of retry attempts for npm install operations                           | ❌       | `3`                         |
+| `mode`          | Mode to run (check or fix)                                                            | ❌       | `check`                     |
+| `token`         | GitHub token for authentication. Stays in git config after checkout in fix mode only. | ❌       | -                           |
+| `username`      | GitHub username for commits (fix mode only)                                           | ❌       | `github-actions`            |
 
 ## 📤 Outputs
 
