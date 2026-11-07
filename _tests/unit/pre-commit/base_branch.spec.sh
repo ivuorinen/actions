@@ -35,16 +35,12 @@ make_full_clone() {
 }
 
 checkout_fetch_depth() {
-  python3 -c '
-import sys, yaml
-steps = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))["runs"]["steps"]
-print(next(s for s in steps if s["uses"].startswith("actions/checkout@"))["with"]["fetch-depth"])
-' "${ACTION_DIR}/action.yml"
+  grep -E '^ +fetch-depth: ' "${ACTION_DIR}/action.yml"
 }
 
 It "fetches full history only when base-branch is set"
 When call checkout_fetch_depth
-The output should equal "\${{ inputs.base-branch != '' && 0 || 1 }}"
+The output should equal "        fetch-depth: \${{ inputs.base-branch != '' && 0 || 1 }}"
 End
 
 It "emits a from-ref that resolves in a full checkout"
