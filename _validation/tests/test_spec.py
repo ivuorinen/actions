@@ -126,7 +126,9 @@ def test_documented_input_values_pass_their_own_validator(action):
             continue
         name, value = parsed
         check = checks.get(name)
-        if not check:
+        # The runner expands a `${{ }}` value before validate.py reads it, so a README
+        # showing one documents a reference: there is no literal value here to check.
+        if not check or (value.startswith("${{") and value.endswith("}}")):
             continue
         error = kit.CHECKS[check](value)
         if error:

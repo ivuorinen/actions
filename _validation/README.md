@@ -20,7 +20,7 @@ self-contained model removes all of that: validation ships _atomically_ with eac
 | `generate.py` | Inlines the exact source of the checks each action needs into `<action>/validate.py`.                                 |
 | `tests/`      | pytest: kit unit tests, a drift test, and spec/coverage tests.                                                        |
 
-A generated `<action>/validate.py` contains: a small preamble (`_is_expr`, `_skip`, …),
+A generated `<action>/validate.py` contains: a small preamble (`_skip`, `_enum`, …),
 only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map, a
 `REQUIRED` set, and a `main()` that reads `INPUT_*` env vars and exits non-zero with
 `::error::` annotations on any failure.
@@ -28,8 +28,10 @@ only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map
 ## Contract every check follows
 
 - **Empty** value → accepted (inputs are optional unless listed in `REQUIRED`).
-- **`${{ … }}` expression** → accepted unchanged (its real value is substituted at runtime).
-- Tokens additionally accept `$VAR` / `${VAR}` env references.
+- **Everything else** → checked as literal data, exactly as the action will use it. The runner
+  expands `${{ … }}` before `validate.py` reads `INPUT_*` and never expands `$VAR` in an input,
+  so a value still containing either is rejected rather than treated as a reference. Surrounding
+  whitespace and newlines are rejected too, except in the inputs that are multi-line by design.
 
 Validation is **fail-closed**: an invalid value prints `::error::` and exits 1 before the
 action does any work.

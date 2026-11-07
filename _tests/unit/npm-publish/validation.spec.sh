@@ -46,8 +46,7 @@ End
 
 It "rejects a literal npm_ classic token (npm_token uses the github_token check)"
 # The npm_token input is validated by the kit's github_token check, which accepts
-# ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_ tokens or ${{ ... }}/$VAR references —
-# not bare npm_ tokens. In practice npm_token is passed as ${{ secrets.NPM_TOKEN }}.
+# ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_ tokens, not bare npm_ tokens.
 When call validate_input_python "npm-publish" "npm_token" "npm_1234567890123456789012345678901234567890"
 The status should be failure
 End
