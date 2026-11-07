@@ -17,7 +17,7 @@ Shared contract — the ``_skip`` gate, applied first by nearly every check:
   * a GitHub Actions expression (``${{ ... }}``) is accepted unchanged, because its real
     value is substituted at runtime and cannot be inspected here.
 
-Security-critical checks (tokens, file paths, injection-bearing lists, URLs) are ported
+Security-critical checks (tokens, file paths, injection-bearing lists) are ported
 faithfully from the previous validator framework so external callers see no change in what
 is accepted or rejected. Tool-version and enum format checks are written to match what each
 underlying tool actually accepts.
@@ -499,22 +499,30 @@ def check_email(value: str) -> str | None:
     return "must be a valid email address (e.g. user@example.com)"
 
 
-def check_url(value: str) -> str | None:
-    """HTTP(S) URL — rejects injection characters and non-http schemes."""
+def check_registry_url(value: str) -> str | None:
+    """Npm registry URL — the publish token is sent to it, so it must be encrypted.
+
+    Requires ``https://``. Plain ``http://`` is accepted only for the exact loopback hosts
+    ``localhost`` and ``127.0.0.1`` (a local test registry such as Verdaccio), where the
+    token stays on the machine. Only a host, port and path are accepted: credentials in the
+    URL leak into logs, and npm appends package names to the URL, so a query or fragment
+    cannot be part of a working registry.
+    """
     if _skip(value):
         return None
-    if not value.startswith(("http://", "https://")):
-        return "must start with http:// or https://"
-    if any(token in value for token in (";", "|", "`", "$(", "${", "../", "..\\")):
+    if any(token in value for token in (";", "|", "`", "$(", "${", "..")):
         return "must not contain injection characters"
     lowered = value.lower()
-    if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
+    if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e")):
         return "must not contain encoded control or traversal sequences"
-    if re.match(
-        r"^https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s<>]*)?$", value
-    ):
+    match = re.fullmatch(
+        r"(?:https://[a-zA-Z0-9.-]+|http://(?:localhost|127\.0\.0\.1))"
+        r"(?::([0-9]{1,5}))?(?:/[^\s<>?#\\]*)?",
+        value,
+    )
+    if match and int(match[1] or 0) <= 65535:
         return None
-    return "must be a valid http(s) URL"
+    return "must be https://host[:port][/path] (http:// only for localhost or 127.0.0.1)"
 
 
 def check_scope(value: str) -> str | None:
@@ -897,6 +905,7 @@ EXAMPLES = {
     "positive_integer": "30",
     "prefix": "v",
     "registry_enum": "github",
+    "registry_url": "https://registry.npmjs.org",
     "report_format": "sarif",
     "repository_list": "my-org/my-repo",
     "sbom_format": "spdx-json",
@@ -907,6 +916,5 @@ EXAMPLES = {
     "strict_semantic_version": "1.2.3",
     "terraform_version": "1.5.7",
     "timeout_with_unit": "5m",
-    "url": "https://registry.npmjs.org",
     "username": "github-actions",
 }

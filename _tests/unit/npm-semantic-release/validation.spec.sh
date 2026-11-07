@@ -37,9 +37,39 @@ When call validate_input_python "npm-semantic-release" "registry-url" "https://r
 The status should be success
 End
 
-It "accepts http registry URL"
+It "accepts http registry URL on localhost"
 When call validate_input_python "npm-semantic-release" "registry-url" "http://localhost:4873"
 The status should be success
+End
+
+It "accepts http registry URL on 127.0.0.1"
+When call validate_input_python "npm-semantic-release" "registry-url" "http://127.0.0.1:4873/"
+The status should be success
+End
+
+It "rejects http registry URL on a remote host"
+When call validate_input_python "npm-semantic-release" "registry-url" "http://registry.example.com/"
+The status should be failure
+End
+
+It "rejects http registry URL on a host that starts with localhost"
+When call validate_input_python "npm-semantic-release" "registry-url" "http://localhost.evil.example"
+The status should be failure
+End
+
+It "rejects http registry URL on a host that starts with 127.0.0.1"
+When call validate_input_python "npm-semantic-release" "registry-url" "http://127.0.0.1.evil.example"
+The status should be failure
+End
+
+It "rejects registry URL with credentials"
+When call validate_input_python "npm-semantic-release" "registry-url" "https://user:pass@registry.example.com/"
+The status should be failure
+End
+
+It "rejects registry URL with localhost as userinfo"
+When call validate_input_python "npm-semantic-release" "registry-url" "http://localhost@evil.example"
+The status should be failure
 End
 
 It "rejects non-http(s) URL"

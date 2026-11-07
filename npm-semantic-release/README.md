@@ -35,14 +35,14 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter       | Description                                                | Required | Default                                             |
-|-----------------|------------------------------------------------------------|----------|-----------------------------------------------------|
-| `extra_plugins` | Extra semantic-release plugins (pipe-separated).           | ❌       | `conventional-changelog-conventionalcommits@^9.3.1` |
-| `github_token`  | GitHub token for creating releases, tags, and PR comments. | ❌       | `${{ github.token }}`                               |
-| `node-version`  | Node.js version to use when .nvmrc is not present.         | ❌       | `24`                                                |
-| `npm_token`     | NPM token for publishing.                                  | ✅       | -                                                   |
-| `registry-url`  | Registry URL for publishing.                               | ❌       | `https://registry.npmjs.org/`                       |
-| `scope`         | Package scope to use.                                      | ❌       | `@ivuorinen`                                        |
+| Parameter       | Description                                                                                                                       | Required | Default                                             |
+|-----------------|-----------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
+| `extra_plugins` | Extra semantic-release plugins (pipe-separated).                                                                                  | ❌       | `conventional-changelog-conventionalcommits@^9.3.1` |
+| `github_token`  | GitHub token for creating releases, tags, and PR comments.                                                                        | ❌       | `${{ github.token }}`                               |
+| `node-version`  | Node.js version to use when .nvmrc is not present.                                                                                | ❌       | `24`                                                |
+| `npm_token`     | NPM token for publishing.                                                                                                         | ✅       | -                                                   |
+| `registry-url`  | Registry URL for publishing. Must be https:// (http:// only for localhost or 127.0.0.1), with no credentials, query, or fragment. | ❌       | `https://registry.npmjs.org/`                       |
+| `scope`         | Package scope to use.                                                                                                             | ❌       | `@ivuorinen`                                        |
 
 ## 📤 Outputs
 

@@ -217,7 +217,7 @@ SPECS: dict[str, ActionSpec] = {
         "checks": {
             "npm_token": "github_token",
             "package-version": "strict_semantic_version",
-            "registry-url": "url",
+            "registry-url": "registry_url",
             "scope": "scope",
             "token": "github_token",
         },
@@ -229,7 +229,7 @@ SPECS: dict[str, ActionSpec] = {
             "github_token": "github_token",
             "node-version": "node_version",
             "npm_token": "github_token",
-            "registry-url": "url",
+            "registry-url": "registry_url",
             "scope": "scope",
         },
     },

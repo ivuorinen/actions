@@ -32,13 +32,13 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter         | Description                     | Required | Default                                |
-|-------------------|---------------------------------|----------|----------------------------------------|
-| `npm_token`       | NPM token.                      | ✅       | -                                      |
-| `package-version` | The version to publish.         | ❌       | `${{ github.event.release.tag_name }}` |
-| `registry-url`    | Registry URL for publishing.    | ❌       | `https://registry.npmjs.org/`          |
-| `scope`           | Package scope to use.           | ❌       | `@ivuorinen`                           |
-| `token`           | GitHub token for authentication | ❌       | -                                      |
+| Parameter         | Description                                                                                                                       | Required | Default                                |
+|-------------------|-----------------------------------------------------------------------------------------------------------------------------------|----------|----------------------------------------|
+| `npm_token`       | NPM token.                                                                                                                        | ✅       | -                                      |
+| `package-version` | The version to publish.                                                                                                           | ❌       | `${{ github.event.release.tag_name }}` |
+| `registry-url`    | Registry URL for publishing. Must be https:// (http:// only for localhost or 127.0.0.1), with no credentials, query, or fragment. | ❌       | `https://registry.npmjs.org/`          |
+| `scope`           | Package scope to use.                                                                                                             | ❌       | `@ivuorinen`                           |
+| `token`           | GitHub token for authentication                                                                                                   | ❌       | -                                      |
 
 ## 📤 Outputs
 
