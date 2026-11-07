@@ -92,11 +92,11 @@ def test_required_matches_action_yml(action):
     assert set(SPECS[action]["required"]) == required_inputs(action)
 
 
-def test_secret_checks_exist_in_kit():
-    assert set(kit.CHECKS) >= kit.SECRET_CHECKS
+def test_masked_checks_exist_in_kit():
+    assert set(kit.CHECKS) >= kit.MASKED_CHECKS
 
 
-_SECRET_NAME = re.compile(
+_CREDENTIAL_NAME = re.compile(
     r"token|secret|password|passphrase|credential|license|api.?key", re.IGNORECASE
 )
 # docker-build's `secrets` holds `id=path` pairs pointing at secret files, never a secret value.
@@ -108,11 +108,11 @@ def test_credential_named_inputs_use_a_masked_check(action):
     unmasked = [
         name
         for name, check in SPECS[action]["checks"].items()
-        if _SECRET_NAME.search(name)
-        and check not in kit.SECRET_CHECKS
+        if _CREDENTIAL_NAME.search(name)
+        and check not in kit.MASKED_CHECKS
         and (action, name) not in _NOT_A_CREDENTIAL
     ]
-    assert not unmasked, f"{action}: give these a check in kit.SECRET_CHECKS: {unmasked}"
+    assert not unmasked, f"{action}: give these a check in kit.MASKED_CHECKS: {unmasked}"
 
 
 @pytest.mark.parametrize("action", ACTIONS)

@@ -5,9 +5,19 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
+<<<<<<< HEAD
 values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
 every expression in INPUT_*, so all other values are checked as literal data. Inputs listed in
 SECRETS are masked in the job's logs before any check runs.
+||||||| parent of 72e3942 (refactor(validation): name masked inputs for what they hold)
+values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
+pass unchecked (their value is substituted at runtime). Inputs listed in SECRETS are masked
+in the job's logs before any check runs.
+=======
+values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
+pass unchecked (their value is substituted at runtime). Inputs named in MASKED_INPUTS are
+masked in the job's logs before any check runs.
+>>>>>>> 72e3942 (refactor(validation): name masked inputs for what they hold)
 """
 
 from __future__ import annotations
@@ -277,7 +287,7 @@ CHECKS = {
 REQUIRED = {"tag"}
 
 
-SECRETS: list[str] = ["token"]
+MASKED_INPUTS: list[str] = ["token"]
 
 
 def _input(name: str) -> str:
@@ -289,7 +299,7 @@ def main() -> None:
     """Mask secret inputs, then validate every declared input; fail with all reasons."""
     # Masks come first so nothing printed below can reveal a secret. The runner decodes %25
     # in command data, so a literal % has to be encoded to register the real value.
-    for input_name in SECRETS:
+    for input_name in MASKED_INPUTS:
         for line in _input(input_name).splitlines():
             if line.strip():
                 sys.stdout.write("::add-mask::" + line.strip().replace("%", "%25") + "\n")
