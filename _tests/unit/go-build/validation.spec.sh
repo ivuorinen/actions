@@ -170,4 +170,17 @@ When call validate_input_python "go-build" "max-retries" "3;echo test"
 The status should be failure
 End
 End
+
+Context "when destination starts with a dash"
+It "rejects a leading dash"
+When call validate_input_python "go-build" "destination" "--help"
+The status should be failure
+End
+
+It "ends mkdir options before the destination"
+When call grep -F 'mkdir -p -- "$DESTINATION"' "$ACTION_FILE"
+The status should be success
+The output should include 'mkdir -p -- "$DESTINATION"'
+End
+End
 End

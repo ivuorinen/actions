@@ -254,4 +254,22 @@ When call validate_input_python "go-lint" "enable-linters" "gosec,\$(echo malici
 The status should be failure
 End
 End
+
+Context "when a path input starts with a dash"
+It "rejects a leading dash in working-directory"
+When call validate_input_python "go-lint" "working-directory" "--help"
+The status should be failure
+End
+
+It "rejects a leading dash in config-file"
+When call validate_input_python "go-lint" "config-file" "-x"
+The status should be failure
+End
+
+It "ends cd options before the working directory"
+When call grep -c 'cd -- "$WORKING_DIRECTORY"' go-lint/action.yml
+The status should be success
+The output should equal 3
+End
+End
 End

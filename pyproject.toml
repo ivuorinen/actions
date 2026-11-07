@@ -290,5 +290,6 @@ extraPaths = [
   "./_validation/tests",
   "./_tests/framework",
   "./_tests/shared",
+  "./sync-labels",
 ]
 reportMissingTypeStubs = true

@@ -66,9 +66,11 @@ def check_boolean(value: str) -> str | None:
 
 
 def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
+    """Relative file path — rejects a leading ``-``, absolute paths, ``..`` and ``~`` expansion."""
     if _skip(value):
         return None
+    if value.startswith("-"):
+        return "must not start with -"
     import urllib.parse
 
     decoded = urllib.parse.unquote(value)

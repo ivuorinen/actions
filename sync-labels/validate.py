@@ -51,9 +51,11 @@ def check_boolean(value: str) -> str | None:
 
 
 def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
+    """Relative file path — rejects a leading ``-``, absolute paths, ``..`` and ``~`` expansion."""
     if _skip(value):
         return None
+    if value.startswith("-"):
+        return "must not start with -"
     import urllib.parse
 
     decoded = urllib.parse.unquote(value)
@@ -102,10 +104,13 @@ def check_repository_list(value: str) -> str | None:
     """Newline-separated ``owner/repo`` targets for cross-repo label sync."""
     if _skip(value):
         return None
+    # Owner: alphanumeric or hyphen, neither first nor last a hyphen (GitHub's rule).
+    # sync-labels/sync.py keeps a copy; test_sync_labels_parity.py holds the two together.
     bad = [
         line.strip()
         for line in value.splitlines()
-        if line.strip() and not re.fullmatch(r"[A-Za-z0-9._-]+/[A-Za-z0-9._-]+", line.strip())
+        if line.strip()
+        and not re.fullmatch(r"(?!-)[A-Za-z0-9-]+(?<!-)/[A-Za-z0-9._-]+", line.strip())
     ]
     if bad:
         return "invalid repository(s) (expected owner/repo): " + ", ".join(bad)
