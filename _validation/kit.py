@@ -352,16 +352,14 @@ def check_terraform_version(value: str) -> str | None:
 
 
 def check_node_version(value: str) -> str | None:
-    """Node version: 20, 20.1, 20.1.0, a keyword (latest/lts/current/node), or an LTS selector.
+    """Node version: 20, 20.1, 20.1.0, latest/current/node, or an LTS alias.
 
-    The LTS selector is one setup-node reads: ``lts/*``, ``lts/-<n>`` or ``lts/<codename>``.
+    The aliases are what actions/setup-node resolves: lts/<name>, lts/* and lts/-n. It matches the
+    keywords and the ``lts/`` prefix case-sensitively, and only the <name> in any case.
     """
     if _skip(value):
         return None
-    low = value.lower()
-    if low in ("latest", "lts", "current", "node") or re.fullmatch(
-        r"lts/(?:\*|-[0-9]+|[a-z]+)", low
-    ):
+    if re.fullmatch(r"latest|current|node|lts/(\*|-[1-9][0-9]*|[a-zA-Z]+)", value):
         return None
     if re.fullmatch(r"v?[0-9]+(\.[0-9]+(\.[0-9]+)?)?", value):
         return None
@@ -851,6 +849,25 @@ def check_plugin_list(value: str) -> str | None:
     return None
 
 
+def check_npm_spec_list(value: str) -> str | None:
+    """Whitespace- or newline-separated npm specs: name, @scope/name, optional @version.
+
+    This is how cycjimmy/semantic-release-action splits ``extra_plugins``. Its v6 hands the list
+    to a shell, so the pattern is ASCII-only and leaves out ``<`` and ``>``. It stays separate
+    from ``plugin_list`` because that one's accepted values must not change for prettier-lint.
+    """
+    if _skip(value):
+        return None
+    for item in filter(None, re.split(r"[ \t\r\n]+", value)):
+        if not re.fullmatch(
+            r"(@[a-zA-Z0-9][a-zA-Z0-9._-]*/)?[a-zA-Z0-9][a-zA-Z0-9._-]*"
+            r"(@[a-zA-Z0-9^~*][a-zA-Z0-9._^~*+-]*)?",
+            item,
+        ):
+            return f"invalid npm package spec: {item}"
+    return None
+
+
 def check_php_extensions(value: str) -> str | None:
     """Comma-separated PHP extension names."""
     if _skip(value):
@@ -1098,6 +1115,7 @@ EXAMPLES = {
     "network_mode": "default",
     "no_prefix_version": "1.2.3",
     "node_version": "20",
+    "npm_spec_list": "@semantic-release/git@10.0.1",
     "numeric_range_0_10000": "0",
     "numeric_range_0_100": "80",
     "numeric_range_0_16": "4",
