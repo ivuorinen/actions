@@ -82,4 +82,52 @@ When call run_step "${ACTION_DIR}" "verify-package-json"
 The status should be success
 End
 End
+
+# Mirrored in npm-publish/behavior.spec.sh: both release actions must hold to
+# this, and the fixtures differ because only that one publishes.
+Describe "dependency install"
+ACTION_FILE="${ACTION_DIR}/action.yml"
+
+It "neither restores dependencies from a cache nor skips the install"
+When call grep -nE 'actions/cache|cache-hit|node_modules' "$ACTION_FILE"
+The status should be failure
+End
+
+It "turns off the automatic package manager cache on every setup-node step"
+When call grep -c 'package-manager-cache: false' "$ACTION_FILE"
+The stdout should equal "$(grep -c 'uses: actions/setup-node@' "$ACTION_FILE")"
+End
+
+It "turns off the executable cache on the setup-bun step"
+# Inert while bun-version is `latest`, active as soon as it names a version.
+When call grep -c 'no-cache: true' "$ACTION_FILE"
+The stdout should equal "$(grep -c 'uses: oven-sh/setup-bun@' "$ACTION_FILE")"
+End
+
+Describe "lockfile-strict install"
+Parameters
+# files to create         command   arguments that must reach it
+"package-lock.json" "npm" "ci"
+"pnpm-lock.yaml" "pnpm" "install --frozen-lockfile"
+"yarn.lock .yarnrc.yml" "yarn" "install --immutable"
+"yarn.lock" "yarn" "install --frozen-lockfile"
+"bun.lockb" "bun" "install --frozen-lockfile"
+End
+
+It "runs $2 $3 for $1"
+# The harness ignores working-directory, so validate.py is looked up in the
+# workspace. validation.spec.sh covers the real validator.
+: >validate.py
+printf '{"name":"pkg","version":"1.0.0"}\n' >package.json
+for _f in $1; do : >"$_f"; done
+
+mock_command corepack "*" ""
+mock_command "$2" "$3" "ran: $2 $3"
+
+When call run_all_owned_steps "${ACTION_DIR}"
+The status should be success
+The stdout should include "ran: $2 $3"
+End
+End
+End
 End
