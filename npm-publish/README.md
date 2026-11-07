@@ -32,13 +32,13 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter         | Description                     | Required | Default                                |
-|-------------------|---------------------------------|----------|----------------------------------------|
-| `npm_token`       | NPM token.                      | ✅       | -                                      |
-| `package-version` | The version to publish.         | ❌       | `${{ github.event.release.tag_name }}` |
-| `registry-url`    | Registry URL for publishing.    | ❌       | `https://registry.npmjs.org/`          |
-| `scope`           | Package scope to use.           | ❌       | `@ivuorinen`                           |
-| `token`           | GitHub token for authentication | ❌       | -                                      |
+| Parameter         | Description                                                                                                                                                                        | Required | Default                                |
+|-------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|----------------------------------------|
+| `npm_token`       | NPM token. Publish commands read it from NODE_AUTH_TOKEN; it is not written to disk or left for later steps. A committed .npmrc gets it from ${NODE_AUTH_TOKEN}, not ${NPM_TOKEN}. | ✅       | -                                      |
+| `package-version` | The version to publish.                                                                                                                                                            | ❌       | `${{ github.event.release.tag_name }}` |
+| `registry-url`    | Registry URL for publishing.                                                                                                                                                       | ❌       | `https://registry.npmjs.org/`          |
+| `scope`           | Package scope to use.                                                                                                                                                              | ❌       | `@ivuorinen`                           |
+| `token`           | GitHub token for authentication                                                                                                                                                    | ❌       | -                                      |
 
 ## 📤 Outputs
 
