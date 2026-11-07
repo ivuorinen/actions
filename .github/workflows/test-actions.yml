@@ -8,16 +8,26 @@ on:
       - main
     paths:
       - '*/action.yml'
+      - '*/validate.py'
       - '_tests/**'
+      - '_validation/**'
       - 'Makefile'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/actions/setup-test-environment/**'
       - '.github/workflows/test-actions.yml'
   pull_request:
     branches:
       - main
     paths:
       - '*/action.yml'
+      - '*/validate.py'
       - '_tests/**'
+      - '_validation/**'
       - 'Makefile'
+      - 'pyproject.toml'
+      - 'uv.lock'
+      - '.github/actions/setup-test-environment/**'
       - '.github/workflows/test-actions.yml'
   # checkov:skip=CKV_GHA_7:Test-only workflow; inputs passed through env: blocks, never interpolated directly into shell
   workflow_dispatch:
@@ -97,6 +107,30 @@ jobs:
           path: _tests/reports/unit/
           retention-days: 7
           if-no-files-found: ignore
+
+  validation-tests:
+    name: Validation Tests
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        with:
+          persist-credentials: false
+
+      - name: Setup test environment
+        uses: ./.github/actions/setup-test-environment
+
+      - name: Run validation test suite
+        shell: sh
+        run: make test-python
+
+      - name: Check generated validators are current
+        shell: sh
+        run: make test-update-validators
 
   integration-tests:
     name: Integration Tests
@@ -281,6 +315,7 @@ jobs:
       actions: read # Required to download artifacts
     needs:
       - unit-tests
+      - validation-tests
       - integration-tests
     if: always()
 
@@ -296,6 +331,7 @@ jobs:
         shell: sh
         env:
           UNIT_RESULT: ${{ needs.unit-tests.result }}
+          VALIDATION_RESULT: ${{ needs.validation-tests.result }}
           INTEGRATION_RESULT: ${{ needs.integration-tests.result }}
         run: |
           {
@@ -315,7 +351,7 @@ jobs:
             fi
 
             echo ""
-            if [ "$UNIT_RESULT" = "success" ] && { [ "$INTEGRATION_RESULT" = "success" ] || [ "$INTEGRATION_RESULT" = "skipped" ]; }; then
+            if [ "$UNIT_RESULT" = "success" ] && [ "$VALIDATION_RESULT" = "success" ] && { [ "$INTEGRATION_RESULT" = "success" ] || [ "$INTEGRATION_RESULT" = "skipped" ]; }; then
               status="✅ All tests passed"
             else
               status="❌ Some tests failed"
@@ -326,11 +362,12 @@ jobs:
             echo ""
             echo "### Job Details"
             echo "- Unit Tests: $UNIT_RESULT"
+            echo "- Validation Tests: $VALIDATION_RESULT"
             echo "- Integration Tests: $INTEGRATION_RESULT"
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Fail if tests failed
-        if: needs.unit-tests.result == 'failure' || needs.integration-tests.result == 'failure'
+        if: contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled')
         shell: sh
         run: |-
           echo "❌ One or more test jobs failed"

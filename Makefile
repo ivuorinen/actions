@@ -514,7 +514,7 @@ test-actions: ## Run GitHub Actions tests (unit + integration)
 test-python: ## Run the validation kit + generator test suite
 	@echo "$(BLUE)🐍 Running Python tests...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		if uvx --with pyyaml pytest _validation/tests -q; then \
+		if uv run --frozen --extra dev pytest _validation/tests -q; then \
 			echo "$(GREEN)✅ Python tests passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Python tests failed$(RESET)"; \
@@ -527,7 +527,7 @@ test-python: ## Run the validation kit + generator test suite
 test-python-coverage: ## Run the validation tests with coverage
 	@echo "$(BLUE)📊 Running Python tests with coverage...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uvx --with pytest-cov --with pyyaml pytest --cov=_validation --cov-report=term-missing _validation/tests; \
+		uv run --frozen --extra dev pytest --cov=_validation --cov-report=term-missing _validation/tests; \
 	else \
 		echo "$(BLUE)ℹ️ uv not available, skipping Python coverage tests$(RESET)"; \
 	fi
