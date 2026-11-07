@@ -95,6 +95,17 @@ The path "${REPORTS_TMP}/unit" should be symlink
 The path "${PROJECT_ROOT}/_tests/unit/_harness/run_tests_reporting.spec.sh" should be exist
 End
 
+# Here the link leads into the sources rather than to their root, as a reports directory
+# placed inside _tests/unit would.
+It "refuses to clean a reports directory that sits inside the test sources"
+ln -s "${PROJECT_ROOT}/_tests/unit/_harness" "${REPORTS_TMP}/integration"
+When call run_integration docker-build
+The status should be failure
+The output should include "refusing to clean it"
+The path "${REPORTS_TMP}/integration" should be symlink
+The path "${PROJECT_ROOT}/_tests/unit/_harness/run_tests_reporting.spec.sh" should be exist
+End
+
 It "removes a plain file where a reports directory belongs, instead of stopping"
 printf 'not a directory\n' >"${REPORTS_TMP}/integration"
 When call run_integration docker-build

@@ -40,32 +40,34 @@ End
 End
 
 Describe "the check itself"
-# Writes a copy of the workflow with the first push-trigger `_tools/**` entry edited.
-copy_workflow() {
-  python3 - "$WORKFLOW" "${SHELLSPEC_TMPBASE}/test-actions.yml" "$1" <<'PY'
-import sys
+# Writes a copy of the workflow with every `_tools/**` entry double-quoted.
+double_quote_workflow() {
+  sed "s|^      - '_tools/\*\*'$|      - \"_tools/**\"|" "$WORKFLOW" >"${SHELLSPEC_TMPBASE}/test-actions.yml"
+  WORKFLOW="${SHELLSPEC_TMPBASE}/test-actions.yml"
+}
 
-source, target, edit = sys.argv[1:]
-lines = open(source, encoding="utf-8").read().split("\n")
-entry = lines.index("      - '_tools/**'")
-if edit == "double-quote":
-    lines[entry] = '      - "_tools/**"'
-elif edit == "move-to-branches":
-    del lines[entry]
-    lines.insert(lines.index("      - main") + 1, "      - '_tools/**'")
-open(target, "w", encoding="utf-8").write("\n".join(lines))
-PY
+# A fixed workflow whose push trigger lists the entry under branches, not paths.
+branches_only_workflow() {
+  cat >"${SHELLSPEC_TMPBASE}/test-actions.yml" <<'YAML'
+on:
+  push:
+    branches:
+      - main
+      - '_tools/**'
+    paths:
+      - '*/action.yml'
+YAML
   WORKFLOW="${SHELLSPEC_TMPBASE}/test-actions.yml"
 }
 
 It "accepts an entry written with double quotes"
-copy_workflow double-quote
+double_quote_workflow
 When call trigger_lists_path push "_tools/**"
 The status should be success
 End
 
-It "does not count an entry that moved from paths to branches"
-copy_workflow move-to-branches
+It "does not count an entry listed under branches"
+branches_only_workflow
 When call trigger_lists_path push "_tools/**"
 The status should be failure
 End

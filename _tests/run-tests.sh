@@ -773,8 +773,9 @@ main() {
     fi
     for source_dir in "${TEST_ROOT}/unit" "${TEST_ROOT}/integration"; do
       source_dir="$(cd "$source_dir" && pwd -P)"
-      if [[ "${source_dir}/" == "${resolved}/"* ]]; then
-        log_error "Reports directory ${REPORTS_DIR}/${target} holds the test sources in ${source_dir}; refusing to clean it"
+      # Overlap either way: the target holds the sources, or sits inside them.
+      if [[ "${source_dir}/" == "${resolved}/"* || "${resolved}/" == "${source_dir}/"* ]]; then
+        log_error "Reports directory ${REPORTS_DIR}/${target} overlaps the test sources in ${source_dir}; refusing to clean it"
         exit 1
       fi
     done
