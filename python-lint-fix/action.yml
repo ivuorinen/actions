@@ -17,12 +17,12 @@ inputs:
     required: false
     default: '3.11'
   flake8-version:
-    description: 'Deprecated and ignored: the action installs the flake8 version locked in its requirements.txt.'
-    deprecationMessage: 'This input is ignored. python-lint-fix installs flake8 from its hash-locked requirements.txt.'
+    description: 'Deprecated and ignored: the action installs the flake8 version locked in its requirements.lock.txt.'
+    deprecationMessage: 'This input is ignored. python-lint-fix installs flake8 from its hash-locked requirements.lock.txt.'
     required: false
   autopep8-version:
-    description: 'Deprecated and ignored: the action installs the autopep8 version locked in its requirements.txt.'
-    deprecationMessage: 'This input is ignored. python-lint-fix installs autopep8 from its hash-locked requirements.txt.'
+    description: 'Deprecated and ignored: the action installs the autopep8 version locked in its requirements.lock.txt.'
+    deprecationMessage: 'This input is ignored. python-lint-fix installs autopep8 from its hash-locked requirements.lock.txt.'
     required: false
   max-retries:
     description: 'Maximum number of retries for the connections pip makes while installing the lint tools'
@@ -295,9 +295,9 @@ runs:
         python -m venv .venv
         . .venv/bin/activate
 
-        # requirements.txt is generated from requirements.in by the command in its header.
+        # requirements.lock.txt is generated from requirements.in by the command in its header.
         # --only-binary keeps a package's setup.py from running, which hash checking alone does not.
-        pip install --require-hashes --only-binary=:all: --retries "$MAX_RETRIES" -r "$ACTION_PATH/requirements.txt"
+        pip install --require-hashes --only-binary=:all: --retries "$MAX_RETRIES" -r "$ACTION_PATH/requirements.lock.txt"
 
         # Verify installations
         flake8 --version || exit 1

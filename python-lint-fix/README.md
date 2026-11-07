@@ -34,17 +34,17 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                                                                      | Required | Default                     |
-|---------------------|--------------------------------------------------------------------------------------------------|----------|-----------------------------|
-| `autopep8-version`  | Deprecated and ignored: the action installs the autopep8 version locked in its requirements.txt. | ❌       | -                           |
-| `email`             | GitHub email for commits                                                                         | ❌       | `github-actions@github.com` |
-| `fail-on-error`     | Whether to fail the action if linting errors are found                                           | ❌       | `true`                      |
-| `flake8-version`    | Deprecated and ignored: the action installs the flake8 version locked in its requirements.txt.   | ❌       | -                           |
-| `max-retries`       | Maximum number of retries for the connections pip makes while installing the lint tools          | ❌       | `3`                         |
-| `python-version`    | Python version to use                                                                            | ❌       | `3.11`                      |
-| `token`             | GitHub token for authentication                                                                  | ❌       | -                           |
-| `username`          | GitHub username for commits                                                                      | ❌       | `github-actions`            |
-| `working-directory` | Directory containing Python files to lint                                                        | ❌       | `.`                         |
+| Parameter           | Description                                                                                           | Required | Default                     |
+|---------------------|-------------------------------------------------------------------------------------------------------|----------|-----------------------------|
+| `autopep8-version`  | Deprecated and ignored: the action installs the autopep8 version locked in its requirements.lock.txt. | ❌       | -                           |
+| `email`             | GitHub email for commits                                                                              | ❌       | `github-actions@github.com` |
+| `fail-on-error`     | Whether to fail the action if linting errors are found                                                | ❌       | `true`                      |
+| `flake8-version`    | Deprecated and ignored: the action installs the flake8 version locked in its requirements.lock.txt.   | ❌       | -                           |
+| `max-retries`       | Maximum number of retries for the connections pip makes while installing the lint tools               | ❌       | `3`                         |
+| `python-version`    | Python version to use                                                                                 | ❌       | `3.11`                      |
+| `token`             | GitHub token for authentication                                                                       | ❌       | -                           |
+| `username`          | GitHub username for commits                                                                           | ❌       | `github-actions`            |
+| `working-directory` | Directory containing Python files to lint                                                             | ❌       | `.`                         |
 
 ## 📤 Outputs
 
