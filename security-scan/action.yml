@@ -63,12 +63,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Checkout repository
-      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
-      with:
-        fetch-depth: 0
-        persist-credentials: false
-
     - name: Validate Inputs
       shell: sh
       working-directory: ${{ github.action_path }}
@@ -87,6 +81,12 @@ runs:
           exit 1
         fi
         python3 validate.py
+
+    - name: Checkout repository
+      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      with:
+        fetch-depth: 0
+        persist-credentials: false
 
     - name: Check Required Configurations
       id: check-configs
