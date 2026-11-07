@@ -8,9 +8,9 @@ ACTION_DIR="terraform-lint-fix"
 ACTION_FILE="$ACTION_DIR/action.yml"
 
 Context "when validating token input"
-It "accepts GitHub token expression"
+It "rejects an unexpanded expression as a token"
 When call validate_input_python "terraform-lint-fix" "token" "\${{ github.token }}"
-The status should be success
+The status should be failure
 End
 
 It "accepts GitHub fine-grained token"

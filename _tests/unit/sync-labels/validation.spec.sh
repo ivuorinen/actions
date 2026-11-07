@@ -8,9 +8,9 @@ ACTION_DIR="sync-labels"
 ACTION_FILE="$ACTION_DIR/action.yml"
 
 Context "when validating token input"
-It "accepts GitHub token expression"
-When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "token" "\${{ github.token }}"
-The status should be success
+It "rejects an unexpanded expression as a token"
+When call validate_input_python "sync-labels" "token" "\${{ github.token }}"
+The status should be failure
 End
 
 It "accepts classic GitHub token"

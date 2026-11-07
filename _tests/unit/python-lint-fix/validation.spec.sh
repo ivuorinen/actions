@@ -8,9 +8,9 @@ ACTION_DIR="python-lint-fix"
 ACTION_FILE="$ACTION_DIR/action.yml"
 
 Context "when validating token input"
-It "accepts GitHub token expression"
+It "rejects an unexpanded expression as a token"
 When call validate_input_python "python-lint-fix" "token" "\${{ github.token }}"
-The status should be success
+The status should be failure
 End
 
 It "accepts GitHub fine-grained token"
@@ -141,13 +141,11 @@ When call validate_input_python "python-lint-fix" "email" "user@example.com; rm 
 The status should be failure
 End
 
-It "accepts a token passed as an env-var reference"
-# The kit's github_token check treats any value starting with '$' (but not '${{')
-# as a $VAR env reference and accepts it — tokens are normally passed this way or
-# as ${{ secrets.* }}. Genuine shell injection (e.g. "ghp_token; rm -rf /") is still
-# rejected; see the command-injection test above.
+It "rejects a token passed as an env-var reference"
+# The runner does not expand $VAR in a with: value, so the action would use this text
+# as the token. Pass the secret as an expression, which the runner does expand.
 When call validate_input_python "python-lint-fix" "token" "\${SOME_TOKEN_VAR}"
-The status should be success
+The status should be failure
 End
 End
 End
