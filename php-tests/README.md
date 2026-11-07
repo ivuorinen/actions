@@ -33,17 +33,17 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter       | Description                                                                                             | Required | Default                                             |
-|-----------------|---------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
-| `composer-args` | Arguments to pass to Composer install                                                                   | ❌       | `--no-progress --prefer-dist --optimize-autoloader` |
-| `coverage`      | Code-coverage driver (none, xdebug, pcov)                                                               | ❌       | `none`                                              |
-| `email`         | GitHub email for commits                                                                                | ❌       | `github-actions@github.com`                         |
-| `extensions`    | PHP extensions to install (comma-separated)                                                             | ❌       | `mbstring, intl, json, pdo_sqlite, sqlite3`         |
-| `framework`     | Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework) | ❌       | `auto`                                              |
-| `max-retries`   | Maximum number of retry attempts for Composer commands                                                  | ❌       | `3`                                                 |
-| `php-version`   | PHP Version to use (latest, 8.4, 8.3, etc.)                                                             | ❌       | `latest`                                            |
-| `token`         | GitHub token for authentication                                                                         | ❌       | -                                                   |
-| `username`      | GitHub username for commits                                                                             | ❌       | `github-actions`                                    |
+| Parameter       | Description                                                                                                   | Required | Default                                             |
+|-----------------|---------------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
+| `composer-args` | Arguments for both Composer install steps. Plugins must be listed in config.allow-plugins in composer.json    | ❌       | `--no-progress --prefer-dist --optimize-autoloader` |
+| `coverage`      | Code-coverage driver (none, xdebug, pcov)                                                                     | ❌       | `none`                                              |
+| `email`         | GitHub email for commits                                                                                      | ❌       | `github-actions@github.com`                         |
+| `extensions`    | PHP extensions to install (comma-separated)                                                                   | ❌       | `mbstring, intl, json, pdo_sqlite, sqlite3`         |
+| `framework`     | Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework)       | ❌       | `auto`                                              |
+| `max-retries`   | Maximum number of retry attempts for Composer commands                                                        | ❌       | `3`                                                 |
+| `php-version`   | PHP Version to use (latest, 8.4, 8.3, etc.)                                                                   | ❌       | `latest`                                            |
+| `token`         | GitHub token for checkout and private Composer packages. Composer plugins, scripts and tests never receive it | ❌       | -                                                   |
+| `username`      | GitHub username for commits                                                                                   | ❌       | `github-actions`                                    |
 
 ## 📤 Outputs
 
