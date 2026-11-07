@@ -82,14 +82,55 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
     return f"must be an integer between {low} and {high}"
 
 
-def check_command_args(value: str) -> str | None:
-    """Free-form command-line arguments — blocks shell metacharacters and control characters."""
+def check_composer_args(value: str) -> str | None:
+    """Space-separated ``composer install`` options, each one on an allow-list.
+
+    An allow-list because Composer accepts abbreviated long options, so a block-list could
+    not catch every spelling of an option that moves the install. Left out on purpose:
+    options that change the working directory, turn off Composer's security blocking, or
+    leave no usable ``vendor/`` for the rest of the action.
+    """
     if _skip(value):
         return None
-    if re.search(r"[;&|`$(){}<>\\]", value):
-        return "must not contain shell metacharacters ; & | ` $ ( ) { } < > \\"
-    if re.search(r"[\x00-\x1f\x7f]", value):
-        return "must not contain control characters or newlines"
+    flags = (
+        "--ansi",
+        "--apcu-autoloader",
+        "--audit",
+        "--classmap-authoritative",
+        "--dev",
+        "--ignore-platform-reqs",
+        "--no-ansi",
+        "--no-cache",
+        "--no-dev",
+        "--no-interaction",
+        "--no-plugins",
+        "--no-progress",
+        "--no-scripts",
+        "--no-suggest",
+        "--optimize-autoloader",
+        "--prefer-dist",
+        "--prefer-source",
+        "--profile",
+        "--quiet",
+        "--strict-psr-autoloader",
+        "--verbose",
+        "-a",
+        "-n",
+        "-o",
+        "-q",
+        "-v",
+        "-vv",
+        "-vvv",
+    )
+    flags_with_value = (
+        r"--apcu-autoloader-prefix=[A-Za-z0-9._-]+"
+        r"|--audit-format=(?:table|plain|json|summary)"
+        r"|--ignore-platform-req=[A-Za-z0-9*._-]+\+?"
+        r"|--prefer-install=(?:dist|source|auto)"
+    )
+    for word in value.split(" "):
+        if word and word not in flags and not re.fullmatch(flags_with_value, word):
+            return f"{word!r} is not an accepted Composer install option"
     return None
 
 
@@ -186,7 +227,7 @@ def is_detected_version(value: str) -> bool:
 ACTION = "php-tests"
 
 CHECKS = {
-    "composer-args": check_command_args,
+    "composer-args": check_composer_args,
     "coverage": check_coverage_driver,
     "email": check_email,
     "extensions": check_php_extensions,
