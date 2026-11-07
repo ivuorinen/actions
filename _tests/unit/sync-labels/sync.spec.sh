@@ -223,6 +223,49 @@ The status should be failure
 The error should include "must not start with"
 End
 
+# A label name holding a newline plus a workflow command and an ANSI escape must
+# not split the log line or reach the runner as a raw control sequence.
+# err_shape prints: <stderr line count> <raw ESC count> <lines starting with ::error::x>
+err_shape() {
+  python3 "$SYNC" 2>&1 >/dev/null | python3 -c "
+import sys
+data = sys.stdin.read()
+lines = data.splitlines()
+print(len(lines), data.count(chr(27)), sum(1 for l in lines if l.startswith('::error::x')))"
+}
+out_shape() {
+  python3 "$SYNC" 2>/dev/null | python3 -c "
+import sys
+data = sys.stdin.read()
+lines = data.splitlines()
+print(len(lines), data.count(chr(27)), sum(1 for l in lines if l.startswith('::error::x')))"
+}
+
+It "keeps a control-character label name on one line in error output"
+printf '%s' '[{"name":"a\n::error::x\u001b[31m","color":"nothex"}]' >".github/labels.json"
+export INPUT_LABELS=".github/labels.json"
+export GH_LIST_JSON='[]'
+When call err_shape
+The status should be failure
+The output should eq "1 0 0"
+End
+
+It "keeps a control-character label name on one line in progress output"
+printf '%s' '[{"name":"a\n::error::x\u001b[31m","color":"d73a4a"}]' >".github/labels.json"
+export INPUT_LABELS=".github/labels.json"
+export GH_LIST_JSON='[]'
+When call out_shape
+The output should eq "3 0 0"
+End
+
+It "keeps a control-character existing label name on one line when pruning"
+printf '%s' '[{"name":"keep","color":"d73a4a"}]' >".github/labels.json"
+export INPUT_LABELS=".github/labels.json"
+export GH_LIST_JSON='[{"name":"old\n::error::x\u001b[31m","color":"cccccc","description":""}]'
+When call out_shape
+The output should eq "4 0 0"
+End
+
 It "rejects a non-string description instead of coercing it"
 %text >".github/labels.yml"
 #|- name: bug
