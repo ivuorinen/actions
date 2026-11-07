@@ -83,16 +83,16 @@ jobs:
 
 ## 📤 Outputs
 
-| Parameter         | Description                                    |
-|-------------------|------------------------------------------------|
-| `build-time`      | Total build time in seconds                    |
-| `image-digest`    | The digest of the built image                  |
-| `metadata`        | Build metadata in JSON format                  |
-| `platform-matrix` | Build status per platform in JSON format       |
-| `platforms`       | Successfully built platforms                   |
-| `sbom-location`   | SBOM document location                         |
-| `scan-results`    | Vulnerability scan results if scanning enabled |
-| `signature`       | Image signature if signing enabled             |
+| Parameter         | Description                                                                                                                                                                                                               |
+|-------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `build-time`      | Total build time in seconds                                                                                                                                                                                               |
+| `image-digest`    | When push is true, the digest of the pushed manifest. Attestations make that an OCI index even for one platform, so it is the digest the tag points at, not a per-platform image. When push is false, the local image ID. |
+| `metadata`        | Build metadata in JSON format                                                                                                                                                                                             |
+| `platform-matrix` | Build status per platform in JSON format                                                                                                                                                                                  |
+| `platforms`       | Comma-separated platforms in the built image, e.g. linux/amd64,linux/arm/v7. Attestation manifests are not listed.                                                                                                        |
+| `sbom-location`   | SBOM document location                                                                                                                                                                                                    |
+| `scan-results`    | Vulnerability scan results if scanning enabled                                                                                                                                                                            |
+| `signature`       | Digest reference (image@sha256:...) of the signed image if signing enabled                                                                                                                                                |
 
 ## 💡 Examples
 

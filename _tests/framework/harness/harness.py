@@ -323,7 +323,8 @@ def _build_context(action_dir: Path | None = None) -> dict:
             "action_path": str(action_dir.resolve()) if action_dir else "",
         },
         "env": dict(os.environ),
-        "steps": {},
+        # run_step executes one step without its predecessors, so a spec supplies their outputs.
+        "steps": json.loads(os.environ.get("HARNESS_STEP_OUTPUTS") or "{}"),
     }
 
 
