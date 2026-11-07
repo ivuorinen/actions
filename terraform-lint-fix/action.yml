@@ -137,8 +137,11 @@ runs:
     - name: Validate Terraform Syntax
       if: steps.check-files.outputs.found == 'true'
       shell: sh
+      env:
+        VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
       run: |
         set -eu
+        cd "$VALIDATED_WORKING_DIR"
         echo "Validating Terraform file syntax..."
         find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
           file="$1"
@@ -210,11 +213,13 @@ runs:
 
         cd "$WORKING_DIRECTORY"
 
-        # Create reports directory
-        mkdir -p reports
+        # Keep the reports outside the workspace: a repository can commit
+        # 'reports' as a symlink, which would redirect the writes and the cleanup.
+        reports_dir=$(mktemp -d "$RUNNER_TEMP/terraform-lint-fix.XXXXXX")
+        printf 'reports_dir=%s\n' "$reports_dir" >> "$GITHUB_OUTPUT"
 
         # Run TFLint with configured format
-        tflint_output="reports/tflint.$FORMAT"
+        tflint_output="$reports_dir/tflint.$FORMAT"
         if ! tflint --config "$CONFIG_FILE" \
                    --format "$FORMAT" \
                    --no-color \
@@ -276,18 +281,22 @@ runs:
       if: steps.check-files.outputs.found == 'true' && inputs.format == 'sarif'
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
-        sarif_file: ${{ inputs.working-directory }}/reports/tflint.sarif
+        sarif_file: ${{ steps.lint.outputs.sarif_file }}
         category: terraform-lint
 
     - name: Cleanup
       if: always()
       shell: sh
+      env:
+        REPORTS_DIR: ${{ steps.lint.outputs.reports_dir }}
       run: |-
         set -eu
 
-        # Remove temporary files
-        rm -rf .terraform/
-        rm -rf reports/
+        # Remove temporary files; empty when the lint step never ran. Nothing
+        # here creates .terraform, so the workspace is left alone.
+        if [ -n "$REPORTS_DIR" ]; then
+          rm -rf "$REPORTS_DIR"
+        fi
 
         # Clean up TFLint cache
         rm -rf ~/.tflint.d/
