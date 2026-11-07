@@ -27,8 +27,8 @@ jobs:
           disable-linters: 'gosec,govet'
           enable-linters: 'gosec,govet'
           fail-on-error: 'true'
-          go-version: 'stable'
-          golangci-lint-version: 'latest'
+          go-version: '1.24'
+          golangci-lint-version: '2.1.0'
           max-retries: '3'
           only-new-issues: 'true'
           report-format: 'sarif'
@@ -39,22 +39,22 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter               | Description                                  | Required | Default         |
-|-------------------------|----------------------------------------------|----------|-----------------|
-| `cache`                 | Enable golangci-lint caching                 | ❌       | `true`          |
-| `config-file`           | Path to golangci-lint config file            | ❌       | `.golangci.yml` |
-| `disable-all`           | Disable all linters (useful with --enable-*) | ❌       | `false`         |
-| `disable-linters`       | Comma-separated list of linters to disable   | ❌       | -               |
-| `enable-linters`        | Comma-separated list of linters to enable    | ❌       | -               |
-| `fail-on-error`         | Fail workflow if issues are found            | ❌       | `true`          |
-| `go-version`            | Go version to use                            | ❌       | `stable`        |
-| `golangci-lint-version` | Version of golangci-lint to use              | ❌       | `latest`        |
-| `max-retries`           | Maximum number of retry attempts             | ❌       | `3`             |
-| `only-new-issues`       | Report only new issues since main branch     | ❌       | `true`          |
-| `report-format`         | Output format (json, sarif, github-actions)  | ❌       | `sarif`         |
-| `timeout`               | Timeout for analysis (e.g., 5m, 1h)          | ❌       | `5m`            |
-| `token`                 | GitHub token for authentication              | ❌       | -               |
-| `working-directory`     | Directory containing Go files                | ❌       | `.`             |
+| Parameter               | Description                                                                                                           | Required | Default         |
+|-------------------------|-----------------------------------------------------------------------------------------------------------------------|----------|-----------------|
+| `cache`                 | Enable golangci-lint caching                                                                                          | ❌       | `true`          |
+| `config-file`           | Path to golangci-lint config file                                                                                     | ❌       | `.golangci.yml` |
+| `disable-all`           | Disable all linters (useful with --enable-*)                                                                          | ❌       | `false`         |
+| `disable-linters`       | Comma-separated list of linters to disable                                                                            | ❌       | -               |
+| `enable-linters`        | Comma-separated list of linters to enable                                                                             | ❌       | -               |
+| `fail-on-error`         | Fail workflow if issues are found                                                                                     | ❌       | `true`          |
+| `go-version`            | Go version to use (empty: the version pinned in this action, "stable": the newest release)                            | ❌       | -               |
+| `golangci-lint-version` | Version of golangci-lint to use, v2 or newer (empty: the version pinned in this action, "latest": the newest release) | ❌       | -               |
+| `max-retries`           | Maximum number of retry attempts                                                                                      | ❌       | `3`             |
+| `only-new-issues`       | Report only new issues since main branch                                                                              | ❌       | `true`          |
+| `report-format`         | Output format (json, sarif, github-actions)                                                                           | ❌       | `sarif`         |
+| `timeout`               | Timeout for analysis (e.g., 5m, 1h)                                                                                   | ❌       | `5m`            |
+| `token`                 | GitHub token for authentication                                                                                       | ❌       | -               |
+| `working-directory`     | Directory containing Go files                                                                                         | ❌       | `.`             |
 
 ## 📤 Outputs
 
@@ -97,8 +97,8 @@ permissions:
     disable-linters: 'gosec,govet'
     enable-linters: 'gosec,govet'
     fail-on-error: 'true'
-    go-version: 'stable'
-    golangci-lint-version: 'latest'
+    go-version: '1.24'
+    golangci-lint-version: '2.1.0'
     max-retries: '3'
     only-new-issues: 'true'
     report-format: 'sarif'
@@ -122,8 +122,8 @@ permissions:
     disable-linters: 'gosec,govet'
     enable-linters: 'gosec,govet'
     fail-on-error: 'true'
-    go-version: 'stable'
-    golangci-lint-version: 'latest'
+    go-version: '1.24'
+    golangci-lint-version: '2.1.0'
     max-retries: '3'
     only-new-issues: 'true'
     report-format: 'sarif'

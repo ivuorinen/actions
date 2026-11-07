@@ -24,7 +24,7 @@ jobs:
           cache: 'true'
           config-file: '.eslintrc'
           email: 'github-actions@github.com'
-          eslint-version: 'latest'
+          eslint-version: '1.2.3'
           fail-on-error: 'true'
           file-extensions: '.js,.jsx,.ts,.tsx'
           ignore-file: '.eslintignore'
@@ -39,22 +39,22 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                          | Required | Default                     |
-|---------------------|------------------------------------------------------|----------|-----------------------------|
-| `cache`             | Enable ESLint caching                                | ❌       | `true`                      |
-| `config-file`       | Path to ESLint config file                           | ❌       | `.eslintrc`                 |
-| `email`             | GitHub email for commits (fix mode only)             | ❌       | `github-actions@github.com` |
-| `eslint-version`    | ESLint version to use                                | ❌       | `latest`                    |
-| `fail-on-error`     | Fail workflow if issues are found (check mode only)  | ❌       | `true`                      |
-| `file-extensions`   | File extensions to lint (comma-separated)            | ❌       | `.js,.jsx,.ts,.tsx`         |
-| `ignore-file`       | Path to ESLint ignore file                           | ❌       | `.eslintignore`             |
-| `max-retries`       | Maximum number of retry attempts                     | ❌       | `3`                         |
-| `max-warnings`      | Maximum number of warnings allowed (check mode only) | ❌       | `0`                         |
-| `mode`              | Mode to run (check or fix)                           | ❌       | `check`                     |
-| `report-format`     | Output format for check mode (stylish, json, sarif)  | ❌       | `sarif`                     |
-| `token`             | GitHub token for authentication                      | ❌       | -                           |
-| `username`          | GitHub username for commits (fix mode only)          | ❌       | `github-actions`            |
-| `working-directory` | Directory containing files to lint                   | ❌       | `.`                         |
+| Parameter           | Description                                                                                                                                   | Required | Default                     |
+|---------------------|-----------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------------|
+| `cache`             | Enable ESLint caching                                                                                                                         | ❌       | `true`                      |
+| `config-file`       | Path to ESLint config file                                                                                                                    | ❌       | `.eslintrc`                 |
+| `email`             | GitHub email for commits (fix mode only)                                                                                                      | ❌       | `github-actions@github.com` |
+| `eslint-version`    | ESLint version to install when the repository has no copy of its own (empty: the version pinned in this action, "latest": the newest release) | ❌       | -                           |
+| `fail-on-error`     | Fail workflow if issues are found (check mode only)                                                                                           | ❌       | `true`                      |
+| `file-extensions`   | File extensions to lint (comma-separated)                                                                                                     | ❌       | `.js,.jsx,.ts,.tsx`         |
+| `ignore-file`       | Path to ESLint ignore file                                                                                                                    | ❌       | `.eslintignore`             |
+| `max-retries`       | Maximum number of retry attempts                                                                                                              | ❌       | `3`                         |
+| `max-warnings`      | Maximum number of warnings allowed (check mode only)                                                                                          | ❌       | `0`                         |
+| `mode`              | Mode to run (check or fix)                                                                                                                    | ❌       | `check`                     |
+| `report-format`     | Output format for check mode (stylish, json, sarif)                                                                                           | ❌       | `sarif`                     |
+| `token`             | GitHub token for authentication                                                                                                               | ❌       | -                           |
+| `username`          | GitHub username for commits (fix mode only)                                                                                                   | ❌       | `github-actions`            |
+| `working-directory` | Directory containing files to lint                                                                                                            | ❌       | `.`                         |
 
 ## 📤 Outputs
 
@@ -97,7 +97,7 @@ permissions:
     cache: 'true'
     config-file: '.eslintrc'
     email: 'github-actions@github.com'
-    eslint-version: 'latest'
+    eslint-version: '1.2.3'
     fail-on-error: 'true'
     file-extensions: '.js,.jsx,.ts,.tsx'
     ignore-file: '.eslintignore'
@@ -122,7 +122,7 @@ permissions:
     cache: 'true'
     config-file: '.eslintrc'
     email: 'github-actions@github.com'
-    eslint-version: 'latest'
+    eslint-version: '1.2.3'
     fail-on-error: 'true'
     file-extensions: '.js,.jsx,.ts,.tsx'
     ignore-file: '.eslintignore'

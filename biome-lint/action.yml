@@ -81,77 +81,18 @@ runs:
         # true or the "Commit Fixes" step cannot authenticate its push.
         persist-credentials: true # zizmor: ignore[artipacked]
 
-    - name: Detect Package Manager
-      id: detect-pm
-      shell: sh
-      run: |
-        set -eu
-
-        # Detect package manager from lockfiles
-        if [ -f bun.lockb ]; then
-          package_manager="bun"
-        elif [ -f pnpm-lock.yaml ]; then
-          package_manager="pnpm"
-        elif [ -f yarn.lock ]; then
-          package_manager="yarn"
-        else
-          package_manager="npm"
-        fi
-
-        printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
-        echo "Detected package manager: $package_manager"
-
     - name: Setup Node.js
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: '24'
 
-    - name: Enable Corepack
-      shell: sh
-      run: |
-        set -eu
-        corepack enable
-
-    - name: Install Package Manager
-      shell: sh
-      env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
-      run: |
-        set -eu
-
-        case "$PACKAGE_MANAGER" in
-          pnpm)
-            corepack prepare pnpm@latest --activate
-            ;;
-          yarn)
-            corepack prepare yarn@stable --activate
-            ;;
-          bun|npm)
-            # Bun installed separately, npm built-in
-            ;;
-        esac
-
-    - name: Setup Bun
-      if: steps.detect-pm.outputs.package-manager == 'bun'
-      uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-      with:
-        bun-version: latest
-
-    - name: Cache Node Dependencies
-      id: cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: node_modules
-        key: ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
-        restore-keys: |
-          ${{ runner.os }}-biome-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-
-          ${{ runner.os }}-biome-lint-${{ inputs.mode }}-
-
     - name: Install Biome
+      id: install-biome
       shell: sh
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         MAX_RETRIES: ${{ inputs.max-retries }}
+        # renovate: datasource=npm depName=@biomejs/biome
+        BIOME_VERSION: '2.6.6'
       run: |
         set -eu
 
@@ -161,38 +102,18 @@ runs:
           exit 0
         fi
 
-        echo "Installing Biome using $PACKAGE_MANAGER..."
+        echo "Installing Biome $BIOME_VERSION..."
 
         attempt=1
         while [ "$attempt" -le "$MAX_RETRIES" ]; do
           echo "Attempt $attempt of $MAX_RETRIES"
 
-          case "$PACKAGE_MANAGER" in
-            "pnpm")
-              if pnpm add -g @biomejs/biome; then
-                echo "✅ Biome installed successfully with pnpm"
-                exit 0
-              fi
-              ;;
-            "yarn")
-              if yarn global add @biomejs/biome; then
-                echo "✅ Biome installed successfully with yarn"
-                exit 0
-              fi
-              ;;
-            "bun")
-              if bun add -g @biomejs/biome; then
-                echo "✅ Biome installed successfully with bun"
-                exit 0
-              fi
-              ;;
-            "npm"|*)
-              if npm install -g @biomejs/biome; then
-                echo "✅ Biome installed successfully with npm"
-                exit 0
-              fi
-              ;;
-          esac
+          # npm whatever the repository uses: this is a global tool, the repository's own
+          # package manager is not involved, and pnpm and Yarn cannot do this on a runner.
+          if npm install -g "@biomejs/biome@$BIOME_VERSION"; then
+            echo "✅ Biome installed successfully"
+            exit 0
+          fi
 
           if [ "$attempt" -lt "$MAX_RETRIES" ]; then
             echo "❌ Installation failed, retrying in 5 seconds..."

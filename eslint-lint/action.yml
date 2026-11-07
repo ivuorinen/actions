@@ -21,9 +21,9 @@ inputs:
     required: false
     default: '.'
   eslint-version:
-    description: 'ESLint version to use'
+    description: 'ESLint version to install when the repository has no copy of its own (empty: the version pinned in this action, "latest": the newest release)'
     required: false
-    default: 'latest'
+    default: ''
   config-file:
     description: 'Path to ESLint config file'
     required: false
@@ -162,18 +162,23 @@ runs:
         corepack enable
 
     - name: Install Package Manager
+      id: install-pm
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        # renovate: datasource=npm depName=pnpm
+        PNPM_VERSION: '12.18.0'
+        # renovate: datasource=npm depName=@yarnpkg/cli-dist
+        YARN_VERSION: '4.18.1'
       run: |
         set -eu
 
         case "$PACKAGE_MANAGER" in
           pnpm)
-            corepack prepare pnpm@latest --activate
+            corepack prepare "pnpm@$PNPM_VERSION" --activate
             ;;
           yarn)
-            corepack prepare yarn@stable --activate
+            corepack prepare "yarn@$YARN_VERSION" --activate
             ;;
           bun|npm)
             # Bun installed separately, npm built-in
@@ -183,8 +188,11 @@ runs:
     - name: Setup Bun
       if: steps.detect-pm.outputs.package-manager == 'bun'
       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      env:
+        # renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
+        BUN_VERSION: '1.4.4'
       with:
-        bun-version: latest
+        bun-version: ${{ env.BUN_VERSION }}
 
     - name: Cache Node Dependencies
       id: cache
@@ -227,14 +235,55 @@ runs:
 
         echo "✅ Dependencies installed successfully"
 
+    - name: Ensure ESLint
+      id: ensure-eslint
+      shell: sh
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        REQUESTED_VERSION: ${{ inputs.eslint-version }}
+        # renovate: datasource=npm depName=eslint
+        DEFAULT_ESLINT_VERSION: '10.14.0'
+        # renovate: datasource=npm depName=@microsoft/eslint-formatter-sarif
+        ESLINT_FORMATTER_SARIF_VERSION: '3.1.0'
+      run: |
+        set -eu
+
+        # The repository's own copy wins: its config and plugins are written for it. None of
+        # these fetches a package, so a missing copy fails here instead of pulling the newest.
+        case "$PACKAGE_MANAGER" in
+          "pnpm")
+            set -- pnpm exec eslint
+            ;;
+          "yarn")
+            set -- yarn eslint
+            ;;
+          "bun")
+            set -- bunx --no-install eslint
+            ;;
+          "npm"|*)
+            set -- npx --no-install eslint
+            ;;
+        esac
+
+        if ! "$@" --version >/dev/null 2>&1; then
+          npm install -g "eslint@${REQUESTED_VERSION:-$DEFAULT_ESLINT_VERSION}" \
+            "@microsoft/eslint-formatter-sarif@$ESLINT_FORMATTER_SARIF_VERSION"
+          set -- eslint
+        fi
+
+        printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
+        # ESLint resolves a formatter from the working directory, not from its own install.
+        printf 'node-path=%s\n' "$(npm root -g)" >> "$GITHUB_OUTPUT"
+
     - name: Run ESLint Check
       if: inputs.mode == 'check'
       id: check
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
-        ESLINT_VERSION: ${{ inputs.eslint-version }}
+        ESLINT_COMMAND: ${{ steps.ensure-eslint.outputs.command }}
+        NODE_PATH: ${{ steps.ensure-eslint.outputs.node-path }}
         CONFIG_FILE: ${{ inputs.config-file }}
         CACHE: ${{ inputs.cache }}
         MAX_WARNINGS: ${{ inputs.max-warnings }}
@@ -246,21 +295,9 @@ runs:
 
         echo "Running ESLint check mode..."
 
-        # Build ESLint command based on package manager
-        case "$PACKAGE_MANAGER" in
-          "pnpm")
-            set -- pnpm exec eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-          "yarn")
-            set -- yarn eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-          "bun")
-            set -- bunx eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-          "npm"|*)
-            set -- npx eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-        esac
+        # ESLINT_COMMAND is several words, so it is split on purpose
+        set -f
+        set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS"
 
         # Add config file if specified
         if [ "$CONFIG_FILE" != ".eslintrc" ] && [ -f "$CONFIG_FILE" ]; then
@@ -330,28 +367,16 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        ESLINT_COMMAND: ${{ steps.ensure-eslint.outputs.command }}
         FILE_EXTENSIONS: ${{ inputs.file-extensions }}
       run: |
         set -eu
 
         echo "Running ESLint fix mode..."
 
-        # Run ESLint fix based on package manager
-        case "$PACKAGE_MANAGER" in
-          "pnpm")
-            pnpm exec eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-          "yarn")
-            yarn eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-          "bun")
-            bunx eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-          "npm"|*)
-            npx eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-        esac
+        # ESLINT_COMMAND is several words, so it is split on purpose
+        set -f
+        $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS" --fix || true
 
         # Count only files actually modified by ESLint
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')

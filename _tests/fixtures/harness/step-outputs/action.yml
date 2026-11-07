@@ -1,0 +1,13 @@
+---
+name: Step Outputs Fixture
+description: 'Fixture: writes an earlier step output to $GITHUB_OUTPUT for harness integration tests.'
+
+runs:
+  using: composite
+  steps:
+    - id: emit
+      shell: sh
+      env:
+        KIND: ${{ steps.detect.outputs.kind }}
+      run: |
+        printf 'kind=%s\n' "$KIND" >> "$GITHUB_OUTPUT"

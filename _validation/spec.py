@@ -195,7 +195,7 @@ SPECS: dict[str, ActionSpec] = {
             "enable-linters": "linter_list",
             "fail-on-error": "boolean",
             "go-version": "go_version",
-            "golangci-lint-version": "semantic_version",
+            "golangci-lint-version": "golangci_lint_version",
             "max-retries": "numeric_range_1_10",
             "only-new-issues": "boolean",
             "report-format": "report_format",
