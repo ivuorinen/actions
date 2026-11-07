@@ -91,7 +91,7 @@ runs:
         set -eu
 
         # Detect package manager from lockfiles
-        if [ -f bun.lockb ]; then
+        if [ -f bun.lock ] || [ -f bun.lockb ]; then
           package_manager="bun"
         elif [ -f pnpm-lock.yaml ]; then
           package_manager="pnpm"

@@ -146,9 +146,7 @@ SPECS: dict[str, ActionSpec] = {
             "image-name": "docker_image_name",
             "max-retries": "numeric_range_1_10",
             "network": "network_mode",
-            "parallel-builds": "numeric_range_0_16",
             "platform-build-args": "json_format",
-            "platform-fallback": "boolean",
             "push": "boolean",
             "sbom-format": "sbom_format",
             "scan-image": "boolean",
@@ -271,9 +269,7 @@ SPECS: dict[str, ActionSpec] = {
     "pr-lint": {
         "required": [],
         "checks": {
-            "email": "email",
             "token": "github_token",
-            "username": "username",
         },
         "detected_version": "is_detected_version",
     },
