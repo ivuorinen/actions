@@ -6,18 +6,26 @@
 Describe "test-actions.yml paths filter"
 WORKFLOW="${PROJECT_ROOT}/.github/workflows/test-actions.yml"
 
-# Occurrences of a path entry; one per trigger (push, pull_request).
-count_path_entries() {
-  grep -c -F -x "      - '$1'" "$WORKFLOW"
+# Succeeds when the trigger's own list holds the entry: the lines under `  <trigger>:`
+# up to the next trigger, so an entry listed twice under one trigger does not count
+# for the other.
+trigger_lists_path() {
+  awk -v trigger="  $1:" '
+    $0 == trigger { inside = 1; next }
+    inside && /^  [a-z_]+:/ { exit }
+    inside && /^      - / { sub(/^      - /, ""); print }
+  ' "$WORKFLOW" | grep -qxF "'$2'"
 }
 
 Parameters
-"_tools/**"
-".claude/hooks/**"
+"push" "_tools/**"
+"push" ".claude/hooks/**"
+"pull_request" "_tools/**"
+"pull_request" ".claude/hooks/**"
 End
 
-It "lists $1 under both push and pull_request"
-When call count_path_entries "$1"
-The output should equal "2"
+It "lists $2 under $1"
+When call trigger_lists_path "$1" "$2"
+The status should be success
 End
 End

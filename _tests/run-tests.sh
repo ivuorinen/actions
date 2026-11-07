@@ -20,6 +20,9 @@ COVERAGE_ENABLED=true
 REPORT_FORMAT="console"
 # Overridable so a spec can run the runner without touching the outer run's reports
 REPORTS_DIR="${TEST_REPORTS_DIR:-${TEST_ROOT}/reports}"
+# The act binary to run integration workflows with. A spec sets this to a missing
+# name or a stub, so the runner's reporting is tested with and without act.
+ACT_BIN="${ACT_BIN:-act}"
 # Integration outcome counters, set by run_integration_tests. A workflow that was
 # skipped (no act, no workflow file) is counted separately and never as a run.
 INTEGRATION_ATTEMPTED=false
@@ -200,7 +203,7 @@ check_dependencies() {
 
   # Check for act (if running integration tests)
   if [[ $TEST_TYPE == "integration" || $TEST_TYPE == "all" ]]; then
-    if ! command -v act >/dev/null 2>&1; then
+    if ! command -v "$ACT_BIN" >/dev/null 2>&1; then
       log_warning "nektos/act not found, integration tests will be limited"
     fi
   fi
@@ -405,14 +408,14 @@ run_integration_tests() {
       log_info "Running integration test workflow for: $action"
 
       # Run with act if available, otherwise skip
-      if command -v act >/dev/null 2>&1; then
+      if command -v "$ACT_BIN" >/dev/null 2>&1; then
         local output_file="${REPORTS_DIR}/integration/${action}.txt"
 
         # Create temp directory for artifacts
         local artifacts_dir
         artifacts_dir=$(mktemp -d) || exit 1
 
-        if act workflow_dispatch \
+        if "$ACT_BIN" workflow_dispatch \
           -W "$workflow_file" \
           --container-architecture linux/amd64 \
           --artifact-server-path "$artifacts_dir" \
@@ -757,6 +760,21 @@ main() {
     log_error "No actions found to test"
     exit 1
   fi
+
+  # A TEST_REPORTS_DIR override must never point the cleanup below at the test
+  # sources, directly or through a symlink.
+  local target resolved source_dir
+  for target in unit integration; do
+    [[ -e "${REPORTS_DIR}/${target}" ]] || continue
+    resolved="$(cd "${REPORTS_DIR}/${target}" && pwd -P)"
+    for source_dir in "${TEST_ROOT}/unit" "${TEST_ROOT}/integration"; do
+      source_dir="$(cd "$source_dir" && pwd -P)"
+      if [[ "${source_dir}/" == "${resolved}/"* ]]; then
+        log_error "Reports directory ${REPORTS_DIR}/${target} holds the test sources in ${source_dir}; refusing to clean it"
+        exit 1
+      fi
+    done
+  done
 
   # Drop reports left by earlier runs so the summary only counts this run
   rm -rf "${REPORTS_DIR}/unit" "${REPORTS_DIR}/integration"
