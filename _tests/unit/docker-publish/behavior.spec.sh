@@ -119,4 +119,32 @@ The status should be success
 The stdout should include "docker.io/acme/app:*"
 The stdout should not include "docker.io/acme/app:1.0.0"
 End
+
+# Keys the runner would see after the `tags` block opens: a `tags<<delim` line
+# starts a block that only a line equal to delim closes; any `key=value` line
+# outside it is an extra output.
+keys_after_tags() {
+  awk '
+    seen && delim != "" { if ($0 == delim) delim = ""; next }
+    !seen && /^tags<</ { seen = 1; delim = substr($0, 7); next }
+    seen && /^[^=]+=/ { split($0, a, "="); keys = keys sep a[1]; sep = " " }
+    END { print keys }
+  ' "$GITHUB_OUTPUT"
+}
+
+It "keeps a line equal to the old fixed delimiter inside the tags value"
+# With a fixed `EOF` delimiter, a value line that says EOF closes the block
+# early and the lines after it parse as extra output keys. The image name carries
+# such a line here (validate.py rejects it in a real run; this step must still
+# write a well-formed block when run alone).
+export INPUT_REGISTRY="dockerhub"
+export INPUT_IMAGE_NAME="acme/app
+EOF
+injected=1"
+export INPUT_TAGS="1.0.0"
+
+When call run_step "${ACTION_DIR}" "meta"
+The status should be success
+The result of function keys_after_tags should equal ""
+End
 End
