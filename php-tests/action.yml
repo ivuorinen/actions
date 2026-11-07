@@ -423,7 +423,7 @@ runs:
         fi
 
         # Determine status
-        if [ $phpunit_exit_code -eq 0 ]; then
+        if [ "$phpunit_exit_code" -eq 0 ]; then
           status="success"
           echo "✅ Tests passed: $tests_passed/$tests_run"
         else
@@ -437,4 +437,4 @@ runs:
         printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
 
         # Exit with original code to maintain test failure behavior
-        exit $phpunit_exit_code
+        exit "$phpunit_exit_code"

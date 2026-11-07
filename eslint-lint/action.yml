@@ -300,7 +300,7 @@ runs:
         fi
 
         # Set outputs
-        if [ $eslint_exit_code -eq 0 ]; then
+        if [ "$eslint_exit_code" -eq 0 ]; then
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
@@ -315,7 +315,7 @@ runs:
 
         # Exit with eslint's exit code if fail-on-error is true
         if [ "$FAIL_ON_ERROR" = "true" ]; then
-          exit $eslint_exit_code
+          exit "$eslint_exit_code"
         fi
 
     - name: Upload SARIF Report

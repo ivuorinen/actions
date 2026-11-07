@@ -220,7 +220,7 @@ runs:
         biome check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
 
         # Handle failures gracefully
-        if [ $biome_exit_code -ne 0 ] && [ ! -s biome-report.sarif ]; then
+        if [ "$biome_exit_code" -ne 0 ] && [ ! -s biome-report.sarif ]; then
           echo "::warning::SARIF report generation failed with exit code $biome_exit_code"
           # Create empty SARIF file to avoid upload errors
           echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > biome-report.sarif
@@ -235,7 +235,7 @@ runs:
           warnings="0"
         fi
 
-        if [ $biome_exit_code -eq 0 ]; then
+        if [ "$biome_exit_code" -eq 0 ]; then
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
           printf 'errors=%s\n' "0" >> "$GITHUB_OUTPUT"
           printf 'warnings=%s\n' "0" >> "$GITHUB_OUTPUT"
@@ -249,7 +249,7 @@ runs:
 
         # Exit with biome's exit code if fail-on-error is true
         if [ "$FAIL_ON_ERROR" = "true" ]; then
-          exit $biome_exit_code
+          exit "$biome_exit_code"
         fi
 
     - name: Upload SARIF Report
@@ -275,7 +275,7 @@ runs:
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')
 
         # In fix mode, success means biome exited 0 (fixed everything), regardless of files changed
-        if [ $biome_exit_code -eq 0 ]; then
+        if [ "$biome_exit_code" -eq 0 ]; then
           status="success"
           if [ "$files_changed" -eq 0 ]; then
             echo "✅ No changes needed"
