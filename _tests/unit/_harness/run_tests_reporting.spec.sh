@@ -95,6 +95,14 @@ The path "${REPORTS_TMP}/unit" should be symlink
 The path "${PROJECT_ROOT}/_tests/unit/_harness/run_tests_reporting.spec.sh" should be exist
 End
 
+It "removes a plain file where a reports directory belongs, instead of stopping"
+printf 'not a directory\n' >"${REPORTS_TMP}/integration"
+When call run_integration docker-build
+The status should be success
+The output should include "Integration Skipped:         1"
+The path "${REPORTS_TMP}/integration" should be directory
+End
+
 It "ignores reports left behind by an earlier run"
 mkdir -p "${REPORTS_TMP}/integration"
 printf 'stale\n' >"${REPORTS_TMP}/integration/stale-a.txt"

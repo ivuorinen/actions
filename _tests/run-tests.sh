@@ -765,8 +765,12 @@ main() {
   # sources, directly or through a symlink.
   local target resolved source_dir
   for target in unit integration; do
-    [[ -e "${REPORTS_DIR}/${target}" ]] || continue
-    resolved="$(cd "${REPORTS_DIR}/${target}" && pwd -P)"
+    # Only a directory, or a link to one, can lead to the sources; rm -rf just removes a file.
+    [[ -d "${REPORTS_DIR}/${target}" ]] || continue
+    if ! resolved="$(cd "${REPORTS_DIR}/${target}" 2>/dev/null && pwd -P)"; then
+      log_error "Cannot resolve reports directory ${REPORTS_DIR}/${target}; refusing to clean it"
+      exit 1
+    fi
     for source_dir in "${TEST_ROOT}/unit" "${TEST_ROOT}/integration"; do
       source_dir="$(cd "$source_dir" && pwd -P)"
       if [[ "${source_dir}/" == "${resolved}/"* ]]; then
