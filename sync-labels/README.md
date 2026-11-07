@@ -31,10 +31,10 @@ jobs:
 
 | Parameter    | Description                                                                                                                                                                                                                             | Required | Default               |
 |--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------|
-| `labels`     | Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when omitted (no longer the action's bundled labels.yml). A missing manifest is a warning + successful no-op, not an error. | ❌        | -                     |
-| `prune`      | Delete existing labels that are not listed in the manifest                                                                                                                                                                              | ❌        | `true`                |
-| `repository` | Newline-separated list of owner/repo targets. Defaults to the current repository. Cross-repo sync requires a PAT in the token input.                                                                                                    | ❌        | -                     |
-| `token`      | GitHub token for authentication (use a PAT for cross-repo sync)                                                                                                                                                                         | ❌        | `${{ github.token }}` |
+| `labels`     | Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when omitted (no longer the action's bundled labels.yml). A missing manifest is a warning + successful no-op, not an error. | ❌       | -                     |
+| `prune`      | Delete existing labels that are not listed in the manifest                                                                                                                                                                              | ❌       | `true`                |
+| `repository` | Newline-separated list of owner/repo targets. Defaults to the current repository. Cross-repo sync requires a PAT in the token input.                                                                                                    | ❌       | -                     |
+| `token`      | GitHub token for authentication (use a PAT for cross-repo sync)                                                                                                                                                                         | ❌       | `${{ github.token }}` |
 
 ## 📤 Outputs
 

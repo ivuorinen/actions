@@ -251,6 +251,9 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
         with:
+          # TruffleHog walks the commits between the event's base and head SHAs,
+          # so both must be in the clone.
+          fetch-depth: 0
           persist-credentials: false
 
       - name: Setup test environment
@@ -259,12 +262,17 @@ jobs:
           install-kcov: 'true'
 
       - name: Scan for secrets
-        uses: trufflesecurity/trufflehog@e76dff8a7e57d6df0c60ad8cbf5d5cba505a8fc9 # v3.99.2
+        uses: trufflesecurity/trufflehog@31ce31ee1abbcc7dc8eee5764c17121c3044c8b2 # v3.99.7
         with:
+          # The input defaults to `latest`, so the SHA above pins only the wrapper
+          # script. Keep this in step with the version in that comment.
+          version: 3.99.7
           path: ./
-          base: ${{ github.event_name == 'pull_request' && github.event.repository.default_branch || '' }}
-          head: ${{ github.event_name == 'pull_request' && 'HEAD' || '' }}
-          extra_args: --debug --only-verified
+          # No base or head: the action then takes both SHAs from the pull_request
+          # or push event. A branch name cannot resolve in the clone TruffleHog
+          # scans, and without --fail-on-scan-errors that scan exits 0 having
+          # scanned nothing.
+          extra_args: --debug --only-verified --fail-on-scan-errors
 
       - name: Scan shell scripts
         shell: sh

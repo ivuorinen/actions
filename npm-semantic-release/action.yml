@@ -121,9 +121,9 @@ runs:
         set -eu
 
         if [ -f ".nvmrc" ]; then
-          printf 'has-nvmrc=true\n' >> "$GITHUB_OUTPUT"
+          printf 'has-nvmrc=%s\n' 'true' >> "$GITHUB_OUTPUT"
         else
-          printf 'has-nvmrc=false\n' >> "$GITHUB_OUTPUT"
+          printf 'has-nvmrc=%s\n' 'false' >> "$GITHUB_OUTPUT"
         fi
 
     - name: Setup Node.js (from .nvmrc)
@@ -214,7 +214,7 @@ runs:
     # timeout-minutes is set at the calling workflow level
     - name: Run Semantic Release
       id: semantic-release
-      uses: cycjimmy/semantic-release-action@b12c8f6015dc215fe37bc154d4ad456dd3833c90 # v6.0.0
+      uses: cycjimmy/semantic-release-action@ad51787758d9654d5a75150a89a6fa9b3ccef95e # v8.1.4
       with:
         extra_plugins: ${{ inputs.extra_plugins }}
       env:

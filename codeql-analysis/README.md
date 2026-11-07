@@ -43,22 +43,22 @@ jobs:
 
 | Parameter           | Description                                                                          | Required | Default               |
 |---------------------|--------------------------------------------------------------------------------------|----------|-----------------------|
-| `build-mode`        | The build mode for compiled languages (none, manual, autobuild)                      | ❌        | -                     |
-| `category`          | Analysis category (default: /language:<language>)                                    | ❌        | -                     |
-| `checkout-ref`      | Git reference to checkout (default: current ref)                                     | ❌        | -                     |
-| `config`            | Configuration passed as a YAML string                                                | ❌        | -                     |
-| `config-file`       | Path to CodeQL configuration file                                                    | ❌        | -                     |
-| `language`          | Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.) | ✅        | -                     |
-| `output`            | Path to save SARIF results                                                           | ❌        | `../results`          |
-| `packs`             | Comma-separated list of CodeQL query packs to run                                    | ❌        | -                     |
-| `queries`           | Comma-separated list of additional queries to run                                    | ❌        | -                     |
-| `ram`               | Amount of memory in MB that can be used by CodeQL                                    | ❌        | -                     |
-| `skip-queries`      | Build database but skip running queries                                              | ❌        | `false`               |
-| `source-root`       | Path of the root source code directory                                               | ❌        | -                     |
-| `threads`           | Number of threads that can be used by CodeQL                                         | ❌        | -                     |
-| `token`             | GitHub token for API access                                                          | ❌        | `${{ github.token }}` |
-| `upload-results`    | Upload results to GitHub Security tab                                                | ❌        | `true`                |
-| `working-directory` | Working directory for the analysis                                                   | ❌        | `.`                   |
+| `build-mode`        | The build mode for compiled languages (none, manual, autobuild)                      | ❌       | -                     |
+| `category`          | Analysis category (default: /language:<language>)                                    | ❌       | -                     |
+| `checkout-ref`      | Git reference to checkout (default: current ref)                                     | ❌       | -                     |
+| `config`            | Configuration passed as a YAML string                                                | ❌       | -                     |
+| `config-file`       | Path to CodeQL configuration file                                                    | ❌       | -                     |
+| `language`          | Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.) | ✅       | -                     |
+| `output`            | Path to save SARIF results                                                           | ❌       | `../results`          |
+| `packs`             | Comma-separated list of CodeQL query packs to run                                    | ❌       | -                     |
+| `queries`           | Comma-separated list of additional queries to run                                    | ❌       | -                     |
+| `ram`               | Amount of memory in MB that can be used by CodeQL                                    | ❌       | -                     |
+| `skip-queries`      | Build database but skip running queries                                              | ❌       | `false`               |
+| `source-root`       | Path of the root source code directory                                               | ❌       | -                     |
+| `threads`           | Number of threads that can be used by CodeQL                                         | ❌       | -                     |
+| `token`             | GitHub token for API access                                                          | ❌       | `${{ github.token }}` |
+| `upload-results`    | Upload results to GitHub Security tab                                                | ❌       | `true`                |
+| `working-directory` | Working directory for the analysis                                                   | ❌       | `.`                   |
 
 ## 📤 Outputs
 
