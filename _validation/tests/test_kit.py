@@ -139,8 +139,33 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["../file.txt", "/absolute/path", "~/home", "path/../file", "%2e%2e/etc"],
     },
     "output_path": {
-        "valid": ["../results", "results", "out/sarif", "results/codeql.sarif"],
-        "invalid": ["/absolute", "~/home", "a;b", "$(x)"],
+        "valid": [
+            "codeql-results",
+            "results",
+            "./results",
+            "out/sarif",
+            "out/1.0.0-rc.1",
+            "out/1.0.0+build",
+        ],
+        "invalid": [
+            "..",
+            "../results",
+            "../../../../tmp/x",
+            "results/../other",
+            "results/..",
+            "a..b",
+            ".",
+            "./",
+            "./.",
+            "/absolute",
+            "//absolute",
+            "C:/absolute",
+            "~/home",
+            "a;b",
+            "$(x)",
+            "%2e%2e/etc",
+            "results\n",
+        ],
     },
     "branch_name": {
         "valid": ["main", "feature/x", "release-1.0", "dev_branch"],
@@ -262,6 +287,7 @@ def test_github_expression_passes_through(check):
 def test_expression_cannot_smuggle_traversal():
     # a value that *starts* as an expression but appends real traversal must NOT pass
     assert kit.check_file_path("${{ env.X }}/../etc/passwd") is not None
+    assert kit.check_output_path("${{ env.X }}/../etc/passwd") is not None
 
 
 def test_token_rejects_partial_prefix_only():
