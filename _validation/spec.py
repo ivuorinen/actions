@@ -236,7 +236,7 @@ SPECS: dict[str, ActionSpec] = {
     "php-tests": {
         "required": [],
         "checks": {
-            "composer-args": "command_args",
+            "composer-args": "composer_args",
             "coverage": "coverage_driver",
             "email": "email",
             "extensions": "php_extensions",
