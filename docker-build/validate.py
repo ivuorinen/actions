@@ -251,8 +251,8 @@ def check_numeric_range_1_10(value: str) -> str | None:
 
 
 def check_sbom_format(value: str) -> str | None:
-    """SBOM output format."""
-    return _enum(value, "spdx-json", "cyclonedx-json")
+    """SBOM format: BuildKit attestations are SPDX JSON only, so no other value can be honored."""
+    return _enum(value, "spdx-json")
 
 
 def check_semantic_version(value: str) -> str | None:
