@@ -222,7 +222,6 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "positive_integer": {"valid": ["1", "100"], "invalid": ["0", "-1", "abc"]},
     "numeric_range_1_10": {"valid": ["1", "10", "5"], "invalid": ["0", "11", "abc"]},
-    "numeric_range_0_16": {"valid": ["0", "16", "8"], "invalid": ["17", "-1"]},
     "numeric_range_0_100": {"valid": ["0", "100", "50"], "invalid": ["101", "-1"]},
     "numeric_range_1_128": {"valid": ["1", "128"], "invalid": ["0", "129"]},
     "numeric_range_256_32768": {"valid": ["256", "32768"], "invalid": ["255", "32769"]},

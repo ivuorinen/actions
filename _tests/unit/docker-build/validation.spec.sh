@@ -147,21 +147,15 @@ The status should be failure
 End
 End
 
-Context "when validating performance options"
-It "accepts valid parallel builds number"
-When call validate_input_python "docker-build" "parallel-builds" "4"
-The status should be success
-End
-It "accepts auto parallel builds"
-When call validate_input_python "docker-build" "parallel-builds" "0"
-The status should be success
-End
-It "rejects negative parallel builds"
-When call validate_input_python "docker-build" "parallel-builds" "-1"
+Context "when checking for inputs nothing reads"
+It "does not declare parallel-builds"
+When call grep -c 'parallel-builds' "$ACTION_FILE"
+The output should equal 0
 The status should be failure
 End
-It "rejects non-numeric parallel builds"
-When call validate_input_python "docker-build" "parallel-builds" "not-a-number"
+It "does not declare platform-fallback"
+When call grep -c 'platform-fallback' "$ACTION_FILE"
+The output should equal 0
 The status should be failure
 End
 End

@@ -43,15 +43,6 @@ def _is_env_ref(value: str) -> bool:
     return re.fullmatch(r"\$([A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})", value) is not None
 
 
-def check_email(value: str) -> str | None:
-    """Email address."""
-    if _skip(value):
-        return None
-    if re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", value):
-        return None
-    return "must be a valid email address (e.g. user@example.com)"
-
-
 def check_github_token(value: str) -> str | None:
     """GitHub/registry token: a known token format, a ``${{ }}`` expression, or ``$VAR``.
 
@@ -82,23 +73,10 @@ def check_github_token(value: str) -> str | None:
     )
 
 
-def check_username(value: str) -> str | None:
-    """Username/handle — alphanumeric with internal ``-``/``_``, at most 39 characters."""
-    if _skip(value):
-        return None
-    if len(value) > 39:
-        return "must be at most 39 characters"
-    if re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?$", value):
-        return None
-    return "may only contain letters, digits, and internal - or _"
-
-
 ACTION = "pr-lint"
 
 CHECKS = {
-    "email": check_email,
     "token": check_github_token,
-    "username": check_username,
 }
 
 
