@@ -210,7 +210,7 @@ runs:
         # Check if there are any main packages
         if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
           # Build all main packages
-          find . -name "*.go" -exec grep -l "package main" {} \; | xargs dirname | sort -u | while IFS= read -r main_dir; do
+          find . -name "*.go" -exec grep -l "package main" {} + | while IFS= read -r main_file; do dirname -- "$main_file"; done | sort -u | while IFS= read -r main_dir; do
             echo "Building package in $main_dir..."
             output_name=$(basename -- "$main_dir")
             if ! go build -ldflags="-s -w" -o "$DESTINATION/$output_name" "$main_dir"; then
