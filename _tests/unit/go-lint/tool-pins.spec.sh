@@ -82,7 +82,7 @@ BeforeEach 'before_lint'
 BASE="run --config .golangci.yml --timeout 5m"
 
 It "passes only flags v2 has when caching is on"
-mock_command golangci-lint "${BASE} --output.sarif.path=stdout ./..." "{}"
+mock_command golangci-lint "${BASE} --output.sarif.path=reports/golangci-lint.sarif ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -90,7 +90,7 @@ End
 
 It "passes only flags v2 has when caching is off"
 export INPUT_CACHE="false"
-mock_command golangci-lint "${BASE} --output.sarif.path=stdout ./..." "{}"
+mock_command golangci-lint "${BASE} --output.sarif.path=reports/golangci-lint.sarif ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -98,7 +98,7 @@ End
 
 It "asks v2 for no default linters when disable-all is set"
 export INPUT_DISABLE_ALL="true" INPUT_ENABLE_LINTERS="govet"
-mock_command golangci-lint "${BASE} --default=none --enable=govet --output.sarif.path=stdout ./..." "{}"
+mock_command golangci-lint "${BASE} --default=none --enable=govet --output.sarif.path=reports/golangci-lint.sarif ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -113,7 +113,7 @@ End
 
 It "writes $1 through --output.$2.path"
 export INPUT_REPORT_FORMAT="$1"
-mock_command golangci-lint "${BASE} --output.$2.path=stdout ./..." "{}"
+mock_command golangci-lint "${BASE} --output.$2.path=reports/golangci-lint.$1 ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -126,6 +126,23 @@ only_key_value_lines() {
   ! grep -qv '=' "$GITHUB_OUTPUT"
 }
 
+# Report bodies in the form golangci-lint v2.15.0 writes them. A text report has source lines
+# under each issue, and a compile error's message spans two lines but is one issue.
+report_fixture() {
+  case "$1" in
+  sarif)
+    printf '%s\n' '{"runs":[{"results":[{"level":"error"},{"level": "error"},{"level":"warning"}]}]}'
+    ;;
+  json)
+    printf '%s\n' '{"Issues":[{"FromLinter":"unused"},{"FromLinter":"ineffassign"},{"FromLinter":"govet"}]}'
+    ;;
+  github-actions)
+    printf '%s\n' 'main.go:5:6: func unusedHelper is unused (unused)' 'func unusedHelper() int {' '     ^' \
+      'main.go:1: : # example.com/x' './main.go:10:2: declared and not used: x (typecheck)' 'package main'
+    ;;
+  esac
+}
+
 Describe "when golangci-lint reports findings and fail-on-error is off"
 before_findings() {
   export INPUT_FAIL_ON_ERROR="false"
@@ -133,18 +150,33 @@ before_findings() {
 BeforeEach 'before_findings'
 
 Parameters
-"none at error level" '{"level":"warning"}' "0"
-"two at error level" '{"level":"error"},{"level": "error"},{"level":"warning"}' "2"
+"sarif" "sarif" "2"
+"json" "json" "3"
+"github-actions" "text" "2"
 End
 
-It "counts $1"
-mock_command golangci-lint "${BASE} --output.sarif.path=stdout ./..." "$2" 1
+# golangci-lint writes the report itself and a mock can't, so the report is in place first. The
+# mock prints statistics to stdout as v2 does; a redirect to the report would overwrite it.
+It "counts the $1 report and keeps statistics out of it"
+export INPUT_REPORT_FORMAT="$1"
+mkdir -p reports
+report_fixture "$1" >"reports/golangci-lint.$1"
+mock_command golangci-lint "${BASE} --output.$2.path=reports/golangci-lint.$1 ./..." "3 issues:" 1
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
-The stdout should include "Running golangci-lint"
+The stdout should include "3 issues:"
+The contents of file "reports/golangci-lint.$1" should not include "issues:"
 Assert expect_output error_count "$3"
 Assert only_key_value_lines
 End
+End
+
+It "fails without a count when golangci-lint could not run"
+mock_command golangci-lint "${BASE} --output.sarif.path=reports/golangci-lint.sarif ./..." "" 3
+When call run_step "${ACTION_DIR}" "lint"
+The status should be failure
+The stdout should include "::error::golangci-lint exited with 3, 0 issues found"
+Assert expect_output error_count "0"
 End
 End
 
