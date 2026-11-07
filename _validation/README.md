@@ -22,8 +22,8 @@ self-contained model removes all of that: validation ships _atomically_ with eac
 
 A generated `<action>/validate.py` contains: a small preamble (`_is_expr`, `_skip`, …),
 only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map, a
-`REQUIRED` set, a `SECRETS` list, and a `main()` that reads `INPUT_*` env vars, masks the
-`SECRETS` inputs, and exits non-zero with `::error::` annotations on any failure.
+`REQUIRED` set, a `MASKED_INPUTS` list of input names, and a `main()` that reads `INPUT_*`
+env vars, masks those inputs, and exits non-zero with `::error::` annotations on any failure.
 
 ## Contract every check follows
 
@@ -36,7 +36,7 @@ action does any work.
 
 ## Masking credentials
 
-An input whose check type is in `kit.SECRET_CHECKS` is a credential. Its validator prints
+An input whose check type is in `kit.MASKED_CHECKS` is a credential. Its validator prints
 `::add-mask::` for it before running any check, one command per non-blank line, with `%`
 encoded because the runner decodes command data. This is the only masking mechanism: an
 `action.yml` never masks an input itself, and `tests/test_spec.py` fails if one does, or if

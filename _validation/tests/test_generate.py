@@ -58,7 +58,7 @@ def test_validator_is_self_contained(action):
     assert "ACTION =" in source
     assert "CHECKS =" in source
     assert "REQUIRED" in source
-    assert "SECRETS" in source
+    assert "MASKED_INPUTS" in source
 
 
 def _env_name(input_name: str) -> str:
@@ -104,9 +104,9 @@ def test_invalid_input_is_rejected_with_annotation():
     assert "max-retries" in result.stdout
 
 
-def _secret_inputs(action: str) -> list[str]:
+def _masked_inputs(action: str) -> list[str]:
     checks = SPECS[action]["checks"]
-    return sorted(name for name, check in checks.items() if check in kit.SECRET_CHECKS)
+    return sorted(name for name, check in checks.items() if check in kit.MASKED_CHECKS)
 
 
 def _masks(stdout: str) -> list[str]:
@@ -120,7 +120,7 @@ def _masks(stdout: str) -> list[str]:
 @pytest.mark.parametrize("action", ACTIONS)
 def test_secret_inputs_are_masked_before_any_check_reports(action):
     # "bad value" fails every secret check, so each run also prints ::error:: lines
-    values = {name: f"bad value {name}" for name in _secret_inputs(action)}
+    values = {name: f"bad value {name}" for name in _masked_inputs(action)}
     result = _run(action, {_env_name(name): value for name, value in values.items()})
     assert result.returncode == 1
     lines = result.stdout.splitlines()
@@ -130,8 +130,8 @@ def test_secret_inputs_are_masked_before_any_check_reports(action):
 
 @pytest.mark.parametrize("action", ACTIONS)
 def test_non_secret_inputs_are_not_masked(action):
-    secrets = _secret_inputs(action)
-    env = {_env_name(name): "visible" for name in SPECS[action]["checks"] if name not in secrets}
+    masked = _masked_inputs(action)
+    env = {_env_name(name): "visible" for name in SPECS[action]["checks"] if name not in masked}
     assert _masks(_run(action, env).stdout) == []
 
 
