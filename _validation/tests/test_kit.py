@@ -103,7 +103,10 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "cache_mode": {"valid": ["max", "min", "inline"], "invalid": ["fast", "MAX"]},
     "network_mode": {"valid": ["host", "none", "default"], "invalid": ["bridge"]},
-    "sbom_format": {"valid": ["spdx-json", "cyclonedx-json"], "invalid": ["spdx", "json"]},
+    "sbom_format": {
+        "valid": ["spdx-json"],
+        "invalid": ["spdx", "json", "cyclonedx-json", "syft-json"],
+    },
     "registry_enum": {"valid": ["dockerhub", "github", "both"], "invalid": ["gcr"]},
     "cache_config": {
         "valid": ["type=gha", "type=registry,ref=x", "type=gha,mode=max"],
