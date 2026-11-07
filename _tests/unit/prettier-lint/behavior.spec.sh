@@ -23,7 +23,7 @@ It "does not glob-expand a version range against the working directory"
 # the mock matches only a literal asterisk, and an unregistered call exits 127.
 : >'plugin-a@decoy'
 export INPUT_PLUGINS="plugin-a@*,plugin-b"
-mock_command npm 'install --save-dev plugin-a@[*] plugin-b' ""
+mock_command npm 'install --no-save --ignore-scripts plugin-a@[*] plugin-b' ""
 
 When call run_step "${ACTION_DIR}" "install-plugins"
 The status should be success
