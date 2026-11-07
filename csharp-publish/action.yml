@@ -94,7 +94,7 @@ runs:
 
         # Function to clean version string
         clean_version() {
-          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+          printf '%s' "$1" | sed -E 's/^[vV]//' | tr -d ' \n\r'
         }
 
         detected_version=""
@@ -217,7 +217,7 @@ runs:
         done
         if [ -n "$PACKAGE_FILE" ]; then
           # Extract version from filename (assumes standard naming: PackageName.Version.nupkg)
-          VERSION=$(basename "$PACKAGE_FILE" .nupkg | sed 's/.*\.\([0-9]\+\.[0-9]\+\.[0-9]\+.*\)$/\1/')
+          VERSION=$(basename "$PACKAGE_FILE" .nupkg | sed -E 's/.*\.([0-9]+\.[0-9]+\.[0-9]+.*)$/\1/')
           printf 'version=%s\n' "$VERSION" >> "$GITHUB_OUTPUT"
           printf 'package_file=%s\n' "$PACKAGE_FILE" >> "$GITHUB_OUTPUT"
         else

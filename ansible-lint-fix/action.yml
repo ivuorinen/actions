@@ -88,7 +88,7 @@ runs:
         fi
 
         # Check YAML content for Ansible play syntax
-        if [ "$_has_ansible" = "false" ] && find . \( -name "*.yml" -o -name "*.yaml" \) -type f | xargs grep -l "^- hosts:\|^  hosts:" 2>/dev/null | grep -q .; then
+        if [ "$_has_ansible" = "false" ] && find . \( -name "*.yml" -o -name "*.yaml" \) -type f -exec grep -lE "^- hosts:|^  hosts:" {} + 2>/dev/null | grep -q .; then
           _has_ansible=true
         fi
 

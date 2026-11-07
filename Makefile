@@ -18,13 +18,7 @@ SHELL := /bin/sh
 # Log file with timestamp
 LOG_FILE := update_$(shell date +%Y%m%d_%H%M%S).log
 
-# Detect OS for sed compatibility
 UNAME_S := $(shell uname -s)
-ifeq ($(UNAME_S),Darwin)
-	SED_CMD := sed -i .bak
-else
-	SED_CMD := sed -i
-endif
 
 # gh-action-readme — generates each action's README.md from its action.yml.
 # Pinned rather than tracking "latest": `make docs` output is gated by
@@ -50,8 +44,8 @@ help: ## Show this help message
 	@echo "$(BLUE)GitHub Actions Repository Management$(RESET)"
 	@echo ""
 	@echo "$(GREEN)Available targets:$(RESET)"
-	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | \
-		awk 'BEGIN {FS = ":.*?## "}; {printf "  $(YELLOW)%-20s$(RESET) %s\n", $$1, $$2}'
+	@grep -E '^[a-zA-Z_-]+:.*## .*$$' $(MAKEFILE_LIST) | \
+		awk 'BEGIN {FS = ":.*## "}; {printf "  $(YELLOW)%-20s$(RESET) %s\n", $$1, $$2}'
 	@echo ""
 	@echo "$(GREEN)Examples:$(RESET)"
 	@echo "  make all          # Generate docs, format, and lint everything"
@@ -118,7 +112,7 @@ $(GAR): ## Download and verify the pinned gh-action-readme binary
 docs: $(GAR) ## Generate documentation for all actions
 	@echo "$(BLUE)📂 Generating documentation...$(RESET)"
 	@failed=0; \
-	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml||' | sed 's|./||'); do \
+	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed -E 's|/action.yml||' | sed -E 's|./||'); do \
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
 			python3 _tools/fix-generated-readme.py "$$dir/README.md"; \
@@ -722,7 +716,7 @@ docker-push: ## Push the testing-tools image to ghcr.io
 			echo "    export GITHUB_TOKEN=ghp_xxxxxxxxxxxx"; \
 			echo "    make docker-push"; \
 			exit 1; \
-		elif echo "$${PUSH_OUTPUT}" | grep -q "denied\|unauthorized"; then \
+		elif echo "$${PUSH_OUTPUT}" | grep -qE "denied|unauthorized"; then \
 			echo "$(YELLOW)⚠️ Authentication required. Attempting login...$(RESET)"; \
 			if $(MAKE) docker-login; then \
 				echo ""; \

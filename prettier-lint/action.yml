@@ -299,10 +299,10 @@ runs:
         # Handles both brace globs (**/*.{js,ts}) and plain globs (**/*.js).
         case "$FILE_PATTERN" in
           *\{*\}*)
-            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*{\([^}]*\)}.*/\1/' | tr ',' '\n')
+            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed -E 's/.*\{([^}]*)}.*/\1/' | tr ',' '\n')
             ;;
           *)
-            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*\*\.\([a-zA-Z0-9]*\).*/\1/')
+            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed -E 's/.*\*\.([a-zA-Z0-9]*).*/\1/')
             ;;
         esac
         if [ -n "$_pattern_exts" ]; then
