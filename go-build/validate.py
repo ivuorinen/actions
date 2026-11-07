@@ -71,10 +71,8 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
     return f"must be an integer between {low} and {high}"
 
 
-def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
-    if _skip(value):
-        return None
+def _file_path_error(value: str) -> str | None:
+    """Return why ``value`` is not a relative path below the working directory, or None."""
     import urllib.parse
 
     decoded = urllib.parse.unquote(value)
@@ -84,9 +82,16 @@ def check_file_path(value: str) -> str | None:
         return "path traversal (..) is not allowed"
     if value.startswith("~"):
         return "home directory expansion (~) is not allowed"
-    if re.match(r"^[a-zA-Z0-9._/\-@+~!#=:]+$", value):
+    if re.fullmatch(r"[a-zA-Z0-9._/\-@+~!#=:]+", value):
         return None
     return "contains invalid path characters"
+
+
+def check_file_path(value: str) -> str | None:
+    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
+    if _skip(value):
+        return None
+    return _file_path_error(value)
 
 
 def check_github_token(value: str) -> str | None:
