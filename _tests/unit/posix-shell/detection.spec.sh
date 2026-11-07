@@ -26,6 +26,26 @@ run_site() {
   INPUT_LANGUAGE="${language:-}" INPUT_DEFAULT_VERSION="0.0" run_step "${PROJECT_ROOT}/${action}" "$step"
 }
 
+Describe ".tool-versions"
+# run_site takes "<action> <step id> [language input]"; the key follows the "|".
+from_tool_versions() {
+  printf '%s %s\n' "${1#*|}" "$2" >.tool-versions
+  run_site "${1%|*}"
+}
+
+Parameters:matrix
+"csharp-build detect-dotnet-version|dotnet" "csharp-lint-check detect-dotnet-version|dotnet" "csharp-publish detect-dotnet-version|dotnet" "go-build detect-go-version|golang" "php-tests detect-php-version|php" "pr-lint php-version|php" "pr-lint python-version|python" "pr-lint go-version|golang" "python-lint-fix python-version|python" "language-version-detect parse-version php|php" "language-version-detect parse-version python|python" "language-version-detect parse-version go|golang" "language-version-detect parse-version dotnet|dotnet"
+"v8.4.1|8.4.1" "V8.4.1-rc.1|8.4.1-rc.1" "8.4.1+build|8.4.1+build"
+End
+
+It "strips a leading v from ${2%|*}: $1"
+When call from_tool_versions "$1" "${2%|*}"
+The status should be success
+The stderr should be present
+Assert expect_output detected-version "${2#*|}"
+End
+End
+
 Describe "composer.json"
 from_require() {
   jq -n --arg version "$2" '{require: {php: $version}}' >composer.json

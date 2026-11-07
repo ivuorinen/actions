@@ -112,7 +112,7 @@ $(GAR): ## Download and verify the pinned gh-action-readme binary
 docs: $(GAR) ## Generate documentation for all actions
 	@echo "$(BLUE)📂 Generating documentation...$(RESET)"
 	@failed=0; \
-	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed 's|/action.yml||' | sed 's|./||'); do \
+	for dir in $$(find . -mindepth 2 -maxdepth 2 -name "action.yml" | sed -E 's|/action.yml||' | sed -E 's|./||'); do \
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
 			python3 _tools/fix-generated-readme.py "$$dir/README.md"; \

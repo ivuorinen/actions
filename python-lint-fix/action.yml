@@ -115,7 +115,7 @@ runs:
 
         # Function to clean version string
         clean_version() {
-          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+          printf '%s' "$1" | sed -E 's/^[vV]//' | tr -d ' \n\r'
         }
 
         detected_version=""

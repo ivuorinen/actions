@@ -1,5 +1,5 @@
 #!/usr/bin/env shellspec
-# Static guard: no action may use GNU-only sed or grep syntax.
+# Static guard: no action may use GNU-only sed or grep syntax, or sed without -E.
 #
 # GNU tools accept all of it, so a test that only runs the steps on Linux cannot
 # see the problem. The block-bashisms hook does not cover it either: it runs on
@@ -58,6 +58,18 @@ Parameters
 "sed 's/(a|b)+/c/'"
 "sed -n 's/a?/b/p'"
 "sed 's#(a)#b#'"
+"sed 's/foo/bar/'"
+"sed -n 's/a/b/p'"
+"sed -e 's/a/b/' file"
+"sed -i.bak 's/a/b/' file"
+"sed 's/\(a\)/\1/'"
+"sed 's/a\{2\}/b/'"
+"sed 's/[+?|()]/x/'"
+"sed 's|a|b|'"
+"LC_ALL=C sed 's/a/b/'"
+"x=\"\$(printf '%s' \"\$y\" | sed 's/^[vV]//')\""
+"sed -E 's/.*{x}/y/'"
+"sed -E 's/a{,3}/b/'"
 "x=\"\$(printf '%s' \"\$y\" | sed 's/a\+/b/')\""
 "x=\$(printf '%s' \"\$y\" | grep -E '^\s*a' | head -1)"
 "printf 'a' | tr -d 'b' | sed 's/a\+/b/'"
@@ -88,21 +100,26 @@ Parameters
 "grep -F 'a\+b' file"
 "grep -iF 'a\sb' file"
 "grep --fixed-strings 'a\+b' file"
-"sed 's/\(a\)/\1/'"
-"sed 's/a\{2\}/b/'"
-"sed 's/.*{\([^}]*\)}.*/\1/'"
-"sed 's/[+?|()]/x/'"
-"sed 's/[[:space:]]*\$//'"
-"sed 's/[^a-z0-9._\/-]/-/g'"
-"sed 's/a/(b)+/'"
-"sed 's|a|b|'"
-"sed -i.bak 's/a/b/' file"
+"sed -E 's/\(a\)/x/'"
+"sed -E 's/a{2}/b/'"
+"sed -E 's/a{2,3}/b/'"
+"sed -E 's/.*\{([^}]*)}.*/\1/'"
+"sed -E 's/[{]/x/'"
+"sed -E 's/a/{b}/'"
+"sed -n -E \"s/.*\${image}:([0-9]+).*/\1/p\""
+"sed -E 's/[+?|()]/x/'"
+"sed -E 's/[[:space:]]*\$//'"
+"sed -E 's/[^a-z0-9._\/-]/-/g'"
+"sed -E 's|a|b|'"
+"sed -E -e 's/a/b/' file"
+"sed -E -i.bak 's/a/b/' file"
 "sed -Ei.bak 's/a/b/' file"
+"LC_ALL=C sed -E 's/a/b/'"
 "grep -l 'a\\\\s' file"
 "grep -- '-a' file"
 "find . -exec grep -l foo {} \+"
 "find . -exec grep -l foo {} \;"
-"printf '%s' \"\$y\" | sed 's/^[vV]//' | tr -d ' \n\r'"
+"printf '%s' \"\$y\" | sed -E 's/^[vV]//' | tr -d ' \n\r'"
 "grep -c 'a' file | tr -d '\s'"
 "# sed 's/a\+/b/' is only prose here"
 "  # grep -E '^\s*x'"
@@ -124,6 +141,15 @@ When call scan_line "sed -n \\
   's/a\+/b/p'"
 The status should be failure
 The output should include "/dev/stdin:1:"
+End
+
+It "stays fast on a long run of bracket expressions in an unclosed s command"
+scan_long_brackets() {
+  printf "sed -E 's!%s'\n" "$(printf '%040000d' 0 | sed -E 's/00/[]/g')" | python3 "$SCANNER" /dev/stdin
+}
+When call scan_long_brackets
+The status should be success
+The output should equal ""
 End
 
 It "fails loudly when given nothing to scan"

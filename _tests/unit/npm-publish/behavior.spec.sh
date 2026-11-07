@@ -56,6 +56,10 @@ Parameters
 "1.0.0-rc.2" "1.0.0-rc.2" "rc"
 "2.0.0-alpha" "2.0.0-alpha" "alpha"
 "v3.1.0-next.7" "3.1.0-next.7" "next"
+" V1.0.0  " "1.0.0" "latest"
+"1.0.0+build" "1.0.0+build" "latest"
+"2025.4.5+sha.abc1234" "2025.4.5+sha.abc1234" "latest"
+"1.0.0-rc.1+build" "1.0.0-rc.1+build" "rc"
 End
 
 It "publishes $1 under dist-tag $3"

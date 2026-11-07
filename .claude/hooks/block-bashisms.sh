@@ -110,6 +110,6 @@ if printf '%s\n' "$CHECKABLE" | grep -qE '\$\{[a-zA-Z_][a-zA-Z0-9_]*\['; then
 fi
 
 if [ -n "$REASON" ]; then
-  REASON=$(printf '%s' "$REASON" | sed 's/"/\\"/g')
+  REASON=$(printf '%s' "$REASON" | sed -E 's/"/\\"/g')
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"POSIX violation(s): %s All scripts must be POSIX sh (set -eu), not bash."}}\n' "$REASON"
 fi
