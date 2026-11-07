@@ -100,15 +100,19 @@ def check_docker_image_name(value: str) -> str | None:
     return "must be a lowercase Docker image name (e.g. myapp, registry.example.com/ns/app)"
 
 
-def check_docker_tag(value: str) -> str | None:
-    """Docker tag: alphanumeric start/end with ``-._:/@`` inside (e.g. ``v1.0.0``, ``latest``)."""
+def check_docker_tag_list(value: str) -> str | None:
+    """Comma-separated Docker tags (e.g. ``latest,v1.0.0``), with no spaces around the commas.
+
+    Each entry becomes the tag of an ``image:tag`` reference, so it follows the tag rule of the
+    Distribution reference grammar: a letter, digit or ``_``, then up to 127 of those, ``.`` or
+    ``-``.
+    """
     if _skip(value):
         return None
-    if re.match(r"^[a-zA-Z0-9][-a-zA-Z0-9._:/@]*[a-zA-Z0-9]$", value) or re.match(
-        r"^[a-zA-Z0-9]$", value
-    ):
-        return None
-    return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
+    for tag in value.split(","):
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
+            return f"invalid Docker tag: {tag!r} (letters, digits, _ . -, at most 128 characters)"
+    return None
 
 
 def check_file_path(value: str) -> str | None:
@@ -176,6 +180,23 @@ def check_key_value_list(value: str) -> str | None:
     return None
 
 
+def check_opaque_token(value: str) -> str | None:
+    """Token whose format its issuer owns (npm, Docker Hub): rejects only what cannot be one.
+
+    No prefix, length or alphabet is enforced, so a real token never fails on a format this
+    repo guessed. Whitespace and control characters are refused because a line break would add
+    lines to the ``.npmrc`` or ``GITHUB_OUTPUT`` file a token is written to. Only a plain space
+    consults ``_skip``, so nothing that can break a line passes by starting like an expression.
+    Shell metacharacters are not refused: consumers read the value from a quoted env var and
+    never parse it as shell.
+    """
+    if value.strip() == "":
+        return None
+    if re.search(r"[^\S ]|[\x00-\x1f\x7f-\x9f]", value) or (" " in value and not _skip(value)):
+        return "must not contain whitespace or control characters"
+    return None
+
+
 def check_registry_enum(value: str) -> str | None:
     """Container registry selector."""
     return _enum(value, "dockerhub", "github", "both")
@@ -198,13 +219,13 @@ CHECKS = {
     "build-args": check_key_value_list,
     "context": check_file_path,
     "dockerfile": check_file_path,
-    "dockerhub-token": check_github_token,
+    "dockerhub-token": check_opaque_token,
     "dockerhub-username": check_username,
     "image-name": check_docker_image_name,
     "platforms": check_docker_architectures,
     "push": check_boolean,
     "registry": check_registry_enum,
-    "tags": check_docker_tag,
+    "tags": check_docker_tag_list,
     "token": check_github_token,
 }
 

@@ -32,13 +32,13 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter         | Description                     | Required | Default                                |
-|-------------------|---------------------------------|----------|----------------------------------------|
-| `npm_token`       | NPM token.                      | ✅       | -                                      |
-| `package-version` | The version to publish.         | ❌       | `${{ github.event.release.tag_name }}` |
-| `registry-url`    | Registry URL for publishing.    | ❌       | `https://registry.npmjs.org/`          |
-| `scope`           | Package scope to use.           | ❌       | `@ivuorinen`                           |
-| `token`           | GitHub token for authentication | ❌       | -                                      |
+| Parameter         | Description                                                                                               | Required | Default                                |
+|-------------------|-----------------------------------------------------------------------------------------------------------|----------|----------------------------------------|
+| `npm_token`       | NPM token, in any format the registry issues. Must not contain whitespace or control characters.          | ✅       | -                                      |
+| `package-version` | The version to publish: X.Y.Z or vX.Y.Z, optionally with -prerelease and +build. Must match package.json. | ❌       | `${{ github.event.release.tag_name }}` |
+| `registry-url`    | Registry URL for publishing.                                                                              | ❌       | `https://registry.npmjs.org/`          |
+| `scope`           | Package scope to use.                                                                                     | ❌       | `@ivuorinen`                           |
+| `token`           | GitHub token for authentication                                                                           | ❌       | -                                      |
 
 ## 📤 Outputs
 

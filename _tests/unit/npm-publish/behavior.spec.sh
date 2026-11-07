@@ -91,4 +91,43 @@ When call run_step "${ACTION_DIR}" "publish"
 The status should be success
 The stdout should not include "Version mismatch"
 End
+
+Describe "npm authentication"
+# ~/.npmrc holds the credential. sh is dash on Ubuntu runners, and dash's echo
+# expands backslash escapes, so writing with echo would turn a backslash sequence
+# in an accepted value into a real line break and an extra config line.
+setup_auth_inputs() {
+  export HOME="$SHELLSPEC_TEST_TEMP_DIR"
+  export INPUT_REGISTRY_URL="$1"
+  export INPUT_NPM_TOKEN="$2"
+}
+
+It "writes the token for the registry host"
+setup_auth_inputs "https://registry.npmjs.org/" "npm_aaaa"
+
+When call run_step "${ACTION_DIR}" "authenticate"
+The status should be success
+The line 1 of contents of file "$HOME/.npmrc" should equal "//registry.npmjs.org/:_authToken=npm_aaaa"
+The line 2 of contents of file "$HOME/.npmrc" should equal "always-auth=true"
+The lines of contents of file "$HOME/.npmrc" should equal 2
+End
+
+It "keeps a backslash sequence in the token on one line"
+setup_auth_inputs "https://registry.npmjs.org/" 'npm_aaaa\nsecond-line'
+
+When call run_step "${ACTION_DIR}" "authenticate"
+The status should be success
+The line 1 of contents of file "$HOME/.npmrc" should equal '//registry.npmjs.org/:_authToken=npm_aaaa\nsecond-line'
+The lines of contents of file "$HOME/.npmrc" should equal 2
+End
+
+It "keeps a backslash sequence in the registry URL on one line"
+setup_auth_inputs 'https://registry.example.com/path\nsecond-line/' "npm_aaaa"
+
+When call run_step "${ACTION_DIR}" "authenticate"
+The status should be success
+The line 1 of contents of file "$HOME/.npmrc" should equal '//registry.example.com/path\nsecond-line/:_authToken=npm_aaaa'
+The lines of contents of file "$HOME/.npmrc" should equal 2
+End
+End
 End
