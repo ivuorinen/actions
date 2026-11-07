@@ -11,6 +11,10 @@ from __future__ import annotations
 import kit
 import pytest
 
+# Python's int() takes all of these. A shell integer test errors on the first two, and the rest
+# are not the plain digits a consumer of the input can rely on.
+NOT_SHELL_INTEGERS = ["1_0", "٣", "+3", " 3", "3 ", "3\n"]
+
 # check type -> {"valid": [...accepted...], "invalid": [...rejected...]}
 CASES: dict[str, dict[str, list[str]]] = {
     "github_token": {
@@ -98,8 +102,33 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["MyApp", "my app", "/leading", "-myapp", "myapp-", "_myapp"],
     },
     "docker_tag": {
-        "valid": ["v1.0.0", "latest", "sha-1234567", "1.0.0", "a"],
-        "invalid": ["-bad", "bad-", "in valid"],
+        "valid": [
+            "v1.0.0",
+            "latest",
+            "sha-1234567",
+            "1.0.0",
+            "a",
+            "_underscore",
+            "ends-with-dash-",
+            "ends.with.dot.",
+            "UPPER_lower",
+            "1.0.0-rc.1",
+            "v2025.04.05-rc.1",
+            "a" * 128,
+        ],
+        "invalid": [
+            "-bad",
+            ".bad",
+            "in valid",
+            "registry:5000",
+            "path/tag",
+            "tag@sha256",
+            "1.0.0+build",
+            "2025.4.5+sha.abc1234",
+            "a" * 129,
+            "tag\n",
+            "täg",
+        ],
     },
     "cache_mode": {"valid": ["max", "min", "inline"], "invalid": ["fast", "MAX"]},
     "network_mode": {"valid": ["host", "none", "default"], "invalid": ["bridge"]},
@@ -171,7 +200,10 @@ CASES: dict[str, dict[str, list[str]]] = {
         "valid": ["GitHub Actions", "github-actions[bot]", "Ismo Vuorinen", "user_name"],
         "invalid": ["a;b", "a`b`", "a\nb", "a" * 101],
     },
-    "boolean": {"valid": ["true", "false", "TRUE", "False"], "invalid": ["yes", "1", "maybe"]},
+    "boolean": {
+        "valid": ["true", "false"],
+        "invalid": ["TRUE", "True", "False", " true", "false\n", "yes", "1", "maybe"],
+    },
     "repository_list": {
         "valid": ["owner/repo", "owner/repo\nowner2/repo2", "my-org/my.repo_1"],
         "invalid": ["not-a-repo", "owner//repo", "owner/repo\nbad target", "/leading"],
@@ -220,9 +252,16 @@ CASES: dict[str, dict[str, list[str]]] = {
         "valid": ["ABC-123_x", "$GITLEAKS_LICENSE", "${{ secrets.LIC }}", "b64+val/ue="],
         "invalid": ["has space", "a;b", "$(rm -rf /)"],
     },
-    "positive_integer": {"valid": ["1", "100"], "invalid": ["0", "-1", "abc"]},
-    "numeric_range_1_10": {"valid": ["1", "10", "5"], "invalid": ["0", "11", "abc"]},
-    "numeric_range_0_16": {"valid": ["0", "16", "8"], "invalid": ["17", "-1"]},
+    "positive_integer": {
+        "valid": ["1", "100"],
+        # int() raises on the last one, past its 4300-digit limit
+        "invalid": ["0", "-1", "abc", *NOT_SHELL_INTEGERS, "9" * 5000],
+    },
+    "numeric_range_1_10": {
+        "valid": ["1", "10", "5"],
+        "invalid": ["0", "11", "abc", *NOT_SHELL_INTEGERS],
+    },
+    "numeric_range_0_16": {"valid": ["0", "16", "8"], "invalid": ["17", "-1", *NOT_SHELL_INTEGERS]},
     "numeric_range_0_100": {"valid": ["0", "100", "50"], "invalid": ["101", "-1"]},
     "numeric_range_1_128": {"valid": ["1", "128"], "invalid": ["0", "129"]},
     "numeric_range_256_32768": {"valid": ["256", "32768"], "invalid": ["255", "32769"]},
@@ -248,10 +287,28 @@ def test_invalid_values_rejected(check):
         assert fn(value) is not None, f"{check} should reject {value!r}"
 
 
-@pytest.mark.parametrize("check", sorted(kit.CHECKS))
+# Inputs of these types all declare a default (tests/test_spec.py), so blank only comes from a
+# caller passing it, and the steps that read them then skip their work instead of failing.
+REFUSES_BLANK = {"boolean", "numeric_range_1_10"}
+
+
+@pytest.mark.parametrize("check", sorted(set(kit.CHECKS) - REFUSES_BLANK))
 def test_empty_value_is_optional(check):
     assert kit.CHECKS[check]("") is None
     assert kit.CHECKS[check]("   ") is None
+
+
+@pytest.mark.parametrize("check", sorted(REFUSES_BLANK))
+def test_blank_value_is_refused(check):
+    assert kit.CHECKS[check]("") is not None
+    assert kit.CHECKS[check]("   ") is not None
+
+
+@pytest.mark.parametrize("check", ["boolean", "numeric_range_1_10", "positive_integer"])
+def test_version_shaped_values_are_refused(check):
+    # These are compared or counted in shell, so neither SemVer form means anything to them.
+    assert kit.CHECKS[check]("1.0.0-rc.1") is not None
+    assert kit.CHECKS[check]("1.0.0+build") is not None
 
 
 @pytest.mark.parametrize("check", sorted(kit.CHECKS))

@@ -82,13 +82,17 @@ def test_runs_standalone_with_no_inputs(action):
         assert result.returncode == 0, result.stdout
 
 
+def _satisfying_required(action: str) -> dict[str, str]:
+    """Return the env that clears the action's required inputs, so only the test's input fails."""
+    return {
+        f"INPUT_{n.upper().replace('-', '_')}": "${{ inputs.x }}" for n in SPECS[action]["required"]
+    }
+
+
 @pytest.mark.parametrize("action", [a for a in ACTIONS if SPECS[a]["required"]])
 def test_required_inputs_satisfied_by_expression(action):
     # a ${{ }} expression passes every check, so supplying required inputs clears the gate
-    env = {
-        f"INPUT_{n.upper().replace('-', '_')}": "${{ inputs.x }}" for n in SPECS[action]["required"]
-    }
-    assert _run(action, env).returncode == 0
+    assert _run(action, _satisfying_required(action)).returncode == 0
 
 
 def test_invalid_input_is_rejected_with_annotation():
@@ -96,3 +100,28 @@ def test_invalid_input_is_rejected_with_annotation():
     assert result.returncode == 1
     assert "::error::docker-build:" in result.stdout
     assert "max-retries" in result.stdout
+
+
+@pytest.mark.parametrize("action", [a for a in ACTIONS if "max-retries" in SPECS[a]["checks"]])
+def test_blank_retry_count_fails_every_action_that_takes_one(action):
+    # A step reads a blank input as "" (the runner only applies a default when the caller left
+    # the input out), and `[ 1 -le ]` then ends a retry loop without running its body.
+    result = _run(action, {**_satisfying_required(action), "INPUT_MAX_RETRIES": ""})
+    assert result.returncode == 1
+    assert f"::error::{action}: max-retries:" in result.stdout
+
+
+@pytest.mark.parametrize(
+    "action,variable",
+    [
+        (action, "INPUT_" + name.upper().replace("-", "_"))
+        for action in ACTIONS
+        for name, check in SPECS[action]["checks"].items()
+        if check == "boolean"
+    ],
+)
+@pytest.mark.parametrize("value", ["", "True", "FALSE", " true"])
+def test_boolean_that_a_shell_test_would_misread_fails(action, variable, value):
+    result = _run(action, {**_satisfying_required(action), variable: value})
+    assert result.returncode == 1, result.stdout
+    assert "::error::" in result.stdout

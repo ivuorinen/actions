@@ -17,6 +17,10 @@ Shared contract — the ``_skip`` gate, applied first by nearly every check:
   * a GitHub Actions expression (``${{ ... }}``) is accepted unchanged, because its real
     value is substituted at runtime and cannot be inspected here.
 
+``boolean`` and ``numeric_range_1_10`` refuse a blank value instead. Those inputs all declare a
+default and the runner applies it only when the caller leaves the input out, so blank means the
+caller passed it, and the steps reading such an input would then quietly skip their work.
+
 Security-critical checks (tokens, file paths, injection-bearing lists, URLs) are ported
 faithfully from the previous validator framework so external callers see no change in what
 is accepted or rejected. Tool-version and enum format checks are written to match what each
@@ -68,14 +72,14 @@ def _enum(value: str, *allowed: str) -> str | None:
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is an integer within ``[low, high]``."""
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
     if _skip(value):
         return None
-    try:
-        number = int(value.strip())
-    except ValueError:
-        return f"must be an integer between {low} and {high}"
-    if low <= number <= high:
+    if re.fullmatch(r"[0-9]{1,9}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
 
@@ -289,12 +293,14 @@ def check_docker_image_name(value: str) -> str | None:
 
 
 def check_docker_tag(value: str) -> str | None:
-    """Docker tag: alphanumeric start/end with ``-._:/@`` inside (e.g. ``v1.0.0``, ``latest``)."""
+    """Docker tag, per the Distribution reference grammar (e.g. ``v1.0.0``, ``latest``).
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``. So no registry or path
+    part, and no SemVer ``+build`` metadata.
+    """
     if _skip(value):
         return None
-    if re.match(r"^[a-zA-Z0-9][-a-zA-Z0-9._:/@]*[a-zA-Z0-9]$", value) or re.match(
-        r"^[a-zA-Z0-9]$", value
-    ):
+    if re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", value):
         return None
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
 
@@ -545,10 +551,15 @@ def check_username(value: str) -> str | None:
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.strip().lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if _is_expr(value) or value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_repository_list(value: str) -> str | None:
@@ -718,19 +729,13 @@ def check_json_format(value: str) -> str | None:
 
 def check_positive_integer(value: str) -> str | None:
     """Positive integer (> 0)."""
-    if _skip(value):
-        return None
-    try:
-        number = int(value.strip())
-    except ValueError:
-        return "must be a positive integer (> 0)"
-    if number > 0:
-        return None
-    return "must be a positive integer (> 0)"
+    return _int_in_range(value, 1, 999_999_999)
 
 
 def check_numeric_range_1_10(value: str) -> str | None:
-    """Integer in [1, 10] (e.g. retry counts)."""
+    """Integer in [1, 10] (retry counts); blank is refused, see the module contract."""
+    if value.strip() == "":
+        return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
 
 

@@ -25,7 +25,7 @@ inputs:
     required: false
     default: 'github-actions@github.com'
   max-retries:
-    description: 'Maximum number of retry attempts for pip install operations'
+    description: 'Maximum number of retry attempts for pip install operations (1-10, must not be empty)'
     required: false
     default: '3'
 

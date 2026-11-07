@@ -40,7 +40,7 @@ jobs:
           tag: 'test-tag'
           dockerfile: './Dockerfile'
           context: '.'
-          platforms: 'linux/amd64'
+          architectures: 'linux/amd64'
           push: 'false'
           scan-image: 'false'
 
@@ -89,7 +89,7 @@ jobs:
           build-args: |
             ARG1=value1
             ARG2=value2
-          platforms: 'linux/amd64'
+          architectures: 'linux/amd64'
           push: 'false'
           scan-image: 'false'
 
@@ -122,7 +122,7 @@ jobs:
           tag: 'latest'
           dockerfile: './Dockerfile'
           context: '.'
-          platforms: 'linux/amd64,linux/arm64'
+          architectures: 'linux/amd64,linux/arm64'
           push: 'false'
           scan-image: 'false'
 
@@ -153,7 +153,7 @@ jobs:
           tag: 'INVALID TAG WITH SPACES'
           dockerfile: './Dockerfile'
           context: '.'
-          platforms: 'linux/amd64'
+          architectures: 'linux/amd64'
           push: 'false'
         continue-on-error: true
 
@@ -173,7 +173,7 @@ jobs:
           tag: 'latest'
           dockerfile: './Dockerfile'
           context: '.'
-          platforms: 'linux/amd64'
+          architectures: 'linux/amd64'
           push: 'false'
         continue-on-error: true
 

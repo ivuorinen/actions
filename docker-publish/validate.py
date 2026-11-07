@@ -5,8 +5,9 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime).
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them, and `${{ ... }}` expressions pass unchecked (their value is substituted at
+runtime).
 """
 
 from __future__ import annotations
@@ -66,10 +67,15 @@ def _shell_meta_error(value: str) -> str | None:
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.strip().lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if _is_expr(value) or value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_docker_architectures(value: str) -> str | None:
@@ -101,12 +107,14 @@ def check_docker_image_name(value: str) -> str | None:
 
 
 def check_docker_tag(value: str) -> str | None:
-    """Docker tag: alphanumeric start/end with ``-._:/@`` inside (e.g. ``v1.0.0``, ``latest``)."""
+    """Docker tag, per the Distribution reference grammar (e.g. ``v1.0.0``, ``latest``).
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``. So no registry or path
+    part, and no SemVer ``+build`` metadata.
+    """
     if _skip(value):
         return None
-    if re.match(r"^[a-zA-Z0-9][-a-zA-Z0-9._:/@]*[a-zA-Z0-9]$", value) or re.match(
-        r"^[a-zA-Z0-9]$", value
-    ):
+    if re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", value):
         return None
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
 
@@ -216,11 +224,13 @@ def main() -> None:
     """Validate every declared input from its INPUT_* env var; fail with all reasons."""
     errors = []
     for input_name, check in CHECKS.items():
-        value = os.environ.get("INPUT_" + input_name.upper().replace("-", "_"), "")
+        variable = "INPUT_" + input_name.upper().replace("-", "_")
+        value = os.environ.get(variable, "")
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if variable in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

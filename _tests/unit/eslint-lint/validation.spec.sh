@@ -204,9 +204,9 @@ When call validate_input_python "eslint-lint" "cache" "false"
 The status should be success
 End
 
-It "accepts empty cache (uses default)"
+It "rejects empty cache"
 When call validate_input_python "eslint-lint" "cache" ""
-The status should be success
+The status should be failure
 End
 
 It "rejects invalid boolean value"
@@ -263,9 +263,9 @@ When call validate_input_python "eslint-lint" "fail-on-error" "false"
 The status should be success
 End
 
-It "accepts empty fail-on-error (uses default)"
+It "rejects empty fail-on-error"
 When call validate_input_python "eslint-lint" "fail-on-error" ""
-The status should be success
+The status should be failure
 End
 
 It "rejects invalid boolean value"
@@ -322,9 +322,9 @@ When call validate_input_python "eslint-lint" "max-retries" "10"
 The status should be success
 End
 
-It "accepts empty max-retries (uses default)"
+It "rejects empty max-retries"
 When call validate_input_python "eslint-lint" "max-retries" ""
-The status should be success
+The status should be failure
 End
 
 It "rejects zero retries"

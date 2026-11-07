@@ -191,6 +191,16 @@ It "rejects retry count above maximum"
 When call validate_input_python "go-lint" "max-retries" "15"
 The status should be failure
 End
+
+It "rejects empty retry count"
+When call validate_input_python "go-lint" "max-retries" ""
+The status should be failure
+End
+
+It "rejects a value int() takes but a shell integer test does not"
+When call validate_input_python "go-lint" "max-retries" "1_0"
+The status should be failure
+End
 End
 
 Context "when validating linter lists"

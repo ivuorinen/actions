@@ -5,8 +5,9 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime).
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them, and `${{ ... }}` expressions pass unchecked (their value is substituted at
+runtime).
 """
 
 from __future__ import annotations
@@ -66,23 +67,28 @@ def _enum(value: str, *allowed: str) -> str | None:
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is an integer within ``[low, high]``."""
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
     if _skip(value):
         return None
-    try:
-        number = int(value.strip())
-    except ValueError:
-        return f"must be an integer between {low} and {high}"
-    if low <= number <= high:
+    if re.fullmatch(r"[0-9]{1,9}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.strip().lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if _is_expr(value) or value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_email(value: str) -> str | None:
@@ -165,7 +171,9 @@ def check_numeric_range_0_10000(value: str) -> str | None:
 
 
 def check_numeric_range_1_10(value: str) -> str | None:
-    """Integer in [1, 10] (e.g. retry counts)."""
+    """Integer in [1, 10] (retry counts); blank is refused, see the module contract."""
+    if value.strip() == "":
+        return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
 
 
@@ -239,11 +247,13 @@ def main() -> None:
     """Validate every declared input from its INPUT_* env var; fail with all reasons."""
     errors = []
     for input_name, check in CHECKS.items():
-        value = os.environ.get("INPUT_" + input_name.upper().replace("-", "_"), "")
+        variable = "INPUT_" + input_name.upper().replace("-", "_")
+        value = os.environ.get(variable, "")
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if variable in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

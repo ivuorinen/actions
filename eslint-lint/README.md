@@ -39,22 +39,22 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                          | Required | Default                     |
-|---------------------|------------------------------------------------------|----------|-----------------------------|
-| `cache`             | Enable ESLint caching                                | ❌       | `true`                      |
-| `config-file`       | Path to ESLint config file                           | ❌       | `.eslintrc`                 |
-| `email`             | GitHub email for commits (fix mode only)             | ❌       | `github-actions@github.com` |
-| `eslint-version`    | ESLint version to use                                | ❌       | `latest`                    |
-| `fail-on-error`     | Fail workflow if issues are found (check mode only)  | ❌       | `true`                      |
-| `file-extensions`   | File extensions to lint (comma-separated)            | ❌       | `.js,.jsx,.ts,.tsx`         |
-| `ignore-file`       | Path to ESLint ignore file                           | ❌       | `.eslintignore`             |
-| `max-retries`       | Maximum number of retry attempts                     | ❌       | `3`                         |
-| `max-warnings`      | Maximum number of warnings allowed (check mode only) | ❌       | `0`                         |
-| `mode`              | Mode to run (check or fix)                           | ❌       | `check`                     |
-| `report-format`     | Output format for check mode (stylish, json, sarif)  | ❌       | `sarif`                     |
-| `token`             | GitHub token for authentication                      | ❌       | -                           |
-| `username`          | GitHub username for commits (fix mode only)          | ❌       | `github-actions`            |
-| `working-directory` | Directory containing files to lint                   | ❌       | `.`                         |
+| Parameter           | Description                                                                  | Required | Default                     |
+|---------------------|------------------------------------------------------------------------------|----------|-----------------------------|
+| `cache`             | Enable ESLint caching (lowercase true or false)                              | ❌       | `true`                      |
+| `config-file`       | Path to ESLint config file                                                   | ❌       | `.eslintrc`                 |
+| `email`             | GitHub email for commits (fix mode only)                                     | ❌       | `github-actions@github.com` |
+| `eslint-version`    | ESLint version to use                                                        | ❌       | `latest`                    |
+| `fail-on-error`     | Fail workflow if issues are found (check mode only; lowercase true or false) | ❌       | `true`                      |
+| `file-extensions`   | File extensions to lint (comma-separated)                                    | ❌       | `.js,.jsx,.ts,.tsx`         |
+| `ignore-file`       | Path to ESLint ignore file                                                   | ❌       | `.eslintignore`             |
+| `max-retries`       | Maximum number of retry attempts (1-10, must not be empty)                   | ❌       | `3`                         |
+| `max-warnings`      | Maximum number of warnings allowed (check mode only)                         | ❌       | `0`                         |
+| `mode`              | Mode to run (check or fix)                                                   | ❌       | `check`                     |
+| `report-format`     | Output format for check mode (stylish, json, sarif)                          | ❌       | `sarif`                     |
+| `token`             | GitHub token for authentication                                              | ❌       | -                           |
+| `username`          | GitHub username for commits (fix mode only)                                  | ❌       | `github-actions`            |
+| `working-directory` | Directory containing files to lint                                           | ❌       | `.`                         |
 
 ## 📤 Outputs
 

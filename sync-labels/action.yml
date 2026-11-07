@@ -20,7 +20,7 @@ inputs:
     required: false
     default: ''
   prune:
-    description: 'Delete existing labels that are not listed in the manifest'
+    description: 'Delete existing labels that are not listed in the manifest (lowercase true or false)'
     required: false
     default: 'true'
   token:

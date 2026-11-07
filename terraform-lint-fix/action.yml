@@ -29,15 +29,15 @@ inputs:
     required: false
     default: '.tflint.hcl'
   fail-on-error:
-    description: 'Fail workflow if issues are found'
+    description: 'Fail workflow if issues are found (lowercase true or false)'
     required: false
     default: 'true'
   auto-fix:
-    description: 'Automatically fix issues when possible'
+    description: 'Automatically fix issues when possible (lowercase true or false)'
     required: false
     default: 'true'
   max-retries:
-    description: 'Maximum number of retry attempts'
+    description: 'Maximum number of retry attempts (1-10, must not be empty)'
     required: false
     default: '3'
   format:
