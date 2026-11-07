@@ -162,48 +162,49 @@ The stdout should not include "Version mismatch"
 End
 
 Describe "npm authentication"
-# ~/.npmrc holds the credential. sh is dash on Ubuntu runners, and dash's echo
-# expands backslash escapes, so writing with echo would turn a backslash sequence
-# in an accepted value into a real line break and an extra config line.
+# The token reaches npm only through NODE_AUTH_TOKEN. The file holds a placeholder and
+# exists only while the step runs. mktemp is mocked so a test knows the file's path, and
+# keep_npmrc mocks rm, the only way to read a file the step always removes.
 setup_auth_inputs() {
-  export HOME="$SHELLSPEC_TEST_TEMP_DIR"
+  setup_inputs "1.0.0"
   export INPUT_REGISTRY_URL="$1"
-  export INPUT_NPM_TOKEN="$2"
+  mock_manifest_version "1.0.0"
+  NPMRC_PATH="$SHELLSPEC_TEST_TEMP_DIR/npmrc"
+  mock_command mktemp "*" "$NPMRC_PATH"
 }
 
-It "writes the token for the registry host"
-setup_auth_inputs "https://registry.npmjs.org/" "npm_aaaa"
+keep_npmrc() {
+  mock_command rm "-f *" ""
+}
 
-When call run_step "${ACTION_DIR}" "authenticate"
-The status should be success
-The line 1 of contents of file "$HOME/.npmrc" should equal "//registry.npmjs.org/:_authToken=npm_aaaa"
-The line 2 of contents of file "$HOME/.npmrc" should equal "always-auth=true"
-The lines of contents of file "$HOME/.npmrc" should equal 2
-End
+github_env_is_empty() {
+  [ ! -s "$GITHUB_ENV" ]
+}
 
-It "keeps a backslash sequence in the token on one line"
-setup_auth_inputs "https://registry.npmjs.org/" 'npm_aaaa\nsecond-line'
+# Every step that receives the token, as "<step name>: <env var>".
+token_env_by_step() {
+  _harness_python - "${ACTION_DIR}/action.yml" <<'PY'
+import sys
 
-When call run_step "${ACTION_DIR}" "authenticate"
-The status should be success
-The line 1 of contents of file "$HOME/.npmrc" should equal '//registry.npmjs.org/:_authToken=npm_aaaa\nsecond-line'
-The lines of contents of file "$HOME/.npmrc" should equal 2
-End
+import yaml
 
-It "keeps a backslash sequence in the registry URL on one line"
-setup_auth_inputs 'https://registry.example.com/path\nsecond-line/' "npm_aaaa"
-
-When call run_step "${ACTION_DIR}" "authenticate"
-The status should be success
-The line 1 of contents of file "$HOME/.npmrc" should equal '//registry.example.com/path\nsecond-line/:_authToken=npm_aaaa'
-The lines of contents of file "$HOME/.npmrc" should equal 2
-End
+with open(sys.argv[1], encoding="utf-8") as f:
+    action = yaml.safe_load(f)
+for step in action["runs"]["steps"]:
+    for key, value in (step.get("env") or {}).items():
+        if "inputs.npm_token" in str(value):
+            print(f"{step['name']}: {key}")
+PY
+}
 
 # Each key is what npm's own nerf-dart (@npmcli/config) derives from the URL, the key
 # npm looks the token up under.
-Describe "the registry key"
+Describe "config file"
 Parameters
+"https://registry.npmjs.org/" "//registry.npmjs.org/"
 "https://registry.npmjs.org" "//registry.npmjs.org/"
+"https://npm.example.com/repo/" "//npm.example.com/repo/"
+"https://npm.example.com:8443/" "//npm.example.com:8443/"
 "https://npm.pkg.github.com/OWNER" "//npm.pkg.github.com/"
 "https://registry.example.com/npm/?token=x#frag" "//registry.example.com/npm/"
 "https://Registry.Example.COM:443/Scope/" "//registry.example.com/Scope/"
@@ -211,13 +212,82 @@ Parameters
 "http://localhost:4873/" "//localhost:4873/"
 End
 
-It "is $2 for $1"
-setup_auth_inputs "$1" "npm_aaaa"
+It "reads the token from the environment under the key $2 for $1"
+setup_auth_inputs "$1"
+expect_publish_tag "latest"
+keep_npmrc
 
-When call run_step "${ACTION_DIR}" "authenticate"
+When call run_step "${ACTION_DIR}" "publish"
 The status should be success
-The line 1 of contents of file "$HOME/.npmrc" should equal "$2:_authToken=npm_aaaa"
+The contents of file "$NPMRC_PATH" should equal "$2:_authToken=\${NODE_AUTH_TOKEN}"
 End
+End
+
+# sh is dash on Ubuntu runners, and dash's echo expands backslash escapes, which would
+# turn a backslash sequence in an accepted URL into a real line break and a config line.
+It "keeps a backslash sequence in the registry URL on one line"
+setup_auth_inputs 'https://registry.example.com/path\nsecond-line/'
+expect_publish_tag "latest"
+keep_npmrc
+
+When call run_step "${ACTION_DIR}" "publish"
+The status should be success
+The line 1 of contents of file "$NPMRC_PATH" should equal '//registry.example.com/path\nsecond-line/:_authToken=${NODE_AUTH_TOKEN}'
+The lines of contents of file "$NPMRC_PATH" should equal 1
+End
+
+It "removes the config file after publishing"
+setup_auth_inputs "https://registry.npmjs.org/"
+expect_publish_tag "latest"
+
+When call run_step "${ACTION_DIR}" "publish"
+The status should be success
+The path "$NPMRC_PATH" should not be exist
+End
+
+Describe "failed publish"
+Parameters
+"--dry-run"
+"--verbose"
+End
+
+It "removes the config file when the $1 run fails"
+setup_auth_inputs "https://registry.npmjs.org/"
+mock_command npm "publish * $1 *" "" 1
+mock_command npm "publish *" ""
+
+When call run_step "${ACTION_DIR}" "publish"
+The status should be failure
+The path "$NPMRC_PATH" should not be exist
+End
+End
+
+It "leaves nothing in the environment of later steps"
+setup_auth_inputs "https://registry.npmjs.org/"
+expect_publish_tag "latest"
+
+When call run_step "${ACTION_DIR}" "publish"
+The status should be success
+Assert github_env_is_empty
+End
+
+It "gives the token to the publish step and nothing else that runs a command"
+When call token_env_by_step
+The status should be success
+The line 1 of stdout should equal "Validate Inputs: INPUT_NPM_TOKEN"
+The line 2 of stdout should equal "Publish Package: NODE_AUTH_TOKEN"
+The lines of stdout should equal 2
+End
+
+It "points npm at the temporary config"
+When call grep -F 'export NPM_CONFIG_USERCONFIG="$npmrc"' "${ACTION_DIR}/action.yml"
+The status should be success
+The stdout should include "NPM_CONFIG_USERCONFIG"
+End
+
+It "does not write to the home directory or set always-auth"
+When call grep -E '~/|\$HOME|always-auth' "${ACTION_DIR}/action.yml"
+The status should be failure
 End
 End
 End

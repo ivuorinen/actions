@@ -54,7 +54,8 @@ def check_opaque_token(value: str) -> str | None:
 
     No prefix, length or alphabet is enforced, so a real token never fails on a format this
     repo guessed. Whitespace and control characters are refused because a line break would add
-    lines to the ``.npmrc`` or ``GITHUB_OUTPUT`` file a token is written to. Shell metacharacters
+    lines to any line-based file the token is written to, such as a config file or
+    ``GITHUB_OUTPUT``. Shell metacharacters
     are not refused: consumers read the value from a quoted env var and never parse it as shell.
     """
     if _skip(value):
