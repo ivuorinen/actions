@@ -27,7 +27,7 @@ jobs:
           config: 'name: my-config'
           config-file: 'config/settings.yml'
           language: 'javascript,python'
-          output: '../results'
+          output: 'codeql-results'
           packs: 'my-org/my-queries@1.0.0'
           queries: 'security-and-quality'
           ram: '4096'
@@ -41,32 +41,32 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                                                          | Required | Default               |
-|---------------------|--------------------------------------------------------------------------------------|----------|-----------------------|
-| `build-mode`        | The build mode for compiled languages (none, manual, autobuild)                      | ❌       | -                     |
-| `category`          | Analysis category (default: /language:<language>)                                    | ❌       | -                     |
-| `checkout-ref`      | Git reference to checkout (default: current ref)                                     | ❌       | -                     |
-| `config`            | Configuration passed as a YAML string                                                | ❌       | -                     |
-| `config-file`       | Path to CodeQL configuration file                                                    | ❌       | -                     |
-| `language`          | Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.) | ✅       | -                     |
-| `output`            | Path to save SARIF results                                                           | ❌       | `../results`          |
-| `packs`             | Comma-separated list of CodeQL query packs to run                                    | ❌       | -                     |
-| `queries`           | Comma-separated list of additional queries to run                                    | ❌       | -                     |
-| `ram`               | Amount of memory in MB that can be used by CodeQL                                    | ❌       | -                     |
-| `skip-queries`      | Build database but skip running queries                                              | ❌       | `false`               |
-| `source-root`       | Path of the root source code directory                                               | ❌       | -                     |
-| `threads`           | Number of threads that can be used by CodeQL                                         | ❌       | -                     |
-| `token`             | GitHub token for API access                                                          | ❌       | `${{ github.token }}` |
-| `upload-results`    | Upload results to GitHub Security tab                                                | ❌       | `true`                |
-| `working-directory` | Working directory for the analysis                                                   | ❌       | `.`                   |
+| Parameter           | Description                                                                                                                                                                   | Required | Default               |
+|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------|
+| `build-mode`        | The build mode for compiled languages (none, manual, autobuild)                                                                                                               | ❌       | -                     |
+| `category`          | Analysis category (default: /language:<language>)                                                                                                                             | ❌       | -                     |
+| `checkout-ref`      | Git reference to checkout (default: current ref). Any value fails on pull_request_target and workflow_run, which run with base repository privileges.                         | ❌       | -                     |
+| `config`            | Configuration passed as a YAML string                                                                                                                                         | ❌       | -                     |
+| `config-file`       | Path to CodeQL configuration file                                                                                                                                             | ❌       | -                     |
+| `language`          | Language to analyze (javascript, python, actions, java, csharp, cpp, ruby, go, etc.)                                                                                          | ✅       | -                     |
+| `output`            | Workspace-relative directory for the SARIF results. Absolute paths and .. are rejected. The analysis deletes and recreates this directory, so it must not hold tracked files. | ❌       | `codeql-results`      |
+| `packs`             | Comma-separated list of CodeQL query packs to run                                                                                                                             | ❌       | -                     |
+| `queries`           | Comma-separated list of additional queries to run                                                                                                                             | ❌       | -                     |
+| `ram`               | Amount of memory in MB that can be used by CodeQL                                                                                                                             | ❌       | -                     |
+| `skip-queries`      | Build database but skip running queries                                                                                                                                       | ❌       | `false`               |
+| `source-root`       | Path of the root source code directory                                                                                                                                        | ❌       | -                     |
+| `threads`           | Number of threads that can be used by CodeQL                                                                                                                                  | ❌       | -                     |
+| `token`             | GitHub token for API access                                                                                                                                                   | ❌       | `${{ github.token }}` |
+| `upload-results`    | Upload results to GitHub Security tab                                                                                                                                         | ❌       | `true`                |
+| `working-directory` | Working directory for the analysis                                                                                                                                            | ❌       | `.`                   |
 
 ## 📤 Outputs
 
-| Parameter           | Description                    |
-|---------------------|--------------------------------|
-| `analysis-category` | Category used for the analysis |
-| `language-analyzed` | Language that was analyzed     |
-| `sarif-file`        | Path to generated SARIF file   |
+| Parameter           | Description                                                        |
+|---------------------|--------------------------------------------------------------------|
+| `analysis-category` | Category used for the analysis                                     |
+| `language-analyzed` | Language that was analyzed                                         |
+| `sarif-file`        | Absolute path to the directory containing the generated SARIF file |
 
 ## 🔐 Permissions
 
@@ -100,7 +100,7 @@ permissions:
     config: 'name: my-config'
     config-file: 'config/settings.yml'
     language: 'javascript,python'
-    output: '../results'
+    output: 'codeql-results'
     packs: 'my-org/my-queries@1.0.0'
     queries: 'security-and-quality'
     ram: '4096'
@@ -127,7 +127,7 @@ permissions:
     config: 'name: my-config'
     config-file: 'config/settings.yml'
     language: 'javascript,python'
-    output: '../results'
+    output: 'codeql-results'
     packs: 'my-org/my-queries@1.0.0'
     queries: 'security-and-quality'
     ram: '4096'

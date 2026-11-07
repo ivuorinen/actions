@@ -298,6 +298,55 @@ The status should be failure
 End
 End
 
+Describe "output validation"
+ACTION_FILE="${PROJECT_ROOT}/codeql-analysis/action.yml"
+
+read_output_default() {
+  uv run "${PROJECT_ROOT}/_tests/shared/validation_core.py" --property "$ACTION_FILE" "output" "default"
+}
+
+It "defaults to a directory below the workspace"
+When call read_output_default
+The output should equal "codeql-results"
+End
+
+It "accepts its own default"
+default_output="$(read_output_default)"
+When call validate_input_python "codeql-analysis" "output" "$default_output"
+The status should be success
+End
+
+It "accepts a nested directory"
+When call validate_input_python "codeql-analysis" "output" "reports/sarif"
+The status should be success
+End
+
+It "rejects a parent-relative directory"
+When call validate_input_python "codeql-analysis" "output" "../results"
+The status should be failure
+End
+
+It "rejects a path that climbs out of the workspace"
+When call validate_input_python "codeql-analysis" "output" "../../../../tmp/x"
+The status should be failure
+End
+
+It "rejects traversal after a leading directory"
+When call validate_input_python "codeql-analysis" "output" "reports/../../x"
+The status should be failure
+End
+
+It "rejects an absolute path"
+When call validate_input_python "codeql-analysis" "output" "/tmp/results"
+The status should be failure
+End
+
+It "rejects the workspace itself"
+When call validate_input_python "codeql-analysis" "output" "."
+The status should be failure
+End
+End
+
 Describe "upload-results validation"
 It "validates true value"
 When call validate_input_python "codeql-analysis" "upload-results" "true"

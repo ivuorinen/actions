@@ -795,7 +795,11 @@ def check_git_author_name(value: str) -> str | None:
 
 
 def check_output_path(value: str) -> str | None:
-    """Output path — like file_path but allows parent-relative .. (no absolute path or ~)."""
+    """Output directory below the workspace — no absolute path, ``..``, ``~`` or the workspace.
+
+    ``github/codeql-action/analyze`` deletes this directory before writing to it, so a value
+    that leaves the workspace, or names the workspace itself, deletes that instead.
+    """
     if _skip(value):
         return None
     import urllib.parse
@@ -803,11 +807,15 @@ def check_output_path(value: str) -> str | None:
     decoded = urllib.parse.unquote(value)
     if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
         return "absolute paths are not allowed"
+    if ".." in decoded:
+        return "path traversal (..) is not allowed"
     if value.startswith("~"):
         return "home directory expansion (~) is not allowed"
-    if re.fullmatch(r"[a-zA-Z0-9._/\-@+]+", value):
-        return None
-    return "contains invalid path characters"
+    if not re.fullmatch(r"[a-zA-Z0-9._/\-@+]+", value):
+        return "contains invalid path characters"
+    if not value.strip("./"):
+        return "must name a directory below the workspace, not the workspace itself"
+    return None
 
 
 # --------------------------------------------------------------------------------------
@@ -890,7 +898,7 @@ EXAMPLES = {
     "numeric_range_1_10": "3",
     "numeric_range_1_128": "2",
     "numeric_range_256_32768": "4096",
-    "output_path": "results/codeql.sarif",
+    "output_path": "codeql-results",
     "path_list": "src/**/*.ts",
     "php_extensions": "mbstring,intl",
     "plugin_list": "@prettier/plugin-xml",
