@@ -1,0 +1,13 @@
+---
+name: Event Payload Fixture
+description: 'Fixture: writes a github.event field to $GITHUB_OUTPUT for harness integration tests.'
+
+runs:
+  using: composite
+  steps:
+    - id: emit
+      shell: sh
+      env:
+        DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+      run: |
+        printf 'default-branch=%s\n' "$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"

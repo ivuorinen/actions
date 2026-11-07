@@ -15,6 +15,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      id-token: write
+      packages: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: Docker Build
@@ -24,8 +26,8 @@ jobs:
           auto-detect-platforms: 'false'
           build-args: 'NODE_ENV=production,VERSION=1.0.0'
           build-contexts: 'shared=./shared,base=docker-image://alpine:3.20'
-          buildkit-version: 'v0.11.0'
-          buildx-version: 'latest'
+          buildkit-version: 'v1.2.3'
+          buildx-version: '1.2.3'
           cache-export: 'type=gha,mode=max'
           cache-from: 'type=gha,mode=max'
           cache-import: 'type=gha,mode=max'
@@ -57,11 +59,11 @@ jobs:
 | `auto-detect-platforms` | Automatically detect and build for all available platforms (lowercase true or false)                                                                                                                                       | ❌       | `false`                                             |
 | `build-args`            | Build arguments in format KEY=VALUE,KEY2=VALUE2, on one line. A VALUE may contain spaces, but no comma or newline.                                                                                                         | ❌       | -                                                   |
 | `build-contexts`        | Additional build contexts as name=value,name2=value2, on one line. Each value is a workspace-relative path (spaces allowed, no comma or newline), oci-layout://relative-path, docker-image://, target:, or a Git/HTTP URL. | ❌       | -                                                   |
-| `buildkit-version`      | Specific BuildKit version to use                                                                                                                                                                                           | ❌       | `v0.11.0`                                           |
-| `buildx-version`        | Specific Docker Buildx version to use                                                                                                                                                                                      | ❌       | `latest`                                            |
-| `cache-export`          | Export cache destination, one spec on one line (e.g., type=local,dest=/tmp/cache)                                                                                                                                          | ❌       | -                                                   |
+| `buildkit-version`      | BuildKit image tag (e.g., v0.34.2), optionally with @sha256:<digest>. Empty uses the digest this action pins.                                                                                                              | ❌       | -                                                   |
+| `buildx-version`        | Docker Buildx version to install (e.g., v0.38.2). Empty uses the release this action pins.                                                                                                                                 | ❌       | -                                                   |
+| `cache-export`          | Export cache destination, one spec on one line (e.g., type=gha,mode=max). Replaces the per-ref registry cache export.                                                                                                      | ❌       | -                                                   |
 | `cache-from`            | External cache source, one spec on one line (e.g., type=registry,ref=user/app:cache)                                                                                                                                       | ❌       | -                                                   |
-| `cache-import`          | Import cache source, one spec on one line (e.g., type=local,src=/tmp/cache)                                                                                                                                                | ❌       | -                                                   |
+| `cache-import`          | Import cache source, one spec on one line (e.g., type=gha)                                                                                                                                                                 | ❌       | -                                                   |
 | `cache-mode`            | Cache mode for build layers (min, max, or inline)                                                                                                                                                                          | ❌       | `max`                                               |
 | `context`               | Docker build context path, relative to the workspace. Remote sources are rejected.                                                                                                                                         | ❌       | `.`                                                 |
 | `dockerfile`            | Path to the Dockerfile, relative to the workspace. Remote sources are rejected.                                                                                                                                            | ❌       | `Dockerfile`                                        |
@@ -72,14 +74,14 @@ jobs:
 | `parallel-builds`       | Number of parallel platform builds (0 for auto)                                                                                                                                                                            | ❌       | `0`                                                 |
 | `platform-build-args`   | Platform-specific build args in JSON format                                                                                                                                                                                | ❌       | -                                                   |
 | `platform-fallback`     | Continue building other platforms if one fails (lowercase true or false)                                                                                                                                                   | ❌       | `true`                                              |
-| `push`                  | Whether to push the image after building (lowercase true or false)                                                                                                                                                         | ❌       | `true`                                              |
+| `push`                  | Whether to push the image after building (lowercase true or false). Also enables the per-ref registry build cache on ghcr.io.                                                                                              | ❌       | `true`                                              |
 | `sbom-format`           | DEPRECATED, has no effect: BuildKit SBOM attestations are always SPDX JSON, so only spdx-json is accepted. The SBOM and provenance attestations are attached only when push is true.                                       | ❌       | `spdx-json`                                         |
 | `scan-image`            | Scan built image for vulnerabilities (lowercase true or false)                                                                                                                                                             | ❌       | `false`                                             |
 | `secrets`               | Build secrets in format id=path,id2=path2, on one line. Each path is a file relative to the workspace (spaces allowed, no comma or newline).                                                                               | ❌       | -                                                   |
 | `sign-image`            | Sign the built image with cosign (lowercase true or false)                                                                                                                                                                 | ❌       | `false`                                             |
 | `tag`                   | Docker image tag: letters, digits, _ . and -, up to 128 characters, not starting with . or -                                                                                                                               | ✅       | -                                                   |
 | `token`                 | GitHub token for authentication                                                                                                                                                                                            | ❌       | -                                                   |
-| `verbose`               | Enable verbose logging with platform-specific output (lowercase true or false)                                                                                                                                             | ❌       | `false`                                             |
+| `verbose`               | Enable plain build progress and print BuildKit daemon debug logs in the job log (lowercase true or false)                                                                                                                  | ❌       | `false`                                             |
 
 ## 📤 Outputs
 
@@ -94,6 +96,25 @@ jobs:
 | `scan-results`    | Vulnerability scan results if scanning enabled                                                                                                                                                                                                                                         |
 | `signature`       | Digest reference (image@sha256:...) of the signed image if signing enabled                                                                                                                                                                                                             |
 
+## 🔐 Permissions
+
+This action requires the following permissions:
+
+| Permission | Access Level |
+| ---------- | ------------ |
+| `contents` | `read`       |
+| `id-token` | `write`      |
+| `packages` | `write`      |
+
+**Usage in workflow:**
+
+```yaml
+permissions:
+  contents: read
+  id-token: write
+  packages: write
+```
+
 ## 💡 Examples
 
 <details>
@@ -107,8 +128,8 @@ jobs:
     auto-detect-platforms: 'false'
     build-args: 'NODE_ENV=production,VERSION=1.0.0'
     build-contexts: 'shared=./shared,base=docker-image://alpine:3.20'
-    buildkit-version: 'v0.11.0'
-    buildx-version: 'latest'
+    buildkit-version: 'v1.2.3'
+    buildx-version: '1.2.3'
     cache-export: 'type=gha,mode=max'
     cache-from: 'type=gha,mode=max'
     cache-import: 'type=gha,mode=max'
@@ -145,8 +166,8 @@ jobs:
     auto-detect-platforms: 'false'
     build-args: 'NODE_ENV=production,VERSION=1.0.0'
     build-contexts: 'shared=./shared,base=docker-image://alpine:3.20'
-    buildkit-version: 'v0.11.0'
-    buildx-version: 'latest'
+    buildkit-version: 'v1.2.3'
+    buildx-version: '1.2.3'
     cache-export: 'type=gha,mode=max'
     cache-from: 'type=gha,mode=max'
     cache-import: 'type=gha,mode=max'

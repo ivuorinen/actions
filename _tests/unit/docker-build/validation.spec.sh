@@ -371,6 +371,26 @@ It "rejects malicious buildx version"
 When call validate_input_python "docker-build" "buildx-version" "0.12;malicious"
 The status should be failure
 End
+
+It "accepts a BuildKit version on its own"
+When call validate_input_python "docker-build" "buildkit-version" "v0.34.2"
+The status should be success
+End
+
+It "accepts a BuildKit version pinned by digest"
+When call validate_input_python "docker-build" "buildkit-version" "v0.34.2@sha256:$(printf 'a%.0s' $(seq 1 64))"
+The status should be success
+End
+
+It "rejects a BuildKit version with a short digest"
+When call validate_input_python "docker-build" "buildkit-version" "v0.34.2@sha256:abc"
+The status should be failure
+End
+
+It "rejects a malicious BuildKit version"
+When call validate_input_python "docker-build" "buildkit-version" "v0.34.2;malicious"
+The status should be failure
+End
 End
 
 Context "when testing outputs"
