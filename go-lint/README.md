@@ -27,8 +27,8 @@ jobs:
           disable-linters: 'gosec,govet'
           enable-linters: 'gosec,govet'
           fail-on-error: 'true'
-          go-version: 'stable'
-          golangci-lint-version: 'latest'
+          go-version: '1.24'
+          golangci-lint-version: '2.1.0'
           max-retries: '3'
           only-new-issues: 'true'
           report-format: 'sarif'
@@ -47,8 +47,8 @@ jobs:
 | `disable-linters`       | Comma-separated list of linters to disable                                                                                         | ❌       | -               |
 | `enable-linters`        | Comma-separated list of linters to enable                                                                                          | ❌       | -               |
 | `fail-on-error`         | Fail workflow if issues are found (lowercase true or false)                                                                        | ❌       | `true`          |
-| `go-version`            | Go version to use                                                                                                                  | ❌       | `stable`        |
-| `golangci-lint-version` | Version of golangci-lint to use                                                                                                    | ❌       | `latest`        |
+| `go-version`            | Go version to use (empty: the version pinned in this action, "stable": the newest release)                                         | ❌       | -               |
+| `golangci-lint-version` | Version of golangci-lint to use, v2 or newer (empty: the version pinned in this action, "latest": the newest release)              | ❌       | -               |
 | `max-retries`           | Maximum number of retry attempts (1-10, must not be empty)                                                                         | ❌       | `3`             |
 | `only-new-issues`       | Report only new issues since main branch (lowercase true or false)                                                                 | ❌       | `true`          |
 | `report-format`         | Output format (json, sarif, github-actions)                                                                                        | ❌       | `sarif`         |
@@ -97,8 +97,8 @@ permissions:
     disable-linters: 'gosec,govet'
     enable-linters: 'gosec,govet'
     fail-on-error: 'true'
-    go-version: 'stable'
-    golangci-lint-version: 'latest'
+    go-version: '1.24'
+    golangci-lint-version: '2.1.0'
     max-retries: '3'
     only-new-issues: 'true'
     report-format: 'sarif'
@@ -122,8 +122,8 @@ permissions:
     disable-linters: 'gosec,govet'
     enable-linters: 'gosec,govet'
     fail-on-error: 'true'
-    go-version: 'stable'
-    golangci-lint-version: 'latest'
+    go-version: '1.24'
+    golangci-lint-version: '2.1.0'
     max-retries: '3'
     only-new-issues: 'true'
     report-format: 'sarif'

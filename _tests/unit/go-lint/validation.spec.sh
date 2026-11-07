@@ -36,13 +36,29 @@ The status should be success
 End
 
 It "accepts semantic version"
-When call validate_input_python "go-lint" "golangci-lint-version" "1.55.2"
+When call validate_input_python "go-lint" "golangci-lint-version" "2.1.0"
 The status should be success
 End
 
 It "accepts semantic version with v prefix"
-When call validate_input_python "go-lint" "golangci-lint-version" "v1.55.2"
+When call validate_input_python "go-lint" "golangci-lint-version" "v2.1.0"
 The status should be success
+End
+
+Describe "golangci-lint v1, whose module path and flags this action cannot use"
+Parameters
+"1.55.2"
+"v1.55.2"
+"1"
+"v1"
+"1.55.2-rc.1"
+"1.55.2+build"
+End
+
+It "rejects $1"
+When call validate_input_python "go-lint" "golangci-lint-version" "$1"
+The status should be failure
+End
 End
 
 It "rejects invalid version format"

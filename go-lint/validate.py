@@ -42,11 +42,6 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
-def _strip_v(version: str) -> str:
-    """Return version without one leading ``v`` or ``V``."""
-    return version[1:] if version[:1] in ("v", "V") else version
-
-
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
@@ -171,6 +166,17 @@ def check_go_version(value: str) -> str | None:
     return "must be a Go version (e.g. 1.21, 1.21.5, stable)"
 
 
+def check_golangci_lint_version(value: str) -> str | None:
+    """``semantic_version`` at major 2 or newer: v1 has another module path and other CLI flags."""
+    if _skip(value) or value.strip().lower() == "latest":
+        return None
+    core = value.strip()
+    core = core[1:] if core[:1] in ("v", "V") else core
+    if _is_semver(core) and int(re.split(r"\D", core, maxsplit=1)[0]) >= 2:
+        return None
+    return 'must be golangci-lint v2 or newer (e.g. 2.1.0, v2.1.0, or "latest")'
+
+
 def check_linter_list(value: str) -> str | None:
     """Comma-separated linter names (e.g. ``gosec,govet``)."""
     if _skip(value):
@@ -213,15 +219,6 @@ def check_report_format(value: str) -> str | None:
     )
 
 
-def check_semantic_version(value: str) -> str | None:
-    """SemVer with optional v prefix: X.Y.Z[-pre][+build], partial X.Y / X, or latest."""
-    if _skip(value) or value.lower() == "latest":
-        return None
-    if _is_semver(_strip_v(value)):
-        return None
-    return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
-
-
 def check_timeout_with_unit(value: str) -> str | None:
     """Duration with a unit (e.g. ``5m``, ``30s``, ``500ms``)."""
     if _skip(value):
@@ -241,7 +238,7 @@ CHECKS = {
     "enable-linters": check_linter_list,
     "fail-on-error": check_boolean,
     "go-version": check_go_version,
-    "golangci-lint-version": check_semantic_version,
+    "golangci-lint-version": check_golangci_lint_version,
     "max-retries": check_numeric_range_1_10,
     "only-new-issues": check_boolean,
     "report-format": check_report_format,
