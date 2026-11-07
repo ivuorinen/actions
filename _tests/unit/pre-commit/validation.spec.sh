@@ -173,4 +173,14 @@ The stderr should include "Testing action outputs for: pre-commit"
 The stderr should include "Output test passed for: pre-commit"
 End
 End
+
+Context "when validation fails before the checkout"
+# The push step uses always() so fixes land even when hooks fail. Without a checkout
+# it would only add a misleading "Not a git repository" error to the validation one.
+It "skips the push step because the hooks never ran"
+When call grep -F "if: always() && steps.pre-commit.outcome != 'skipped'" "$ACTION_FILE"
+The status should be success
+The output should include "steps.pre-commit.outcome"
+End
+End
 End
