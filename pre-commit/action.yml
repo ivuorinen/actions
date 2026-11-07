@@ -16,7 +16,7 @@ inputs:
     required: false
     default: '.pre-commit-config.yaml'
   base-branch:
-    description: 'Base branch to compare against'
+    description: 'Base branch name (for example main); only files changed since it diverged from HEAD are checked, and the full history is fetched'
     required: false
   token:
     description: 'GitHub token for authentication'
@@ -46,6 +46,9 @@ runs:
       uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
       with:
         token: ${{ inputs.token || github.token }}
+        # base-branch mode diffs origin/<base>...HEAD, which needs the base branch
+        # and the history back to the merge base; the default depth of 1 has neither.
+        fetch-depth: ${{ inputs.base-branch != '' && 0 || 1 }}
         # git-auto-commit-action pushes the auto-fix commit using the token that
         # actions/checkout persists in .git/config; persist-credentials must stay
         # true or the "Commit Fixes" step cannot authenticate its push.
@@ -92,7 +95,8 @@ runs:
         esac
 
         printf 'option=%s\n' "diff" >> "$GITHUB_OUTPUT"
-        printf 'from-ref=%s\n' "$BASE_BRANCH" >> "$GITHUB_OUTPUT"
+        # The checkout holds the base branch as origin/<base>, not as a local branch.
+        printf 'from-ref=%s\n' "origin/$BASE_BRANCH" >> "$GITHUB_OUTPUT"
         printf 'to-ref=%s\n' "HEAD" >> "$GITHUB_OUTPUT"
 
     - name: Run pre-commit
