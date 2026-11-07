@@ -273,7 +273,7 @@ runs:
       run: |
         set -eu
 
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
         if ! find . -name "*.py" -type f -not -path "*/\.*" | grep -q .; then
           echo "No Python files found. Skipping lint and fix."
           printf 'result=%s\n' "skipped" >> "$GITHUB_OUTPUT"
@@ -316,7 +316,7 @@ runs:
         set -eu
 
         . .venv/bin/activate
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Create temporary directory for reports
         mkdir -p reports
@@ -348,7 +348,7 @@ runs:
         set -eu
 
         . .venv/bin/activate
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Create temporary file for tracking changes
         _changed_files=$(mktemp)

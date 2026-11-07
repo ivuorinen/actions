@@ -192,6 +192,41 @@ The status should be failure
 The error should include "invalid repository"
 End
 
+It "rejects a repository target whose owner starts with a dash"
+%text >".github/labels.yml"
+#|- name: bug
+#|  color: d73a4a
+export GH_LIST_JSON='[]'
+export INPUT_REPOSITORY="-owner/repo"
+When call run_sync
+The status should be failure
+The error should include "invalid repository"
+The contents of file "$GH_CALL_LOG" should be blank
+End
+
+It "rejects a repository target whose owner ends with a dash"
+%text >".github/labels.yml"
+#|- name: bug
+#|  color: d73a4a
+export GH_LIST_JSON='[]'
+export INPUT_REPOSITORY="owner-/repo"
+When call run_sync
+The status should be failure
+The error should include "invalid repository"
+The contents of file "$GH_CALL_LOG" should be blank
+End
+
+It "reads a manifest whose path starts with a dash"
+%text >"./-labels.yml"
+#|- name: bug
+#|  color: d73a4a
+export GH_LIST_JSON='[]'
+export INPUT_LABELS="-labels.yml"
+When call run_sync
+The status should be success
+The output should include "1 created"
+End
+
 It "warns and succeeds as a no-op when the manifest is missing"
 export INPUT_LABELS=".github/missing.yml"
 When call run_sync

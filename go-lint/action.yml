@@ -187,7 +187,7 @@ runs:
       run: |
         set -eu
 
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Create default config if none exists
         if [ ! -f "$CONFIG_FILE" ]; then
@@ -246,7 +246,7 @@ runs:
       run: |
         set -eu
 
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Create reports directory
         mkdir -p reports
@@ -334,7 +334,7 @@ runs:
       run: |-
         set -eu
 
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Remove temporary files
         rm -rf reports/

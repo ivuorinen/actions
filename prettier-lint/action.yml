@@ -269,7 +269,7 @@ runs:
         echo "Running Prettier check mode..."
 
         # Build common Prettier options (shared between check and count runs)
-        set -- "$FILE_PATTERN"
+        set --
 
         # Add config file if specified and exists
         if [ "$CONFIG_FILE" != ".prettierrc" ] && [ -f "$CONFIG_FILE" ]; then
@@ -286,7 +286,7 @@ runs:
         files_checked=0
         unformatted_files=0
 
-        if npx prettier --check "$@" > prettier-output.txt 2>&1; then
+        if npx prettier --check "$@" -- "$FILE_PATTERN" > prettier-output.txt 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
@@ -341,7 +341,7 @@ runs:
         files_before=$(git status --porcelain | wc -l | tr -d ' ')
 
         # Run Prettier fix
-        npx prettier --write "$FILE_PATTERN" || true
+        npx prettier --write -- "$FILE_PATTERN" || true
 
         # Count files after fix
         files_after=$(git status --porcelain | wc -l | tr -d ' ')

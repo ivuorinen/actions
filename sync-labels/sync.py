@@ -40,10 +40,11 @@ DEFAULT_COLOR = "ededed"  # GitHub's own default label color
 LIST_LIMIT = "9999"  # fetch every label in one paginated call (avoid silent truncation)
 # sync.py ships standalone in the action dir and cannot import _validation.kit, so these
 # two patterns are local copies. _REPO mirrors kit.check_repository_list's owner/repo
-# regex and must be kept in lockstep with it; _HEX6 validates manifest *content* (label
-# colors), which has no canonical home in kit. See .claude/rules/code-quality.md.
-_HEX6 = re.compile(r"^[0-9a-f]{6}$")
-_REPO = re.compile(r"^[A-Za-z0-9._-]+/[A-Za-z0-9._-]+$")
+# regex; _validation/tests/test_sync_labels_parity.py holds the two to the same inputs.
+# _HEX6 validates manifest *content* (label colors), which has no canonical home in kit.
+# See .claude/rules/code-quality.md.
+_HEX6 = re.compile(r"[0-9a-f]{6}")
+_REPO = re.compile(r"(?!-)[A-Za-z0-9-]+(?<!-)/[A-Za-z0-9._-]+")
 
 
 def fail(message: str) -> NoReturn:
@@ -79,7 +80,7 @@ def load_manifest(path: str) -> list[dict]:
         # TOCTOU window and direct callers with a clear error instead of yq noise.
         fail(f'manifest not found: "{path}"')
     if shutil.which("yq"):
-        raw = _run(["yq", "-o=json", "-I=0", ".", path])
+        raw = _run(["yq", "-o=json", "-I=0", ".", "--", path])
     elif path.endswith(".json"):
         raw = Path(path).read_text(encoding="utf-8")
     else:
@@ -120,7 +121,7 @@ def normalize(entries: list[dict]) -> list[dict]:
             # than rejected, because the original width is unrecoverable from the int.
             # Quote colors in the manifest (color: "000000") to pass them verbatim.
             color = color.zfill(6)
-        if not _HEX6.match(color):
+        if not _HEX6.fullmatch(color):
             fail(f"{where} ('{name}'): color must be a 6-digit hex value, got '{color}'")
         description = entry.get("description", "")
         if description is None:
@@ -231,7 +232,7 @@ def resolve_repos() -> list[str]:
         repo = line.strip()
         if not repo or repo in seen:
             continue  # skip blanks and duplicate targets (avoid double-syncing)
-        if not _REPO.match(repo):
+        if not _REPO.fullmatch(repo):
             fail(f"invalid repository '{repo}' — expected 'owner/repo'")
         seen.add(repo)
         repos.append(repo)

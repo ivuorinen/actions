@@ -73,9 +73,11 @@ def check_email(value: str) -> str | None:
 
 
 def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
+    """Relative file path — rejects a leading ``-``, absolute paths, ``..`` and ``~`` expansion."""
     if _skip(value):
         return None
+    if value.startswith("-"):
+        return "must not start with -"
     import urllib.parse
 
     decoded = urllib.parse.unquote(value)
@@ -126,7 +128,7 @@ def check_numeric_range_0_100(value: str) -> str | None:
 
 
 def check_path_list(value: str) -> str | None:
-    """Comma-separated paths/globs — blocks injection characters and ``..`` traversal."""
+    """Comma-separated paths/globs — blocks injection characters, ``..`` and a leading ``-``."""
     if _skip(value):
         return None
     if meta := _shell_meta_error(value):
@@ -134,6 +136,8 @@ def check_path_list(value: str) -> str | None:
     for item in (part.strip() for part in value.split(",")):
         if not item:
             continue
+        if item.startswith("-"):
+            return f"must not start with -: {item}"
         if ".." in item:
             return f"path traversal (..) is not allowed: {item}"
         if not re.match(r"^[a-zA-Z0-9_\-./*?\[\]{},@~+]+$", item):
