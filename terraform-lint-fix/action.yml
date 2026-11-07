@@ -25,7 +25,7 @@ inputs:
     required: false
     default: '.'
   config-file:
-    description: 'Path to TFLint config file'
+    description: "Path to TFLint config file, relative to working-directory. TFLint's own config lookup and built-in rules apply when this path is not a regular file."
     required: false
     default: '.tflint.hcl'
   fail-on-error:
@@ -154,41 +154,22 @@ runs:
 
     - name: Initialize TFLint
       if: steps.check-files.outputs.found == 'true'
-      shell: sh
-      run: |
-        set -eu
-        # Initialize TFLint plugins
-        tflint --init
-
-    - name: Configure TFLint
-      if: steps.check-files.outputs.found == 'true'
+      id: init
       shell: sh
       env:
+        VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
         VALIDATED_CONFIG: ${{ inputs.config-file }}
       run: |
         set -eu
-        # Use validated environment variable
-        CONFIG_FILE="$VALIDATED_CONFIG"
 
-        # Create default config if none exists
-        if [ ! -f "$CONFIG_FILE" ]; then
-          cat > "$CONFIG_FILE" <<EOF
-        plugin "aws" {
-          enabled = true
-          version = "latest"
-          source  = "github.com/terraform-linters/tflint-ruleset-aws"
-        }
+        cd "$VALIDATED_WORKING_DIR"
 
-        config {
-          module = true
-          force = false
-          disabled_by_default = false
-        }
-        EOF
+        # Install the plugins of the config that Run TFLint reads
+        if [ -f "$VALIDATED_CONFIG" ]; then
+          tflint --init --config "$VALIDATED_CONFIG"
+        else
+          tflint --init
         fi
-
-        # Validate config
-        tflint --config "$CONFIG_FILE" --validate
 
     - name: Run TFLint
       if: steps.check-files.outputs.found == 'true'
@@ -212,12 +193,16 @@ runs:
         # Create reports directory
         mkdir -p reports
 
+        # Without a config, TFLint falls back to its own lookup and built-in rules.
+        # The action generates no config, so the configured path is only ever read.
+        set -- --format "$FORMAT" --no-color
+        if [ -f "$CONFIG_FILE" ]; then
+          set -- --config "$CONFIG_FILE" "$@"
+        fi
+
         # Run TFLint with configured format
         tflint_output="reports/tflint.$FORMAT"
-        if ! tflint --config "$CONFIG_FILE" \
-                   --format "$FORMAT" \
-                   --no-color \
-                   . > "$tflint_output"; then
+        if ! tflint "$@" > "$tflint_output"; then
           error_count=$(grep -c "level\": \"error\"" "$tflint_output" || echo 0)
           printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 

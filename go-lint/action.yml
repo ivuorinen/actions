@@ -25,7 +25,7 @@ inputs:
     required: false
     default: 'stable'
   config-file:
-    description: 'Path to golangci-lint config file'
+    description: 'Path to golangci-lint config file, relative to working-directory. A built-in default is used when this path is not a regular file.'
     required: false
     default: '.golangci.yml'
   timeout:
@@ -190,9 +190,11 @@ runs:
 
         cd -- "$WORKING_DIRECTORY"
 
-        # Create default config if none exists
+        # Without a config, write the default to $RUNNER_TEMP. The configured path is
+        # never a write target: this test is also true for a dangling symlink.
         if [ ! -f "$CONFIG_FILE" ]; then
           echo "Creating default golangci-lint configuration..."
+          CONFIG_FILE="$RUNNER_TEMP/golangci-lint-default.yml"
           cat > "$CONFIG_FILE" <<EOF
         linters:
           enable-all: true
@@ -230,6 +232,8 @@ runs:
         EOF
         fi
 
+        printf 'config_file=%s\n' "$CONFIG_FILE" >> "$GITHUB_OUTPUT"
+
     - name: Run golangci-lint
       id: lint
       shell: sh
@@ -238,9 +242,8 @@ runs:
         DISABLE_ALL: ${{ inputs.disable-all }}
         ENABLE_LINTERS: ${{ inputs.enable-linters }}
         DISABLE_LINTERS: ${{ inputs.disable-linters }}
-        CONFIG_FILE: ${{ inputs.config-file }}
+        CONFIG_FILE: ${{ steps.config.outputs.config_file }}
         TIMEOUT: ${{ inputs.timeout }}
-        CACHE: ${{ inputs.cache }}
         ONLY_NEW_ISSUES: ${{ inputs.only-new-issues }}
         REPORT_FORMAT: ${{ inputs.report-format }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
@@ -254,13 +257,6 @@ runs:
 
         # Build golangci-lint args as positional parameters
         set -- --config "$CONFIG_FILE" --timeout "$TIMEOUT"
-
-        # Prepare cache flag
-        if [ "$CACHE" = "true" ]; then
-          set -- "$@" --cache
-        else
-          set -- "$@" --no-cache
-        fi
 
         # Prepare new issues flag
         if [ "$ONLY_NEW_ISSUES" = "true" ]; then
