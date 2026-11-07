@@ -30,6 +30,22 @@ after() {
 }
 AfterEach 'after'
 
+Describe "Restore Dependencies"
+It "fails when dotnet restore fails"
+mock_command dotnet "restore --verbosity normal" "" 1
+
+When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
+The status should be failure
+End
+
+It "succeeds when dotnet restore succeeds"
+mock_command dotnet "restore --verbosity normal" "" 0
+
+When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
+The status should be success
+End
+End
+
 Describe "extract-version"
 It "extracts the version from a single .nupkg filename"
 : >artifacts/Acme.Widgets.1.2.3.nupkg

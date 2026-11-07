@@ -28,12 +28,12 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter     | Description                                                     | Required | Default |
-|---------------|-----------------------------------------------------------------|----------|---------|
-| `destination` | Build destination directory.                                    | ❌       | `./bin` |
-| `go-version`  | Go version to use.                                              | ❌       | -       |
-| `max-retries` | Maximum number of retry attempts for go mod download operations | ❌       | `3`     |
-| `token`       | GitHub token for authentication                                 | ❌       | -       |
+| Parameter     | Description                                                                    | Required | Default |
+|---------------|--------------------------------------------------------------------------------|----------|---------|
+| `destination` | Build destination directory.                                                   | ❌       | `./bin` |
+| `go-version`  | Go version to use.                                                             | ❌       | -       |
+| `max-retries` | Maximum number of retry attempts for each of go mod download and go mod verify | ❌       | `3`     |
+| `token`       | GitHub token for authentication                                                | ❌       | -       |
 
 ## 📤 Outputs
 

@@ -11,6 +11,11 @@ Sourced automatically by `_tests/unit/spec_helper.sh`.
 - `run_step <action-dir> <step-id>` — execute one `run:` step.
 - `run_all_owned_steps <action-dir>` — execute every `run:` step in order,
   honoring `if:`. Skips `uses:` steps.
+- `run_retry_step <action-dir> <step-name>` — execute the `command:` of a
+  `nick-fields/retry` step once, the way that action runs it on Linux and macOS
+  (`bash -c`, unless the step sets `shell`). Retries are not simulated.
+- `list_unguarded_retry_commands <root>` — print `<action>: <step-name>` for each
+  multi-line retry `command:` in `<root>/*/action.yml` not beginning with `set -eu`.
 - `mock_command <cmd> <argv-glob> <stdout> [exit=0]` — register a shell stub
   for an external command. Glob is `fnmatch` against the joined argv. First
   registered glob that matches wins.

@@ -4,6 +4,8 @@
 # Functions:
 #   run_step <action-dir> <step-id>    -- execute one run: step
 #   run_all_owned_steps <action-dir>   -- execute every run: step in order
+#   run_retry_step <action-dir> <step-name> -- execute a nick-fields/retry step's command once
+#   list_unguarded_retry_commands <root>    -- name multi-line retry commands lacking set -eu
 #   mock_command <cmd> <argv-glob> <stdout> [exit-code]
 #   expect_output <key> <value>        -- whole-line grep on $GITHUB_OUTPUT
 #
@@ -73,25 +75,28 @@ with open(path, "w", encoding="utf-8") as f:
 PY
 }
 
-run_step() {
-  local action_dir="$1"
-  local step_id="$2"
+_harness_execute() {
   _harness_ensure_session
-  local session="${HARNESS_SESSION}"
-  _harness_python "$(_harness_py)" run-step "$action_dir" "$step_id" \
-    --session "$session" \
+  _harness_python "$(_harness_py)" "$@" \
+    --session "${HARNESS_SESSION}" \
     --github-output "${GITHUB_OUTPUT:?GITHUB_OUTPUT not set}" \
     --github-env "${GITHUB_ENV:?GITHUB_ENV not set}"
 }
 
+run_step() {
+  _harness_execute run-step "$1" "$2"
+}
+
 run_all_owned_steps() {
-  local action_dir="$1"
-  _harness_ensure_session
-  local session="${HARNESS_SESSION}"
-  _harness_python "$(_harness_py)" run-owned "$action_dir" \
-    --session "$session" \
-    --github-output "${GITHUB_OUTPUT:?GITHUB_OUTPUT not set}" \
-    --github-env "${GITHUB_ENV:?GITHUB_ENV not set}"
+  _harness_execute run-owned "$1"
+}
+
+run_retry_step() {
+  _harness_execute run-retry-step "$1" "$2"
+}
+
+list_unguarded_retry_commands() {
+  _harness_python "$(_harness_py)" list-unguarded-retry-commands "$1"
 }
 
 expect_output() {
@@ -108,5 +113,6 @@ expect_output() {
   return 0
 }
 
-export -f run_step run_all_owned_steps mock_command expect_output harness_reset
-export -f _harness_py _harness_ensure_session _harness_python _harness_project_root
+export -f run_step run_all_owned_steps run_retry_step list_unguarded_retry_commands
+export -f mock_command expect_output harness_reset
+export -f _harness_py _harness_ensure_session _harness_execute _harness_python _harness_project_root

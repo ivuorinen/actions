@@ -18,6 +18,8 @@ import sys
 
 import yaml
 
+RETRY_ACTION = "nick-fields/retry@"
+
 
 @dataclass
 class Step:
@@ -60,6 +62,46 @@ class ActionParser:
                     uses=raw.get("uses"),
                 )
         raise KeyError(f"step '{step_id}' not found in {action_dir}/action.yml")
+
+    @staticmethod
+    def _retry_steps(action_dir: Path) -> list[dict]:
+        return [
+            raw
+            for raw in ActionParser._steps(action_dir)
+            if str(raw.get("uses", "")).startswith(RETRY_ACTION)
+        ]
+
+    @staticmethod
+    def get_retry_step(action_dir: Path, name: str) -> Step:
+        """Return the retry step called `name`, with its `command:` as the script to run.
+
+        Without a `shell` input the action spawns `command` through `bash -c` on Linux and
+        macOS, and through `powershell -c` on Windows, which the harness cannot run.
+        """
+        for raw in ActionParser._retry_steps(action_dir):
+            if raw.get("name") == name:
+                inputs = raw.get("with") or {}
+                return Step(
+                    id=name,
+                    shell=inputs.get("shell") or "bash",
+                    run=inputs.get("command"),
+                    env=dict(raw.get("env") or {}),
+                    if_expr=raw.get("if"),
+                    uses=raw["uses"],
+                )
+        raise KeyError(f"retry step '{name}' not found in {action_dir}/action.yml")
+
+    @staticmethod
+    def list_unguarded_retry_commands(root: Path) -> list[str]:
+        """Name each multi-line retry `command:` under `root` not beginning with `set -eu`."""
+        unguarded = []
+        for action_file in sorted(Path(root).glob("*/action.yml")):
+            for raw in ActionParser._retry_steps(action_file.parent):
+                command = str((raw.get("with") or {}).get("command", ""))
+                lines = command.strip().splitlines()
+                if len(lines) > 1 and lines[0].strip() != "set -eu":
+                    unguarded.append(f"{action_file.parent.name}: {raw.get('name')}")
+        return unguarded
 
 
 class UnsupportedExpressionError(ValueError):
@@ -479,18 +521,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="harness")
     sub = parser.add_subparsers(dest="command", required=True)
 
-    p_run = sub.add_parser("run-step")
-    p_run.add_argument("action_dir")
-    p_run.add_argument("step_id")
-    p_run.add_argument("--session", required=True)
-    p_run.add_argument("--github-output", required=True)
-    p_run.add_argument("--github-env", required=True)
+    def add_execution_arguments(subparser: argparse.ArgumentParser) -> None:
+        subparser.add_argument("action_dir")
+        subparser.add_argument("--session", required=True)
+        subparser.add_argument("--github-output", required=True)
+        subparser.add_argument("--github-env", required=True)
 
-    p_owned = sub.add_parser("run-owned")
-    p_owned.add_argument("action_dir")
-    p_owned.add_argument("--session", required=True)
-    p_owned.add_argument("--github-output", required=True)
-    p_owned.add_argument("--github-env", required=True)
+    p_run = sub.add_parser("run-step")
+    add_execution_arguments(p_run)
+    p_run.add_argument("step")
+
+    p_retry = sub.add_parser("run-retry-step")
+    add_execution_arguments(p_retry)
+    p_retry.add_argument("step")
+
+    add_execution_arguments(sub.add_parser("run-owned"))
 
     p_resolve = sub.add_parser("resolve-expr")
     p_resolve.add_argument("expr")
@@ -499,11 +544,19 @@ def main(argv: list[str] | None = None) -> int:
     p_list = sub.add_parser("list-run-steps")
     p_list.add_argument("action_dir")
 
+    p_unguarded = sub.add_parser("list-unguarded-retry-commands")
+    p_unguarded.add_argument("root")
+
     args = parser.parse_args(argv)
 
     if args.command == "list-run-steps":
         for step_id in ActionParser.list_run_steps(Path(args.action_dir)):
             print(step_id)
+        return 0
+
+    if args.command == "list-unguarded-retry-commands":
+        for entry in ActionParser.list_unguarded_retry_commands(Path(args.root)):
+            print(entry)
         return 0
 
     if args.command == "resolve-expr":
@@ -515,9 +568,12 @@ def main(argv: list[str] | None = None) -> int:
         print(ExpressionResolver(ctx).resolve(args.expr))
         return 0
 
-    if args.command == "run-step":
+    if args.command in ("run-step", "run-retry-step"):
         context = _build_context(action_dir=Path(args.action_dir))
-        step = ActionParser.get_step(Path(args.action_dir), args.step_id)
+        get_step = (
+            ActionParser.get_step if args.command == "run-step" else ActionParser.get_retry_step
+        )
+        step = get_step(Path(args.action_dir), args.step)
         return _execute_step(
             step,
             context,

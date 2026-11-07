@@ -175,9 +175,7 @@ runs:
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
-        command: |
-          echo "Restoring .NET dependencies..."
-          dotnet restore --verbosity normal
+        command: dotnet restore --verbosity normal
 
     - name: Build Solution
       id: build
