@@ -76,11 +76,13 @@ jobs:
 
       - name: Test image
         if: github.event_name != 'pull_request'
+        env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
         run: |
           # Test the built image works correctly
-          docker run --rm ghcr.io/${{ github.repository_owner }}/actions:testing-tools shellspec --version
-          docker run --rm ghcr.io/${{ github.repository_owner }}/actions:testing-tools act --version
-          docker run --rm ghcr.io/${{ github.repository_owner }}/actions:testing-tools trivy --version
+          docker run --rm "ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools" shellspec --version
+          docker run --rm "ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools" act --version
+          docker run --rm "ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools" trivy --version
 
       - name: Generate image summary
         if: github.event_name != 'pull_request'
@@ -88,7 +90,7 @@ jobs:
           {
             echo "## 🐋 Docker Image Built Successfully"
             echo ""
-            echo "**Image**: \`ghcr.io/${{ github.repository_owner }}/actions:testing-tools\`"
+            echo "**Image**: \`ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools\`"
             echo "**Tags**: ${STEPS_META_OUTPUTS_TAGS}"
             echo ""
             echo "### Usage in GitHub Actions"
@@ -97,9 +99,9 @@ jobs:
             echo "jobs:"
             echo "  test:"
             echo "    runs-on: ubuntu-latest"
-            echo "    container: ghcr.io/${{ github.repository_owner }}/actions:testing-tools"
+            echo "    container: ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools"
             echo "    steps:"
-            echo "      - uses: actions/checkout@v5"
+            echo "      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1"
             echo "      - run: shellspec _tests/unit/your-action/"
             echo "\`\`\`"
             echo ""
@@ -113,4 +115,5 @@ jobs:
             echo "- Node.js LTS, Python 3, build tools"
           } >> "$GITHUB_STEP_SUMMARY"
         env:
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
           STEPS_META_OUTPUTS_TAGS: ${{ steps.meta.outputs.tags }}
