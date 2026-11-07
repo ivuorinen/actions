@@ -21,10 +21,10 @@ jobs:
       - name: Python Lint and Fix
         uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
         with:
-          autopep8-version: '2.0.4'
+          autopep8-version: '1.2.3'
           email: 'github-actions@github.com'
           fail-on-error: 'true'
-          flake8-version: '7.0.0'
+          flake8-version: '1.2.3'
           max-retries: '3'
           python-version: '3.11'
           token: '${{ github.token }}'
@@ -34,17 +34,17 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                                    | Required | Default                     |
-|---------------------|----------------------------------------------------------------|----------|-----------------------------|
-| `autopep8-version`  | Autopep8 version to use                                        | ❌       | `2.0.4`                     |
-| `email`             | GitHub email for commits                                       | ❌       | `github-actions@github.com` |
-| `fail-on-error`     | Whether to fail the action if linting errors are found         | ❌       | `true`                      |
-| `flake8-version`    | Flake8 version to use                                          | ❌       | `7.0.0`                     |
-| `max-retries`       | Maximum number of retry attempts for installations and linting | ❌       | `3`                         |
-| `python-version`    | Python version to use                                          | ❌       | `3.11`                      |
-| `token`             | GitHub token for authentication                                | ❌       | -                           |
-| `username`          | GitHub username for commits                                    | ❌       | `github-actions`            |
-| `working-directory` | Directory containing Python files to lint                      | ❌       | `.`                         |
+| Parameter           | Description                                                                                           | Required | Default                     |
+|---------------------|-------------------------------------------------------------------------------------------------------|----------|-----------------------------|
+| `autopep8-version`  | Deprecated and ignored: the action installs the autopep8 version locked in its requirements.lock.txt. | ❌       | -                           |
+| `email`             | GitHub email for commits                                                                              | ❌       | `github-actions@github.com` |
+| `fail-on-error`     | Whether to fail the action if linting errors are found                                                | ❌       | `true`                      |
+| `flake8-version`    | Deprecated and ignored: the action installs the flake8 version locked in its requirements.lock.txt.   | ❌       | -                           |
+| `max-retries`       | Maximum number of retries for the connections pip makes while installing the lint tools               | ❌       | `3`                         |
+| `python-version`    | Python version to use                                                                                 | ❌       | `3.11`                      |
+| `token`             | GitHub token for authentication                                                                       | ❌       | -                           |
+| `username`          | GitHub username for commits                                                                           | ❌       | `github-actions`            |
+| `working-directory` | Directory containing Python files to lint                                                             | ❌       | `.`                         |
 
 ## 📤 Outputs
 
@@ -80,10 +80,10 @@ permissions:
 - name: Python Lint and Fix
   uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
   with:
-    autopep8-version: '2.0.4'
+    autopep8-version: '1.2.3'
     email: 'github-actions@github.com'
     fail-on-error: 'true'
-    flake8-version: '7.0.0'
+    flake8-version: '1.2.3'
     max-retries: '3'
     python-version: '3.11'
     token: '${{ github.token }}'
@@ -100,10 +100,10 @@ permissions:
 - name: Python Lint and Fix with custom settings
   uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
   with:
-    autopep8-version: '2.0.4'
+    autopep8-version: '1.2.3'
     email: 'github-actions@github.com'
     fail-on-error: 'true'
-    flake8-version: '7.0.0'
+    flake8-version: '1.2.3'
     max-retries: '3'
     python-version: '3.11'
     token: '${{ github.token }}'

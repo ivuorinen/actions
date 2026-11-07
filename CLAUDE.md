@@ -138,6 +138,8 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 - All actions SHA-pinned (external + internal), use `${{ github.token }}`, POSIX shell (`set -eu`)
 - EditorConfig: 2-space indent, UTF-8, LF, max 200 chars (120 for MD)
 - Auto-gen README via `gh-action-readme` (Go binary, pinned + checksum-verified by `make docs`; not an npm dependency)
+- Python tools an action chooses install from its hash-locked `requirements.lock.txt`. Edit `requirements.in`, then run
+  the `uv pip compile` command in the lock's header from the repo root
 - Required error handling, POSIX-compliant scripts
 
 ### Action References

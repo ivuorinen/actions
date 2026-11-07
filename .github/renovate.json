@@ -6,6 +6,14 @@
   ],
   "pinDigests": true,
   "platformAutomerge": true,
+  "pip-compile": {
+    "managerFilePatterns": [
+      "/(^|/)requirements\\.lock\\.txt$/"
+    ]
+  },
+  "pip_requirements": {
+    "enabled": false
+  },
   "packageRules": [
     {
       "matchUpdateTypes": [
@@ -22,6 +30,13 @@
       ],
       "automerge": true,
       "minimumReleaseAge": "7 days"
+    },
+    {
+      "description": "CI never runs the lint tools these locks install, so a bump needs a person to try them.",
+      "matchManagers": [
+        "pip-compile"
+      ],
+      "automerge": false
     }
   ],
   "schedule": [
