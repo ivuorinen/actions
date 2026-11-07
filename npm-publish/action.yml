@@ -47,6 +47,7 @@ runs:
   using: composite
   steps:
     - name: Mask Secrets
+      id: mask
       shell: sh
       env:
         NPM_TOKEN: ${{ inputs.npm_token }}
