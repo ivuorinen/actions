@@ -241,6 +241,8 @@ runs:
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
         REPORT_FORMAT: ${{ inputs.report-format }}
         FILE_EXTENSIONS: ${{ inputs.file-extensions }}
+        # renovate: datasource=npm depName=@microsoft/eslint-formatter-sarif
+        SARIF_FORMATTER_VERSION: '3.1.0'
       run: |
         set -eu
 
@@ -277,7 +279,17 @@ runs:
 
         # Add format
         if [ "$REPORT_FORMAT" = "sarif" ]; then
-          set -- "$@" --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif
+          # The repository's own formatter wins. Otherwise install the pinned one into a temporary
+          # prefix (no lifecycle scripts, the caller's package.json and lockfile stay untouched) and
+          # pass ESLint its entry file; a bare package name only resolves from the repository.
+          formatter=@microsoft/eslint-formatter-sarif
+          if ! node -e "require.resolve('$formatter', { paths: [process.cwd()] })" 2>/dev/null; then
+            formatter_prefix=$(mktemp -d "$RUNNER_TEMP/eslint-sarif-formatter.XXXXXX")
+            npm install --prefix "$formatter_prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
+              "$formatter@$SARIF_FORMATTER_VERSION"
+            formatter=$(node -p "require.resolve('$formatter', { paths: [process.argv[1]] })" "$formatter_prefix")
+          fi
+          set -- "$@" --format "$formatter" --output-file eslint-results.sarif
         else
           set -- "$@" --format "$REPORT_FORMAT"
         fi
