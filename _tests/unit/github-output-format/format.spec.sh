@@ -32,10 +32,19 @@ if not files:
     if not files:
         sys.exit("no action.yml under %s" % root)
 
-# One shell word, quoted parts included, or one operator.
-token = re.compile(r"""(?:'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s'";|&<>()])+|&&|\|\||>>|<<-?|[;|&<>()]""")
+# A redirection operator with its file descriptor (`>&2` and `2>&1` included), one
+# shell word with its quoted parts, or one control operator.
+token = re.compile(
+    r"""\d*(?:>>|>&\d*-?|>\|?|<&\d*-?|<<-?|<>|<)"""
+    r"""|(?:'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s'";|&<>()])+"""
+    r"""|&&|\|\||[;|&()]"""
+)
 separators = {";", "&&", "||", "|", "&"}
-target = re.compile(r"""^"?\$\{?GITHUB_OUTPUT\}?"?$""")
+# An output redirection: descriptor, operator, and for >& the descriptor it copies.
+output_op = re.compile(r"^(\d*)(>>|>\|?|>&)(\S*)$")
+# Any spelling of the target counts as a write; only the quoted ones are allowed.
+target = re.compile(r"""^"?\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"?$""")
+quoted_target = re.compile(r"""^"\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"$""")
 quoted = re.compile(r"""^(?:'[^']*'|"(?:\\.|[^"\\])*")$""")
 key_format = re.compile(r"^'[A-Za-z0-9_-]+=%s\\n'$")
 
@@ -57,10 +66,20 @@ def commands(text):
 
 
 def writes_output(words):
-    return any(
-        word in (">", ">>") and index + 1 < len(words) and target.match(words[index + 1])
-        for index, word in enumerate(words)
-    )
+    for index, word in enumerate(words):
+        match = output_op.match(word)
+        if match and match.group(2) != ">&" and index + 1 < len(words) and target.match(words[index + 1]):
+            return True
+    return False
+
+
+def redirects_stdout(words):
+    """True when the command sends its standard output somewhere of its own."""
+    for word in words:
+        match = output_op.match(word)
+        if match and match.group(1) in ("", "1") and not (match.group(2) == ">&" and match.group(3) == "1"):
+            return True
+    return False
 
 
 def allowed(words):
@@ -70,7 +89,7 @@ def allowed(words):
         and key_format.match(words[1])
         and quoted.match(words[2])
         and words[3] == ">>"
-        and target.match(words[4])
+        and quoted_target.match(words[4])
     )
 
 
@@ -109,17 +128,20 @@ for path in files:
                     continue
             if words[0] == "}":
                 group = groups.pop() if groups else []
-                if len(words) == 3 and words[1] == ">>" and target.match(words[2]):
+                if len(words) == 3 and words[1] == ">>" and quoted_target.match(words[2]):
                     for line, line_text, inner in group:
                         if not allowed_in_group(inner):
                             reports[line] = line_text
                 else:
-                    if groups:
+                    # A nested group feeds the outer one unless it redirects its stdout.
+                    if groups and not redirects_stdout(words):
                         groups[-1].extend(group)
                     if writes_output(words):
                         reports[start] = text.strip()
                 continue
-            if groups:
+            # A command that redirects its own stdout does not write through the group;
+            # a direct write to the file is still checked below.
+            if groups and not redirects_stdout(words):
                 groups[-1].append((start, text.strip(), words))
             if writes_output(words) and not allowed(words):
                 reports[start] = text.strip()
@@ -186,6 +208,25 @@ YAML
 When call violations "$(fixture)"
 The lines of output should equal 1
 The output should start with "$(fixture):5: printf"
+End
+
+It "reports writes and a group closed on an unquoted target"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        printf 'k=%s\n' "v" >> $GITHUB_OUTPUT
+        printf 'k=%s\n' "v" >> ${GITHUB_OUTPUT}
+        {
+          printf 'k=%s\n' "v"
+        } >> $GITHUB_OUTPUT
+YAML
+When call violations "$(fixture)"
+The lines of output should equal 3
+The line 1 of output should start with "$(fixture):5: "
+The line 2 of output should start with "$(fixture):6: "
+The line 3 of output should start with "$(fixture):9: "
 End
 
 It "reports a write that truncates the file"
@@ -261,6 +302,43 @@ YAML
 When call violations "$(fixture)"
 The output should equal ""
 The status should be success
+End
+
+It "leaves commands that redirect their stdout out of the group rules"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        {
+          printf 'k=%s\n' "v"
+          echo "::debug::writing k" >&2
+          echo "noise" >/dev/null 2>&1
+          {
+            echo "nested noise"
+          } >/dev/null
+          printf 'j=%s\n' "w" >> "$GITHUB_OUTPUT"
+        } >> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The output should equal ""
+The status should be success
+End
+
+It "reports an echo in a nested group that writes through the outer group"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        {
+          {
+            echo "a=b"
+          }
+        } >> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The output should equal "$(fixture):7: echo \"a=b\""
 End
 
 It "fails when PROJECT_ROOT holds no action.yml"
