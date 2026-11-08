@@ -121,7 +121,8 @@ permissions:
 - name: Use Generated Credential
   run: |
     generated="$(fetch-credential)"
-    printf '::add-mask::%s\n' "$generated"
+    # One mask per line, and the runner decodes % in command data, so encode it.
+    printf '%s\n' "$generated" | tr '\r' '\n' | sed -E -e '/^[[:space:]]*$/d' -e 's/%/%25/g' -e 's/^/::add-mask::/'
     # Use the masked value in later commands
 ```
 
