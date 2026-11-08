@@ -194,8 +194,21 @@ runs:
       run: |
         set -eu
 
-        registry_host="$(printf '%s\n' "$REGISTRY_URL" | sed -E 's#^https?://##; s#/$##')"
-        printf '//%s/:_authToken=%s\n' "$registry_host" "$NPM_TOKEN" > ~/.npmrc
+        # The key npm derives from the registry URL (@npmcli/config nerf-dart): no
+        # scheme, credentials, query, fragment or default port, a lowercase host, and
+        # the path up to its last slash. npm finds the token by walking the request
+        # URL's path upward, which always reaches this key.
+        rest="${REGISTRY_URL#*://}"
+        rest="${rest%%[?#]*}"
+        host="${rest%%/*}"
+        path="${rest#"$host"}"
+        host="${host##*@}"
+        case "$REGISTRY_URL" in
+        https://*) host="${host%:443}" ;;
+        http://*) host="${host%:80}" ;;
+        esac
+        host="$(printf '%s' "$host" | tr '[:upper:]' '[:lower:]')"
+        printf '//%s%s/:_authToken=%s\n' "$host" "${path%/*}" "$NPM_TOKEN" > ~/.npmrc
         echo "always-auth=true" >> ~/.npmrc
 
     # timeout-minutes is set at the calling workflow level

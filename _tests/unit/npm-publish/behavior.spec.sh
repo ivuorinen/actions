@@ -139,5 +139,26 @@ The status should be success
 The line 1 of contents of file "$HOME/.npmrc" should equal '//registry.example.com/path\nsecond-line/:_authToken=npm_aaaa'
 The lines of contents of file "$HOME/.npmrc" should equal 2
 End
+
+# Each key is what npm's own nerf-dart (@npmcli/config) derives from the URL, the key
+# npm looks the token up under.
+Describe "the registry key"
+Parameters
+"https://registry.npmjs.org" "//registry.npmjs.org/"
+"https://npm.pkg.github.com/OWNER" "//npm.pkg.github.com/"
+"https://registry.example.com/npm/?token=x#frag" "//registry.example.com/npm/"
+"https://Registry.Example.COM:443/Scope/" "//registry.example.com/Scope/"
+"https://user:secret@registry.example.com/a/b" "//registry.example.com/a/"
+"http://localhost:4873/" "//localhost:4873/"
+End
+
+It "is $2 for $1"
+setup_auth_inputs "$1" "npm_aaaa"
+
+When call run_step "${ACTION_DIR}" "authenticate"
+The status should be success
+The line 1 of contents of file "$HOME/.npmrc" should equal "$2:_authToken=npm_aaaa"
+End
+End
 End
 End
