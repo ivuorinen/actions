@@ -68,14 +68,16 @@ The status should be success
 End
 End
 
-It "emits an add-mask workflow command for the npm token"
-# Replaces an integration job that only echoed a message: a workflow step cannot
-# read its own job log, so masking can only be asserted at the step that issues it.
-setup_inputs "1.0.0"
+It "masks the npm token before any input check runs"
+# A workflow step cannot read its own job log, so masking is asserted where it is
+# issued: the generated validator, the action's first step. The mask comes first
+# even when a check then fails, here on the package version.
+setup_inputs "not-a-version"
 
-When call run_step "${ACTION_DIR}" "mask"
-The status should be success
-The stdout should equal "::add-mask::${INPUT_NPM_TOKEN}"
+When run python3 "${ACTION_DIR}/validate.py"
+The status should be failure
+The line 1 of stdout should equal "::add-mask::${INPUT_NPM_TOKEN}"
+The stdout should include "::error::npm-publish: package-version:"
 End
 
 It "refuses to publish when the manifest version disagrees with the input version"

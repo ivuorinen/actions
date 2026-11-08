@@ -824,6 +824,17 @@ CHECKS = {
 
 
 # --------------------------------------------------------------------------------------
+# Check types whose values are credentials. An input with one of these types is what
+# spec.py marks as secret: its generated validator registers the value with the runner's
+# log masker before running any check. Listing the type rather than each input means a new
+# token input cannot forget its mask. Never add a type that also holds ordinary values
+# (`key_value_list` carries build args), because masking a common word corrupts the logs.
+# --------------------------------------------------------------------------------------
+
+SECRET_CHECKS = frozenset({"github_token", "license_key"})
+
+
+# --------------------------------------------------------------------------------------
 # Documentation examples: type name -> a realistic value of that type.
 #
 # `make docs` substitutes these into the generated action READMEs wherever the README

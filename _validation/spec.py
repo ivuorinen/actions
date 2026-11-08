@@ -16,6 +16,8 @@ Rules for editing:
   * each check value must be a type defined in ``kit.py`` (``kit.CHECKS``);
     ``tests/test_spec.py`` fails if a value is unknown or an action's inputs and its
     spec drift apart.
+  * a credential input must use a check type in ``kit.SECRET_CHECKS``: that type is what
+    makes its validator mask the value in the job's logs.
   * after editing, run ``make update-validators`` to regenerate every ``validate.py``.
 """
 

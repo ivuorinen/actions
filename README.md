@@ -294,7 +294,7 @@ The validation system (`_validation/`) generates a self-contained `validate.py` 
 - **Single Source of Truth**: `_validation/kit.py` defines every check once; `_validation/spec.py` maps each action's inputs to checks; `make update-validators` regenerates the validators.
 - **Self-Contained & Stdlib-Only**: each `<action>/validate.py` runs with `python3` — no `uv`, no third-party dependencies, and no shared action.
 - **CalVer and SemVer Support**: flexible version validation for different schemes.
-- **Security Features**: command-injection and path-traversal protection; fail-closed on invalid input.
+- **Security Features**: command-injection and path-traversal protection; fail-closed on invalid input; credential inputs masked before any check runs.
 - **Tested**: `_validation/tests/` covers every check plus a drift test that re-runs the generator.
 
 ### Testing
