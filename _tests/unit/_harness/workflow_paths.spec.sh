@@ -40,9 +40,14 @@ End
 End
 
 Describe "the check itself"
-# Writes a copy of the workflow with every `_tools/**` entry double-quoted.
+# A fixed workflow whose push trigger lists the entry in double quotes.
 double_quote_workflow() {
-  sed "s|^      - '_tools/\*\*'$|      - \"_tools/**\"|" "$WORKFLOW" >"${SHELLSPEC_TMPBASE}/test-actions.yml"
+  cat >"${SHELLSPEC_TMPBASE}/test-actions.yml" <<'YAML'
+on:
+  push:
+    paths:
+      - "_tools/**"
+YAML
   WORKFLOW="${SHELLSPEC_TMPBASE}/test-actions.yml"
 }
 
@@ -70,6 +75,14 @@ It "does not count an entry listed under branches"
 branches_only_workflow
 When call trigger_lists_path push "_tools/**"
 The status should be failure
+End
+
+# The positive half of the fixture: a check that rejects every workflow would pass the
+# negative example above, but not this one.
+It "finds the entry the same fixture lists under paths"
+branches_only_workflow
+When call trigger_lists_path push "*/action.yml"
+The status should be success
 End
 End
 End

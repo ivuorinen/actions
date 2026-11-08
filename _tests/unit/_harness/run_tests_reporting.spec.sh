@@ -106,6 +106,25 @@ The path "${REPORTS_TMP}/integration" should be symlink
 The path "${PROJECT_ROOT}/_tests/unit/_harness/run_tests_reporting.spec.sh" should be exist
 End
 
+# Links that lead away from the sources must still work.
+It "accepts a reports directory reached through a symlink"
+ln -s "$REPORTS_TMP" "${SHELLSPEC_TMPBASE}/reports-link"
+export TEST_REPORTS_DIR="${SHELLSPEC_TMPBASE}/reports-link"
+When call run_integration docker-build --format json
+The status should be success
+The output should include "JSON report generated"
+The path "${REPORTS_TMP}/test-results.json" should be file
+End
+
+It "cleans a reports subdirectory that links somewhere safe"
+mkdir -p "${SHELLSPEC_TMPBASE}/elsewhere"
+ln -s "${SHELLSPEC_TMPBASE}/elsewhere" "${REPORTS_TMP}/integration"
+When call run_integration docker-build --format json
+The status should be success
+The output should include "JSON report generated"
+The path "${REPORTS_TMP}/test-results.json" should be file
+End
+
 It "removes a plain file where a reports directory belongs, instead of stopping"
 printf 'not a directory\n' >"${REPORTS_TMP}/integration"
 When call run_integration docker-build
