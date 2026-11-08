@@ -1,7 +1,7 @@
 #!/usr/bin/env shellspec
 # Static checks for .github/workflows and .github/actions:
-# no ${{ }} expression inside a run: block, no floating checkout ref, and a
-# pr-lint job that only writes where MegaLinter reports.
+# no ${{ }} expression inside a run: block, actions/checkout pinned by full SHA, and
+# a pr-lint job that reads contents and only writes where MegaLinter reports.
 # The checks read the YAML as text so they need nothing beyond python3.
 
 # Prints "<file>:<line>: <text>" for every ${{ }} found in a run: block.
@@ -39,12 +39,15 @@ for path in files:
 PY
 }
 
-# Prints the scopes the pr-lint job holds at write level, sorted.
-pr_lint_write_scopes() {
-  python3 -I - <<'PY'
+# Prints every scope the pr-lint job is granted as "scope=level", sorted. The block runs
+# from the job's `permissions:` key to the next line indented as deep as that key or
+# less; blank lines and comments inside it do not end it.
+pr_lint_permissions() {
+  python3 -I - "${1:-.github/workflows/pr-lint.yml}" <<'PY'
 import re
+import sys
 
-with open(".github/workflows/pr-lint.yml", encoding="utf-8") as handle:
+with open(sys.argv[1], encoding="utf-8") as handle:
     lines = handle.read().splitlines()
 scopes = []
 inside = False
@@ -52,19 +55,24 @@ for text in lines:
     if re.match(r"^    permissions:\s*$", text):
         inside = True
         continue
-    if inside:
-        match = re.match(r"^      ([a-z-]+):\s*(\S+)", text)
-        if not match:
-            break
-        if match.group(2) == "write":
-            scopes.append(match.group(1))
+    if not inside:
+        continue
+    content = text.split("#", 1)[0].rstrip()
+    if not content:
+        continue
+    if len(content) - len(content.lstrip()) <= 4:
+        break
+    scope, _, level = content.strip().partition(":")
+    scopes.append("%s=%s" % (scope.strip(), level.strip()))
 print(" ".join(sorted(scopes)))
 PY
 }
 
-# Prints every line that names actions/checkout by a floating version tag.
+# Prints every actions/checkout reference whose ref is not a full commit SHA, in the
+# workflows, the local composite actions and the published actions.
 find_floating_checkout_refs() {
-  grep -En 'actions/checkout@v[0-9]' .github/workflows/*.yml || true
+  grep -HnE 'actions/checkout@' .github/workflows/*.yml .github/actions/*/action.yml ./*/action.yml |
+    grep -vE 'actions/checkout@[0-9a-f]{40}([[:space:]]|$)' || true
 }
 
 Describe "GitHub workflows"
@@ -74,15 +82,15 @@ The status should be success
 The output should equal ""
 End
 
-It "name no floating actions/checkout ref"
+It "name actions/checkout only by full commit SHA"
 When call find_floating_checkout_refs
 The status should be success
 The output should equal ""
 End
 
-It "give the pr-lint job write access only to what MegaLinter reports through"
-When call pr_lint_write_scopes
+It "give the pr-lint job read on contents and write only where MegaLinter reports"
+When call pr_lint_permissions
 The status should be success
-The output should equal "pull-requests security-events statuses"
+The output should equal "contents=read pull-requests=write security-events=write statuses=write"
 End
 End
