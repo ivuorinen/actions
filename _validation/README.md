@@ -27,11 +27,22 @@ only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map
 
 ## Contract every check follows
 
-- **Empty** value → accepted (inputs are optional unless listed in `REQUIRED`).
+- **Empty or whitespace-only** value → accepted (inputs are optional unless listed in
+  `REQUIRED`).
 - **Everything else** → checked as literal data, exactly as the action will use it. The runner
   expands `${{ … }}` before `validate.py` reads `INPUT_*` and never expands `$VAR` in an input,
   so a value still containing either is rejected rather than treated as a reference. Surrounding
   whitespace and newlines are rejected too, except in the inputs that are multi-line by design.
+
+Three checks look at less than the whole value, so callers must not rely on them to reject
+everything else:
+
+- **List checks** split the value on their separators and allow spaces around each item. A
+  newline is still rejected.
+- **`codeql_config`** holds inline YAML and rejects only unsafe YAML tags (`!!python/` and the
+  like). Any other text passes, `${{ … }}` included.
+- **`cache_config`** checks only the leading `type=<backend>`. The options after it reach buildx
+  unchecked.
 
 Validation is **fail-closed**: an invalid value prints `::error::` and exits 1 before the
 action does any work.

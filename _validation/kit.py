@@ -206,11 +206,14 @@ def check_terraform_version(value: str) -> str | None:
 
 
 def check_node_version(value: str) -> str | None:
-    """Node version: 20, 20.1, 20.1.0, a keyword (latest/lts/current/node), or lts/<name>."""
+    """Node version: 20, 20.1, 20.1.0, a keyword (latest/lts/current/node), or an LTS selector.
+
+    The LTS selector is one setup-node reads: ``lts/*``, ``lts/-<n>`` or ``lts/<codename>``.
+    """
     if _skip(value):
         return None
     low = value.lower()
-    if low in ("latest", "lts", "current", "node") or low.startswith("lts/"):
+    if low in ("latest", "lts", "current", "node") or re.fullmatch(r"lts/(?:\*|-\d+|[a-z]+)", low):
         return None
     if re.fullmatch(r"v?\d+(\.\d+(\.\d+)?)?", value):
         return None

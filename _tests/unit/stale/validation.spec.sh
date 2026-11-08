@@ -13,8 +13,13 @@ When call validate_input_python "stale" "token" "\${{ github.token }}"
 The status should be failure
 End
 
-It "accepts GitHub fine-grained token"
+It "accepts a classic GitHub token"
 When call validate_input_python "stale" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
+The status should be success
+End
+
+It "accepts a fine-grained GitHub token"
+When call validate_input_python "stale" "token" "github_pat_1234567890123456789012345678901234567890123456789012345678901234567890a"
 The status should be success
 End
 
