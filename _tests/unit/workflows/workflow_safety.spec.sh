@@ -43,6 +43,9 @@ block = re.compile(r"^[|>](?:[1-9][-+]?|[-+][1-9]?)?(?:\s+#.*)?\s*$")
 # so a pinned ref elsewhere on the line does not cover a floating one.
 uses = re.compile(r"""uses:\s*["']?(actions/checkout@[^\s"'#]*)""")
 pinned = re.compile(r"actions/checkout@[0-9a-f]{40}")
+# A YAML comment: a # at the line start or after whitespace, to the end of the line.
+# Only the checkout scan drops it; GitHub expands ${{ }} even inside a shell comment.
+comment = re.compile(r"(?:^|\s)#.*")
 
 
 def report_expressions(path, lines):
@@ -70,7 +73,7 @@ def report_expressions(path, lines):
 def report_checkout_refs(path, lines):
     found = 0
     for number, text in enumerate(lines, 1):
-        for ref in uses.findall(text):
+        for ref in uses.findall(comment.sub("", text, count=1)):
             found += 1
             if not pinned.fullmatch(ref):
                 print("%s:%d: %s" % (path, number, ref))
@@ -202,6 +205,14 @@ When call workflow_scan checkout "${SHELLSPEC_TMPBASE}/checkout.yml"
 The status should be success
 The output should equal ""
 End
+End
+
+It "ignores references in comments"
+printf 'jobs:\n  test:\n    steps:\n      # - uses: actions/checkout@v4\n      - uses: actions/checkout@%s # was uses: actions/checkout@main\n' \
+  3d3c42e5aac5ba805825da76410c181273ba90b1 >"${SHELLSPEC_TMPBASE}/checkout.yml"
+When call workflow_scan checkout "${SHELLSPEC_TMPBASE}/checkout.yml"
+The status should be success
+The output should equal ""
 End
 
 It "fails when no file holds a checkout reference"
