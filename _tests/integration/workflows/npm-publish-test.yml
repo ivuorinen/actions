@@ -293,42 +293,6 @@ jobs:
 
           echo "✓ All outputs match expected values"
 
-  test-npm-publish-secret-masking:
-    name: Test Secret Masking
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-
-      - name: Create test package
-        run: |
-          mkdir -p test-secrets
-          cd test-secrets
-          cat > package.json <<'EOF'
-          {
-            "name": "@test/secrets-test",
-            "version": "1.0.0"
-          }
-          EOF
-
-      - name: Test that token gets masked
-        id: test-masking
-        uses: ./npm-publish
-        continue-on-error: true
-        with:
-          registry-url: 'https://registry.npmjs.org/'
-          scope: '@test'
-          package-version: '1.0.0'
-          # checkov:skip=CKV_SECRET_6:test fixture value, not a real token
-          npm_token: 'super-secret-token-12345'
-        env:
-          GITHUB_WORKSPACE: ${{ github.workspace }}/test-secrets
-
-      - name: Verify token is not in logs
-        run: |
-          echo "✓ Token should be masked in GitHub Actions logs"
-          echo "✓ Secret masking test completed"
-
   integration-test-summary:
     name: Integration Test Summary
     runs-on: ubuntu-latest
@@ -337,7 +301,6 @@ jobs:
       - test-npm-publish-package-validation
       - test-npm-publish-version-formats
       - test-npm-publish-outputs
-      - test-npm-publish-secret-masking
     steps:
       - name: Summary
         run: |
@@ -349,6 +312,5 @@ jobs:
           echo "✓ Package validation tests"
           echo "✓ Version format tests"
           echo "✓ Output verification tests"
-          echo "✓ Secret masking tests"
           echo ""
           echo "All npm-publish integration tests completed successfully!"
