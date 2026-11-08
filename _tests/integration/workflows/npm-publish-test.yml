@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Create test package.json
         run: |
@@ -132,7 +132,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test missing package.json
         id: missing-package
@@ -189,7 +189,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test SemVer with v prefix
         run: |
@@ -239,7 +239,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Create test package
         run: |

@@ -52,7 +52,7 @@ inputs:
     default: ''
 
   checkout-ref:
-    description: 'Git reference to checkout (default: current ref)'
+    description: 'Git reference to checkout (default: current ref). A fork pull request head or merge ref fails on pull_request_target and workflow_run.'
     required: false
     default: ''
 
@@ -149,7 +149,7 @@ runs:
         fi
 
     - name: Checkout repository
-      uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ inputs.checkout-ref || github.sha }}
         token: ${{ inputs.token }}
