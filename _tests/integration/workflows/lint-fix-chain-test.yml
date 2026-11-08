@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Create test JavaScript files
         run: |
@@ -53,11 +53,6 @@ jobs:
           const x = "double quotes"
           console.log(x)
           EOF
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '18'
 
       - name: Test eslint-lint check mode (should find errors)
         id: eslint-check
@@ -110,7 +105,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Create test files for Prettier
         run: |
@@ -146,11 +141,6 @@ jobs:
           cat > test-prettier/test.json <<EOF
           {"key":"value","nested":{"data":"here"}}
           EOF
-
-      - name: Setup Node.js for Prettier
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '18'
 
       - name: Test prettier-lint check mode (should find issues)
         id: prettier-check
@@ -199,7 +189,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@71cf2267d89c5cb81562390fa70a37fa40b1305e # v6-beta
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Create comprehensive test project
         run: |
@@ -250,11 +240,6 @@ jobs:
           function greet(){console.log(message)}
           greet()
           EOF
-
-      - name: Setup Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: '18'
 
       - name: Run ESLint check
         id: lint-check
