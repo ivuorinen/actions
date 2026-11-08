@@ -116,13 +116,16 @@ The output should include "JSON report generated"
 The path "${REPORTS_TMP}/test-results.json" should be file
 End
 
+# The cleanup removes the link; the directory it points at, and its contents, must survive.
 It "cleans a reports subdirectory that links somewhere safe"
 mkdir -p "${SHELLSPEC_TMPBASE}/elsewhere"
+printf 'keep\n' >"${SHELLSPEC_TMPBASE}/elsewhere/keep.txt"
 ln -s "${SHELLSPEC_TMPBASE}/elsewhere" "${REPORTS_TMP}/integration"
 When call run_integration docker-build --format json
 The status should be success
 The output should include "JSON report generated"
 The path "${REPORTS_TMP}/test-results.json" should be file
+The path "${SHELLSPEC_TMPBASE}/elsewhere/keep.txt" should be file
 End
 
 It "removes a plain file where a reports directory belongs, instead of stopping"
