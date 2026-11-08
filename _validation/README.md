@@ -37,8 +37,9 @@ only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map
 Three checks look at less than the whole value, so callers must not rely on them to reject
 everything else:
 
-- **List checks** split the value on their separators and allow spaces around each item. A
-  newline is still rejected.
+- **List checks** split the value on their separators and allow spaces or tabs around each item.
+  They reject a newline, except `repository_list` and `key_value_list`, which take one entry per
+  line.
 - **`codeql_config`** holds inline YAML and rejects only unsafe YAML tags (`!!python/` and the
   like). Any other text passes, `${{ … }}` included.
 - **`cache_config`** checks only the leading `type=<backend>`. The options after it reach buildx

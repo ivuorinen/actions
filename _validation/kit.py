@@ -40,8 +40,8 @@ def _skip(value: str) -> bool:
 
 
 def _split_items(value: str, separators: str = ",") -> list[str]:
-    """Split a list input, allowing spaces around items but leaving newlines to be rejected."""
-    return [part.strip(" ") for part in re.split(f"[{separators}]", value)]
+    """Split a list input, allowing spaces or tabs around items but not newlines."""
+    return [part.strip(" \t") for part in re.split(f"[{separators}]", value)]
 
 
 def _enum(value: str, *allowed: str) -> str | None:
@@ -63,15 +63,15 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
-        r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-        r"(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
-        r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?"
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
         r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
     )
     return bool(
         re.fullmatch(full, core)
-        or re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)", core)
-        or re.fullmatch(r"(0|[1-9]\d*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
     )
 
 
@@ -140,7 +140,7 @@ def check_strict_semantic_version(value: str) -> str | None:
     """Strict SemVer: exactly ``X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
     if _skip(value) or value.lower() == "latest":
         return None
-    if re.fullmatch(r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", value):
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a strict semantic version X.Y.Z (optionally -prerelease / +build)"
 
@@ -162,12 +162,12 @@ def check_calver_version(value: str) -> str | None:
         return None
     core = value[1:] if value[:1] in ("v", "V") else value
     patterns = (
-        r"\d{4}\.\d{1,2}\.\d{1,2}",  # YYYY.MM.DD
-        r"\d{4}\.0\d\.0\d",  # YYYY.0M.0D
-        r"\d{2}\.\d{1,2}\.\d{1,2}",  # YY.MM.MICRO (micro doubles as a day)
-        r"\d{4}-\d{2}-\d{2}",  # YYYY-MM-DD
-        r"\d{4}\.\d{1,2}\.\d{3,}",  # YYYY.MM.PATCH (3+ digit patch, never a day)
-        r"\d{4}\.\d{1,2}",  # YYYY.MM
+        r"[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}",  # YYYY.MM.DD
+        r"[0-9]{4}\.0[0-9]\.0[0-9]",  # YYYY.0M.0D
+        r"[0-9]{2}\.[0-9]{1,2}\.[0-9]{1,2}",  # YY.MM.MICRO (micro doubles as a day)
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}",  # YYYY-MM-DD
+        r"[0-9]{4}\.[0-9]{1,2}\.[0-9]{3,}",  # YYYY.MM.PATCH (3+ digit patch, never a day)
+        r"[0-9]{4}\.[0-9]{1,2}",  # YYYY.MM
     )
     if not any(re.fullmatch(pattern, core) for pattern in patterns):
         return "must be a calendar version (e.g. 2025.04.05, 2025.4.5, 2025.04, 2025-04-05)"
@@ -191,7 +191,7 @@ def check_dotnet_version(value: str) -> str | None:
     """.NET version: 8, 8.0, 8.0.100, or 8.0.x feature band, with optional -preview suffix."""
     if _skip(value):
         return None
-    if re.fullmatch(r"\d+(\.\d+)?(\.(\d+|x))?(-[0-9A-Za-z.-]+)?", value):
+    if re.fullmatch(r"[0-9]+(\.[0-9]+)?(\.([0-9]+|x))?(-[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a .NET version (e.g. 8.0, 8.0.100, 8.0.x)"
 
@@ -200,7 +200,7 @@ def check_terraform_version(value: str) -> str | None:
     """Terraform/tflint version: ``X.Y.Z`` with optional ``-prerelease``, or ``latest``."""
     if _skip(value) or value.lower() == "latest":
         return None
-    if re.fullmatch(r"v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?", value):
+    if re.fullmatch(r"v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?", value):
         return None
     return 'must be a version like 1.5.7 or "latest"'
 
@@ -213,9 +213,11 @@ def check_node_version(value: str) -> str | None:
     if _skip(value):
         return None
     low = value.lower()
-    if low in ("latest", "lts", "current", "node") or re.fullmatch(r"lts/(?:\*|-\d+|[a-z]+)", low):
+    if low in ("latest", "lts", "current", "node") or re.fullmatch(
+        r"lts/(?:\*|-[0-9]+|[a-z]+)", low
+    ):
         return None
-    if re.fullmatch(r"v?\d+(\.\d+(\.\d+)?)?", value):
+    if re.fullmatch(r"v?[0-9]+(\.[0-9]+(\.[0-9]+)?)?", value):
         return None
     return "must be a Node version (e.g. 20, 20.11.0, lts/*, latest)"
 
@@ -226,7 +228,7 @@ def check_go_version(value: str) -> str | None:
         return None
     if value.lower() in ("stable", "oldstable"):
         return None
-    if re.fullmatch(r"v?\d+\.\d+(\.\d+|\.x)?", value):
+    if re.fullmatch(r"v?[0-9]+\.[0-9]+(\.[0-9]+|\.x)?", value):
         return None
     return "must be a Go version (e.g. 1.21, 1.21.5, stable)"
 
@@ -487,7 +489,7 @@ def check_url(value: str) -> str | None:
     if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
         return "must not contain encoded control or traversal sequences"
     if re.fullmatch(
-        r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s<>]*)?", value
+        r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::[0-9]{1,5})?(?:[/?#][^\s<>]*)?", value
     ):
         return None
     return "must be a valid http(s) URL"

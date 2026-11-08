@@ -22,8 +22,8 @@ def _skip(value: str) -> bool:
 
 
 def _split_items(value: str, separators: str = ",") -> list[str]:
-    """Split a list input, allowing spaces around items but leaving newlines to be rejected."""
-    return [part.strip(" ") for part in re.split(f"[{separators}]", value)]
+    """Split a list input, allowing spaces or tabs around items but not newlines."""
+    return [part.strip(" \t") for part in re.split(f"[{separators}]", value)]
 
 
 def _enum(value: str, *allowed: str) -> str | None:

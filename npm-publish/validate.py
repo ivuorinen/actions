@@ -62,7 +62,7 @@ def check_strict_semantic_version(value: str) -> str | None:
     """Strict SemVer: exactly ``X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
     if _skip(value) or value.lower() == "latest":
         return None
-    if re.fullmatch(r"\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", value):
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a strict semantic version X.Y.Z (optionally -prerelease / +build)"
 
@@ -79,7 +79,7 @@ def check_url(value: str) -> str | None:
     if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
         return "must not contain encoded control or traversal sequences"
     if re.fullmatch(
-        r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s<>]*)?", value
+        r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::[0-9]{1,5})?(?:[/?#][^\s<>]*)?", value
     ):
         return None
     return "must be a valid http(s) URL"

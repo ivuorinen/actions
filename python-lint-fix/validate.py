@@ -24,15 +24,15 @@ def _skip(value: str) -> bool:
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
-        r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-        r"(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
-        r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?"
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
         r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
     )
     return bool(
         re.fullmatch(full, core)
-        or re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)", core)
-        or re.fullmatch(r"(0|[1-9]\d*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
     )
 
 

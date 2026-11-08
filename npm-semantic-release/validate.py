@@ -22,8 +22,8 @@ def _skip(value: str) -> bool:
 
 
 def _split_items(value: str, separators: str = ",") -> list[str]:
-    """Split a list input, allowing spaces around items but leaving newlines to be rejected."""
-    return [part.strip(" ") for part in re.split(f"[{separators}]", value)]
+    """Split a list input, allowing spaces or tabs around items but not newlines."""
+    return [part.strip(" \t") for part in re.split(f"[{separators}]", value)]
 
 
 def check_github_token(value: str) -> str | None:
@@ -60,9 +60,11 @@ def check_node_version(value: str) -> str | None:
     if _skip(value):
         return None
     low = value.lower()
-    if low in ("latest", "lts", "current", "node") or re.fullmatch(r"lts/(?:\*|-\d+|[a-z]+)", low):
+    if low in ("latest", "lts", "current", "node") or re.fullmatch(
+        r"lts/(?:\*|-[0-9]+|[a-z]+)", low
+    ):
         return None
-    if re.fullmatch(r"v?\d+(\.\d+(\.\d+)?)?", value):
+    if re.fullmatch(r"v?[0-9]+(\.[0-9]+(\.[0-9]+)?)?", value):
         return None
     return "must be a Node version (e.g. 20, 20.11.0, lts/*, latest)"
 
@@ -102,7 +104,7 @@ def check_url(value: str) -> str | None:
     if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
         return "must not contain encoded control or traversal sequences"
     if re.fullmatch(
-        r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s<>]*)?", value
+        r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::[0-9]{1,5})?(?:[/?#][^\s<>]*)?", value
     ):
         return None
     return "must be a valid http(s) URL"

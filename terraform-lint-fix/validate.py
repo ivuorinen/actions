@@ -127,7 +127,7 @@ def check_terraform_version(value: str) -> str | None:
     """Terraform/tflint version: ``X.Y.Z`` with optional ``-prerelease``, or ``latest``."""
     if _skip(value) or value.lower() == "latest":
         return None
-    if re.fullmatch(r"v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?", value):
+    if re.fullmatch(r"v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?", value):
         return None
     return 'must be a version like 1.5.7 or "latest"'
 

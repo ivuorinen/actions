@@ -22,22 +22,22 @@ def _skip(value: str) -> bool:
 
 
 def _split_items(value: str, separators: str = ",") -> list[str]:
-    """Split a list input, allowing spaces around items but leaving newlines to be rejected."""
-    return [part.strip(" ") for part in re.split(f"[{separators}]", value)]
+    """Split a list input, allowing spaces or tabs around items but not newlines."""
+    return [part.strip(" \t") for part in re.split(f"[{separators}]", value)]
 
 
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
-        r"(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-        r"(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
-        r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?"
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
         r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
     )
     return bool(
         re.fullmatch(full, core)
-        or re.fullmatch(r"(0|[1-9]\d*)\.(0|[1-9]\d*)", core)
-        or re.fullmatch(r"(0|[1-9]\d*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
     )
 
 
@@ -121,7 +121,7 @@ def check_go_version(value: str) -> str | None:
         return None
     if value.lower() in ("stable", "oldstable"):
         return None
-    if re.fullmatch(r"v?\d+\.\d+(\.\d+|\.x)?", value):
+    if re.fullmatch(r"v?[0-9]+\.[0-9]+(\.[0-9]+|\.x)?", value):
         return None
     return "must be a Go version (e.g. 1.21, 1.21.5, stable)"
 

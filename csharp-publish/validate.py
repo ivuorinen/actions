@@ -34,7 +34,7 @@ def check_dotnet_version(value: str) -> str | None:
     """.NET version: 8, 8.0, 8.0.100, or 8.0.x feature band, with optional -preview suffix."""
     if _skip(value):
         return None
-    if re.fullmatch(r"\d+(\.\d+)?(\.(\d+|x))?(-[0-9A-Za-z.-]+)?", value):
+    if re.fullmatch(r"[0-9]+(\.[0-9]+)?(\.([0-9]+|x))?(-[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a .NET version (e.g. 8.0, 8.0.100, 8.0.x)"
 

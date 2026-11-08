@@ -98,6 +98,7 @@ CASES: dict[str, dict[str, list[str]]] = {
             "lts/${{ github.ref }}",
             "lts/iron jod",
             "lts/iron;id",
+            "lts/-٣",
         ],
     },
     "go_version": {
@@ -211,7 +212,7 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "scanner_list": {"valid": ["vuln", "vuln,secret,config"], "invalid": ["vuln,bogus"]},
     "linter_list": {
-        "valid": ["gosec", "gosec,govet", "errcheck"],
+        "valid": ["gosec", "gosec,govet", "errcheck", "gosec,\tgovet"],
         "invalid": ["gosec,,govet", "lint;er", "lint er"],
     },
     "plugin_list": {
@@ -220,6 +221,7 @@ CASES: dict[str, dict[str, list[str]]] = {
             "@scope/plugin",
             "a,b",
             "a|b",
+            "a,\tb",
             "conventional-changelog-conventionalcommits@^9.3.1",
             "@scope/plugin@1.0.0",
         ],
@@ -327,6 +329,19 @@ def test_single_line_checks_reject_newlines(check):
     value = CASES[check]["valid"][0]
     for bad in (value + "\n", "\n" + value, value + "\nkey=value", value + ",\n" + value):
         assert fn(bad) is not None, f"{check} should reject {bad!r}"
+
+
+# Python's \d matches any Unicode digit; the tools these values reach read only ASCII ones.
+NON_ASCII_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+
+@pytest.mark.parametrize("check", SCALAR_CHECKS)
+def test_scalar_checks_reject_non_ascii_digits(check):
+    fn = kit.CHECKS[check]
+    for value in CASES[check]["valid"]:
+        translated = value.translate(NON_ASCII_DIGITS)
+        if translated != value:
+            assert fn(translated) is not None, f"{check} should reject {translated!r}"
 
 
 @pytest.mark.parametrize("check", SCALAR_CHECKS)
