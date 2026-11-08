@@ -161,7 +161,14 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "file_path": {
         "valid": ["file.txt", "path/to/file.txt", "folder/sub/file.ext"],
-        "invalid": ["../file.txt", "/absolute/path", "~/home", "path/../file", "%2e%2e/etc"],
+        "invalid": [
+            "../file.txt",
+            "/absolute/path",
+            "~/home",
+            "path/../file",
+            "%2e%2e/etc",
+            "src/$VAR",
+        ],
     },
     "output_path": {
         "valid": ["../results", "results", "out/sarif", "results/codeql.sarif"],
@@ -184,7 +191,12 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["notanemail", "@example.com", "user@"],
     },
     "url": {
-        "valid": ["https://example.com", "http://a.b:8080/p", "https://reg.npmjs.org"],
+        "valid": [
+            "https://example.com",
+            "http://a.b:8080/p",
+            "https://reg.npmjs.org",
+            "https://example.com/$VAR",
+        ],
         "invalid": ["ftp://x.com", "javascript:alert(1)", "https://x;rm"],
     },
     "scope": {"valid": ["@my-org", "@a"], "invalid": ["my-org", "@1bad"]},

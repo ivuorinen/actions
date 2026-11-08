@@ -31,8 +31,10 @@ only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map
   `REQUIRED`).
 - **Everything else** → checked as literal data, exactly as the action will use it. The runner
   expands `${{ … }}` before `validate.py` reads `INPUT_*` and never expands `$VAR` in an input,
-  so a value still containing either is rejected rather than treated as a reference. Surrounding
-  whitespace and newlines are rejected too, except in the inputs that are multi-line by design.
+  so no check skips either as a reference. A value that still contains one passes only where
+  that text fits the check's format: `url` accepts `https://example.com/$VAR`, while
+  `file_path` rejects `src/$VAR`. Surrounding whitespace and newlines are rejected, except in
+  the inputs that are multi-line by design.
 
 Three checks look at less than the whole value, so callers must not rely on them to reject
 everything else:
