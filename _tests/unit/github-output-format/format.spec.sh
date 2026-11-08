@@ -1,6 +1,7 @@
 #!/usr/bin/env shellspec
 # Static check of .claude/rules/github-output-format.md across every action, the
-# published ones and those under .github/actions, in action.yml or action.yaml.
+# published ones, those under .github/actions and the harness fixtures, in action.yml
+# or action.yaml.
 #
 # Every command that writes to "$GITHUB_OUTPUT" must be either
 #   printf 'key=%s\n' <quoted value> >> "$GITHUB_OUTPUT"   (format separated from value)
@@ -30,22 +31,28 @@ import sys
 root, files = sys.argv[1], sys.argv[2:]
 if not files:
     os.chdir(root)
-    # The published actions and the repository's own under .github/actions, whose
-    # dot directory a plain `*` does not match.
+    # The published actions, the repository's own under .github/actions and the
+    # harness fixtures, whose directories a plain `*` does not reach.
     files = sorted(
         path
-        for pattern in ("*/action.yml", "*/action.yaml", ".github/actions/*/action.yml", ".github/actions/*/action.yaml")
-        for path in glob.glob(pattern)
+        for directory in ("*", ".github/actions/*", "_tests/fixtures/harness/*")
+        for name in ("action.yml", "action.yaml")
+        for path in glob.glob(os.path.join(directory, name))
     )
     if not files:
         sys.exit("no action.yml or action.yaml under %s" % root)
 
+# A double-quoted string. A command substitution inside it may quote its own
+# arguments, as in "$(cat "$file")" or "$(printf "%s" "a b")".
+double_quoted = r"""(?:"(?:\\.|\$\((?:'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^()'"\\])*\)|[^"\\])*")"""
 # A redirection operator with its file descriptor (`>&2` and `2>&1` included), one
 # shell word with its quoted parts, or one control operator.
 token = re.compile(
     r"""\d*(?:>>|>&\d*-?|>\|?|<&\d*-?|<<-?|<>|<)"""
-    r"""|(?:'[^']*'|"(?:\\.|[^"\\])*"|\\.|[^\s'";|&<>()])+"""
-    r"""|&&|\|\||[;|&()]"""
+    + r"""|(?:'[^']*'|"""
+    + double_quoted
+    + r"""|\\.|[^\s'";|&<>()])+"""
+    + r"""|&&|\|\||[;|&()]"""
 )
 separators = {";", "&&", "||", "|", "&"}
 # An output redirection: descriptor, operator, and for `>&N` the descriptor it copies.
@@ -54,9 +61,7 @@ output_op = re.compile(r"^(\d*)(>>|>&|>\||>|<>)(\d*-?)$")
 # Any spelling of the target counts as a write; only the quoted ones are allowed.
 target = re.compile(r"""^"?\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"?$""")
 quoted_target = re.compile(r"""^"\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"$""")
-# One quoted word. A quoted command substitution may quote its own arguments, as in
-# "$(cat "$file")", which the tokenizer keeps as one word.
-quoted = re.compile(r"""^(?:'[^']*'|"(?:\\.|[^"\\])*"|"\$\(.*\)")$""")
+quoted = re.compile(r"""^(?:'[^']*'|""" + double_quoted + r""")$""")
 key_format = re.compile(r"^'[A-Za-z0-9_-]+=%s\\n'$")
 # The YAML key of an inline `run:` scalar, which comes before its command.
 run_key = re.compile(r"^\s*(?:-\s+)?run:\s*")
@@ -327,6 +332,7 @@ runs:
         printf 'k=%s\n' "$value" >> "$GITHUB_OUTPUT"
         printf 'k=%s\n' '' >> "${GITHUB_OUTPUT}"
         printf 'k=%s\n' "$(cat "$file")" >> "$GITHUB_OUTPUT"
+        printf 'k=%s\n' "$(printf "%s" "hello world")" >> "$GITHUB_OUTPUT"
         printf 'k=%s\n' "a;b" >> "$GITHUB_OUTPUT" && printf 'j=%s\n' "c" >> "$GITHUB_OUTPUT"
         printf 'k=%s\n' "$value" \
           >> "$GITHUB_OUTPUT"
@@ -499,9 +505,9 @@ When call violations "$(fixture)"
 The output should equal "$(fixture):7: echo \"a=b\""
 End
 
-It "scans action.yaml files and the actions under .github/actions by default"
-mkdir -p "${SHELLSPEC_TMPBASE}/scan/.github/actions/local" "${SHELLSPEC_TMPBASE}/scan/published"
-for file in .github/actions/local/action.yml published/action.yaml; do
+It "scans action.yaml files, .github/actions and the harness fixtures by default"
+for file in .github/actions/local/action.yml _tests/fixtures/harness/fx/action.yml published/action.yaml; do
+  mkdir -p "${SHELLSPEC_TMPBASE}/scan/${file%/*}"
   cat >"${SHELLSPEC_TMPBASE}/scan/${file}" <<'YAML'
 runs:
   steps:
@@ -512,9 +518,10 @@ YAML
 done
 PROJECT_ROOT="${SHELLSPEC_TMPBASE}/scan"
 When call violations
-The lines of output should equal 2
+The lines of output should equal 3
 The line 1 of output should start with ".github/actions/local/action.yml:5: echo"
-The line 2 of output should start with "published/action.yaml:5: echo"
+The line 2 of output should start with "_tests/fixtures/harness/fx/action.yml:5: echo"
+The line 3 of output should start with "published/action.yaml:5: echo"
 End
 
 It "fails when PROJECT_ROOT holds no action"
