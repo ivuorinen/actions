@@ -1,19 +1,21 @@
 #!/usr/bin/env shellspec
-# Static check of .claude/rules/github-output-format.md across every action.yml.
+# Static check of .claude/rules/github-output-format.md across every action, the
+# published ones and those under .github/actions, in action.yml or action.yaml.
 #
 # Every command that writes to "$GITHUB_OUTPUT" must be either
 #   printf 'key=%s\n' <quoted value> >> "$GITHUB_OUTPUT"   (format separated from value)
 # or the closing `} >> "$GITHUB_OUTPUT"` of a grouped multi-line (delimiter) form, as
 # used in docker-build, docker-publish and security-scan, whose commands are each a
-# printf with a single-quoted format and quoted arguments, or a cat. Anything else
-# (echo, a printf with the value inside the format string, a printf with no value or
-# an unquoted one, a truncating `>`) is a violation. Each command on a line is checked
-# on its own, and a command continued with a trailing backslash is read as one line.
+# test, a printf with a single-quoted format and quoted arguments, or a cat. Anything
+# else (echo, a printf with the value inside the format string, a printf with no value
+# or an unquoted one, a truncating `>`) is a violation. Each command on a line is
+# checked on its own, after any reserved word such as `then`, and a command continued
+# with a trailing backslash is read as one line.
 
 Describe "GITHUB_OUTPUT write format"
 # Prints "<file>:<line>: <text>" for each non-conforming write in the given files, or
-# in every action.yml under PROJECT_ROOT when no file is given; finding no action.yml
-# there fails.
+# in every action under PROJECT_ROOT when no file is given; finding no action there
+# fails.
 violations() {
   command -v python3 >/dev/null 2>&1 || {
     echo "python3 is required" >&2
@@ -28,9 +30,15 @@ import sys
 root, files = sys.argv[1], sys.argv[2:]
 if not files:
     os.chdir(root)
-    files = sorted(glob.glob("*/action.yml"))
+    # The published actions and the repository's own under .github/actions, whose
+    # dot directory a plain `*` does not match.
+    files = sorted(
+        path
+        for pattern in ("*/action.yml", "*/action.yaml", ".github/actions/*/action.yml", ".github/actions/*/action.yaml")
+        for path in glob.glob(pattern)
+    )
     if not files:
-        sys.exit("no action.yml under %s" % root)
+        sys.exit("no action.yml or action.yaml under %s" % root)
 
 # A redirection operator with its file descriptor (`>&2` and `2>&1` included), one
 # shell word with its quoted parts, or one control operator.
@@ -46,11 +54,32 @@ output_op = re.compile(r"^(\d*)(>>|>&|>\||>|<>)(\d*-?)$")
 # Any spelling of the target counts as a write; only the quoted ones are allowed.
 target = re.compile(r"""^"?\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"?$""")
 quoted_target = re.compile(r"""^"\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"$""")
-quoted = re.compile(r"""^(?:'[^']*'|"(?:\\.|[^"\\])*")$""")
+# One quoted word. A quoted command substitution may quote its own arguments, as in
+# "$(cat "$file")", which the tokenizer keeps as one word.
+quoted = re.compile(r"""^(?:'[^']*'|"(?:\\.|[^"\\])*"|"\$\(.*\)")$""")
 key_format = re.compile(r"^'[A-Za-z0-9_-]+=%s\\n'$")
+# The YAML key of an inline `run:` scalar, which comes before its command.
+run_key = re.compile(r"^\s*(?:-\s+)?run:\s*")
+
+
+# Reserved words that open or close a compound command.
+keywords = {"!", "if", "then", "elif", "else", "fi", "while", "until", "do", "done"}
 
 
 def commands(text):
+    """Yields each command on a line without the reserved words before it.
+
+    A closing word on its own is no command, and a `for` header names a variable and a
+    word list rather than running anything.
+    """
+    for words in split(text):
+        while words and words[0] in keywords:
+            words = words[1:]
+        if words and words[0] != "for":
+            yield words
+
+
+def split(text):
     """Splits a line into commands, each a list of words, and drops a comment."""
     current = []
     for word in token.findall(text):
@@ -107,9 +136,11 @@ def allowed(words):
 
 
 def allowed_in_group(words):
-    """A command inside a group closed by `} >> "$GITHUB_OUTPUT"`: a printf whose
-    single-quoted format holds no expansion and whose arguments are all quoted, or a
-    cat of a file."""
+    """A command inside a group closed by `} >> "$GITHUB_OUTPUT"`: a test, which prints
+    nothing, a printf whose single-quoted format holds no expansion and whose arguments
+    are all quoted, or a cat of a file."""
+    if words[0] in ("[", "test"):
+        return True
     if words[0] == "printf":
         return (
             len(words) >= 3
@@ -128,11 +159,17 @@ for path in files:
     index = 0
     while index < len(lines):
         start, text = index + 1, lines[index]
-        # A command continued with a trailing backslash is read as one line.
-        while text.rstrip().endswith("\\") and index + 1 < len(lines):
+        # A command continued with a trailing backslash is read as one line. A comment
+        # runs to the end of its line, so a backslash that ends one continues nothing.
+        while (
+            text.rstrip().endswith("\\")
+            and not any(word.startswith("#") for word in token.findall(text))
+            and index + 1 < len(lines)
+        ):
             index += 1
             text = text.rstrip()[:-1].rstrip() + " " + lines[index].strip()
         index += 1
+        text = run_key.sub("", text, count=1)
         for words in commands(text):
             if words[0] == "{":
                 groups.append([])
@@ -210,6 +247,19 @@ When call violations "$(fixture)"
 The output should equal "$(fixture):5: echo \"a=b\" >> \"\$GITHUB_OUTPUT\""
 End
 
+It "reports a write on the line after a comment that ends in a backslash"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        printf 'k=%s\n' "v" >> "$GITHUB_OUTPUT" # written first \
+        echo "a=b" >> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The output should equal "$(fixture):6: echo \"a=b\" >> \"\$GITHUB_OUTPUT\""
+End
+
 It "reports a printf write with an unquoted value"
 cat >"$(fixture)" <<'YAML'
 runs:
@@ -268,7 +318,7 @@ The lines of output should equal 1
 The output should start with "$(fixture):5: printf"
 End
 
-It "accepts quoted values, braced targets, continued and commented-out writes"
+It "accepts quoted values and substitutions, braced targets, continued and commented-out writes"
 cat >"$(fixture)" <<'YAML'
 runs:
   steps:
@@ -276,6 +326,7 @@ runs:
       run: |
         printf 'k=%s\n' "$value" >> "$GITHUB_OUTPUT"
         printf 'k=%s\n' '' >> "${GITHUB_OUTPUT}"
+        printf 'k=%s\n' "$(cat "$file")" >> "$GITHUB_OUTPUT"
         printf 'k=%s\n' "a;b" >> "$GITHUB_OUTPUT" && printf 'j=%s\n' "c" >> "$GITHUB_OUTPUT"
         printf 'k=%s\n' "$value" \
           >> "$GITHUB_OUTPUT"
@@ -284,6 +335,55 @@ YAML
 When call violations "$(fixture)"
 The output should equal ""
 The status should be success
+End
+
+It "checks the command after a reserved word on the same line"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        if [ -n "$value" ]; then printf 'k=%s\n' "$value" >> "$GITHUB_OUTPUT"; fi
+        for v in a b; do printf 'k=%s\n' "$v" >> "$GITHUB_OUTPUT"; done
+        if [ -n "$value" ]; then echo "a=b" >> "$GITHUB_OUTPUT"; fi
+YAML
+When call violations "$(fixture)"
+The lines of output should equal 1
+The output should start with "$(fixture):7: if"
+End
+
+It "allows conditions and loops around the commands of a group, and checks those commands"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        {
+          if [ -n "$value" ]; then
+            printf 'a=%s\n' "$value"
+          else
+            echo "a=$default"
+          fi
+          for tag in $tags; do
+            printf '%s\n' "$tag"
+          done
+        } >> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The output should equal "$(fixture):9: echo \"a=\$default\""
+End
+
+It "reads the command of an inline run scalar"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: printf 'k=%s\n' "$value" >> "$GITHUB_OUTPUT"
+    - shell: sh
+      run: echo "a=b" >> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The output should equal "$(fixture):6: echo \"a=b\" >> \"\$GITHUB_OUTPUT\""
 End
 
 It "reports an echo and an expanding format inside a group written to the file"
@@ -399,12 +499,30 @@ When call violations "$(fixture)"
 The output should equal "$(fixture):7: echo \"a=b\""
 End
 
-It "fails when PROJECT_ROOT holds no action.yml"
+It "scans action.yaml files and the actions under .github/actions by default"
+mkdir -p "${SHELLSPEC_TMPBASE}/scan/.github/actions/local" "${SHELLSPEC_TMPBASE}/scan/published"
+for file in .github/actions/local/action.yml published/action.yaml; do
+  cat >"${SHELLSPEC_TMPBASE}/scan/${file}" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        echo "a=b" >> "$GITHUB_OUTPUT"
+YAML
+done
+PROJECT_ROOT="${SHELLSPEC_TMPBASE}/scan"
+When call violations
+The lines of output should equal 2
+The line 1 of output should start with ".github/actions/local/action.yml:5: echo"
+The line 2 of output should start with "published/action.yaml:5: echo"
+End
+
+It "fails when PROJECT_ROOT holds no action"
 mkdir -p "${SHELLSPEC_TMPBASE}/empty"
 PROJECT_ROOT="${SHELLSPEC_TMPBASE}/empty"
 When call violations
 The status should be failure
-The error should equal "no action.yml under ${SHELLSPEC_TMPBASE}/empty"
+The error should equal "no action.yml or action.yaml under ${SHELLSPEC_TMPBASE}/empty"
 End
 End
 End
