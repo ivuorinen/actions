@@ -40,8 +40,9 @@ token = re.compile(
     r"""|&&|\|\||[;|&()]"""
 )
 separators = {";", "&&", "||", "|", "&"}
-# An output redirection: descriptor, operator, and for >& the descriptor it copies.
-output_op = re.compile(r"^(\d*)(>>|>\|?|>&)(\S*)$")
+# An output redirection: descriptor, operator, and for `>&N` the descriptor it copies.
+# `>&` is tried before `>`, so `>&1` is never read as `>` followed by `&1`.
+output_op = re.compile(r"^(\d*)(>>|>&|>\||>|<>)(\d*-?)$")
 # Any spelling of the target counts as a write; only the quoted ones are allowed.
 target = re.compile(r"""^"?\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"?$""")
 quoted_target = re.compile(r"""^"\$(?:GITHUB_OUTPUT|\{GITHUB_OUTPUT\})"$""")
@@ -65,21 +66,33 @@ def commands(text):
         yield current
 
 
-def writes_output(words):
+def redirections(words):
+    """Yields (descriptor, operator, operand) for each output redirection of a command.
+
+    The operand is the descriptor written into `>&N`, or else the word that follows, so
+    `>&1` and `>& 1` read the same. `<>` opens descriptor 0 unless one is given.
+    """
     for index, word in enumerate(words):
         match = output_op.match(word)
-        if match and match.group(2) != ">&" and index + 1 < len(words) and target.match(words[index + 1]):
-            return True
-    return False
+        if not match:
+            continue
+        descriptor = match.group(1) or ("0" if match.group(2) == "<>" else "1")
+        operand = match.group(3) or (words[index + 1] if index + 1 < len(words) else "")
+        yield descriptor, match.group(2), operand
+
+
+def writes_output(words):
+    """True when any redirection of the command opens $GITHUB_OUTPUT."""
+    return any(target.match(operand) for _, _, operand in redirections(words))
 
 
 def redirects_stdout(words):
-    """True when the command sends its standard output somewhere of its own."""
-    for word in words:
-        match = output_op.match(word)
-        if match and match.group(1) in ("", "1") and not (match.group(2) == ">&" and match.group(3) == "1"):
-            return True
-    return False
+    """True when the command sends its standard output somewhere of its own; copying
+    descriptor 1 onto itself (`>&1`) leaves it where it was."""
+    return any(
+        descriptor == "1" and not (operator == ">&" and operand == "1")
+        for descriptor, operator, operand in redirections(words)
+    )
 
 
 def allowed(words):
@@ -229,6 +242,19 @@ The line 2 of output should start with "$(fixture):6: "
 The line 3 of output should start with "$(fixture):9: "
 End
 
+It "reports a read-write redirection to the file"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        printf 'k=%s\n' "v" 1<> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The lines of output should equal 1
+The output should start with "$(fixture):5: printf"
+End
+
 It "reports a write that truncates the file"
 cat >"$(fixture)" <<'YAML'
 runs:
@@ -323,6 +349,38 @@ YAML
 When call violations "$(fixture)"
 The output should equal ""
 The status should be success
+End
+
+It "reports commands that copy stdout onto itself inside a group"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        {
+          echo "a=b" >&1
+          echo "c=d" >& 1
+        } >> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The lines of output should equal 2
+The line 1 of output should start with "$(fixture):6: echo"
+The line 2 of output should start with "$(fixture):7: echo"
+End
+
+It "reports an invalid direct write inside a group"
+cat >"$(fixture)" <<'YAML'
+runs:
+  steps:
+    - shell: sh
+      run: |
+        {
+          printf 'k=%s\n' "v"
+          echo "bad=1" >> "$GITHUB_OUTPUT"
+        } >> "$GITHUB_OUTPUT"
+YAML
+When call violations "$(fixture)"
+The output should equal "$(fixture):7: echo \"bad=1\" >> \"\$GITHUB_OUTPUT\""
 End
 
 It "reports an echo in a nested group that writes through the outer group"
