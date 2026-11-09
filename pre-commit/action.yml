@@ -37,7 +37,7 @@ outputs:
     value: ${{ steps.pre-commit.outcome == 'success' }}
   files_changed:
     description: 'Whether any files were changed by pre-commit hooks'
-    value: ${{ steps.push-fixes.outputs.changes_detected }}
+    value: ${{ steps.push-fixes.outputs.changes_detected || 'false' }}
 
 runs:
   using: composite

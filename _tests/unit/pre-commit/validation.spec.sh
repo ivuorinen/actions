@@ -178,9 +178,16 @@ Context "when validation fails before the checkout"
 # The push step uses always() so fixes land even when hooks fail. Without a checkout
 # it would only add a misleading "Not a git repository" error to the validation one.
 It "skips the push step because the hooks never ran"
-When call grep -F "if: always() && steps.pre-commit.outcome != 'skipped'" "$ACTION_FILE"
+When call grep -E "^ +if: always\(\) && steps\.pre-commit\.outcome != 'skipped'( +#.*)?$" "$ACTION_FILE"
 The status should be success
-The output should include "steps.pre-commit.outcome"
+The lines of output should equal 1
+End
+
+# hooks_passed is already false on this path; files_changed has to match its contract.
+It "reports no changed files because the push step never ran"
+When call grep -F "value: \${{ steps.push-fixes.outputs.changes_detected || 'false' }}" "$ACTION_FILE"
+The status should be success
+The lines of output should equal 1
 End
 End
 End
