@@ -240,11 +240,6 @@ def check_network_mode(value: str) -> str | None:
     return _enum(value, "host", "none", "default")
 
 
-def check_numeric_range_0_16(value: str) -> str | None:
-    """Integer in [0, 16] (e.g. parallel build workers)."""
-    return _int_in_range(value, 0, 16)
-
-
 def check_numeric_range_1_10(value: str) -> str | None:
     """Integer in [1, 10] (e.g. retry counts)."""
     return _int_in_range(value, 1, 10)
@@ -285,9 +280,7 @@ CHECKS = {
     "image-name": check_docker_image_name,
     "max-retries": check_numeric_range_1_10,
     "network": check_network_mode,
-    "parallel-builds": check_numeric_range_0_16,
     "platform-build-args": check_json_format,
-    "platform-fallback": check_boolean,
     "push": check_boolean,
     "sbom-format": check_sbom_format,
     "scan-image": check_boolean,

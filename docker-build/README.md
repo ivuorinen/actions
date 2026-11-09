@@ -36,9 +36,7 @@ jobs:
           image-name: 'myapp'
           max-retries: '3'
           network: 'default'
-          parallel-builds: '0'
           platform-build-args: '{"linux/amd64": "--build-arg ARCH=amd64"}'
-          platform-fallback: 'true'
           push: 'true'
           sbom-format: 'spdx-json'
           scan-image: 'false'
@@ -69,9 +67,7 @@ jobs:
 | `image-name`            | The name of the Docker image to build. Defaults to the repository name.      | ❌       | -                                                   |
 | `max-retries`           | Maximum number of retry attempts for build and push operations               | ❌       | `3`                                                 |
 | `network`               | Network mode for build (host, none, or default)                              | ❌       | `default`                                           |
-| `parallel-builds`       | Number of parallel platform builds (0 for auto)                              | ❌       | `0`                                                 |
 | `platform-build-args`   | Platform-specific build args in JSON format                                  | ❌       | -                                                   |
-| `platform-fallback`     | Continue building other platforms if one fails                               | ❌       | `true`                                              |
 | `push`                  | Whether to push the image after building                                     | ❌       | `true`                                              |
 | `sbom-format`           | SBOM format (spdx-json, cyclonedx-json, or syft-json)                        | ❌       | `spdx-json`                                         |
 | `scan-image`            | Scan built image for vulnerabilities                                         | ❌       | `false`                                             |
@@ -119,9 +115,7 @@ jobs:
     image-name: 'myapp'
     max-retries: '3'
     network: 'default'
-    parallel-builds: '0'
     platform-build-args: '{"linux/amd64": "--build-arg ARCH=amd64"}'
-    platform-fallback: 'true'
     push: 'true'
     sbom-format: 'spdx-json'
     scan-image: 'false'
@@ -157,9 +151,7 @@ jobs:
     image-name: 'myapp'
     max-retries: '3'
     network: 'default'
-    parallel-builds: '0'
     platform-build-args: '{"linux/amd64": "--build-arg ARCH=amd64"}'
-    platform-fallback: 'true'
     push: 'true'
     sbom-format: 'spdx-json'
     scan-image: 'false'

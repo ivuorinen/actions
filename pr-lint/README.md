@@ -21,18 +21,14 @@ jobs:
       - name: PR Lint
         uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
         with:
-          email: 'github-actions@github.com'
           token: '${{ github.token }}'
-          username: 'github-actions'
 ```
 
 ## 📥 Inputs
 
-| Parameter  | Description                     | Required | Default                     |
-|------------|---------------------------------|----------|-----------------------------|
-| `email`    | GitHub email for commits        | ❌       | `github-actions@github.com` |
-| `token`    | GitHub token for authentication | ❌       | -                           |
-| `username` | GitHub username for commits     | ❌       | `github-actions`            |
+| Parameter | Description                     | Required | Default |
+|-----------|---------------------------------|----------|---------|
+| `token`   | GitHub token for authentication | ❌       | -       |
 
 ## 📤 Outputs
 
@@ -67,9 +63,7 @@ permissions:
 - name: PR Lint
   uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
   with:
-    email: 'github-actions@github.com'
     token: '${{ github.token }}'
-    username: 'github-actions'
 ```
 
 </details>
@@ -81,9 +75,7 @@ permissions:
 - name: PR Lint with custom settings
   uses: ivuorinen/actions/pr-lint@vYYYY.MM.DD
   with:
-    email: 'github-actions@github.com'
     token: '${{ github.token }}'
-    username: 'github-actions'
 ```
 
 </details>

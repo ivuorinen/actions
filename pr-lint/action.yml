@@ -18,14 +18,6 @@ inputs:
     description: 'GitHub token for authentication'
     required: false
     default: ''
-  username:
-    description: 'GitHub username for commits'
-    required: false
-    default: 'github-actions'
-  email:
-    description: 'GitHub email for commits'
-    required: false
-    default: 'github-actions@github.com'
 
 outputs:
   validation_status:
@@ -42,9 +34,7 @@ runs:
       shell: sh
       working-directory: ${{ github.action_path }}
       env:
-        INPUT_EMAIL: ${{ inputs.email }}
         INPUT_TOKEN: ${{ inputs.token }}
-        INPUT_USERNAME: ${{ inputs.username }}
       run: |
         set -eu
         if ! command -v python3 >/dev/null 2>&1; then
@@ -106,7 +96,7 @@ runs:
         set -eu
 
         # Detect package manager from lockfiles
-        if [ -f bun.lockb ]; then
+        if [ -f bun.lock ] || [ -f bun.lockb ]; then
           package_manager="bun"
         elif [ -f pnpm-lock.yaml ]; then
           package_manager="pnpm"
@@ -169,7 +159,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: node_modules
-        key: ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
+        key: ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock', 'bun.lockb') }}
         restore-keys: |
           ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-
 
@@ -501,133 +491,6 @@ runs:
         set -eu
 
         pip install -r requirements.txt
-
-    # Go tests if go.mod exists
-    - name: Detect go.mod
-      id: detect-go
-      shell: sh
-      run: |
-        set -eu
-
-        if [ -f go.mod ]; then
-          printf 'found=%s\n' "true" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Detect Go Version
-      if: steps.detect-go.outputs.found == 'true'
-      id: go-version
-      shell: sh
-      env:
-        DEFAULT_VERSION: '1.25'
-      run: |
-        set -eu
-
-        # Function to validate version format
-        validate_version() {
-          version=$1
-          case "$version" in
-            [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-              return 0
-              ;;
-            *)
-              return 1
-              ;;
-          esac
-        }
-
-        # Function to clean version string
-        clean_version() {
-          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
-        }
-
-        detected_version=""
-
-        # Parse .tool-versions file
-        if [ -f .tool-versions ]; then
-          printf 'Checking .tool-versions for golang...\n' >&2
-          version=$(awk '/^golang[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
-          if [ -n "$version" ]; then
-            version=$(clean_version "$version")
-            if validate_version "$version"; then
-              printf 'Found Go version in .tool-versions: %s\n' "$version" >&2
-              detected_version="$version"
-            fi
-          fi
-        fi
-
-        # Parse Dockerfile
-        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
-          printf 'Checking Dockerfile for golang...\n' >&2
-          version=$(grep -iF "FROM" Dockerfile | grep -F "golang:" | head -1 | \
-            sed -n -E "s/.*golang:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
-          if [ -n "$version" ]; then
-            version=$(clean_version "$version")
-            if validate_version "$version"; then
-              printf 'Found Go version in Dockerfile: %s\n' "$version" >&2
-              detected_version="$version"
-            fi
-          fi
-        fi
-
-        # Parse devcontainer.json
-        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
-          printf 'Checking devcontainer.json for golang...\n' >&2
-          if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*golang:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
-            if [ -n "$version" ]; then
-              version=$(clean_version "$version")
-              if validate_version "$version"; then
-                printf 'Found Go version in devcontainer: %s\n' "$version" >&2
-                detected_version="$version"
-              fi
-            fi
-          else
-            printf 'jq not found; skipping devcontainer.json parsing\n' >&2
-          fi
-        fi
-
-        # Parse .go-version file
-        if [ -z "$detected_version" ] && [ -f .go-version ]; then
-          printf 'Checking .go-version...\n' >&2
-          version=$(tr -d '\r' < .go-version | head -1)
-          if [ -n "$version" ]; then
-            version=$(clean_version "$version")
-            if validate_version "$version"; then
-              printf 'Found Go version in .go-version: %s\n' "$version" >&2
-              detected_version="$version"
-            fi
-          fi
-        fi
-
-        # Parse go.mod
-        if [ -z "$detected_version" ] && [ -f go.mod ]; then
-          printf 'Checking go.mod...\n' >&2
-          version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1 || echo "")
-          if [ -n "$version" ]; then
-            version=$(clean_version "$version")
-            if validate_version "$version"; then
-              printf 'Found Go version in go.mod: %s\n' "$version" >&2
-              detected_version="$version"
-            fi
-          fi
-        fi
-
-        # Use default version if nothing detected
-        if [ -z "$detected_version" ]; then
-          detected_version="$DEFAULT_VERSION"
-          printf 'Using default Go version: %s\n' "$detected_version" >&2
-        fi
-
-        # Set output
-        printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
-        printf 'Final detected Go version: %s\n' "$detected_version" >&2
-
-    - name: Setup Go
-      if: steps.detect-go.outputs.found == 'true'
-      uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
-      with:
-        go-version: ${{ steps.go-version.outputs.detected-version }}
-        cache: true
 
     #   ╭──────────────────────────────────────────────────────────╮
     #   │                    Dependency Review                     │

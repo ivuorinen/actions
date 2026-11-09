@@ -96,7 +96,7 @@ runs:
         set -eu
 
         # Detect package manager from lockfiles
-        if [ -f bun.lockb ]; then
+        if [ -f bun.lock ] || [ -f bun.lockb ]; then
           package_manager="bun"
         elif [ -f pnpm-lock.yaml ]; then
           package_manager="pnpm"
@@ -150,7 +150,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: node_modules
-        key: ${{ runner.os }}-npm-publish-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lockb') }}
+        key: ${{ runner.os }}-npm-publish-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock', 'bun.lockb') }}
         restore-keys: |
           ${{ runner.os }}-npm-publish-${{ steps.detect-pm.outputs.package-manager }}-
 
