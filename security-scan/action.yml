@@ -18,7 +18,7 @@ branding:
 
 inputs:
   gitleaks-license:
-    description: 'Gitleaks license key (required for Gitleaks scanning)'
+    description: 'Gitleaks license key. Required for Gitleaks scanning unless the repository owner is a personal account. Gitleaks is skipped on merge_group events'
     required: false
     default: ''
   gitleaks-config:
@@ -26,7 +26,7 @@ inputs:
     required: false
     default: '.gitleaks.toml'
   trivy-severity:
-    description: 'Severity levels to scan for (comma-separated)'
+    description: 'Severity levels to scan for (comma-separated). Also limits the SARIF report'
     required: false
     default: 'CRITICAL,HIGH'
   trivy-scanners:
@@ -105,8 +105,18 @@ runs:
           printf 'run_actionlint=%s\n' "$ACTIONLINT_ENABLED"
         } >> "$GITHUB_OUTPUT"
 
-        # Check Gitleaks configuration and license
-        if [ -f "$GITLEAKS_CONFIG" ] && [ -n "$GITLEAKS_LICENSE" ]; then
+        # gitleaks-action decides whether a license is needed from the account type
+        # of the repository owner in the event payload: individual users need none.
+        # The payload has no repository on schedule events, so no type is read there.
+        command -v jq >/dev/null 2>&1 || { echo "jq required" >&2; exit 1; }
+        owner_type=$(jq -r '.repository.owner.type // empty' "$GITHUB_EVENT_PATH" 2>/dev/null || true)
+
+        # Check Gitleaks event, configuration and license
+        if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
+          # gitleaks-action exits with an error on this event. The commits in a
+          # merge group were already scanned on their pull request.
+          printf '::notice::Skipping Gitleaks scan - gitleaks-action does not support the merge_group event\n'
+        elif [ -f "$GITLEAKS_CONFIG" ] && { [ -n "$GITLEAKS_LICENSE" ] || [ "$owner_type" = "User" ]; }; then
           printf 'Gitleaks config and license found\n'
           printf 'run_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
         else
@@ -141,6 +151,7 @@ runs:
         format: 'sarif'
         output: 'trivy-results.sarif'
         severity: ${{ inputs.trivy-severity }}
+        limit-severities-for-sarif: 'true'
         timeout: ${{ inputs.trivy-timeout }}
 
     - name: Verify SARIF files
