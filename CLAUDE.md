@@ -108,7 +108,10 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 
 ### Linters
 
-Use `make lint` (not direct calls). Runs: markdownlint-cli2, prettier, markdown-table-formatter, yaml-lint, actionlint, shellcheck, ruff
+Use `make lint` (not direct calls). Runs: markdownlint-cli2 (with `--fix`), yaml-lint, shellcheck (`*.sh` outside `_tests/` only),
+ruff + pyright, and `action-validator` (via pre-commit).
+It does not run Prettier, markdown-table-formatter or actionlint: Prettier runs in `make format` and `make docs`,
+the table formatter in `make docs`, and actionlint (`-shellcheck=`) in the pre-commit hook.
 
 ### Tests
 
