@@ -105,7 +105,8 @@ def _comma_key_value_error(value: str, value_pattern: str) -> str | None:
     if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", value.strip()):
         return "must be a single line without control characters"
     for position, item in enumerate(value.split(","), start=1):
-        item = item.strip()
+        # Only what the action's shell trim removes, so the name checked is the name used.
+        item = item.strip(" \t\n\v\f\r")
         if item and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=" + value_pattern, item):
             return f"item {position} is not a valid KEY=VALUE pair"
     return None
@@ -352,16 +353,17 @@ def check_cache_config(value: str) -> str | None:
     """One buildx cache spec: ``type=<backend>[,key=value...]`` (e.g. ``type=gha,mode=max``).
 
     The spec reaches buildx as one argument, which parses it as one CSV record, so a value
-    holds no whitespace, comma or quote. Keys are the ones each backend documents at
-    https://docs.docker.com/build/cache/backends/ and in the BuildKit README.
+    holds no comma or quote, and only a local ``src`` or ``dest`` path may hold spaces. Keys
+    are the ones each backend documents at https://docs.docker.com/build/cache/backends/ and
+    in the BuildKit README.
     """
     if _skip(value):
         return None
     match = re.fullmatch(
-        r"type=([a-z0-9-]+)((?:,[a-z0-9._-]+=[A-Za-z0-9._~:;/@+=%#?&\[\]-]+)*)", value.strip()
+        r"type=([a-z0-9-]+)((?:,[a-z0-9._-]+=[A-Za-z0-9._~:;/@+=%#?&\[\] -]+)*)", value.strip()
     )
     if not match:
-        return "must be one spec, type=<backend>[,key=value...], without spaces or newlines"
+        return "must be one spec, type=<backend>[,key=value...], on one line"
     common = ("mode", "ignore-error")
     compression = ("compression", "compression-level", "force-compression")
     image = ("oci-mediatypes", "image-manifest")
@@ -404,9 +406,11 @@ def check_cache_config(value: str) -> str | None:
     if backend not in backends:
         return "cache backend must be one of: " + ", ".join(backends)
     for field in match.group(2).split(",")[1:]:
-        key = field.split("=", 1)[0]
+        key, field_value = field.split("=", 1)
         if key not in backends[backend]:
             return f"type={backend} does not accept the key {key}"
+        if " " in field_value and key not in ("src", "dest"):
+            return f"the value of {key} must not contain spaces"
     return None
 
 
@@ -767,8 +771,11 @@ def check_comma_key_value_list(value: str) -> str | None:
 
 
 def check_comma_name_path_list(value: str) -> str | None:
-    """One line of comma-separated ``name=path`` items; the path may hold spaces."""
-    return _comma_key_value_error(value, ".+")
+    """One line of comma-separated ``name=path`` items; the path may hold spaces.
+
+    A double quote is rejected: buildx reads a ``--secret`` value as CSV, where it is quoting.
+    """
+    return _comma_key_value_error(value, '[^"]+')
 
 
 def check_timeout_with_unit(value: str) -> str | None:

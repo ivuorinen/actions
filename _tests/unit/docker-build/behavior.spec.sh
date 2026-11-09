@@ -185,6 +185,25 @@ Assert expect_argv docker --cache-to "type=local,dest=cache"
 Assert argv_lacks --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=max"
 End
 
+It "still adds the local export when only another field mentions type=local"
+export INPUT_CACHE_EXPORT="type=gha,scope=type=local"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "type=gha,scope=type=local"
+Assert expect_argv docker --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=max"
+End
+
+It "keeps a local cache path with spaces in one argv entry"
+export INPUT_CACHE_EXPORT="type=local,dest=/tmp/my cache"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "type=local,dest=/tmp/my cache"
+End
+
 It "uses the registry cache when a token is set"
 export INPUT_TOKEN="ghp_fixture_0000000000000000000000000000"
 

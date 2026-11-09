@@ -383,7 +383,7 @@ runs:
             set -- "$@" --cache-to "type=registry,ref=$registry_cache_ref,mode=$cache_mode"
           fi
           case "$cache_export" in
-            *type=local*) ;;
+            type=local | type=local,*) ;;
             *) set -- "$@" --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=$cache_mode" ;;
           esac
 

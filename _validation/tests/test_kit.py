@@ -206,6 +206,8 @@ CASES: dict[str, dict[str, list[str]]] = {
             "type=registry,ref=ghcr.io/user/app@sha256:abc123",
             "type=registry,ref=[::1]:5000/app:cache",
             "type=local,src=/tmp/cache",
+            "type=local,src=/tmp/my cache",
+            "type=local,dest=/tmp/my cache,mode=max",
             "type=local,dest=/tmp/cache,mode=max,tag=latest,reset=true",
             "type=local,src=path/to/dir,digest=sha256:abc123",
             "type=s3,region=eu-west-1,bucket=my_bucket,name=main;abc123",
@@ -230,10 +232,10 @@ CASES: dict[str, dict[str, list[str]]] = {
             "mode=max",
             # not a BuildKit cache backend
             "type=oci",
-            # whitespace would be a second argument on the command line
+            # only a local src or dest path may hold spaces
             "type=gha --push",
             "type=gha,mode=max --push",
-            "type=local,dest=/tmp/my cache",
+            "type=local,mode=max --push",
             # one spec per input, and no extra output keys
             "type=gha\ntype=inline",
             "type=gha\ninjected=1",
@@ -411,6 +413,9 @@ CASES: dict[str, dict[str, list[str]]] = {
             "FOO=bar\n,BAZ=qux",
             "FOO=bar\rBAZ=qux",
             "FOO=bar\x1b[0m",
+            # the shell trim keeps a no-break space, so it would stay in the name
+            "\xa0FOO=bar",
+            "A=1,\xa0FOO=bar",
         ],
     },
     "comma_name_path_list": {
@@ -442,6 +447,9 @@ CASES: dict[str, dict[str, list[str]]] = {
             "npm=.npmrc,--flag=value",
             "npm=.npmrc\naws=config",
             "npm=.npmrc\ninjected=1",
+            "\xa0npm=.npmrc",
+            # buildx reads a --secret value as CSV, where a double quote is quoting
+            'npm=my"file',
         ],
     },
     "timeout_with_unit": {"valid": ["5m", "30s", "500ms", "1h"], "invalid": ["5", "5min", "m5"]},
