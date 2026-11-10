@@ -130,6 +130,25 @@ The status should be success
 The stdout should include "pushed"
 End
 
+It "gives dotnet the credentials through its environment"
+# The harness mock sees argv only, so this runs the step's script with a stand-in
+# dotnet that records the variable NuGet reads.
+credentials_seen_by_dotnet() {
+  fake_dir="${SHELLSPEC_TMPBASE}/fake-bin"
+  mkdir -p "$fake_dir"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$NuGetPackageSourceCredentials_github" >"$CREDENTIALS_LOG"\n' >"$fake_dir/dotnet"
+  chmod +x "$fake_dir/dotnet"
+  script=$(yq -r '.runs.steps[] | select(.id == "publish-package") | .run' "${ACTION_DIR}/action.yml")
+  CREDENTIALS_LOG="$CREDENTIALS_LOG" PATH="$fake_dir:$PATH" API_KEY="the-token" NAMESPACE="acme" ACTOR="octocat" sh -c "$script"
+}
+CREDENTIALS_LOG="${SHELLSPEC_TMPBASE}/credentials"
+: >artifacts/Acme.Widgets.1.2.3.nupkg
+
+When call credentials_seen_by_dotnet
+The status should be success
+The contents of file "$CREDENTIALS_LOG" should equal "Username=octocat;Password=the-token"
+End
+
 It "pushes every package when the artifacts directory holds several"
 # The action loops `for _pkg in ./artifacts/*.nupkg`. A single-package test
 # cannot tell that loop apart from one that pushes only the first match, so
