@@ -140,12 +140,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Checkout Repository
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        token: ${{ inputs.token || github.token }}
-        persist-credentials: false
-
     - name: Validate Inputs
       shell: sh
       working-directory: ${{ github.action_path }}
@@ -184,6 +178,12 @@ runs:
           exit 1
         fi
         python3 validate.py
+
+    - name: Checkout Repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        token: ${{ inputs.token || github.token }}
+        persist-credentials: false
 
     - name: Check Dockerfile Exists
       shell: sh

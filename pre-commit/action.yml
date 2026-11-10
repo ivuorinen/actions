@@ -37,20 +37,11 @@ outputs:
     value: ${{ steps.pre-commit.outcome == 'success' }}
   files_changed:
     description: 'Whether any files were changed by pre-commit hooks'
-    value: ${{ steps.push-fixes.outputs.changes_detected }}
+    value: ${{ steps.push-fixes.outputs.changes_detected || 'false' }}
 
 runs:
   using: composite
   steps:
-    - name: Checkout Repository
-      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      with:
-        token: ${{ inputs.token || github.token }}
-        # git-auto-commit-action pushes the auto-fix commit using the token that
-        # actions/checkout persists in .git/config; persist-credentials must stay
-        # true or the "Commit Fixes" step cannot authenticate its push.
-        persist-credentials: true # zizmor: ignore[artipacked]
-
     - name: Validate Inputs
       shell: sh
       working-directory: ${{ github.action_path }}
@@ -67,6 +58,15 @@ runs:
           exit 1
         fi
         python3 validate.py
+
+    - name: Checkout Repository
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        token: ${{ inputs.token || github.token }}
+        # git-auto-commit-action pushes the auto-fix commit using the token that
+        # actions/checkout persists in .git/config; persist-credentials must stay
+        # true or the "Commit Fixes" step cannot authenticate its push.
+        persist-credentials: true # zizmor: ignore[artipacked]
 
     - name: Set option
       id: set-option
@@ -109,7 +109,7 @@ runs:
 
     - name: Push pre-commit fixes
       id: push-fixes
-      if: always() # Push changes even when pre-commit fails
+      if: always() && steps.pre-commit.outcome != 'skipped' # Push changes even when pre-commit fails
       uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
       with:
         commit_message: 'style(pre-commit): autofix'
