@@ -238,9 +238,16 @@ runs:
         # Install for this run only: no lifecycle scripts, and package.json and
         # the lockfile stay as committed, because the auto-commit step stages
         # every tracked file that changed. npm and bun have --no-save; pnpm and
-        # yarn have no equivalent, so their manifests are restored afterwards.
+        # yarn have no equivalent, so their manifests are restored on exit, also
+        # when the install fails partway.
         backup=$(mktemp -d)
-        trap 'rm -rf "$backup"' EXIT
+        restore_manifests() {
+          for f in package.json pnpm-lock.yaml yarn.lock; do
+            if [ -f "$backup/$f" ]; then cp -p "$backup/$f" "$f"; fi
+          done
+          rm -rf "$backup"
+        }
+        trap restore_manifests EXIT
         for f in package.json pnpm-lock.yaml yarn.lock; do
           if [ -f "$f" ]; then cp -p "$f" "$backup/$f"; fi
         done
@@ -264,10 +271,6 @@ runs:
             npm install --no-save --ignore-scripts $plugins_list
             ;;
         esac
-
-        for f in package.json pnpm-lock.yaml yarn.lock; do
-          if [ -f "$backup/$f" ]; then cp -p "$backup/$f" "$f"; fi
-        done
 
         echo "✅ Plugins installed successfully"
 
