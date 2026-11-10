@@ -44,6 +44,13 @@ _HELPERS = (
     "_int_in_range",
     "_shell_meta_error",
     "_comma_key_value_error",
+    "_file_path_error",
+    "_is_docker_remote_source",
+    "_docker_local_path_error",
+    "_docker_context_runner_path",
+    "_docker_context_source_error",
+    "_docker_entry_error",
+    "_docker_named_sources_error",
 )
 _HELPER_SOURCES = {name: inspect.getsource(getattr(kit, name)).strip() for name in _HELPERS}
 

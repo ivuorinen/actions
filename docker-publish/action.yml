@@ -11,10 +11,10 @@
 #
 # Input Validation: The action validates `context` and `dockerfile` inputs to prevent code injection attacks:
 #
-# - `context`: Must be a relative path (e.g., `.`, `./app`, `subdir/`). Absolute paths are rejected.
-#   Remote URLs trigger a warning and should only be used from trusted sources.
-# - `dockerfile`: Must be a relative path (e.g., `Dockerfile`, `./docker/Dockerfile`). Absolute paths
-#   and URLs are rejected.
+# - `context`: Must be a relative path (e.g., `.`, `./app`, `subdir/`). Absolute paths, URLs and
+#   `user@host:path` or `github.com/...` Git references are rejected.
+# - `dockerfile`: Must be a relative path (e.g., `Dockerfile`, `./docker/Dockerfile`). Absolute paths,
+#   URLs and Git references are rejected.
 #
 # These validations help prevent malicious actors from:
 # - Building Docker images from arbitrary file system locations
@@ -52,11 +52,11 @@ inputs:
     required: false
     default: 'linux/amd64,linux/arm64'
   context:
-    description: 'Build context path'
+    description: 'Build context path, relative to the workspace. Remote sources are rejected.'
     required: false
     default: '.'
   dockerfile:
-    description: 'Path to Dockerfile'
+    description: 'Path to Dockerfile, relative to the workspace. Remote sources are rejected.'
     required: false
     default: 'Dockerfile'
   build-args:
@@ -116,6 +116,28 @@ runs:
           exit 1
         fi
         python3 validate.py
+
+    - name: Check Build Paths
+      id: build-paths
+      shell: sh
+      env:
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
+      run: |
+        set -eu
+        # docker-build's step of this name does the same and adds its secrets and build contexts.
+        # Buildx reads through a symlink that leaves the workspace, which validate.py cannot see.
+        python3 -I -B - <<'PY'
+        import os
+        import sys
+
+        workspace = os.path.realpath(".")
+        for label, name in (("Context", "INPUT_CONTEXT"), ("Dockerfile", "INPUT_DOCKERFILE")):
+            path = os.environ[name]
+            if path and os.path.commonpath([workspace, os.path.realpath(path)]) != workspace:
+                print(f"::error::{label} resolves outside the workspace")
+                sys.exit(1)
+        PY
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1

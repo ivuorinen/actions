@@ -49,6 +49,50 @@ def _shell_meta_error(value: str) -> str | None:
     return None
 
 
+def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
+    """Return why ``value`` is not a relative path below the working directory, or None.
+
+    With ``spaces``, runs of spaces may separate path characters. A leading or trailing space
+    stays invalid, so the absolute-path check always sees the path's real first character.
+    """
+    import urllib.parse
+
+    decoded = urllib.parse.unquote(value)
+    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
+        return "absolute paths are not allowed"
+    if ".." in decoded:
+        return "path traversal (..) is not allowed"
+    if value.startswith("~"):
+        return "home directory expansion (~) is not allowed"
+    chars = r"[a-zA-Z0-9._/\-@+~!#=:]+"
+    if re.fullmatch(f"{chars}( +{chars})*" if spaces else chars, value):
+        return None
+    return "contains invalid path characters"
+
+
+def _is_docker_remote_source(value: str) -> bool:
+    """Return True for a value buildx fetches instead of reading from the runner.
+
+    Matches buildx ``urlutil.IsRemoteURL`` exactly, because a match skips the path checks: an
+    http(s), git or ssh URL, scp-style ``user@host:path``, or a bare ``github.com/...``.
+    """
+    remote = r"(https?|git|ssh)://|github\.com/|[A-Za-z0-9_-]+@[A-Za-z0-9.-]+:"
+    return re.match(remote, value) is not None
+
+
+def _docker_local_path_error(value: str, *, spaces: bool = False) -> str | None:
+    """Return why buildx would not read ``value`` as a path inside the workspace, or None.
+
+    ``://`` and ``@host:`` cover more than buildx fetches today, any scheme and any user part.
+    A leading ``-`` is stdin or a flag.
+    """
+    if "://" in value or re.search(r"@[^/]*:", value) or _is_docker_remote_source(value):
+        return "remote sources are not allowed, use a path relative to the workspace"
+    if value.startswith("-"):
+        return "must not start with -"
+    return _file_path_error(value, spaces=spaces)
+
+
 def check_boolean(value: str) -> str | None:
     """Boolean flag — ``true`` or ``false`` (any case)."""
     if _skip(value) or value.lower() in ("true", "false"):
@@ -86,6 +130,13 @@ def check_docker_image_name(value: str) -> str | None:
     return "must be a lowercase Docker image name (e.g. myapp, registry.example.com/ns/app)"
 
 
+def check_docker_local_path(value: str) -> str | None:
+    """Docker ``context`` / ``dockerfile`` — a path in the workspace, never a remote source."""
+    if _skip(value):
+        return None
+    return _docker_local_path_error(value)
+
+
 def check_docker_tag_list(value: str) -> str | None:
     """Comma-separated Docker tags (e.g. ``latest,v1.0.0``), with no spaces around the commas.
 
@@ -99,24 +150,6 @@ def check_docker_tag_list(value: str) -> str | None:
         if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
             return f"invalid Docker tag: {tag!r} (letters, digits, _ . -, at most 128 characters)"
     return None
-
-
-def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
-    if _skip(value):
-        return None
-    import urllib.parse
-
-    decoded = urllib.parse.unquote(value)
-    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
-        return "absolute paths are not allowed"
-    if ".." in decoded:
-        return "path traversal (..) is not allowed"
-    if value.startswith("~"):
-        return "home directory expansion (~) is not allowed"
-    if re.fullmatch(r"[a-zA-Z0-9._/\-@+~!#=:]+", value):
-        return None
-    return "contains invalid path characters"
 
 
 def check_github_token(value: str) -> str | None:
@@ -197,8 +230,8 @@ ACTION = "docker-publish"
 
 CHECKS = {
     "build-args": check_key_value_list,
-    "context": check_file_path,
-    "dockerfile": check_file_path,
+    "context": check_docker_local_path,
+    "dockerfile": check_docker_local_path,
     "dockerhub-token": check_opaque_token,
     "dockerhub-username": check_username,
     "image-name": check_docker_image_name,

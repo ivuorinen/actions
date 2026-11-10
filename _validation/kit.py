@@ -112,6 +112,115 @@ def _comma_key_value_error(value: str, value_pattern: str) -> str | None:
     return None
 
 
+def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
+    """Return why ``value`` is not a relative path below the working directory, or None.
+
+    With ``spaces``, runs of spaces may separate path characters. A leading or trailing space
+    stays invalid, so the absolute-path check always sees the path's real first character.
+    """
+    import urllib.parse
+
+    decoded = urllib.parse.unquote(value)
+    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
+        return "absolute paths are not allowed"
+    if ".." in decoded:
+        return "path traversal (..) is not allowed"
+    if value.startswith("~"):
+        return "home directory expansion (~) is not allowed"
+    chars = r"[a-zA-Z0-9._/\-@+~!#=:]+"
+    if re.fullmatch(f"{chars}( +{chars})*" if spaces else chars, value):
+        return None
+    return "contains invalid path characters"
+
+
+def _is_docker_remote_source(value: str) -> bool:
+    """Return True for a value buildx fetches instead of reading from the runner.
+
+    Matches buildx ``urlutil.IsRemoteURL`` exactly, because a match skips the path checks: an
+    http(s), git or ssh URL, scp-style ``user@host:path``, or a bare ``github.com/...``.
+    """
+    remote = r"(https?|git|ssh)://|github\.com/|[A-Za-z0-9_-]+@[A-Za-z0-9.-]+:"
+    return re.match(remote, value) is not None
+
+
+def _docker_local_path_error(value: str, *, spaces: bool = False) -> str | None:
+    """Return why buildx would not read ``value`` as a path inside the workspace, or None.
+
+    ``://`` and ``@host:`` cover more than buildx fetches today, any scheme and any user part.
+    A leading ``-`` is stdin or a flag.
+    """
+    if "://" in value or re.search(r"@[^/]*:", value) or _is_docker_remote_source(value):
+        return "remote sources are not allowed, use a path relative to the workspace"
+    if value.startswith("-"):
+        return "must not start with -"
+    return _file_path_error(value, spaces=spaces)
+
+
+def _docker_context_runner_path(source: str) -> str | None:
+    """Return the path buildx reads from the runner for a ``--build-context`` value, or None.
+
+    Only a local directory and the path in ``oci-layout://<path>[:tag][@digest]`` are read
+    from the runner. buildx hands remote sources, ``docker-image://`` and ``target:`` to the
+    builder, so those hold no runner path. docker-build's Check Build Paths step calls this
+    through its generated validate.py.
+    """
+    if source.startswith("oci-layout://"):
+        return re.sub(
+            r"(:\w[\w.-]*)?(@[\w+.-]+:[0-9a-fA-F]{32,})?$", "", source[len("oci-layout://") :]
+        )
+    if source.startswith(("docker-image://", "target:")) or _is_docker_remote_source(source):
+        return None
+    return source
+
+
+def _docker_context_source_error(source: str) -> str | None:
+    """Return why ``source`` is not acceptable as a ``--build-context`` value, or None."""
+    path = _docker_context_runner_path(source)
+    if path is None:
+        # An image reference, build target or URL never holds whitespace.
+        return "must not contain whitespace" if re.search(r"\s", source) else None
+    return _docker_local_path_error(path, spaces=True)
+
+
+def _docker_entry_error(entry: str, *, contexts: bool) -> str | None:
+    """Return why one ``name=source`` entry is invalid, or None.
+
+    Names are image references for build contexts (``alpine:3.20``) and free-form ids for
+    secrets. The action always passes a secret's source as ``src=``, which buildx reads as
+    a file even for a value such as ``env=NAME``, so every secret source is a path.
+    """
+    name, separator, source = entry.partition("=")
+    if not separator or not source:
+        return f"invalid entry (expected NAME=SOURCE): {entry}"
+    if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.+/:@-]*", name):
+        return f"invalid name: {name}"
+    if contexts:
+        error = _docker_context_source_error(source)
+    else:
+        error = _file_path_error(source, spaces=True)
+    return f"{name}: {error}" if error else None
+
+
+def _docker_named_sources_error(value: str, *, contexts: bool) -> str | None:
+    """Return why a one-line, comma-separated ``name=source`` list is invalid, or None.
+
+    Mirrors the action, which splits on commas only and trims each entry: whitespace around
+    the value (a YAML block scalar's trailing newline) and around entries is ignored, and a
+    line break anywhere else is rejected.
+    """
+    if _skip(value):
+        return None
+    if meta := _shell_meta_error(value):
+        return meta
+    if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", value.strip()):
+        return "must be a single line without control characters"
+    # Only what the action's shell trim removes, so the entry checked is the entry used.
+    for entry in (part.strip(" \t\n\v\f\r") for part in value.split(",")):
+        if entry and (error := _docker_entry_error(entry, contexts=contexts)):
+            return error
+    return None
+
+
 # --------------------------------------------------------------------------------------
 # Tokens & secrets
 # --------------------------------------------------------------------------------------
@@ -512,18 +621,24 @@ def check_file_path(value: str) -> str | None:
     """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
     if _skip(value):
         return None
-    import urllib.parse
+    return _file_path_error(value)
 
-    decoded = urllib.parse.unquote(value)
-    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
-        return "absolute paths are not allowed"
-    if ".." in decoded:
-        return "path traversal (..) is not allowed"
-    if value.startswith("~"):
-        return "home directory expansion (~) is not allowed"
-    if re.fullmatch(r"[a-zA-Z0-9._/\-@+~!#=:]+", value):
+
+def check_docker_local_path(value: str) -> str | None:
+    """Docker ``context`` / ``dockerfile`` — a path in the workspace, never a remote source."""
+    if _skip(value):
         return None
-    return "contains invalid path characters"
+    return _docker_local_path_error(value)
+
+
+def check_docker_build_contexts(value: str) -> str | None:
+    """``name=source`` build contexts — paths stay in the workspace, references pass through."""
+    return _docker_named_sources_error(value, contexts=True)
+
+
+def check_docker_secrets(value: str) -> str | None:
+    """``id=path`` build secrets — each path is a file in the workspace."""
+    return _docker_named_sources_error(value, contexts=False)
 
 
 def check_branch_name(value: str) -> str | None:
@@ -770,14 +885,6 @@ def check_comma_key_value_list(value: str) -> str | None:
     return _comma_key_value_error(value, ".*")
 
 
-def check_comma_name_path_list(value: str) -> str | None:
-    """One line of comma-separated ``name=path`` items; the path may hold spaces.
-
-    A double quote is rejected: buildx reads a ``--secret`` value as CSV, where it is quoting.
-    """
-    return _comma_key_value_error(value, '[^"]+')
-
-
 def check_timeout_with_unit(value: str) -> str | None:
     """Duration with a unit (e.g. ``5m``, ``30s``, ``500ms``)."""
     if _skip(value):
@@ -964,11 +1071,13 @@ EXAMPLES = {
     "codeql_packs": "my-org/my-queries@1.0.0",
     "codeql_queries": "security-and-quality",
     "comma_key_value_list": "NODE_ENV=production,VERSION=1.0.0",
-    "comma_name_path_list": "shared=path/to/shared",
     "command_args": "--no-progress --prefer-dist",
     "coverage_driver": "xdebug",
     "docker_architectures": "linux/amd64,linux/arm64",
+    "docker_build_contexts": "shared=./shared,base=docker-image://alpine:3.20",
     "docker_image_name": "myapp",
+    "docker_local_path": "docker/app",
+    "docker_secrets": "npmrc=.npmrc",
     "docker_tag": "v1.0.0",
     "docker_tag_list": "latest,v1.0.0",
     "dotnet_version": "8.0.x",

@@ -41,8 +41,8 @@ jobs:
 | Parameter            | Description                                                                                                 | Required | Default                   |
 |----------------------|-------------------------------------------------------------------------------------------------------------|----------|---------------------------|
 | `build-args`         | Build arguments (newline-separated KEY=VALUE pairs)                                                         | ❌       | -                         |
-| `context`            | Build context path                                                                                          | ❌       | `.`                       |
-| `dockerfile`         | Path to Dockerfile                                                                                          | ❌       | `Dockerfile`              |
+| `context`            | Build context path, relative to the workspace. Remote sources are rejected.                                 | ❌       | `.`                       |
+| `dockerfile`         | Path to Dockerfile, relative to the workspace. Remote sources are rejected.                                 | ❌       | `Dockerfile`              |
 | `dockerhub-token`    | Docker Hub token (required if publishing to Docker Hub). Must not contain whitespace or control characters. | ❌       | -                         |
 | `dockerhub-username` | Docker Hub username (required if publishing to Docker Hub)                                                  | ❌       | -                         |
 | `image-name`         | Docker image name (defaults to repository name)                                                             | ❌       | -                         |

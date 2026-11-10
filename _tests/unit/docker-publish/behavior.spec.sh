@@ -27,6 +27,38 @@ after() {
 }
 AfterEach 'after'
 
+Describe "paths on disk"
+It "rejects a context that a symlink takes out of the workspace"
+ln -s /etc outside
+export INPUT_CONTEXT="outside"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Context resolves outside the workspace"
+End
+
+It "rejects a Dockerfile below a symlinked directory that leaves the workspace"
+ln -s /etc linked
+export INPUT_DOCKERFILE="linked/Dockerfile"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Dockerfile resolves outside the workspace"
+End
+
+It "accepts a context and Dockerfile that stay in the workspace"
+mkdir real
+: >real/Dockerfile
+ln -s real inside
+export INPUT_CONTEXT="inside"
+export INPUT_DOCKERFILE="inside/Dockerfile"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be success
+The output should equal ""
+End
+End
+
 Describe "registry routing"
 # The registry input selects the host prefix. `both` must emit the image twice,
 # once per host — inverting or dropping a branch here silently publishes to the
