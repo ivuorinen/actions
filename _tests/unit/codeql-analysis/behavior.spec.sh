@@ -72,6 +72,11 @@ checkout_line=$(grep -n '^    - name: Checkout repository' "${ACTION_DIR}/action
 When call test "$guard_line" -lt "$checkout_line"
 The status should be success
 End
+
+It "runs on every trigger, because no condition can skip it"
+When call yq -r '.runs.steps[] | select(.id == "checkout-safety") | has("if")' "${ACTION_DIR}/action.yml"
+The stdout should equal "false"
+End
 End
 
 Describe "sarif-file output"
