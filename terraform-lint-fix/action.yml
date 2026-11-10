@@ -214,7 +214,16 @@ runs:
         # Run TFLint with configured format
         tflint_output="$reports_dir/tflint.$FORMAT"
         if ! tflint "$@" > "$tflint_output"; then
-          error_count=$(grep -o '"level": *"error"' "$tflint_output" | wc -l | tr -d ' ')
+          # TFLint marks an error differently in each format, and in junit and compact the
+          # case differs between lint issues and configuration errors.
+          case "$FORMAT" in
+            json) error_pattern='"severity": *"error"' ;;
+            checkstyle) error_pattern='severity="error"' ;;
+            junit) error_pattern='type="[Ee]rror"' ;;
+            compact) error_pattern=': [Ee]rror - ' ;;
+            *) error_pattern='"level": *"error"' ;;
+          esac
+          error_count=$(grep -oE "$error_pattern" "$tflint_output" | wc -l | tr -d ' ')
           printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
           if [ "$FAIL_ON_ERROR" = "true" ]; then

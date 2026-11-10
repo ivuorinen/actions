@@ -33,8 +33,11 @@ End
 Describe "when the caller names a version"
 Parameters
 "latest" "latest"
+"LATEST" "latest"
 "v2.1.0" "v2.1.0"
+"V2.1.0" "v2.1.0"
 "2.1.0" "v2.1.0"
+" 2.1.0 " "v2.1.0"
 "v2.1.0-rc.1" "v2.1.0-rc.1"
 "2.1.0+build" "v2.1.0+build"
 "2.1" "v2.1"
