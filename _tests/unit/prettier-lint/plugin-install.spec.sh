@@ -31,6 +31,7 @@ printf '"plugin": "added"\n' >>package.json
 for lock in pnpm-lock.yaml yarn.lock; do
   if [ -f "$lock" ]; then printf 'plugin: added\n' >>"$lock"; fi
 done
+exit "${FAKE_PM_EXIT:-0}"
 FAKE
   chmod +x "${FAKE_BIN}/fakepm"
   for pm in npm pnpm yarn bun; do
@@ -109,6 +110,14 @@ The status should be success
 The stdout should include "Installing Prettier plugins"
 Assert [ "$(installed_call | head -n 1)" = "yarn add -D plugin-a plugin-b" ]
 Assert [ "$(grep '^scripts=' "$CALLS")" = "scripts=false" ]
+Assert manifests_unchanged
+End
+
+It "restores package.json and the lockfile when the install fails"
+export FAKE_PM_EXIT=1
+When call run_install pnpm "plugin-a"
+The status should be failure
+The stdout should include "Installing Prettier plugins"
 Assert manifests_unchanged
 End
 End
