@@ -131,8 +131,8 @@ runs:
         }
 
         # Initialize outputs
-        printf 'detected-version=\n' >> "$GITHUB_OUTPUT"
-        printf 'package-manager=\n' >> "$GITHUB_OUTPUT"
+        printf 'detected-version=%s\n' '' >> "$GITHUB_OUTPUT"
+        printf 'package-manager=%s\n' '' >> "$GITHUB_OUTPUT"
 
         detected_version=""
         detected_package_manager=""

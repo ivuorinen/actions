@@ -15,9 +15,9 @@ runs:
     - id: first
       shell: sh
       run: |
-        printf 'flag=yes\n' >> "$GITHUB_OUTPUT"
+        printf 'flag=%s\n' 'yes' >> "$GITHUB_OUTPUT"
     - id: second
       if: ${{ steps.first.outputs.flag == 'yes' }}
       shell: sh
       run: |
-        printf 'ran=true\n' >> "$GITHUB_OUTPUT"
+        printf 'ran=%s\n' 'true' >> "$GITHUB_OUTPUT"
