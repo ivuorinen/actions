@@ -112,6 +112,107 @@ B=2"
 End
 End
 
+Describe "paths on disk"
+It "rejects a secret that a symlink takes out of the workspace"
+: >plain
+ln -s /etc/hostname link
+export INPUT_SECRETS="ok=plain, bad=link"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Secret bad resolves outside the workspace"
+End
+
+It "rejects a secret below a symlinked directory that leaves the workspace"
+ln -s /etc linked
+export INPUT_SECRETS="bad=linked/hostname"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Secret bad resolves outside the workspace"
+End
+
+It "accepts plain files and symlinks that stay in the workspace"
+mkdir real
+: >real/file
+ln -s real/file inside
+export INPUT_SECRETS="a=real/file,b=inside,c=not-created-yet"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be success
+The output should equal ""
+End
+
+It "rejects a context that a symlink takes out of the workspace"
+ln -s /etc outside
+export INPUT_CONTEXT="outside"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Context resolves outside the workspace"
+End
+
+It "rejects a Dockerfile below a symlinked directory that leaves the workspace"
+ln -s /etc linked
+export INPUT_DOCKERFILE="linked/Dockerfile"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Dockerfile resolves outside the workspace"
+End
+
+It "rejects a local build context that a symlink takes out of the workspace"
+ln -s /etc linked
+export INPUT_BUILD_CONTEXTS="ok=.,bad=linked"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Build context bad resolves outside the workspace"
+End
+
+It "follows a symlink whose name holds a space"
+ln -s /etc "out side"
+export INPUT_SECRETS="bad=out side"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Secret bad resolves outside the workspace"
+End
+
+It "checks the path of an oci-layout build context without its tag and digest"
+ln -s /etc linked
+digest="sha256:$(printf '%064d' 0)"
+export INPUT_BUILD_CONTEXTS="bad=oci-layout://linked:v1@${digest}"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be failure
+The output should equal "::error::Build context bad resolves outside the workspace"
+End
+
+It "does not read remote or reference build contexts as paths"
+# As a path, the last value would resolve through this link and leave the workspace.
+ln -s /etc github.com
+export INPUT_BUILD_CONTEXTS="a=docker-image://alpine:3.20,b=target:build,c=https://example.com/a.git,d=github.com/a/b"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be success
+The output should equal ""
+End
+
+It "accepts a context, Dockerfile and build context that stay in the workspace"
+mkdir real
+: >real/Dockerfile
+ln -s real inside
+export INPUT_CONTEXT="inside"
+export INPUT_DOCKERFILE="inside/Dockerfile"
+export INPUT_BUILD_CONTEXTS="shared=inside"
+
+When call run_step "${ACTION_DIR}" "build-paths"
+The status should be success
+The output should equal ""
+End
+End
+
 Describe "cache inputs"
 It "never splits a cache-import spec on whitespace"
 export INPUT_CACHE_IMPORT="type=gha --push"

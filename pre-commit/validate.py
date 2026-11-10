@@ -22,6 +22,27 @@ def _skip(value: str) -> bool:
     return value.strip() == ""
 
 
+def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
+    """Return why ``value`` is not a relative path below the working directory, or None.
+
+    With ``spaces``, runs of spaces may separate path characters. A leading or trailing space
+    stays invalid, so the absolute-path check always sees the path's real first character.
+    """
+    import urllib.parse
+
+    decoded = urllib.parse.unquote(value)
+    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
+        return "absolute paths are not allowed"
+    if ".." in decoded:
+        return "path traversal (..) is not allowed"
+    if value.startswith("~"):
+        return "home directory expansion (~) is not allowed"
+    chars = r"[a-zA-Z0-9._/\-@+~!#=:]+"
+    if re.fullmatch(f"{chars}( +{chars})*" if spaces else chars, value):
+        return None
+    return "contains invalid path characters"
+
+
 def check_branch_name(value: str) -> str | None:
     """Git branch/ref name — conservative subset that rejects ref-injection characters."""
     if _skip(value):
@@ -48,18 +69,7 @@ def check_file_path(value: str) -> str | None:
     """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
     if _skip(value):
         return None
-    import urllib.parse
-
-    decoded = urllib.parse.unquote(value)
-    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
-        return "absolute paths are not allowed"
-    if ".." in decoded:
-        return "path traversal (..) is not allowed"
-    if value.startswith("~"):
-        return "home directory expansion (~) is not allowed"
-    if re.fullmatch(r"[a-zA-Z0-9._/\-@+~!#=:]+", value):
-        return None
-    return "contains invalid path characters"
+    return _file_path_error(value)
 
 
 def check_git_author_name(value: str) -> str | None:

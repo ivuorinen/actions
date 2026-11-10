@@ -22,11 +22,11 @@ inputs:
     required: false
     default: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
   dockerfile:
-    description: 'Path to the Dockerfile'
+    description: 'Path to the Dockerfile, relative to the workspace. Remote sources are rejected.'
     required: false
     default: 'Dockerfile'
   context:
-    description: 'Docker build context'
+    description: 'Docker build context path, relative to the workspace. Remote sources are rejected.'
     required: false
     default: '.'
   build-args:
@@ -60,14 +60,14 @@ inputs:
     required: false
     default: 'max'
   build-contexts:
-    description: 'Additional build contexts in format name=path,name2=path2, on one line. A path may contain spaces, but no comma or newline.'
+    description: 'Additional build contexts as name=value,name2=value2, on one line. Each value is a workspace-relative path (spaces allowed, no comma or newline), oci-layout://relative-path, docker-image://, target:, or a Git/HTTP URL.'
     required: false
   network:
     description: 'Network mode for build (host, none, or default)'
     required: false
     default: 'default'
   secrets:
-    description: 'Build secrets in format id=path,id2=path2, on one line. A path may contain spaces, but no comma or newline.'
+    description: 'Build secrets in format id=path,id2=path2, on one line. Each path is a file relative to the workspace (spaces allowed, no comma or newline).'
     required: false
   auto-detect-platforms:
     description: 'Automatically detect and build for all available platforms'
@@ -252,6 +252,42 @@ runs:
         else
           printf 'name=%s\n' "$IMAGE_NAME" >> "$GITHUB_OUTPUT"
         fi
+
+    - name: Check Build Paths
+      id: build-paths
+      shell: sh
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        INPUT_BUILD_CONTEXTS: ${{ inputs.build-contexts }}
+        INPUT_CONTEXT: ${{ inputs.context }}
+        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
+        INPUT_SECRETS: ${{ inputs.secrets }}
+      run: |
+        set -eu
+        # Buildx reads through a symlink that leaves the workspace. validate.py sees only the
+        # text of each path, so such a link can only be caught once the files exist.
+        python3 -I -B - <<'PY'
+        import os
+        import sys
+
+        sys.path.insert(0, os.environ["ACTION_PATH"])
+        from validate import _docker_context_runner_path
+
+        TRIM = " \t\n\v\f\r"
+        paths = [("Context", os.environ["INPUT_CONTEXT"]), ("Dockerfile", os.environ["INPUT_DOCKERFILE"])]
+        for entry in os.environ["INPUT_SECRETS"].split(","):
+            name, _, path = entry.strip(TRIM).partition("=")
+            paths.append((f"Secret {name}", path))
+        for entry in os.environ["INPUT_BUILD_CONTEXTS"].split(","):
+            name, _, value = entry.strip(TRIM).partition("=")
+            paths.append((f"Build context {name}", _docker_context_runner_path(value)))
+
+        workspace = os.path.realpath(".")
+        for label, path in paths:
+            if path and os.path.commonpath([workspace, os.path.realpath(path)]) != workspace:
+                print(f"::error::{label} resolves outside the workspace")
+                sys.exit(1)
+        PY
 
     - name: Login to GitHub Container Registry
       if: ${{ inputs.push == 'true' }}
