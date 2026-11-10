@@ -5,19 +5,9 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-<<<<<<< HEAD
 values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
-every expression in INPUT_*, so all other values are checked as literal data. Inputs listed in
-SECRETS are masked in the job's logs before any check runs.
-||||||| parent of 72e3942 (refactor(validation): name masked inputs for what they hold)
-values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime). Inputs listed in SECRETS are masked
-in the job's logs before any check runs.
-=======
-values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime). Inputs named in MASKED_INPUTS are
-masked in the job's logs before any check runs.
->>>>>>> 72e3942 (refactor(validation): name masked inputs for what they hold)
+every expression in INPUT_*, so all other values are checked as literal data. Inputs named in
+MASKED_INPUTS are masked in the job's logs before any check runs.
 """
 
 from __future__ import annotations
@@ -125,7 +115,7 @@ CHECKS = {
 REQUIRED = {"npm_token"}
 
 
-MASKED_INPUTS: list[str] = ["token"]
+MASKED_INPUTS: list[str] = ["npm_token", "token"]
 
 
 def _input(name: str) -> str:

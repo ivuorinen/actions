@@ -832,7 +832,7 @@ CHECKS = {
 # logs. This holds check type names, never a credential.
 # --------------------------------------------------------------------------------------
 
-MASKED_CHECKS = frozenset({"github_token", "license_key"})
+MASKED_CHECKS = frozenset({"github_token", "license_key", "opaque_token"})
 
 
 # --------------------------------------------------------------------------------------
