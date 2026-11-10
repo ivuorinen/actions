@@ -421,8 +421,19 @@ validate_input_python() {
   return $exit_code
 }
 
+# Version pinned as `NAME: 'x.y.z'` in an action's action.yml. Specs read the pin
+# instead of repeating it, so a Renovate bump does not touch them.
+pinned_version() {
+  sed -n -E "s/^[[:space:]]+${2}:[[:space:]]+'([^']+)'.*/\1/p" "${PROJECT_ROOT}/${1}/action.yml" | head -n 1
+}
+
+# Give a step run by run_step the package manager its detect-pm step would report.
+use_package_manager() {
+  export HARNESS_STEPS="{\"detect-pm\":{\"outputs\":{\"package-manager\":\"$1\"}}}"
+}
+
 # Export all new simplified helpers (functions are moved above)
-export -f validate_action_yml_quiet validate_input_python
+export -f validate_action_yml_quiet validate_input_python pinned_version use_package_manager
 
 # Removed EXIT trap setup to avoid conflicts with ShellSpec
 # ShellSpec handles its own cleanup, and our framework cleanup is handled in setup.sh

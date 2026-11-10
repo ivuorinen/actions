@@ -25,7 +25,7 @@ jobs:
       - name: NPM Semantic Release
         uses: ivuorinen/actions/npm-semantic-release@vYYYY.MM.DD
         with:
-          extra_plugins: 'conventional-changelog-conventionalcommits@^9.3.1'
+          extra_plugins: '@prettier/plugin-xml'
           github_token: '${{ github.token }}'
           node-version: '24'
           npm_token: '${{ secrets.NPM_TOKEN }}'
@@ -35,14 +35,14 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter       | Description                                                | Required | Default                                             |
-|-----------------|------------------------------------------------------------|----------|-----------------------------------------------------|
-| `extra_plugins` | Extra semantic-release plugins (pipe-separated).           | ❌       | `conventional-changelog-conventionalcommits@^9.3.1` |
-| `github_token`  | GitHub token for creating releases, tags, and PR comments. | ❌       | `${{ github.token }}`                               |
-| `node-version`  | Node.js version to use when .nvmrc is not present.         | ❌       | `24`                                                |
-| `npm_token`     | NPM token for publishing.                                  | ✅       | -                                                   |
-| `registry-url`  | Registry URL for publishing.                               | ❌       | `https://registry.npmjs.org/`                       |
-| `scope`         | Package scope to use.                                      | ❌       | `@ivuorinen`                                        |
+| Parameter       | Description                                                                                                                              | Required | Default                       |
+|-----------------|------------------------------------------------------------------------------------------------------------------------------------------|----------|-------------------------------|
+| `extra_plugins` | Extra semantic-release plugins (pipe-separated). Empty: conventional-changelog-conventionalcommits at the version pinned in this action. | ❌       | -                             |
+| `github_token`  | GitHub token for creating releases, tags, and PR comments.                                                                               | ❌       | `${{ github.token }}`         |
+| `node-version`  | Node.js version to use when .nvmrc is not present.                                                                                       | ❌       | `24`                          |
+| `npm_token`     | NPM token for publishing.                                                                                                                | ✅       | -                             |
+| `registry-url`  | Registry URL for publishing.                                                                                                             | ❌       | `https://registry.npmjs.org/` |
+| `scope`         | Package scope to use.                                                                                                                    | ❌       | `@ivuorinen`                  |
 
 ## 📤 Outputs
 
@@ -81,7 +81,7 @@ permissions:
 - name: NPM Semantic Release
   uses: ivuorinen/actions/npm-semantic-release@vYYYY.MM.DD
   with:
-    extra_plugins: 'conventional-changelog-conventionalcommits@^9.3.1'
+    extra_plugins: '@prettier/plugin-xml'
     github_token: '${{ github.token }}'
     node-version: '24'
     npm_token: '${{ secrets.NPM_TOKEN }}'
@@ -98,7 +98,7 @@ permissions:
 - name: NPM Semantic Release with custom settings
   uses: ivuorinen/actions/npm-semantic-release@vYYYY.MM.DD
   with:
-    extra_plugins: 'conventional-changelog-conventionalcommits@^9.3.1'
+    extra_plugins: '@prettier/plugin-xml'
     github_token: '${{ github.token }}'
     node-version: '24'
     npm_token: '${{ secrets.NPM_TOKEN }}'

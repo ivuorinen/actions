@@ -30,7 +30,7 @@ jobs:
           max-retries: '3'
           mode: 'check'
           plugins: '@prettier/plugin-xml'
-          prettier-version: 'latest'
+          prettier-version: '1.2.3'
           report-format: 'sarif'
           token: '${{ github.token }}'
           username: 'github-actions'
@@ -39,22 +39,22 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                         | Required | Default                                          |
-|---------------------|-----------------------------------------------------|----------|--------------------------------------------------|
-| `cache`             | Enable Prettier caching                             | ❌       | `true`                                           |
-| `config-file`       | Path to Prettier config file                        | ❌       | `.prettierrc`                                    |
-| `email`             | GitHub email for commits (fix mode only)            | ❌       | `github-actions@github.com`                      |
-| `fail-on-error`     | Fail workflow if issues are found (check mode only) | ❌       | `true`                                           |
-| `file-pattern`      | Files to include (glob pattern)                     | ❌       | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
-| `ignore-file`       | Path to Prettier ignore file                        | ❌       | `.prettierignore`                                |
-| `max-retries`       | Maximum number of retry attempts                    | ❌       | `3`                                              |
-| `mode`              | Mode to run (check or fix)                          | ❌       | `check`                                          |
-| `plugins`           | Comma-separated list of Prettier plugins to install | ❌       | -                                                |
-| `prettier-version`  | Prettier version to use                             | ❌       | `latest`                                         |
-| `report-format`     | Output format for check mode (json, sarif)          | ❌       | `sarif`                                          |
-| `token`             | GitHub token for authentication                     | ❌       | -                                                |
-| `username`          | GitHub username for commits (fix mode only)         | ❌       | `github-actions`                                 |
-| `working-directory` | Directory containing files to format                | ❌       | `.`                                              |
+| Parameter           | Description                                                                                                                                     | Required | Default                                          |
+|---------------------|-------------------------------------------------------------------------------------------------------------------------------------------------|----------|--------------------------------------------------|
+| `cache`             | Enable Prettier caching                                                                                                                         | ❌       | `true`                                           |
+| `config-file`       | Path to Prettier config file                                                                                                                    | ❌       | `.prettierrc`                                    |
+| `email`             | GitHub email for commits (fix mode only)                                                                                                        | ❌       | `github-actions@github.com`                      |
+| `fail-on-error`     | Fail workflow if issues are found (check mode only)                                                                                             | ❌       | `true`                                           |
+| `file-pattern`      | Files to include (glob pattern)                                                                                                                 | ❌       | `**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}` |
+| `ignore-file`       | Path to Prettier ignore file                                                                                                                    | ❌       | `.prettierignore`                                |
+| `max-retries`       | Maximum number of retry attempts                                                                                                                | ❌       | `3`                                              |
+| `mode`              | Mode to run (check or fix)                                                                                                                      | ❌       | `check`                                          |
+| `plugins`           | Comma-separated list of Prettier plugins to install                                                                                             | ❌       | -                                                |
+| `prettier-version`  | Prettier version to install when the repository has no copy of its own (empty: the version pinned in this action, "latest": the newest release) | ❌       | -                                                |
+| `report-format`     | Output format for check mode (json, sarif)                                                                                                      | ❌       | `sarif`                                          |
+| `token`             | GitHub token for authentication                                                                                                                 | ❌       | -                                                |
+| `username`          | GitHub username for commits (fix mode only)                                                                                                     | ❌       | `github-actions`                                 |
+| `working-directory` | Directory containing files to format                                                                                                            | ❌       | `.`                                              |
 
 ## 📤 Outputs
 
@@ -101,7 +101,7 @@ permissions:
     max-retries: '3'
     mode: 'check'
     plugins: '@prettier/plugin-xml'
-    prettier-version: 'latest'
+    prettier-version: '1.2.3'
     report-format: 'sarif'
     token: '${{ github.token }}'
     username: 'github-actions'
@@ -126,7 +126,7 @@ permissions:
     max-retries: '3'
     mode: 'check'
     plugins: '@prettier/plugin-xml'
-    prettier-version: 'latest'
+    prettier-version: '1.2.3'
     report-format: 'sarif'
     token: '${{ github.token }}'
     username: 'github-actions'

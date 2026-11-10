@@ -26,24 +26,24 @@ jobs:
           extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
           framework: 'auto'
           max-retries: '3'
-          php-version: 'latest'
+          php-version: '1.2.3'
           token: '${{ github.token }}'
           username: 'github-actions'
 ```
 
 ## 📥 Inputs
 
-| Parameter       | Description                                                                                             | Required | Default                                             |
-|-----------------|---------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
-| `composer-args` | Arguments to pass to Composer install                                                                   | ❌       | `--no-progress --prefer-dist --optimize-autoloader` |
-| `coverage`      | Code-coverage driver (none, xdebug, pcov)                                                               | ❌       | `none`                                              |
-| `email`         | GitHub email for commits                                                                                | ❌       | `github-actions@github.com`                         |
-| `extensions`    | PHP extensions to install (comma-separated)                                                             | ❌       | `mbstring, intl, json, pdo_sqlite, sqlite3`         |
-| `framework`     | Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework) | ❌       | `auto`                                              |
-| `max-retries`   | Maximum number of retry attempts for Composer commands                                                  | ❌       | `3`                                                 |
-| `php-version`   | PHP Version to use (latest, 8.4, 8.3, etc.)                                                             | ❌       | `latest`                                            |
-| `token`         | GitHub token for authentication                                                                         | ❌       | -                                                   |
-| `username`      | GitHub username for commits                                                                             | ❌       | `github-actions`                                    |
+| Parameter       | Description                                                                                                                              | Required | Default                                             |
+|-----------------|------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
+| `composer-args` | Arguments to pass to Composer install                                                                                                    | ❌       | `--no-progress --prefer-dist --optimize-autoloader` |
+| `coverage`      | Code-coverage driver (none, xdebug, pcov)                                                                                                | ❌       | `none`                                              |
+| `email`         | GitHub email for commits                                                                                                                 | ❌       | `github-actions@github.com`                         |
+| `extensions`    | PHP extensions to install (comma-separated)                                                                                              | ❌       | `mbstring, intl, json, pdo_sqlite, sqlite3`         |
+| `framework`     | Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework)                                  | ❌       | `auto`                                              |
+| `max-retries`   | Maximum number of retry attempts for Composer commands                                                                                   | ❌       | `3`                                                 |
+| `php-version`   | PHP version to use when the repository states none, such as 8.4 (empty: the version pinned in this action, "latest": the newest release) | ❌       | -                                                   |
+| `token`         | GitHub token for authentication                                                                                                          | ❌       | -                                                   |
+| `username`      | GitHub username for commits                                                                                                              | ❌       | `github-actions`                                    |
 
 ## 📤 Outputs
 
@@ -87,7 +87,7 @@ permissions:
     extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
     framework: 'auto'
     max-retries: '3'
-    php-version: 'latest'
+    php-version: '1.2.3'
     token: '${{ github.token }}'
     username: 'github-actions'
 ```
@@ -107,7 +107,7 @@ permissions:
     extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
     framework: 'auto'
     max-retries: '3'
-    php-version: 'latest'
+    php-version: '1.2.3'
     token: '${{ github.token }}'
     username: 'github-actions'
 ```

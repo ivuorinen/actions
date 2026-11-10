@@ -17,13 +17,13 @@ inputs:
     required: false
     default: '.'
   golangci-lint-version:
-    description: 'Version of golangci-lint to use'
+    description: 'Version of golangci-lint to use, v2 or newer (empty: the version pinned in this action, "latest": the newest release)'
     required: false
-    default: 'latest'
+    default: ''
   go-version:
-    description: 'Go version to use'
+    description: 'Go version to use (empty: the version pinned in this action, "stable": the newest release)'
     required: false
-    default: 'stable'
+    default: ''
   config-file:
     description: 'Path to golangci-lint config file'
     required: false
@@ -112,8 +112,11 @@ runs:
 
     - name: Setup Go
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+      env:
+        # renovate: datasource=golang-version depName=go
+        DEFAULT_GO_VERSION: '1.27.3'
       with:
-        go-version: ${{ inputs.go-version }}
+        go-version: ${{ inputs.go-version || env.DEFAULT_GO_VERSION }}
         cache: true
 
     - name: Checkout Repository
@@ -121,6 +124,29 @@ runs:
       with:
         token: ${{ inputs.token || github.token }}
         persist-credentials: false
+
+    - name: Resolve golangci-lint Version
+      id: golangci-version
+      shell: sh
+      env:
+        REQUESTED_VERSION: ${{ inputs.golangci-lint-version }}
+        # renovate: datasource=go depName=github.com/golangci/golangci-lint/v2
+        DEFAULT_GOLANGCI_LINT_VERSION: 'v2.15.0'
+      run: |
+        set -eu
+
+        version="${REQUESTED_VERSION:-$DEFAULT_GOLANGCI_LINT_VERSION}"
+        version=$(printf '%s' "$version" | tr -d '[:space:]')
+
+        # go install needs a lowercase 'v' prefix on anything but 'latest'.
+        # validate.py allows surrounding whitespace, 'V' and any case of 'latest'.
+        case "$version" in
+          [Ll][Aa][Tt][Ee][Ss][Tt]) version="latest" ;;
+          [Vv]*) version="v${version#[Vv]}" ;;
+          *) version="v$version" ;;
+        esac
+
+        printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
 
     - name: Cache golangci-lint
       id: cache
@@ -130,15 +156,16 @@ runs:
         path: |
           ~/.cache/golangci-lint
           ~/.cache/go-build
-        key: ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-${{ hashFiles('go.sum', inputs.config-file) }}
+        key: ${{ runner.os }}-golangci-${{ steps.golangci-version.outputs.version }}-${{ hashFiles('go.sum', inputs.config-file) }}
         restore-keys: |
-          ${{ runner.os }}-golangci-${{ inputs.golangci-lint-version }}-
+          ${{ runner.os }}-golangci-${{ steps.golangci-version.outputs.version }}-
 
     - name: Install golangci-lint
+      id: install
       shell: sh
       env:
         MAX_RETRIES: ${{ inputs.max-retries }}
-        GOLANGCI_LINT_VERSION: ${{ inputs.golangci-lint-version }}
+        GOLANGCI_LINT_VERSION: ${{ steps.golangci-version.outputs.version }}
       run: |
         set -eu
 
@@ -146,21 +173,11 @@ runs:
         install_golangci_lint() {
           _attempt=1
           _max_attempts="$MAX_RETRIES"
-          _version="$GOLANGCI_LINT_VERSION"
 
           while [ $_attempt -le $_max_attempts ]; do
             echo "Installation attempt $_attempt of $_max_attempts"
 
-            # Add 'v' prefix if version is not 'latest' and doesn't already have it
-            install_version="$_version"
-            if [ "$_version" != "latest" ]; then
-              case "$_version" in
-                v*) ;;
-                *) install_version="v$_version" ;;
-              esac
-            fi
-
-            if go install "github.com/golangci/golangci-lint/cmd/golangci-lint@${install_version}"; then
+            if go install "github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_LINT_VERSION}"; then
               return 0
             fi
 
@@ -193,39 +210,34 @@ runs:
         if [ ! -f "$CONFIG_FILE" ]; then
           echo "Creating default golangci-lint configuration..."
           cat > "$CONFIG_FILE" <<EOF
-        linters:
-          enable-all: true
-          disable:
-            - exhaustivestruct
-            - interfacer
-            - scopelint
-            - maligned
+        version: "2"
 
-        linters-settings:
-          govet:
-            check-shadowing: true
-          golint:
-            min-confidence: 0.8
-          gocyclo:
-            min-complexity: 15
-          dupl:
-            threshold: 100
-          goconst:
-            min-len: 3
-            min-occurrences: 3
+        linters:
+          default: all
+          settings:
+            govet:
+              enable:
+                - shadow
+            gocyclo:
+              min-complexity: 15
+            dupl:
+              threshold: 100
+            goconst:
+              min-len: 3
+              min-occurrences: 3
+          exclusions:
+            paths:
+              - vendor
+              - third_party
 
         issues:
-          exclude-use-default: false
           max-issues-per-linter: 0
           max-same-issues: 0
           new: true
 
         run:
-          deadline: $TIMEOUT
+          timeout: $TIMEOUT
           tests: true
-          skip-dirs:
-            - vendor
-            - third_party
         EOF
         fi
 
@@ -239,7 +251,6 @@ runs:
         DISABLE_LINTERS: ${{ inputs.disable-linters }}
         CONFIG_FILE: ${{ inputs.config-file }}
         TIMEOUT: ${{ inputs.timeout }}
-        CACHE: ${{ inputs.cache }}
         ONLY_NEW_ISSUES: ${{ inputs.only-new-issues }}
         REPORT_FORMAT: ${{ inputs.report-format }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
@@ -254,13 +265,6 @@ runs:
         # Build golangci-lint args as positional parameters
         set -- --config "$CONFIG_FILE" --timeout "$TIMEOUT"
 
-        # Prepare cache flag
-        if [ "$CACHE" = "true" ]; then
-          set -- "$@" --cache
-        else
-          set -- "$@" --no-cache
-        fi
-
         # Prepare new issues flag
         if [ "$ONLY_NEW_ISSUES" = "true" ]; then
           set -- "$@" --new
@@ -268,7 +272,7 @@ runs:
 
         # Prepare linter configuration
         if [ "$DISABLE_ALL" = "true" ]; then
-          set -- "$@" --disable-all
+          set -- "$@" --default=none
         fi
 
         if [ -n "$ENABLE_LINTERS" ]; then
@@ -279,30 +283,36 @@ runs:
           set -- "$@" "--disable=$DISABLE_LINTERS"
         fi
 
-        set -- "$@" --out-format "$REPORT_FORMAT" ./...
+        # v2 has no github-actions format; its plain text output replaces it
+        case "$REPORT_FORMAT" in
+          github-actions) output_format="text" ;;
+          *) output_format="$REPORT_FORMAT" ;;
+        esac
+
+        # golangci-lint writes the report itself: its stdout also carries run statistics, and
+        # any stdout output the repository's own config asks for, which a redirect would mix in
+        result_file="reports/golangci-lint.$REPORT_FORMAT"
+        set -- "$@" "--output.${output_format}.path=$result_file" ./...
 
         # Run golangci-lint
         echo "Running golangci-lint..."
 
-        result_file="reports/golangci-lint.$REPORT_FORMAT"
         error_count=0
         exit_code=0
 
         GOLANGCI_LINT_CACHE="$HOME/.cache/golangci-lint" \
-        golangci-lint run "$@" > "$result_file" || exit_code=$?
+        golangci-lint run "$@" || exit_code=$?
 
-        # Count errors regardless of exit code or fail-on-error setting
+        # Count errors regardless of exit code or fail-on-error setting. A run that could not
+        # start leaves no report, which grep -s reads as no matches. A text report has one line
+        # per issue ending in the linter's name, followed by source lines.
         if [ "$exit_code" -ne 0 ]; then
-          if [ "$REPORT_FORMAT" = "json" ]; then
-            if command -v jq >/dev/null 2>&1; then
-              error_count=$(jq '.Issues | length' "$result_file" 2>/dev/null || echo 0)
-            else
-              echo "::warning::jq not found - falling back to grep for error counting"
-              error_count=$(grep -c '"level": "error"' "$result_file" 2>/dev/null || echo 0)
-            fi
-          else
-            error_count=$(grep -c '"level": "error"' "$result_file" || echo 0)
-          fi
+          case "$REPORT_FORMAT" in
+            json) issue_pattern='"FromLinter":' ;;
+            sarif) issue_pattern='"level": *"error"' ;;
+            *) issue_pattern='^[^[:space:]:]+:[0-9]+(:[0-9]+)?: .* \([^ ]+\)$' ;;
+          esac
+          error_count=$(grep -Eos "$issue_pattern" "$result_file" | wc -l | tr -d ' ')
         fi
 
         # Always write outputs before any conditional exit
@@ -314,8 +324,8 @@ runs:
         printf 'sarif_file=%s\n' "$result_file" >> "$GITHUB_OUTPUT"
 
         if [ "$FAIL_ON_ERROR" = "true" ] && [ "$exit_code" -ne 0 ]; then
-          echo "::error::golangci-lint found ${error_count} issues"
-          exit $exit_code
+          echo "::error::golangci-lint exited with ${exit_code}, ${error_count} issues found"
+          exit "$exit_code"
         fi
 
     - name: Upload Lint Results

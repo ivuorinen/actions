@@ -48,9 +48,9 @@ inputs:
     required: false
     default: ''
   buildx-version:
-    description: 'Specific Docker Buildx version to use'
+    description: 'Specific Docker Buildx version to use (empty: the version pinned in this action, "latest": the newest release)'
     required: false
-    default: 'latest'
+    default: ''
   buildkit-version:
     description: 'Specific BuildKit version to use'
     required: false
@@ -198,14 +198,21 @@ runs:
 
     - name: Set up QEMU
       uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
+      env:
+        # renovate: datasource=docker depName=tonistiigi/binfmt versioning=regex:^qemu-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
+        BINFMT_VERSION: 'qemu-v10.2.3'
       with:
+        image: docker.io/tonistiigi/binfmt:${{ env.BINFMT_VERSION }}
         platforms: ${{ inputs.architectures }}
 
     - name: Set up Docker Buildx
       id: buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      env:
+        # renovate: datasource=github-releases depName=docker/buildx
+        DEFAULT_BUILDX_VERSION: 'v0.38.2'
       with:
-        version: ${{ inputs.buildx-version }}
+        version: ${{ inputs.buildx-version || env.DEFAULT_BUILDX_VERSION }}
         platforms: ${{ inputs.architectures }}
         buildkitd-flags: --debug
         driver-opts: |
