@@ -172,5 +172,23 @@ When call run_step "${FIXTURES}/event-payload" "emit"
 The status should be success
 Assert expect_output default-branch ""
 End
+
+It "renders a true github.event field as GitHub does and runs a step gated on it"
+printf '%s' '{"deleted":true}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_all_owned_steps "${FIXTURES}/event-payload"
+The status should be success
+The output should include "ran-gated"
+Assert expect_output deleted true
+End
+
+It "renders a false github.event field as GitHub does and skips a step gated on it"
+printf '%s' '{"deleted":false}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_all_owned_steps "${FIXTURES}/event-payload"
+The status should be success
+The output should not include "ran-gated"
+Assert expect_output deleted false
+End
 End
 End

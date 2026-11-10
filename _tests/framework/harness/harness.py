@@ -216,6 +216,9 @@ class ExpressionResolver:
             node = node.get(part, "")
         if node is None:
             return ""
+        # Python renders JSON's true as "True"; GitHub's expressions render it as "true".
+        if isinstance(node, bool):
+            return str(node).lower()
         return str(node)
 
 
