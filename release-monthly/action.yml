@@ -53,15 +53,6 @@ runs:
         fi
         python3 validate.py
 
-    - name: Mask Token
-      shell: sh
-      env:
-        INPUT_TOKEN: ${{ inputs.token }}
-      run: |
-        set -eu
-        # Mask token before subsequent steps reference it via env
-        echo "::add-mask::$INPUT_TOKEN"
-
     - name: Checkout Repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:

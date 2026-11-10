@@ -92,6 +92,34 @@ def test_required_matches_action_yml(action):
     assert set(SPECS[action]["required"]) == required_inputs(action)
 
 
+def test_masked_checks_exist_in_kit():
+    assert set(kit.CHECKS) >= kit.MASKED_CHECKS
+
+
+_CREDENTIAL_NAME = re.compile(
+    r"token|secret|password|passphrase|credential|license|api.?key", re.IGNORECASE
+)
+# docker-build's `secrets` holds `id=path` pairs pointing at secret files, never a secret value.
+_NOT_A_CREDENTIAL = {("docker-build", "secrets")}
+
+
+@pytest.mark.parametrize("action", ACTIONS)
+def test_credential_named_inputs_use_a_masked_check(action):
+    unmasked = [
+        name
+        for name, check in SPECS[action]["checks"].items()
+        if _CREDENTIAL_NAME.search(name)
+        and check not in kit.MASKED_CHECKS
+        and (action, name) not in _NOT_A_CREDENTIAL
+    ]
+    assert not unmasked, f"{action}: give these a check in kit.MASKED_CHECKS: {unmasked}"
+
+
+@pytest.mark.parametrize("action", ACTIONS)
+def test_masking_lives_only_in_the_generated_validator(action):
+    assert "add-mask" not in (REPO_ROOT / action / "action.yml").read_text(encoding="utf-8")
+
+
 @pytest.mark.parametrize("action", ACTIONS)
 def test_env_forwarding_matches_spec(action):
     expected = {"INPUT_" + n.upper().replace("-", "_") for n in SPECS[action]["checks"]}

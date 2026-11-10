@@ -46,15 +46,6 @@ outputs:
 runs:
   using: composite
   steps:
-    - name: Mask Secrets
-      id: mask
-      shell: sh
-      env:
-        NPM_TOKEN: ${{ inputs.npm_token }}
-      run: |
-        set -eu
-        printf '::add-mask::%s\n' "$NPM_TOKEN"
-
     - name: Validate Inputs
       shell: sh
       working-directory: ${{ github.action_path }}
