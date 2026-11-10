@@ -484,6 +484,8 @@ CASES: dict[str, dict[str, list[str]]] = {
 FREE_FORM = {"codeql_config"}
 # Their values legitimately span several lines.
 MULTILINE = {"codeql_config", "json_format", "key_value_list", "repository_list"}
+# The action trims each item, so a block scalar's final newline is harmless. One inside is not.
+OUTER_NEWLINE_OK = {"comma_key_value_list", "comma_name_path_list"}
 # Validates only its leading `type=<backend>`, so what follows it is not inspected yet.
 PREFIX_ONLY = {"cache_config"}
 SCALAR_CHECKS = [
@@ -540,12 +542,23 @@ def test_literal_expression_is_rejected(check, value):
     assert kit.CHECKS[check](value) is not None
 
 
-@pytest.mark.parametrize("check", sorted(set(kit.CHECKS) - MULTILINE - PREFIX_ONLY))
+@pytest.mark.parametrize(
+    "check", sorted(set(kit.CHECKS) - MULTILINE - PREFIX_ONLY - OUTER_NEWLINE_OK)
+)
 def test_single_line_checks_reject_newlines(check):
     fn = kit.CHECKS[check]
     value = CASES[check]["valid"][0]
     for bad in (value + "\n", "\n" + value, value + "\nkey=value", value + ",\n" + value):
         assert fn(bad) is not None, f"{check} should reject {bad!r}"
+
+
+@pytest.mark.parametrize("check", sorted(OUTER_NEWLINE_OK))
+def test_outer_newline_is_accepted_but_an_inner_one_is_not(check):
+    fn = kit.CHECKS[check]
+    value = CASES[check]["valid"][0]
+    assert fn(value + "\n") is None
+    assert fn("\n" + value) is None
+    assert fn(value + "\nkey=value") is not None
 
 
 # Python's \d matches any Unicode digit; the tools these values reach read only ASCII ones.
