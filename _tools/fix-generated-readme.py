@@ -182,6 +182,28 @@ def fix_values(text: str, action: str) -> str:
     return pattern.sub(replace, text)
 
 
+def deprecated_inputs(action: str) -> list[str]:
+    """Return the inputs that action.yml marks with deprecationMessage."""
+    path = REPO_ROOT / action / "action.yml"
+    if not path.is_file():
+        return []
+    return re.findall(
+        r"^  ([\w-]+):\n(?:    .*\n)*?    deprecationMessage:",
+        path.read_text(encoding="utf-8"),
+        re.MULTILINE,
+    )
+
+
+def drop_deprecated(text: str, action: str) -> str:
+    """Remove deprecated inputs from the examples, which readers copy.
+
+    The inputs table still lists them, because that is where the deprecation is explained.
+    """
+    for name in deprecated_inputs(action):
+        text = re.sub(rf"^ +{re.escape(name)}: .*\n", "", text, flags=re.MULTILINE)
+    return text
+
+
 def read_permissions(text: str) -> list[tuple[str, str]]:
     """Pull the permission/access pairs out of the README's own Permissions table.
 
@@ -263,6 +285,7 @@ def main(argv: list[str]) -> int:
     text = fix_checkout(text)
     text = fix_trigger(text, action)
     text = fix_values(text, action)
+    text = drop_deprecated(text, action)
     text = add_permissions(text, action)
 
     readme.write_text(text, encoding="utf-8")

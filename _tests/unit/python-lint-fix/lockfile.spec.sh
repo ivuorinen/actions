@@ -16,7 +16,7 @@ before() {
   mock_command python "-m venv .venv" ""
   mock_command pip "install --require-hashes --only-binary=:all: --retries 3 -r ${ACTION_DIR}/requirements.lock.txt" "locked install"
   mock_command flake8 "--version" "7.0.0"
-  mock_command autopep8 "--version" "2.0.4"
+  mock_command autopep8 "--version" "2.2.0"
 }
 BeforeEach 'before'
 
