@@ -104,15 +104,20 @@ before_findings() {
 BeforeEach 'before_findings'
 
 Parameters
-"none at error level" '{"level": "warning"}' "0"
-"two at error level" '{"level": "error"},{"level":"error"},{"level": "warning"}' "2"
+"none at error level" sarif '{"level": "warning"}' "0"
+"two at error level" sarif '{"level": "error"},{"level":"error"},{"level": "warning"}' "2"
+"errors in json" json '{"rule":{"severity":"error"}},{"rule":{"severity":"warning"}}' "1"
+"errors in checkstyle" checkstyle '<error severity="error"/><error severity="warning"/>' "1"
+"issues and configuration errors in junit" junit '<failure type="Error"/><failure type="error"/><failure type="Warning"/>' "2"
+"issues and configuration errors in compact" compact 'a.tf:1:1: Error - x (r) b.tf:2:1: error - y. z c.tf:3:1: Warning - w (r)' "2"
 End
 
 It "counts $1"
-mock_command tflint "--config .tflint.hcl --format sarif --no-color" "$2" 2
+export INPUT_FORMAT="$2"
+mock_command tflint "--config .tflint.hcl --format $2 --no-color" "$3" 2
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
-Assert expect_output error_count "$3"
+Assert expect_output error_count "$4"
 Assert only_key_value_lines
 End
 End

@@ -136,10 +136,13 @@ runs:
         set -eu
 
         version="${REQUESTED_VERSION:-$DEFAULT_GOLANGCI_LINT_VERSION}"
+        version=$(printf '%s' "$version" | tr -d '[:space:]')
 
-        # go install needs the 'v' prefix on anything but 'latest'
+        # go install needs a lowercase 'v' prefix on anything but 'latest'.
+        # validate.py allows surrounding whitespace, 'V' and any case of 'latest'.
         case "$version" in
-          latest | v*) ;;
+          [Ll][Aa][Tt][Ee][Ss][Tt]) version="latest" ;;
+          [Vv]*) version="v${version#[Vv]}" ;;
           *) version="v$version" ;;
         esac
 
