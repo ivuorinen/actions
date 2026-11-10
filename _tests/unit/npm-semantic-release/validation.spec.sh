@@ -12,11 +12,15 @@ When call validate_input_python "npm-semantic-release" "npm_token" "ghp_12345678
 The status should be success
 End
 
-It "rejects a literal npm_ classic token (npm_token uses the github_token check)"
-# The npm_token input is validated by the kit's github_token check, which accepts
-# ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_ tokens, not bare npm_ tokens.
+It "accepts an npm_ token"
 When call validate_input_python "npm-semantic-release" "npm_token" "npm_1234567890123456789012345678901234567890"
-The status should be failure
+The status should be success
+End
+
+It "accepts a token format it does not recognise"
+# The registry owns its token format, so the check only refuses what breaks a sink.
+When call validate_input_python "npm-semantic-release" "npm_token" "some-registry-token-format"
+The status should be success
 End
 
 It "rejects empty token"
@@ -26,6 +30,11 @@ End
 
 It "rejects token with command injection"
 When call validate_input_python "npm-semantic-release" "npm_token" "ghp_123456789012345678901234567890123456; rm -rf /"
+The status should be failure
+End
+
+It "rejects a token containing a line break"
+When call validate_input_python "npm-semantic-release" "npm_token" "$(printf 'npm_abc\nsecond-line')"
 The status should be failure
 End
 End

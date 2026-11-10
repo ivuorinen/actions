@@ -44,11 +44,9 @@ When call validate_input_python "npm-publish" "npm_token" "ghp_12345678901234567
 The status should be success
 End
 
-It "rejects a literal npm_ classic token (npm_token uses the github_token check)"
-# The npm_token input is validated by the kit's github_token check, which accepts
-# ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_ tokens, not bare npm_ tokens.
+It "accepts an npm_ token"
 When call validate_input_python "npm-publish" "npm_token" "npm_1234567890123456789012345678901234567890"
-The status should be failure
+The status should be success
 End
 
 It "accepts GitHub fine-grained token (exact length)"
@@ -56,9 +54,10 @@ When call validate_input_python "npm-publish" "npm_token" "github_pat_1234567890
 The status should be success
 End
 
-It "rejects invalid token format"
-When call validate_input_python "npm-publish" "npm_token" "invalid-token-format"
-The status should be failure
+It "accepts a token format it does not recognise"
+# The registry owns its token format, so the check only refuses what breaks a sink.
+When call validate_input_python "npm-publish" "npm_token" "some-registry-token-format"
+The status should be success
 End
 
 It "rejects empty token"
@@ -68,6 +67,44 @@ End
 
 It "rejects token with command injection"
 When call validate_input_python "npm-publish" "npm_token" "ghp_123456789012345678901234567890123456; rm -rf /"
+The status should be failure
+End
+
+It "rejects a token containing a line break"
+When call validate_input_python "npm-publish" "npm_token" "$(printf 'npm_abc\nsecond-line')"
+The status should be failure
+End
+End
+
+Context "when validating package-version input"
+It "accepts a plain version"
+When call validate_input_python "npm-publish" "package-version" "1.0.0"
+The status should be success
+End
+
+It "accepts a v-prefixed release tag"
+# The default is the release tag name, and the publish step strips the prefix.
+When call validate_input_python "npm-publish" "package-version" "v1.0.0"
+The status should be success
+End
+
+It "accepts a v-prefixed pre-release"
+When call validate_input_python "npm-publish" "package-version" "v1.0.0-rc.1"
+The status should be success
+End
+
+It "accepts a v-prefixed version with build metadata"
+When call validate_input_python "npm-publish" "package-version" "v1.0.0+build"
+The status should be success
+End
+
+It "rejects a partial version"
+When call validate_input_python "npm-publish" "package-version" "v1.0"
+The status should be failure
+End
+
+It "rejects a value that is not a version"
+When call validate_input_python "npm-publish" "package-version" "not.a.version"
 The status should be failure
 End
 End

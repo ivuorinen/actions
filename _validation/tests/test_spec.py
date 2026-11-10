@@ -69,6 +69,20 @@ def test_all_check_types_exist_in_kit(action):
 
 
 @pytest.mark.parametrize("action", ACTIONS)
+def test_github_token_check_is_only_used_for_github_tokens(action):
+    """The check knows GitHub's token prefixes, so any other issuer's real token fails it."""
+    inputs = yaml.safe_load((REPO_ROOT / action / "action.yml").read_text(encoding="utf-8"))[
+        "inputs"
+    ]
+    wrong = [
+        name
+        for name, check_type in SPECS[action]["checks"].items()
+        if check_type == "github_token" and "GitHub token" not in inputs[name]["description"]
+    ]
+    assert not wrong, f"{action}: not described as GitHub tokens, use opaque_token: {wrong}"
+
+
+@pytest.mark.parametrize("action", ACTIONS)
 def test_spec_covers_exactly_the_declared_inputs(action):
     assert set(SPECS[action]["checks"]) == declared_inputs(action)
 
