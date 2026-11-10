@@ -52,7 +52,7 @@ inputs:
     default: ''
 
   checkout-ref:
-    description: 'Git reference to checkout (default: current ref). A fork pull request head or merge ref fails on pull_request_target and workflow_run.'
+    description: 'Git reference to checkout (default: current ref). Any value fails on pull_request_target and workflow_run, which run with base repository privileges.'
     required: false
     default: ''
 
@@ -82,9 +82,9 @@ inputs:
     default: ''
 
   output:
-    description: 'Path to save SARIF results'
+    description: 'Workspace-relative directory for the SARIF results. Absolute paths and .. are rejected. The analysis deletes and recreates this directory, so it must not hold tracked files.'
     required: false
-    default: '../results'
+    default: 'codeql-results'
 
   skip-queries:
     description: 'Build database but skip running queries'
@@ -101,8 +101,8 @@ outputs:
     value: ${{ steps.set-category.outputs.category }}
 
   sarif-file:
-    description: 'Path to generated SARIF file'
-    value: ${{ steps.analysis.outputs.sarif-file }}
+    description: 'Absolute path to the directory containing the generated SARIF file'
+    value: ${{ steps.analysis.outputs.sarif-output }}
 
 runs:
   using: composite
@@ -136,17 +136,24 @@ runs:
         python3 validate.py
 
     - name: Validate checkout safety
+      id: checkout-safety
       shell: sh
       env:
         CHECKOUT_REF: ${{ inputs.checkout-ref }}
         EVENT_NAME: ${{ github.event_name }}
       run: |
         set -eu
-        # Security check: Warn if checking out custom ref on pull_request_target
-        if [ "$EVENT_NAME" = "pull_request_target" ] && [ -n "$CHECKOUT_REF" ]; then
-          echo "::warning::Using custom checkout-ref on pull_request_target is potentially unsafe"
-          echo "::warning::Ensure the ref is validated before running untrusted code"
-        fi
+        # Autobuild runs the checked-out code with this job's token and secrets, so these triggers
+        # only analyze the commit GitHub selected. actions/checkout v7 refuses fork pull request
+        # code here but lets same-repository refs through, so this refuses every custom ref.
+        case "$EVENT_NAME" in
+          pull_request_target | workflow_run)
+            if [ -n "$CHECKOUT_REF" ]; then
+              echo "::error::checkout-ref is not allowed on $EVENT_NAME, which runs with base repository privileges. Remove the input, or analyze the ref on pull_request."
+              exit 1
+            fi
+            ;;
+        esac
 
     - name: Checkout repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
