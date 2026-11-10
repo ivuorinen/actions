@@ -5,8 +5,8 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED) and `${{ ... }}` expressions
-pass unchecked (their value is substituted at runtime).
+values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
+every expression in INPUT_*, so all other values are checked as literal data.
 """
 
 from __future__ import annotations
@@ -16,42 +16,16 @@ import re
 import sys
 
 
-def _is_expr(value: str) -> bool:
-    """Return ``True`` if ``value`` is a GitHub Actions ``${{ ... }}`` expression.
-
-    The whole value must start with ``${{``; after removing every ``${{...}}`` span, any
-    leftover ``..`` re-fails the check so an expression can never smuggle path traversal
-    (e.g. ``${{ env.X }}/../etc`` is *not* treated as a safe expression).
-    """
-    if not value.startswith("${{"):
-        return False
-    return ".." not in re.sub(r"\$\{\{[^}]*\}\}", "", value)
-
-
 def _skip(value: str) -> bool:
-    """Empty or expression values bypass format checks (see the module contract)."""
-    return value.strip() == "" or _is_expr(value)
-
-
-def _is_env_ref(value: str) -> bool:
-    """Return True if value is a plain shell env-var reference (``$NAME`` or ``${NAME}``).
-
-    Deliberately strict: command substitution ``$(...)`` and brace expansion ``${ ... }``
-    do NOT match, so a token field can accept ``$NPM_TOKEN`` without also accepting
-    ``$(rm -rf /)``.
-    """
-    return re.fullmatch(r"\$([A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})", value) is not None
+    """Empty values bypass format checks (see the module contract)."""
+    return value.strip() == ""
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
     """Accept ``value`` iff it is an integer within ``[low, high]``."""
     if _skip(value):
         return None
-    try:
-        number = int(value.strip())
-    except ValueError:
-        return f"must be an integer between {low} and {high}"
-    if low <= number <= high:
+    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
 
@@ -60,39 +34,35 @@ def check_dotnet_version(value: str) -> str | None:
     """.NET version: 8, 8.0, 8.0.100, or 8.0.x feature band, with optional -preview suffix."""
     if _skip(value):
         return None
-    if re.match(r"^\d+(\.\d+)?(\.(\d+|x))?(-[0-9A-Za-z.-]+)?$", value.strip()):
+    if re.fullmatch(r"[0-9]+(\.[0-9]+)?(\.([0-9]+|x))?(-[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a .NET version (e.g. 8.0, 8.0.100, 8.0.x)"
 
 
 def check_github_token(value: str) -> str | None:
-    """GitHub/registry token: a known token format, a ``${{ }}`` expression, or ``$VAR``.
+    """GitHub/registry token in a known token format.
 
     Accepts every GitHub token shape (classic, OAuth, user-to-server, installation,
     refresh, enterprise, and fine-grained PATs). Installation tokens cover both the
     legacy 40-char ``ghs_`` form and the stateless ``ghs_<app-id>_<JWT>`` form rolled
     out 2026-04-27: the JWT is base64url (so it may contain ``-`` and ``_``) joined by
     ``.`` and has no fixed length, so that pattern allows ``-`` and sets no upper bound
-    (GitHub warns against relying on token length). Tokens are almost always passed as
-    ``${{ secrets.* }}`` or ``$VAR`` references, both of which pass through unchecked.
+    (GitHub warns against relying on token length).
     """
-    if _skip(value) or _is_env_ref(value):
+    if _skip(value):
         return None
     patterns = (
-        r"^ghp_[A-Za-z0-9]{36}$",  # classic personal access token
-        r"^gho_[A-Za-z0-9]{36}$",  # OAuth token
-        r"^ghu_[A-Za-z0-9]{36}$",  # user-to-server token
-        r"^ghs_[A-Za-z0-9._-]{36,}$",  # installation token (stateful ghs_+36 or stateless JWT)
-        r"^ghr_[A-Za-z0-9]{36}$",  # refresh token
-        r"^ghe_[A-Za-z0-9]{36}$",  # enterprise token
-        r"^github_pat_[A-Za-z0-9_]{50,255}$",  # fine-grained PAT
+        r"ghp_[A-Za-z0-9]{36}",  # classic personal access token
+        r"gho_[A-Za-z0-9]{36}",  # OAuth token
+        r"ghu_[A-Za-z0-9]{36}",  # user-to-server token
+        r"ghs_[A-Za-z0-9._-]{36,}",  # installation token (stateful ghs_+36 or stateless JWT)
+        r"ghr_[A-Za-z0-9]{36}",  # refresh token
+        r"ghe_[A-Za-z0-9]{36}",  # enterprise token
+        r"github_pat_[A-Za-z0-9_]{50,255}",  # fine-grained PAT
     )
-    if any(re.match(pattern, value) for pattern in patterns):
+    if any(re.fullmatch(pattern, value) for pattern in patterns):
         return None
-    return (
-        "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_), "
-        "a ${{ ... }} expression, or a $VAR env reference"
-    )
+    return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
 def check_numeric_range_1_10(value: str) -> str | None:
@@ -125,7 +95,9 @@ def main() -> None:
             errors.append(f"{input_name}: {reason}")
     if errors:
         for error in errors:
-            sys.stdout.write(f"::error::{ACTION}: {error}\n")
+            # Encode as workflow-command data: a rejected value must not start a new command.
+            data = error.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+            sys.stdout.write(f"::error::{ACTION}: {data}\n")
         sys.exit(1)
 
 

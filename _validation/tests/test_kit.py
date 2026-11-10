@@ -27,8 +27,6 @@ CASES: dict[str, dict[str, list[str]]] = {
             "ghr_" + "h" * 36,
             "ghe_" + "i" * 36,
             "github_pat_" + "j" * 71,
-            "$NPM_TOKEN",
-            "${{ secrets.GITHUB_TOKEN }}",
         ],
         "invalid": [
             "plain-token",
@@ -37,6 +35,10 @@ CASES: dict[str, dict[str, list[str]]] = {
             "ghs_" + "a" * 35,
             "$(rm -rf /)",
             "${ evil; }",
+            # the runner expands neither of these before validate.py reads the value
+            "$NPM_TOKEN",
+            "${NPM_TOKEN}",
+            "${{ secrets.GITHUB_TOKEN }}",
         ],
     },
     "semantic_version": {
@@ -73,8 +75,31 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["1.5", "abc"],
     },
     "node_version": {
-        "valid": ["20", "20.1", "20.11.0", "v20", "lts/*", "latest", "lts", "node"],
-        "invalid": ["abc", "20.x"],
+        "valid": [
+            "20",
+            "20.1",
+            "20.11.0",
+            "v20",
+            "lts/*",
+            "lts/-1",
+            "lts/hydrogen",
+            "lts/Iron",
+            "latest",
+            "lts",
+            "node",
+        ],
+        "invalid": [
+            "abc",
+            "20.x",
+            "20.1.0-rc.1",
+            "20.1.0+build",
+            "lts/",
+            "lts/*\nfoo",
+            "lts/${{ github.ref }}",
+            "lts/iron jod",
+            "lts/iron;id",
+            "lts/-٣",
+        ],
     },
     "go_version": {
         "valid": ["1.21", "1.21.5", "1.21.x", "v1.21", "stable", "oldstable"],
@@ -136,7 +161,14 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "file_path": {
         "valid": ["file.txt", "path/to/file.txt", "folder/sub/file.ext"],
-        "invalid": ["../file.txt", "/absolute/path", "~/home", "path/../file", "%2e%2e/etc"],
+        "invalid": [
+            "../file.txt",
+            "/absolute/path",
+            "~/home",
+            "path/../file",
+            "%2e%2e/etc",
+            "src/$VAR",
+        ],
     },
     "output_path": {
         "valid": ["../results", "results", "out/sarif", "results/codeql.sarif"],
@@ -159,7 +191,12 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["notanemail", "@example.com", "user@"],
     },
     "url": {
-        "valid": ["https://example.com", "http://a.b:8080/p", "https://reg.npmjs.org"],
+        "valid": [
+            "https://example.com",
+            "http://a.b:8080/p",
+            "https://reg.npmjs.org",
+            "https://example.com/$VAR",
+        ],
         "invalid": ["ftp://x.com", "javascript:alert(1)", "https://x;rm"],
     },
     "scope": {"valid": ["@my-org", "@a"], "invalid": ["my-org", "@1bad"]},
@@ -187,7 +224,7 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "scanner_list": {"valid": ["vuln", "vuln,secret,config"], "invalid": ["vuln,bogus"]},
     "linter_list": {
-        "valid": ["gosec", "gosec,govet", "errcheck"],
+        "valid": ["gosec", "gosec,govet", "errcheck", "gosec,\tgovet"],
         "invalid": ["gosec,,govet", "lint;er", "lint er"],
     },
     "plugin_list": {
@@ -196,6 +233,7 @@ CASES: dict[str, dict[str, list[str]]] = {
             "@scope/plugin",
             "a,b",
             "a|b",
+            "a,\tb",
             "conventional-changelog-conventionalcommits@^9.3.1",
             "@scope/plugin@1.0.0",
         ],
@@ -217,8 +255,15 @@ CASES: dict[str, dict[str, list[str]]] = {
         "invalid": ["rm; foo", "$(whoami)", "a`b`"],
     },
     "license_key": {
-        "valid": ["ABC-123_x", "$GITLEAKS_LICENSE", "${{ secrets.LIC }}", "b64+val/ue="],
-        "invalid": ["has space", "a;b", "$(rm -rf /)"],
+        "valid": ["ABC-123_x", "b64+val/ue="],
+        "invalid": [
+            "has space",
+            "a;b",
+            "$(rm -rf /)",
+            "$GITLEAKS_LICENSE",
+            "${GITLEAKS_LICENSE}",
+            "${{ secrets.LIC }}",
+        ],
     },
     "positive_integer": {"valid": ["1", "100"], "invalid": ["0", "-1", "abc"]},
     "numeric_range_1_10": {"valid": ["1", "10", "5"], "invalid": ["0", "11", "abc"]},
@@ -228,6 +273,31 @@ CASES: dict[str, dict[str, list[str]]] = {
     "numeric_range_256_32768": {"valid": ["256", "32768"], "invalid": ["255", "32769"]},
     "numeric_range_0_10000": {"valid": ["0", "10000"], "invalid": ["10001", "-1"]},
 }
+
+# Inline YAML with no format beyond blocking unsafe tags, so expression-like text is ordinary
+# content to it.
+FREE_FORM = {"codeql_config"}
+# Their values legitimately span several lines.
+MULTILINE = {"codeql_config", "json_format", "key_value_list", "repository_list"}
+# Validates only its leading `type=<backend>`, so what follows it is not inspected yet.
+PREFIX_ONLY = {"cache_config"}
+SCALAR_CHECKS = [
+    "boolean",
+    "calver_version",
+    "dotnet_version",
+    "go_version",
+    "no_prefix_version",
+    "node_version",
+    "numeric_range_1_10",
+    "positive_integer",
+    "semantic_version",
+    "strict_semantic_version",
+    "terraform_version",
+]
+# A secret's example is a `${{ }}` reference, because a reader must never paste the secret
+# itself. The runner expands it before validate.py runs, so the check sees the secret and
+# never this text: there is nothing here to run the check against.
+SECRET_CHECKS = {"github_token", "license_key"}
 
 
 def test_every_check_is_covered():
@@ -254,14 +324,74 @@ def test_empty_value_is_optional(check):
     assert kit.CHECKS[check]("   ") is None
 
 
-@pytest.mark.parametrize("check", sorted(kit.CHECKS))
-def test_github_expression_passes_through(check):
-    assert kit.CHECKS[check]("${{ inputs.whatever }}") is None
+@pytest.mark.parametrize(
+    "value",
+    ["${{ inputs.whatever }}", "${{ x }}\nkey=value", "${{ env.X }}/../etc/passwd"],
+)
+@pytest.mark.parametrize("check", sorted(set(kit.CHECKS) - FREE_FORM))
+def test_literal_expression_is_rejected(check, value):
+    # validate.py reads INPUT_* after the runner has expanded the input, so a `${{` still
+    # present is data from the caller, never a reference waiting to be resolved.
+    assert kit.CHECKS[check](value) is not None
 
 
-def test_expression_cannot_smuggle_traversal():
-    # a value that *starts* as an expression but appends real traversal must NOT pass
-    assert kit.check_file_path("${{ env.X }}/../etc/passwd") is not None
+@pytest.mark.parametrize("check", sorted(set(kit.CHECKS) - MULTILINE - PREFIX_ONLY))
+def test_single_line_checks_reject_newlines(check):
+    fn = kit.CHECKS[check]
+    value = CASES[check]["valid"][0]
+    for bad in (value + "\n", "\n" + value, value + "\nkey=value", value + ",\n" + value):
+        assert fn(bad) is not None, f"{check} should reject {bad!r}"
+
+
+# Python's \d matches any Unicode digit; the tools these values reach read only ASCII ones.
+NON_ASCII_DIGITS = str.maketrans("0123456789", "٠١٢٣٤٥٦٧٨٩")
+
+
+@pytest.mark.parametrize("check", SCALAR_CHECKS)
+def test_scalar_checks_reject_non_ascii_digits(check):
+    fn = kit.CHECKS[check]
+    for value in CASES[check]["valid"]:
+        translated = value.translate(NON_ASCII_DIGITS)
+        if translated != value:
+            assert fn(translated) is not None, f"{check} should reject {translated!r}"
+
+
+@pytest.mark.parametrize("check", SCALAR_CHECKS)
+def test_scalar_checks_judge_the_value_as_given(check):
+    # the action uses the raw input, so a check must not trim it before judging it
+    fn = kit.CHECKS[check]
+    value = CASES[check]["valid"][0]
+    assert fn(" " + value) is not None
+    assert fn(value + " ") is not None
+
+
+@pytest.mark.parametrize("value", ["+5", "1_0", "٣", "5\n", "1" * 5000])
+@pytest.mark.parametrize("check", ["positive_integer", "numeric_range_1_10", "numeric_range_0_100"])
+def test_integer_checks_accept_only_ascii_digits(check, value):
+    assert kit.CHECKS[check](value) is not None
+
+
+@pytest.mark.parametrize(
+    ("check", "value", "accepted"),
+    [
+        ("semantic_version", "1.0.0-rc.1", True),
+        ("semantic_version", "1.0.0+build", True),
+        ("strict_semantic_version", "1.0.0-rc.1", True),
+        ("strict_semantic_version", "1.0.0+build", True),
+        ("no_prefix_version", "1.0.0-rc.1", True),
+        ("no_prefix_version", "1.0.0+build", True),
+        ("terraform_version", "1.0.0-rc.1", True),
+        ("terraform_version", "1.0.0+build", False),
+        ("dotnet_version", "8.0.100-rc.1", True),
+        ("dotnet_version", "8.0.100+build", False),
+        ("calver_version", "v2025.04.05-rc.1", False),
+        ("calver_version", "2025.4.5+sha.abc1234", False),
+    ],
+)
+def test_version_suffixes_match_the_whole_value(check, value, accepted):
+    fn = kit.CHECKS[check]
+    assert (fn(value) is None) is accepted
+    assert fn(value + "\n") is not None
 
 
 def test_token_rejects_partial_prefix_only():
@@ -289,7 +419,12 @@ def test_every_check_has_a_documentation_example():
     )
 
 
-@pytest.mark.parametrize("check", sorted(kit.EXAMPLES))
+def test_only_secret_examples_are_expressions():
+    expressions = {check for check, value in kit.EXAMPLES.items() if value.startswith("${{")}
+    assert expressions == SECRET_CHECKS
+
+
+@pytest.mark.parametrize("check", sorted(set(kit.EXAMPLES) - SECRET_CHECKS))
 def test_documentation_example_passes_its_own_check(check):
     """The example is published as copy-pasteable documentation, so it has to be a value
     the action would actually accept. Tightening a regex without updating its example

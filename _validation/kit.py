@@ -10,17 +10,18 @@ and "never duplicate a validation pattern" hold at the same time.
 Every check has the signature ``check_<type>(value: str) -> str | None`` and returns
 ``None`` when the value is acceptable, or a short human-readable reason when it is not.
 
-Shared contract — the ``_skip`` gate, applied first by nearly every check:
-  * an empty / whitespace value is accepted: inputs are optional unless the action marks
-    them required (the generated runner enforces "required" on its own, before calling
-    the check), and
-  * a GitHub Actions expression (``${{ ... }}``) is accepted unchanged, because its real
-    value is substituted at runtime and cannot be inspected here.
+Shared contract:
+  * the ``_skip`` gate, applied first by nearly every check, accepts an empty / whitespace
+    value: inputs are optional unless the action marks them required (the generated runner
+    enforces "required" on its own, before calling the check);
+  * a check judges the value exactly as the action will use it. The runner has expanded
+    every ``${{ ... }}`` before ``validate.py`` reads ``INPUT_*``, and it never expands
+    ``$VAR`` in an input, so neither form is a reference here: both are literal data. Matches
+    use ``re.fullmatch`` because ``re.match(...$)`` also accepts a trailing newline.
 
-Security-critical checks (tokens, file paths, injection-bearing lists, URLs) are ported
-faithfully from the previous validator framework so external callers see no change in what
-is accepted or rejected. Tool-version and enum format checks are written to match what each
-underlying tool actually accepts.
+Security-critical checks (tokens, file paths, injection-bearing lists, URLs) are ported from
+the previous validator framework. Tool-version and enum format checks are written to match
+what each underlying tool actually accepts.
 """
 
 from __future__ import annotations
@@ -33,31 +34,14 @@ import re
 # --------------------------------------------------------------------------------------
 
 
-def _is_expr(value: str) -> bool:
-    """Return ``True`` if ``value`` is a GitHub Actions ``${{ ... }}`` expression.
-
-    The whole value must start with ``${{``; after removing every ``${{...}}`` span, any
-    leftover ``..`` re-fails the check so an expression can never smuggle path traversal
-    (e.g. ``${{ env.X }}/../etc`` is *not* treated as a safe expression).
-    """
-    if not value.startswith("${{"):
-        return False
-    return ".." not in re.sub(r"\$\{\{[^}]*\}\}", "", value)
-
-
 def _skip(value: str) -> bool:
-    """Empty or expression values bypass format checks (see the module contract)."""
-    return value.strip() == "" or _is_expr(value)
+    """Empty values bypass format checks (see the module contract)."""
+    return value.strip() == ""
 
 
-def _is_env_ref(value: str) -> bool:
-    """Return True if value is a plain shell env-var reference (``$NAME`` or ``${NAME}``).
-
-    Deliberately strict: command substitution ``$(...)`` and brace expansion ``${ ... }``
-    do NOT match, so a token field can accept ``$NPM_TOKEN`` without also accepting
-    ``$(rm -rf /)``.
-    """
-    return re.fullmatch(r"\$([A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_][A-Za-z0-9_]*\})", value) is not None
+def _split_items(value: str, separators: str = ",") -> list[str]:
+    """Split a list input, allowing spaces or tabs around items but not newlines."""
+    return [part.strip(" \t") for part in re.split(f"[{separators}]", value)]
 
 
 def _enum(value: str, *allowed: str) -> str | None:
@@ -71,11 +55,7 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
     """Accept ``value`` iff it is an integer within ``[low, high]``."""
     if _skip(value):
         return None
-    try:
-        number = int(value.strip())
-    except ValueError:
-        return f"must be an integer between {low} and {high}"
-    if low <= number <= high:
+    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
 
@@ -83,23 +63,23 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
-        r"^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)"
-        r"(?:-(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*)"
-        r"(?:\.(?:0|[1-9]\d*|\d*[A-Za-z-][0-9A-Za-z-]*))*)?"
-        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
+        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
     )
     return bool(
-        re.match(full, core)
-        or re.match(r"^(0|[1-9]\d*)\.(0|[1-9]\d*)$", core)
-        or re.match(r"^(0|[1-9]\d*)$", core)
+        re.fullmatch(full, core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
     )
 
 
 def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> list[str]:
     """Return the comma-split items of value not in allowed (optionally case-folded)."""
-    items = (part.strip() for part in value.split(","))
+    items = _split_items(value)
     if fold:
-        items = (item.lower() for item in items)
+        items = [item.lower() for item in items]
     return [item for item in items if item and item not in allowed]
 
 
@@ -116,33 +96,29 @@ def _shell_meta_error(value: str) -> str | None:
 
 
 def check_github_token(value: str) -> str | None:
-    """GitHub/registry token: a known token format, a ``${{ }}`` expression, or ``$VAR``.
+    """GitHub/registry token in a known token format.
 
     Accepts every GitHub token shape (classic, OAuth, user-to-server, installation,
     refresh, enterprise, and fine-grained PATs). Installation tokens cover both the
     legacy 40-char ``ghs_`` form and the stateless ``ghs_<app-id>_<JWT>`` form rolled
     out 2026-04-27: the JWT is base64url (so it may contain ``-`` and ``_``) joined by
     ``.`` and has no fixed length, so that pattern allows ``-`` and sets no upper bound
-    (GitHub warns against relying on token length). Tokens are almost always passed as
-    ``${{ secrets.* }}`` or ``$VAR`` references, both of which pass through unchecked.
+    (GitHub warns against relying on token length).
     """
-    if _skip(value) or _is_env_ref(value):
+    if _skip(value):
         return None
     patterns = (
-        r"^ghp_[A-Za-z0-9]{36}$",  # classic personal access token
-        r"^gho_[A-Za-z0-9]{36}$",  # OAuth token
-        r"^ghu_[A-Za-z0-9]{36}$",  # user-to-server token
-        r"^ghs_[A-Za-z0-9._-]{36,}$",  # installation token (stateful ghs_+36 or stateless JWT)
-        r"^ghr_[A-Za-z0-9]{36}$",  # refresh token
-        r"^ghe_[A-Za-z0-9]{36}$",  # enterprise token
-        r"^github_pat_[A-Za-z0-9_]{50,255}$",  # fine-grained PAT
+        r"ghp_[A-Za-z0-9]{36}",  # classic personal access token
+        r"gho_[A-Za-z0-9]{36}",  # OAuth token
+        r"ghu_[A-Za-z0-9]{36}",  # user-to-server token
+        r"ghs_[A-Za-z0-9._-]{36,}",  # installation token (stateful ghs_+36 or stateless JWT)
+        r"ghr_[A-Za-z0-9]{36}",  # refresh token
+        r"ghe_[A-Za-z0-9]{36}",  # enterprise token
+        r"github_pat_[A-Za-z0-9_]{50,255}",  # fine-grained PAT
     )
-    if any(re.match(pattern, value) for pattern in patterns):
+    if any(re.fullmatch(pattern, value) for pattern in patterns):
         return None
-    return (
-        "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_), "
-        "a ${{ ... }} expression, or a $VAR env reference"
-    )
+    return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
 # --------------------------------------------------------------------------------------
@@ -152,10 +128,9 @@ def check_github_token(value: str) -> str | None:
 
 def check_semantic_version(value: str) -> str | None:
     """SemVer with optional v prefix: X.Y.Z[-pre][+build], partial X.Y / X, or latest."""
-    if _skip(value) or value.strip().lower() == "latest":
+    if _skip(value) or value.lower() == "latest":
         return None
-    core = value.strip()
-    core = core[1:] if core[:1] in ("v", "V") else core
+    core = value[1:] if value[:1] in ("v", "V") else value
     if _is_semver(core):
         return None
     return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
@@ -163,9 +138,9 @@ def check_semantic_version(value: str) -> str | None:
 
 def check_strict_semantic_version(value: str) -> str | None:
     """Strict SemVer: exactly ``X.Y.Z`` with optional ``-prerelease`` / ``+build`` (no partials)."""
-    if _skip(value) or value.strip().lower() == "latest":
+    if _skip(value) or value.lower() == "latest":
         return None
-    if re.match(r"^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$", value.strip()):
+    if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a strict semantic version X.Y.Z (optionally -prerelease / +build)"
 
@@ -174,10 +149,9 @@ def check_no_prefix_version(value: str) -> str | None:
     """SemVer-style version that must NOT carry a leading ``v`` (use ``1.2.3``, not ``v1.2.3``)."""
     if _skip(value):
         return None
-    core = value.strip()
-    if core[:1] in ("v", "V"):
+    if value[:1] in ("v", "V"):
         return 'must not start with "v" (use 1.2.3, not v1.2.3)'
-    if _is_semver(core):
+    if _is_semver(value):
         return None
     return "must be a semantic version without a v prefix (e.g. 1.2.3, 1.2, 1)"
 
@@ -186,17 +160,16 @@ def check_calver_version(value: str) -> str | None:
     """Calendar version: YYYY.MM.DD / .PATCH, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, or YYYY-MM-DD."""
     if _skip(value):
         return None
-    core = value.strip()
-    core = core[1:] if core[:1] in ("v", "V") else core
+    core = value[1:] if value[:1] in ("v", "V") else value
     patterns = (
-        r"^\d{4}\.\d{1,2}\.\d{1,2}$",  # YYYY.MM.DD
-        r"^\d{4}\.0\d\.0\d$",  # YYYY.0M.0D
-        r"^\d{2}\.\d{1,2}\.\d{1,2}$",  # YY.MM.MICRO (micro doubles as a day)
-        r"^\d{4}-\d{2}-\d{2}$",  # YYYY-MM-DD
-        r"^\d{4}\.\d{1,2}\.\d{3,}$",  # YYYY.MM.PATCH (3+ digit patch, never a day)
-        r"^\d{4}\.\d{1,2}$",  # YYYY.MM
+        r"[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}",  # YYYY.MM.DD
+        r"[0-9]{4}\.0[0-9]\.0[0-9]",  # YYYY.0M.0D
+        r"[0-9]{2}\.[0-9]{1,2}\.[0-9]{1,2}",  # YY.MM.MICRO (micro doubles as a day)
+        r"[0-9]{4}-[0-9]{2}-[0-9]{2}",  # YYYY-MM-DD
+        r"[0-9]{4}\.[0-9]{1,2}\.[0-9]{3,}",  # YYYY.MM.PATCH (3+ digit patch, never a day)
+        r"[0-9]{4}\.[0-9]{1,2}",  # YYYY.MM
     )
-    if not any(re.match(pattern, core) for pattern in patterns):
+    if not any(re.fullmatch(pattern, core) for pattern in patterns):
         return "must be a calendar version (e.g. 2025.04.05, 2025.4.5, 2025.04, 2025-04-05)"
     parts = re.split(r"[.-]", core)
     month = int(parts[1])
@@ -218,28 +191,33 @@ def check_dotnet_version(value: str) -> str | None:
     """.NET version: 8, 8.0, 8.0.100, or 8.0.x feature band, with optional -preview suffix."""
     if _skip(value):
         return None
-    if re.match(r"^\d+(\.\d+)?(\.(\d+|x))?(-[0-9A-Za-z.-]+)?$", value.strip()):
+    if re.fullmatch(r"[0-9]+(\.[0-9]+)?(\.([0-9]+|x))?(-[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a .NET version (e.g. 8.0, 8.0.100, 8.0.x)"
 
 
 def check_terraform_version(value: str) -> str | None:
     """Terraform/tflint version: ``X.Y.Z`` with optional ``-prerelease``, or ``latest``."""
-    if _skip(value) or value.strip().lower() == "latest":
+    if _skip(value) or value.lower() == "latest":
         return None
-    if re.match(r"^v?\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$", value.strip()):
+    if re.fullmatch(r"v?[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?", value):
         return None
     return 'must be a version like 1.5.7 or "latest"'
 
 
 def check_node_version(value: str) -> str | None:
-    """Node version: 20, 20.1, 20.1.0, a keyword (latest/lts/current/node), or lts/<name>."""
+    """Node version: 20, 20.1, 20.1.0, a keyword (latest/lts/current/node), or an LTS selector.
+
+    The LTS selector is one setup-node reads: ``lts/*``, ``lts/-<n>`` or ``lts/<codename>``.
+    """
     if _skip(value):
         return None
-    low = value.strip().lower()
-    if low in ("latest", "lts", "current", "node") or low.startswith("lts/"):
+    low = value.lower()
+    if low in ("latest", "lts", "current", "node") or re.fullmatch(
+        r"lts/(?:\*|-[0-9]+|[a-z]+)", low
+    ):
         return None
-    if re.match(r"^v?\d+(\.\d+(\.\d+)?)?$", value.strip()):
+    if re.fullmatch(r"v?[0-9]+(\.[0-9]+(\.[0-9]+)?)?", value):
         return None
     return "must be a Node version (e.g. 20, 20.11.0, lts/*, latest)"
 
@@ -248,9 +226,9 @@ def check_go_version(value: str) -> str | None:
     """Go version: ``1.21``, ``1.21.0``, ``1.21.x``, or a channel keyword (stable/oldstable)."""
     if _skip(value):
         return None
-    if value.strip().lower() in ("stable", "oldstable"):
+    if value.lower() in ("stable", "oldstable"):
         return None
-    if re.match(r"^v?\d+\.\d+(\.\d+|\.x)?$", value.strip()):
+    if re.fullmatch(r"v?[0-9]+\.[0-9]+(\.[0-9]+|\.x)?", value):
         return None
     return "must be a Go version (e.g. 1.21, 1.21.5, stable)"
 
@@ -283,7 +261,9 @@ def check_docker_image_name(value: str) -> str | None:
     """Docker image reference: lowercase name with optional registry/namespace path."""
     if _skip(value):
         return None
-    if re.match(r"^[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$", value):
+    if re.fullmatch(
+        r"[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*(/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*", value
+    ):
         return None
     return "must be a lowercase Docker image name (e.g. myapp, registry.example.com/ns/app)"
 
@@ -292,9 +272,7 @@ def check_docker_tag(value: str) -> str | None:
     """Docker tag: alphanumeric start/end with ``-._:/@`` inside (e.g. ``v1.0.0``, ``latest``)."""
     if _skip(value):
         return None
-    if re.match(r"^[a-zA-Z0-9][-a-zA-Z0-9._:/@]*[a-zA-Z0-9]$", value) or re.match(
-        r"^[a-zA-Z0-9]$", value
-    ):
+    if re.fullmatch(r"[a-zA-Z0-9]([-a-zA-Z0-9._:/@]*[a-zA-Z0-9])?", value):
         return None
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
 
@@ -338,7 +316,7 @@ def check_namespace_with_lookahead(value: str) -> str | None:
         return None
     if len(value) > 255:
         return "must be at most 255 characters"
-    if re.match(r"^[a-z0-9]+(?:-[a-z0-9]+)*$", value):
+    if re.fullmatch(r"[a-z0-9]+(?:-[a-z0-9]+)*", value):
         return None
     return "must be lowercase alphanumeric segments separated by single dashes (e.g. my-org)"
 
@@ -382,10 +360,10 @@ def check_codeql_queries(value: str) -> str | None:
     if _skip(value):
         return None
     suites = {"security-extended", "security-and-quality", "code-scanning", "default"}
-    for item in (part.strip() for part in value.split(",")):
+    for item in _split_items(value):
         if not item:
             return "query list must not contain empty entries"
-        if item not in suites and not re.match(r"^[A-Za-z0-9._/@-]+$", item):
+        if item not in suites and not re.fullmatch(r"[A-Za-z0-9._/@-]+", item):
             return f"invalid query reference: {item}"
     return None
 
@@ -394,10 +372,10 @@ def check_codeql_packs(value: str) -> str | None:
     """Comma-separated CodeQL packs (``scope/name`` with optional ``@version``)."""
     if _skip(value):
         return None
-    for item in (part.strip() for part in value.split(",")):
+    for item in _split_items(value):
         if not item:
             return "pack list must not contain empty entries"
-        if not re.match(r"^[a-zA-Z0-9._/-]+(@[a-zA-Z0-9._-]+)?$", item):
+        if not re.fullmatch(r"[a-zA-Z0-9._/-]+(@[a-zA-Z0-9._-]+)?", item):
             return f"invalid pack reference: {item}"
     return None
 
@@ -416,7 +394,7 @@ def check_category_format(value: str) -> str | None:
     """SARIF analysis category — letters, digits and ``_./:-`` only."""
     if _skip(value):
         return None
-    if re.match(r"^[A-Za-z0-9_./:-]+$", value):
+    if re.fullmatch(r"[A-Za-z0-9_./:-]+", value):
         return None
     return "must contain only letters, digits, and _./:- characters"
 
@@ -439,7 +417,7 @@ def check_file_path(value: str) -> str | None:
         return "path traversal (..) is not allowed"
     if value.startswith("~"):
         return "home directory expansion (~) is not allowed"
-    if re.match(r"^[a-zA-Z0-9._/\-@+~!#=:]+$", value):
+    if re.fullmatch(r"[a-zA-Z0-9._/\-@+~!#=:]+", value):
         return None
     return "contains invalid path characters"
 
@@ -452,7 +430,7 @@ def check_branch_name(value: str) -> str | None:
         return "must not contain .. ~ ^ or :"
     if value.startswith((".", "-", "/")) or value.endswith((".", "/")):
         return "must not start with . - / or end with . /"
-    if re.match(r"^[a-zA-Z0-9/_.\-]+$", value):
+    if re.fullmatch(r"[a-zA-Z0-9/_.\-]+", value):
         return None
     return "may only contain letters, digits, and / _ . -"
 
@@ -461,10 +439,10 @@ def check_file_extensions(value: str) -> str | None:
     """Comma-separated file extensions, each starting with a dot (e.g. ``.js,.ts``)."""
     if _skip(value):
         return None
-    for item in (part.strip() for part in value.split(",")):
+    for item in _split_items(value):
         if not item:
             return "extension list must not contain empty entries"
-        if not re.match(r"^\.[a-zA-Z0-9]+$", item):
+        if not re.fullmatch(r"\.[a-zA-Z0-9]+", item):
             return f"invalid extension: {item} (expected a leading dot, e.g. .ts)"
     return None
 
@@ -475,12 +453,12 @@ def check_path_list(value: str) -> str | None:
         return None
     if meta := _shell_meta_error(value):
         return meta
-    for item in (part.strip() for part in value.split(",")):
+    for item in _split_items(value):
         if not item:
             continue
         if ".." in item:
             return f"path traversal (..) is not allowed: {item}"
-        if not re.match(r"^[a-zA-Z0-9_\-./*?\[\]{},@~+]+$", item):
+        if not re.fullmatch(r"[a-zA-Z0-9_\-./*?\[\]{},@~+]+", item):
             return f"invalid path or glob: {item}"
     return None
 
@@ -494,7 +472,7 @@ def check_email(value: str) -> str | None:
     """Email address."""
     if _skip(value):
         return None
-    if re.match(r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$", value):
+    if re.fullmatch(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", value):
         return None
     return "must be a valid email address (e.g. user@example.com)"
 
@@ -510,8 +488,8 @@ def check_url(value: str) -> str | None:
     lowered = value.lower()
     if any(enc in lowered for enc in ("%0d", "%0a", "%00", "%2e%2e")):
         return "must not contain encoded control or traversal sequences"
-    if re.match(
-        r"^https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::\d{1,5})?(?:[/?#][^\s<>]*)?$", value
+    if re.fullmatch(
+        r"https?://[a-zA-Z0-9.-]+(?:\.[a-zA-Z]{2,})?(?::[0-9]{1,5})?(?:[/?#][^\s<>]*)?", value
     ):
         return None
     return "must be a valid http(s) URL"
@@ -523,7 +501,7 @@ def check_scope(value: str) -> str | None:
         return None
     if not value.startswith("@"):
         return 'must start with "@" (e.g. @my-org)'
-    if re.match(r"^[a-z][a-z0-9._~-]*$", value[1:]):
+    if re.fullmatch(r"[a-z][a-z0-9._~-]*", value[1:]):
         return None
     return "scope name must start with a lowercase letter (e.g. @my-org)"
 
@@ -534,7 +512,7 @@ def check_username(value: str) -> str | None:
         return None
     if len(value) > 39:
         return "must be at most 39 characters"
-    if re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?$", value):
+    if re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?", value):
         return None
     return "may only contain letters, digits, and internal - or _"
 
@@ -546,7 +524,7 @@ def check_username(value: str) -> str | None:
 
 def check_boolean(value: str) -> str | None:
     """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.strip().lower() in ("true", "false"):
+    if _skip(value) or value.lower() in ("true", "false"):
         return None
     return 'must be "true" or "false"'
 
@@ -634,10 +612,10 @@ def check_linter_list(value: str) -> str | None:
         return None
     if meta := _shell_meta_error(value):
         return meta
-    for item in (part.strip() for part in value.split(",")):
+    for item in _split_items(value):
         if not item:
             return "linter list must not contain empty entries"
-        if not re.match(r"^[a-zA-Z0-9_-]+$", item):
+        if not re.fullmatch(r"[a-zA-Z0-9_-]+", item):
             return f"invalid linter name: {item}"
     return None
 
@@ -646,7 +624,7 @@ def check_plugin_list(value: str) -> str | None:
     """Comma/pipe-separated plugin specs: name, @scope/name, optional @version (e.g. pkg@^9.3.1)."""
     if _skip(value):
         return None
-    for item in (part.strip() for part in re.split(r"[,|]", value)):
+    for item in _split_items(value, ",|"):
         if not item:
             return "plugin list must not contain empty entries"
         if not re.fullmatch(r"(@[a-zA-Z0-9][\w.-]*/)?[a-zA-Z0-9][\w.-]*(@[\w.^~*+-]+)?", item):
@@ -658,10 +636,10 @@ def check_php_extensions(value: str) -> str | None:
     """Comma-separated PHP extension names."""
     if _skip(value):
         return None
-    for item in (part.strip() for part in value.split(",")):
+    for item in _split_items(value):
         if not item:
             return "extension list must not contain empty entries"
-        if not re.match(r"^[a-zA-Z0-9_ ]+$", item):
+        if not re.fullmatch(r"[a-zA-Z0-9_ ]+", item):
             return f"invalid PHP extension: {item}"
     return None
 
@@ -678,7 +656,7 @@ def check_key_value_list(value: str) -> str | None:
         if "=" not in pair:
             return f"invalid pair (expected KEY=VALUE): {pair}"
         key = pair.split("=", 1)[0]
-        if not re.match(r"^[A-Za-z_][A-Za-z0-9_]*$", key):
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
             return f"invalid key: {key}"
     return None
 
@@ -687,7 +665,7 @@ def check_timeout_with_unit(value: str) -> str | None:
     """Duration with a unit (e.g. ``5m``, ``30s``, ``500ms``)."""
     if _skip(value):
         return None
-    if re.match(r"^[0-9]+(ns|us|µs|ms|s|m|h)$", value):
+    if re.fullmatch(r"[0-9]+(ns|us|µs|ms|s|m|h)", value):
         return None
     return "must be a duration with a unit (e.g. 30s, 5m, 1h)"
 
@@ -698,7 +676,7 @@ def check_prefix(value: str) -> str | None:
         return None
     if any(char in value for char in (" ", "@", "#", ":")):
         return "must not contain spaces or @ # :"
-    if re.match(r"^[a-zA-Z0-9._-]+$", value):
+    if re.fullmatch(r"[a-zA-Z0-9._-]+", value):
         return None
     return "may only contain letters, digits, and . _ -"
 
@@ -720,11 +698,7 @@ def check_positive_integer(value: str) -> str | None:
     """Positive integer (> 0)."""
     if _skip(value):
         return None
-    try:
-        number = int(value.strip())
-    except ValueError:
-        return "must be a positive integer (> 0)"
-    if number > 0:
+    if re.fullmatch(r"[0-9]{1,18}", value) and int(value) > 0:
         return None
     return "must be a positive integer (> 0)"
 
@@ -771,15 +745,12 @@ def check_command_args(value: str) -> str | None:
 
 
 def check_license_key(value: str) -> str | None:
-    """Opaque license key — a ``${{ }}`` expression, a ``$VAR`` reference, or a single token."""
-    if _skip(value) or _is_env_ref(value):
+    """Opaque license key — a single token."""
+    if _skip(value):
         return None
     if re.fullmatch(r"[A-Za-z0-9+/=._-]+", value):
         return None
-    return (
-        "must be an opaque key (letters, digits, + / = . _ -), "
-        "a ${{ }} expression, or a $VAR reference"
-    )
+    return "must be an opaque key (letters, digits, + / = . _ -)"
 
 
 def check_git_author_name(value: str) -> str | None:
@@ -833,8 +804,10 @@ CHECKS = {
 # These live here, next to the checks, so an example can never drift from the rule it
 # illustrates: `test_kit.py` asserts every check has an example AND that the example
 # passes its own check, so a tightened regex fails the suite rather than silently
-# publishing an invalid example. They are documentation only — `generate.py` copies
-# check functions into each action's validate.py and never reads this mapping.
+# publishing an invalid example. The exception is a secret, whose example is a `${{ }}`
+# reference the runner expands before the check runs. They are documentation only —
+# `generate.py` copies check functions into each action's validate.py and never reads
+# this mapping.
 # --------------------------------------------------------------------------------------
 
 

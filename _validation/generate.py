@@ -36,9 +36,8 @@ ROOT = Path(__file__).resolve().parent.parent
 # only when a selected check (or an already-included helper) references it, so a boolean-only
 # validator stays tiny. Sources are read once here and reused.
 _HELPERS = (
-    "_is_expr",
     "_skip",
-    "_is_env_ref",
+    "_split_items",
     "_is_semver",
     "_enum",
     "_enum_list",
@@ -55,8 +54,8 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED) and `${{{{ ... }}}}` expressions
-pass unchecked (their value is substituted at runtime).
+values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
+every expression in INPUT_*, so all other values are checked as literal data.
 """
 
 from __future__ import annotations
@@ -80,7 +79,9 @@ def main() -> None:
             errors.append(f"{input_name}: {reason}")
     if errors:
         for error in errors:
-            sys.stdout.write(f"::error::{ACTION}: {error}\\n")
+            # Encode as workflow-command data: a rejected value must not start a new command.
+            data = error.replace("%", "%25").replace("\\r", "%0D").replace("\\n", "%0A")
+            sys.stdout.write(f"::error::{ACTION}: {data}\\n")
         sys.exit(1)
 
 
