@@ -28,7 +28,7 @@ inputs:
     required: false
     default: 'none'
   composer-args:
-    description: 'Arguments to pass to Composer install'
+    description: 'Composer install options, separated by spaces, as --flag or --flag=value. Options that move or skip the install or turn off security blocking are rejected'
     required: false
     default: '--no-progress --prefer-dist --optimize-autoloader'
   max-retries:
@@ -289,26 +289,28 @@ runs:
         echo "Composer Configuration:"
         composer config --list
 
+    # --global keeps the path out of the repository's hands: composer.json can set its own
+    # cache-dir, and actions/cache would then archive and restore wherever that points.
+    - name: Locate Composer Cache
+      id: composer-cache-dir
+      shell: sh
+      run: |
+        set -eu
+        cache_dir=$(composer config --global --no-plugins --absolute cache-dir)
+        printf 'dir=%s\n' "$cache_dir" >> "$GITHUB_OUTPUT"
+
+    # Only Composer's download cache: a restored vendor/ would run one job's code in a later job.
+    # The fallback keys reuse the archives a changed composer.lock still needs.
     - name: Cache Composer packages
       id: composer-cache
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        path: |
-          vendor
-          ~/.composer/cache
+        path: ${{ steps.composer-cache-dir.outputs.dir }}
         key: ${{ runner.os }}-php-${{ steps.setup-php.outputs.php-version }}-composer-${{ hashFiles('composer.lock', 'composer.json') }}
         restore-keys: |
           ${{ runner.os }}-php-${{ steps.setup-php.outputs.php-version }}-composer-
           ${{ runner.os }}-php-${{ steps.setup-php.outputs.php-version }}-
           ${{ runner.os }}-php-
-
-    - name: Clear Composer Cache Before Install
-      if: steps.composer-cache.outputs.cache-hit != 'true'
-      shell: sh
-      run: |
-        set -eu
-        echo "Clearing Composer cache to ensure clean installation..."
-        composer clear-cache
 
     - name: Install Composer Dependencies
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
@@ -318,7 +320,12 @@ runs:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
         retry_wait_seconds: 30
-        command: composer install $COMPOSER_ARGS
+        shell: sh
+        command: |
+          set -eu
+          set -f
+          set -- $COMPOSER_ARGS
+          composer install "$@"
 
     - name: Verify Composer Installation
       shell: sh
@@ -354,14 +361,6 @@ runs:
         set -eu
         php artisan key:generate
         echo "✅ Laravel application key generated"
-
-    - name: Laravel Setup - Directory Permissions
-      if: steps.detect-framework.outputs.framework == 'laravel'
-      shell: sh
-      run: |
-        set -eu
-        chmod -R 777 storage bootstrap/cache
-        echo "✅ Laravel directory permissions configured"
 
     - name: Laravel Setup - Create Database
       if: steps.detect-framework.outputs.framework == 'laravel'

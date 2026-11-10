@@ -229,6 +229,156 @@ The status should be failure
 End
 End
 
+Context "when validating composer-args input"
+It "accepts the documented default"
+When call validate_input_python "php-tests" "composer-args" "--no-progress --prefer-dist --optimize-autoloader"
+The status should be success
+End
+
+It "accepts a wildcard platform requirement"
+When call validate_input_python "php-tests" "composer-args" "--ignore-platform-req=ext-*"
+The status should be success
+End
+
+It "rejects an option that moves the install"
+When call validate_input_python "php-tests" "composer-args" "--no-dev --working-dir=/tmp"
+The status should be failure
+End
+
+It "rejects the short form of that option"
+When call validate_input_python "php-tests" "composer-args" "-d/tmp"
+The status should be failure
+End
+
+It "rejects an abbreviated spelling of that option"
+When call validate_input_python "php-tests" "composer-args" "--work=/tmp"
+The status should be failure
+End
+
+It "rejects a package name"
+When call validate_input_python "php-tests" "composer-args" "vendor/package"
+The status should be failure
+End
+
+It "rejects the option inside an expression"
+When call validate_input_python "php-tests" "composer-args" "\${{ --working-dir=/tmp }}"
+The status should be failure
+End
+End
+
+Context "when installing and caching Composer dependencies"
+# Answers questions about the step list. Parsing the YAML keeps these assertions on
+# step structure rather than on line positions.
+composer_step_fact() {
+  uv run python - "$ACTION_FILE" "$@" <<'PY'
+import sys
+
+import yaml
+
+action_file, fact, *args = sys.argv[1:]
+with open(action_file, encoding="utf-8") as handle:
+    steps = yaml.safe_load(handle)["runs"]["steps"]
+
+
+def find(name):
+    return next(step for step in steps if step.get("name") == name)
+
+
+if fact == "cache-path":
+    print(find("Cache Composer packages")["with"]["path"])
+elif fact == "run":
+    print(find(args[0])["run"])
+elif fact == "install-shell":
+    print(find("Install Composer Dependencies")["with"].get("shell", "bash"))
+elif fact == "install-command":
+    print(find("Install Composer Dependencies")["with"]["command"])
+elif fact == "step-after":
+    print(steps[steps.index(find(args[0])) + 1]["name"])
+elif fact == "steps-splitting-args-unsafely":
+    for step in steps:
+        if "COMPOSER_ARGS" in step.get("env", {}):
+            options = step["with"]
+            words = ("set -f", "set -- $COMPOSER_ARGS", '"$@"')
+            if options.get("shell") != "sh" or not all(word in options["command"] for word in words):
+                print(step["name"])
+PY
+}
+
+# Runs the install step's own command under its declared shell. The Composer stub prints
+# its arguments one per line and exits with COMPOSER_STUB_STATUS. The file in the working
+# directory matches the wildcard the tests pass, so pathname expansion would replace it.
+run_install_step() {
+  local fixture step_shell step_command status=0
+  fixture=$(mktemp -d)
+  mkdir "$fixture/bin" "$fixture/repo"
+  printf '#!/bin/sh\nprintf "%%s\\n" "$@"\nexit "${COMPOSER_STUB_STATUS:-0}"\n' >"$fixture/bin/composer"
+  chmod +x "$fixture/bin/composer"
+  : >"$fixture/repo/--ignore-platform-req=ext-gd"
+  step_shell=$(composer_step_fact install-shell)
+  step_command=$(composer_step_fact install-command)
+  (cd "$fixture/repo" && PATH="$fixture/bin:$PATH" COMPOSER_ARGS="$1" "$step_shell" -c "$step_command") || status=$?
+  rm -rf "$fixture"
+  return "$status"
+}
+
+It "splits the options under POSIX sh, without globbing, in every step that receives them"
+When call composer_step_fact steps-splitting-args-unsafely
+The output should equal ""
+End
+
+It "passes each option as its own argument"
+When call run_install_step "--no-progress --prefer-dist"
+The lines of output should equal 3
+The line 1 of output should equal "install"
+The line 2 of output should equal "--no-progress"
+The line 3 of output should equal "--prefer-dist"
+End
+
+It "does not expand a wildcard against the working directory"
+When call run_install_step "--ignore-platform-req=ext-*"
+The line 2 of output should equal "--ignore-platform-req=ext-*"
+End
+
+It "passes no options for an empty input"
+When call run_install_step ""
+The output should equal "install"
+End
+
+It "reports a Composer failure, which the retry depends on"
+BeforeCall "export COMPOSER_STUB_STATUS=3"
+AfterCall "unset COMPOSER_STUB_STATUS"
+When call run_install_step "--no-dev"
+The line 1 of output should equal "install"
+The status should equal 3
+End
+
+It "caches only the directory Composer reports, never vendor"
+When call composer_step_fact cache-path
+The output should equal '${{ steps.composer-cache-dir.outputs.dir }}'
+End
+
+It "takes that directory from global configuration, not from composer.json"
+When call composer_step_fact run "Locate Composer Cache"
+The output should include 'cache_dir=$(composer config --global --no-plugins --absolute cache-dir)'
+The output should include "printf 'dir=%s\n' \"\$cache_dir\" >> \"\$GITHUB_OUTPUT\""
+End
+
+It "locates the directory right before the cache step"
+When call composer_step_fact step-after "Locate Composer Cache"
+The output should equal "Cache Composer packages"
+End
+
+It "keeps the restored download cache"
+When call cat "$ACTION_FILE"
+The output should not include "clear-cache"
+End
+
+It "leaves file modes alone"
+When call cat "$ACTION_FILE"
+The output should not include "chmod"
+End
+End
+
 Context "when testing PHP-specific validations"
 It "validates username length boundaries"
 When call validate_input_python "php-tests" "username" "$(awk 'BEGIN{for(i=1;i<=40;i++)printf "a"}')"
