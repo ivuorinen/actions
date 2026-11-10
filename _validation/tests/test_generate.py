@@ -64,7 +64,8 @@ def _env_name(input_name: str) -> str:
 
 def _valid_value(check: str) -> str:
     # A token's documented example is a `${{ }}` reference, which is not a value.
-    return "ghp_" + "a" * 36 if check == "github_token" else kit.EXAMPLES[check]
+    tokens = {"github_token": "ghp_" + "a" * 36, "opaque_token": NPM_TOKEN}
+    return tokens.get(check, kit.EXAMPLES[check])
 
 
 def _run(action: str, extra_env: dict[str, str]) -> subprocess.CompletedProcess[str]:

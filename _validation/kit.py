@@ -894,8 +894,7 @@ EXAMPLES = {
     "numeric_range_1_10": "3",
     "numeric_range_1_128": "2",
     "numeric_range_256_32768": "4096",
-    # Unspaced so the example satisfies its own check: a token cannot contain whitespace.
-    "opaque_token": _actions_expression("secrets.NPM_TOKEN").replace(" ", ""),
+    "opaque_token": _actions_expression("secrets.NPM_TOKEN"),
     "output_path": "results/codeql.sarif",
     "path_list": "src/**/*.ts",
     "php_extensions": "mbstring,intl",

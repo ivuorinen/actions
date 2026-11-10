@@ -356,7 +356,7 @@ SCALAR_CHECKS = [
 # A secret's example is a `${{ }}` reference, because a reader must never paste the secret
 # itself. The runner expands it before validate.py runs, so the check sees the secret and
 # never this text: there is nothing here to run the check against.
-SECRET_CHECKS = {"github_token", "license_key"}
+SECRET_CHECKS = {"github_token", "license_key", "opaque_token"}
 
 
 def test_every_check_is_covered():
