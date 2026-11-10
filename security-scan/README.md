@@ -33,15 +33,15 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter            | Description                                           | Required | Default              |
-|----------------------|-------------------------------------------------------|----------|----------------------|
-| `actionlint-enabled` | Enable actionlint scanning                            | ❌       | `true`               |
-| `gitleaks-config`    | Path to Gitleaks config file                          | ❌       | `.gitleaks.toml`     |
-| `gitleaks-license`   | Gitleaks license key (required for Gitleaks scanning) | ❌       | -                    |
-| `token`              | GitHub token for authentication                       | ❌       | -                    |
-| `trivy-scanners`     | Types of scanners to run (comma-separated)            | ❌       | `vuln,config,secret` |
-| `trivy-severity`     | Severity levels to scan for (comma-separated)         | ❌       | `CRITICAL,HIGH`      |
-| `trivy-timeout`      | Timeout for Trivy scan                                | ❌       | `10m`                |
+| Parameter            | Description                                                                                        | Required | Default              |
+|----------------------|----------------------------------------------------------------------------------------------------|----------|----------------------|
+| `actionlint-enabled` | Enable actionlint scanning                                                                         | ❌       | `true`               |
+| `gitleaks-config`    | Path to Gitleaks config file. If missing, Gitleaks uses a root .gitleaks.toml or its default rules | ❌       | `.gitleaks.toml`     |
+| `gitleaks-license`   | Gitleaks license key (required for Gitleaks scanning)                                              | ❌       | -                    |
+| `token`              | GitHub token for authentication                                                                    | ❌       | -                    |
+| `trivy-scanners`     | Types of scanners to run (comma-separated)                                                         | ❌       | `vuln,config,secret` |
+| `trivy-severity`     | Severity levels to scan for (comma-separated)                                                      | ❌       | `CRITICAL,HIGH`      |
+| `trivy-timeout`      | Timeout for Trivy scan                                                                             | ❌       | `10m`                |
 
 ## 📤 Outputs
 
