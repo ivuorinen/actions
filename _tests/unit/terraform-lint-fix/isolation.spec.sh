@@ -68,6 +68,14 @@ unset TFLINT_PLUGIN_DIR
 When call run_step "${ACTION_DIR}" "cleanup"
 The status should be success
 End
+
+It "keeps a plugin directory the caller set"
+mkdir -p "${HOME}/caller-plugins"
+export TFLINT_PLUGIN_DIR="${HOME}/caller-plugins"
+When call run_step "${ACTION_DIR}" "cleanup"
+The status should be success
+The path "${HOME}/caller-plugins" should be directory
+End
 End
 
 Describe "action.yml"

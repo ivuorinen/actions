@@ -305,7 +305,5 @@ runs:
         rm -rf .terraform/
         rm -rf reports/
 
-        # Remove only the plugins this action installed; unset when no Terraform files were found
-        if [ -n "${TFLINT_PLUGIN_DIR:-}" ]; then
-          rm -rf "$TFLINT_PLUGIN_DIR"
-        fi
+        # The path Isolate TFLint Plugins exports, never TFLINT_PLUGIN_DIR: a caller may have set that
+        rm -rf "$RUNNER_TEMP/tflint-plugins"
