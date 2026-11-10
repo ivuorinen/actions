@@ -93,6 +93,80 @@ The status should be failure
 End
 End
 
+Context "when validating extra_plugins input with accepted specs"
+Parameters
+"conventional-changelog-conventionalcommits@^9.3.1" "the default value"
+"@semantic-release/git@10.0.1" "a scoped package with a version"
+"@semantic-release/git" "a scoped package with no version"
+"semver@1.0.0-rc.1" "a pre-release version"
+"semver@1.0.0+build" "build metadata"
+"@semantic-release/changelog@6.0.0 @semantic-release/git" "two space-separated plugins"
+End
+
+It "accepts $2"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "$1"
+The status should be success
+End
+End
+
+Context "when validating extra_plugins input"
+It "accepts a multi-line YAML block value, including its trailing newline"
+block_value="@semantic-release/changelog@6.0.0
+@semantic-release/git
+"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "$block_value"
+The status should be success
+End
+
+It "rejects pipe-separated plugins"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "semver@7|ms@2"
+The status should be failure
+End
+
+It "rejects comma-separated plugins"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "semver@7,ms@2"
+The status should be failure
+End
+
+It "rejects an npm option"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "semver --force"
+The status should be failure
+End
+
+It "rejects a comparator range, which is a redirect to a shell"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "semver@>=7.0.0"
+The status should be failure
+End
+
+It "rejects shell syntax"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "semver;ms"
+The status should be failure
+End
+
+It "rejects a value that is not a package from the registry"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "github:user/repo"
+The status should be failure
+End
+End
+
+Context "when validating node-version input"
+Parameters:value "24" "24.1.0" "latest" "lts/*" "lts/-1" "lts/iron" "lts/Hydrogen"
+
+It "accepts $1"
+When call validate_input_python "npm-semantic-release" "node-version" "$1"
+The status should be success
+End
+End
+
+Context "when validating node-version input for values setup-node rejects"
+Parameters:value "lts" "lts/" "LTS/iron" "lts/-0" "lts/1" "lts/iron;x" "lts/../iron" "lts/iron-rc.1" "lts/iron+build"
+
+It "rejects $1"
+When call validate_input_python "npm-semantic-release" "node-version" "$1"
+The status should be failure
+End
+End
+
 Context "when checking action.yml structure"
 It "has valid YAML syntax"
 When call validate_action_yml_quiet "$ACTION_FILE"
