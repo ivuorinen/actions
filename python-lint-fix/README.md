@@ -21,10 +21,8 @@ jobs:
       - name: Python Lint and Fix
         uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
         with:
-          autopep8-version: '1.2.3'
           email: 'github-actions@github.com'
           fail-on-error: 'true'
-          flake8-version: '1.2.3'
           max-retries: '3'
           python-version: '3.11'
           token: '${{ github.token }}'
@@ -80,10 +78,8 @@ permissions:
 - name: Python Lint and Fix
   uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
   with:
-    autopep8-version: '1.2.3'
     email: 'github-actions@github.com'
     fail-on-error: 'true'
-    flake8-version: '1.2.3'
     max-retries: '3'
     python-version: '3.11'
     token: '${{ github.token }}'
@@ -100,10 +96,8 @@ permissions:
 - name: Python Lint and Fix with custom settings
   uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
   with:
-    autopep8-version: '1.2.3'
     email: 'github-actions@github.com'
     fail-on-error: 'true'
-    flake8-version: '1.2.3'
     max-retries: '3'
     python-version: '3.11'
     token: '${{ github.token }}'
