@@ -16,9 +16,8 @@ inputs:
     description: 'Version of .NET SDK to use.'
     required: false
   namespace:
-    description: 'GitHub namespace for the package.'
+    description: 'GitHub namespace for the package (user or organization). Required, no default.'
     required: true
-    default: 'ivuorinen'
   token:
     description: 'GitHub token with package write permissions'
     required: false
@@ -231,6 +230,7 @@ runs:
       env:
         API_KEY: ${{ inputs.token || github.token }}
         NAMESPACE: ${{ inputs.namespace }}
+        ACTOR: ${{ github.actor }}
       run: |
         set -eu
 
@@ -243,11 +243,26 @@ runs:
           exit 1
         fi
 
-        for _pkg in ./artifacts/*.nupkg; do
+        # Keep the token off the command line (any process can read argv from /proc).
+        # NuGet's supported alternative: a named source in a nuget.config plus the
+        # NuGetPackageSourceCredentials_<name> environment variable, which is read from
+        # the process environment and never written to disk. The config holds only the
+        # feed URL and lives in a temp dir outside the workspace, removed on exit.
+        # `dotnet nuget push --configfile` needs .NET 9+, so the config is found by
+        # running the push from that directory instead.
+        _work=$PWD
+        _cfgdir=$(mktemp -d)
+        trap 'rm -rf "$_cfgdir"' EXIT
+        printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration>\n  <packageSources>\n    <clear />\n    <add key="github" value="%s" />\n  </packageSources>\n</configuration>\n' \
+          "https://nuget.pkg.github.com/$NAMESPACE/index.json" > "$_cfgdir/nuget.config"
+        NuGetPackageSourceCredentials_github="Username=$ACTOR;Password=$API_KEY"
+        export NuGetPackageSourceCredentials_github
+        cd "$_cfgdir"
+
+        for _pkg in "$_work"/artifacts/*.nupkg; do
           # First attempt
           if ! dotnet nuget push "$_pkg" \
-            --api-key "$API_KEY" \
-            --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
+            --source github \
             --skip-duplicate \
             --no-symbols; then
 
@@ -255,8 +270,7 @@ runs:
             sleep 5
 
             dotnet nuget push "$_pkg" \
-              --api-key "$API_KEY" \
-              --source "https://nuget.pkg.github.com/$NAMESPACE/index.json" \
+              --source github \
               --skip-duplicate \
               --no-symbols
           fi
