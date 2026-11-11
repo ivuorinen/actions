@@ -33,6 +33,7 @@ The status should be failure
 The stdout should include "::error::"
 The stdout should include "$1"
 The stdout should include "Run it on pull_request"
+The stdout should include "read-only token and no secrets for untrusted pull requests"
 End
 End
 

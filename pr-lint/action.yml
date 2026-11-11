@@ -63,7 +63,7 @@ runs:
 
         case "$GITHUB_EVENT_NAME" in
           pull_request_target | workflow_run)
-            printf '::error::pr-lint refuses to run on %s, which grants secrets and a write token to code it would install and lint. Run it on pull_request instead.\n' "$GITHUB_EVENT_NAME"
+            printf '::error::pr-lint refuses to run on %s, which grants secrets and a write token to code it would install and lint. Run it on pull_request, with a read-only token and no secrets for untrusted pull requests.\n' "$GITHUB_EVENT_NAME"
             exit 1
             ;;
         esac
