@@ -82,6 +82,7 @@ runs:
       id: parse-version
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         LANGUAGE: ${{ inputs.language }}
         DEFAULT_VERSION: ${{ steps.validate.outputs.default_version || inputs.default-version }}
       run: |
@@ -111,18 +112,12 @@ runs:
             ;;
         esac
 
-        # Function to validate version format
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
+
+        # Repository files are untrusted: the rule lives in _validation/kit.py and ships in
+        # validate.py. Run from the action directory so the checkout cannot steer python3.
         validate_version() {
-          version=$1
-          # Use case pattern matching for POSIX compatibility
-          case "$version" in
-            [0-9]*\.[0-9]* | [0-9]*\.[0-9]*\.[0-9]*)
-              return 0
-              ;;
-            *)
-              return 1
-              ;;
-          esac
+          (cd "$ACTION_PATH" && python3 validate.py --detected-version "$1")
         }
 
         # Function to clean version string
@@ -154,7 +149,7 @@ runs:
         if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
           echo "Checking Dockerfile for $DOCKERFILE_IMAGE..." >&2
           version=$(grep -iF "FROM" Dockerfile | grep -F "$DOCKERFILE_IMAGE:" | head -1 | \
-            sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+            sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\(rc[0-9]\+\|beta[0-9]\+\)\?\)\(-[^:]*\)\?.*/\1/p" || echo "")
           if [ -n "$version" ]; then
             version=$(clean_version "$version")
             if validate_version "$version"; then
@@ -168,7 +163,7 @@ runs:
         if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
           echo "Checking devcontainer.json for $DOCKERFILE_IMAGE..." >&2
           if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\)\(-[^:]*\)\?.*/\1/p" || echo "")
+            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n "s/.*$DOCKERFILE_IMAGE:\([0-9]\+\(\.[0-9]\+\)*\(rc[0-9]\+\|beta[0-9]\+\)\?\)\(-[^:]*\)\?.*/\1/p" || echo "")
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
               if validate_version "$version"; then
@@ -198,10 +193,12 @@ runs:
             php)
               # Check composer.json
               if [ -f composer.json ] && command -v jq >/dev/null 2>&1; then
-                version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+                # A constraint can span lines; only the first version found is the one to use.
+                version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -n 1)
                 if [ -z "$version" ]; then
-                  version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+                  version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -n 1)
                 fi
+                version=$(clean_version "$version")
                 if [ -n "$version" ] && validate_version "$version"; then
                   echo "Found PHP version in composer.json: $version" >&2
                   detected_version="$version"
@@ -218,6 +215,7 @@ runs:
               if [ -f pyproject.toml ]; then
                 if grep -q '^\[project\]' pyproject.toml; then
                   version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
+                  version=$(clean_version "$version")
                   if [ -n "$version" ] && validate_version "$version"; then
                     echo "Found Python version in pyproject.toml: $version" >&2
                     detected_version="$version"
@@ -238,6 +236,7 @@ runs:
               # Check go.mod
               if [ -f go.mod ]; then
                 version=$(grep -E '^go[[:space:]]+[0-9]' go.mod | awk '{print $2}' | head -1 || echo "")
+                version=$(clean_version "$version")
                 if [ -n "$version" ] && validate_version "$version"; then
                   echo "Found Go version in go.mod: $version" >&2
                   detected_version="$version"
@@ -250,6 +249,7 @@ runs:
               # Check global.json
               if [ -f global.json ] && command -v jq >/dev/null 2>&1; then
                 version=$(jq -r '.sdk.version // empty' global.json 2>/dev/null || echo "")
+                version=$(clean_version "$version")
                 if [ -n "$version" ] && validate_version "$version"; then
                   echo "Found .NET version in global.json: $version" >&2
                   detected_version="$version"

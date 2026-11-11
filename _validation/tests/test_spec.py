@@ -159,6 +159,23 @@ def test_workflows_pass_only_declared_inputs_to_local_actions():
     assert undeclared == []
 
 
+@pytest.mark.parametrize("action", ACTIONS)
+def test_detected_version_mode_matches_action_yml(action):
+    """An action that calls the mode must have it generated, and vice versa.
+
+    A validator generated without the mode ignores the argument, runs main() and exits 0,
+    so a missing spec entry would make the step accept every version it reads.
+    """
+    text = (REPO_ROOT / action / "action.yml").read_text(encoding="utf-8")
+    assert ("validate.py --detected-version" in text) == ("detected_version" in SPECS[action])
+
+
+@pytest.mark.parametrize("action", [a for a in ACTIONS if "detected_version" in SPECS[a]])
+def test_detected_version_rule_exists_in_kit(action):
+    """The rule spec.py names is a function in kit.py, so the generator can inline it."""
+    assert callable(getattr(kit, SPECS[action].get("detected_version", ""), None))
+
+
 _SINGLE = re.compile(r"^\s*([a-zA-Z0-9_.-]+): '((?:[^']|'')*)'\s*$")
 _DOUBLE = re.compile(r'^\s*([a-zA-Z0-9_.-]+): "((?:[^"\\]|\\.)*)"\s*$')
 

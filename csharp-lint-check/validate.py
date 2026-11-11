@@ -58,6 +58,12 @@ def check_github_token(value: str) -> str | None:
     return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
+def is_detected_dotnet_version(value: str) -> bool:
+    """The dotted forms, plus the bare majors setup-dotnet documents: 8 and 8.x."""
+    pattern = r"[0-9]+(\.[0-9A-Za-z]+)*([-+][0-9A-Za-z.+-]+)?"
+    return re.fullmatch(pattern, value) is not None
+
+
 ACTION = "csharp-lint-check"
 
 CHECKS = {
@@ -109,4 +115,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--detected-version"]:
+        sys.exit(0 if len(sys.argv) > 2 and is_detected_dotnet_version(sys.argv[2]) else 1)
     main()

@@ -410,6 +410,33 @@ def check_go_version(value: str) -> str | None:
 
 
 # --------------------------------------------------------------------------------------
+# Versions read from repository files
+#
+# These are not input checks, so they are not ``check_*`` and not in ``CHECKS``: the ``_skip``
+# contract is wrong for them. The value comes from a file in the checked-out repository, so
+# an empty string or a ``${{ }}`` is just more untrusted text. An action reaches one through
+# ``validate.py --detected-version VALUE`` (``detected_version`` in ``spec.py``) and moves on
+# to its next version source when the answer is no.
+#
+# Both allow only ASCII digits, letters and ``.+-``, so nothing a shell, a ``with:`` input or
+# ``$GITHUB_OUTPUT`` treats as syntax can pass. ``fullmatch`` also refuses a trailing newline,
+# which ``$`` would let through, and ``[0-9]`` refuses the non-ASCII digits ``\d`` matches.
+# --------------------------------------------------------------------------------------
+
+
+def is_detected_version(value: str) -> bool:
+    """Dotted version with an optional suffix: 8.4, 1.22.3, 1.25.x, 1.23rc1, 3.13-dev, 1.0.0+b."""
+    pattern = r"[0-9]+\.[0-9][0-9A-Za-z]*(\.[0-9A-Za-z]+)*([-+][0-9A-Za-z.+-]+)?"
+    return re.fullmatch(pattern, value) is not None
+
+
+def is_detected_dotnet_version(value: str) -> bool:
+    """The dotted forms, plus the bare majors setup-dotnet documents: 8 and 8.x."""
+    pattern = r"[0-9]+(\.[0-9A-Za-z]+)*([-+][0-9A-Za-z.+-]+)?"
+    return re.fullmatch(pattern, value) is not None
+
+
+# --------------------------------------------------------------------------------------
 # Docker
 # --------------------------------------------------------------------------------------
 

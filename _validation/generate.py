@@ -111,11 +111,21 @@ def main() -> None:
             data = error.replace("%", "%25").replace("\\r", "%0D").replace("\\n", "%0A")
             sys.stdout.write(f"::error::{ACTION}: {data}\\n")
         sys.exit(1)
+'''
 
-
+_ENTRY = """\
 if __name__ == "__main__":
     main()
-'''
+"""
+
+# Answers by exit status alone: a rejected file value is not an error, the calling step
+# moves on to its next version source.
+_DETECTED_VERSION_ENTRY = """\
+if __name__ == "__main__":
+    if sys.argv[1:2] == ["--detected-version"]:
+        sys.exit(0 if len(sys.argv) > 2 and {rule}(sys.argv[2]) else 1)
+    main()
+"""
 
 
 def _check_name(check_type: str) -> str:
@@ -142,6 +152,7 @@ def render(action: str) -> str:
     spec = SPECS[action]
     checks = spec["checks"]
     required = spec["required"]
+    detected_rule = spec.get("detected_version")
 
     used_types = sorted(set(checks.values()))
     check_sources = [inspect.getsource(getattr(kit, _check_name(t))).strip() for t in used_types]
@@ -151,6 +162,8 @@ def render(action: str) -> str:
     blocks: list[str] = [_HEADER.format(action=action).rstrip()]
     blocks.extend(helper_sources)
     blocks.extend(check_sources)
+    if detected_rule:
+        blocks.append(inspect.getsource(getattr(kit, detected_rule)).strip())
 
     check_lines = "\n".join(
         f'    "{name}": {_check_name(check_type)},' for name, check_type in sorted(checks.items())
@@ -168,6 +181,8 @@ def render(action: str) -> str:
     blocks.append(f"MASKED_INPUTS: list[str] = [{masked_names}]")
 
     blocks.append(_RUNNER.rstrip())
+    entry = _DETECTED_VERSION_ENTRY.format(rule=detected_rule) if detected_rule else _ENTRY
+    blocks.append(entry.rstrip())
     return "\n\n\n".join(blocks) + "\n"
 
 

@@ -8,6 +8,8 @@ Shape::
     SPECS[action] = {
         "required": [<input names that must be non-empty>],
         "checks":   {<input name>: "<kit check type>"},
+        # only for actions that read a tool version from a repository file:
+        "detected_version": "<kit is_detected_* rule>",
     }
 
 Rules for editing:
@@ -18,6 +20,8 @@ Rules for editing:
     spec drift apart.
   * a credential input must use a check type in ``kit.MASKED_CHECKS``: that type is what
     makes its validator mask the value in the job's logs.
+  * ``detected_version`` adds a ``--detected-version VALUE`` mode to the generated
+    validator; ``tests/test_spec.py`` fails unless the action calls it exactly when set.
   * after editing, run ``make update-validators`` to regenerate every ``validate.py``.
 """
 
@@ -26,11 +30,17 @@ from __future__ import annotations
 from typing import TypedDict
 
 
-class ActionSpec(TypedDict):
-    """Validation spec for one action: which inputs are required and how each is checked."""
+class _InputSpec(TypedDict):
+    """Which inputs are required and how each is checked."""
 
     required: list[str]
     checks: dict[str, str]
+
+
+class ActionSpec(_InputSpec, total=False):
+    """Validation spec for one action."""
+
+    detected_version: str
 
 
 SPECS: dict[str, ActionSpec] = {
@@ -94,6 +104,7 @@ SPECS: dict[str, ActionSpec] = {
             "max-retries": "numeric_range_1_10",
             "token": "github_token",
         },
+        "detected_version": "is_detected_dotnet_version",
     },
     "csharp-lint-check": {
         "required": [],
@@ -101,6 +112,7 @@ SPECS: dict[str, ActionSpec] = {
             "dotnet-version": "dotnet_version",
             "token": "github_token",
         },
+        "detected_version": "is_detected_dotnet_version",
     },
     "csharp-publish": {
         "required": ["namespace"],
@@ -110,6 +122,7 @@ SPECS: dict[str, ActionSpec] = {
             "namespace": "namespace_with_lookahead",
             "token": "github_token",
         },
+        "detected_version": "is_detected_dotnet_version",
     },
     "docker-build": {
         "required": ["tag"],
@@ -186,6 +199,7 @@ SPECS: dict[str, ActionSpec] = {
             "max-retries": "numeric_range_1_10",
             "token": "github_token",
         },
+        "detected_version": "is_detected_version",
     },
     "go-lint": {
         "required": [],
@@ -213,6 +227,7 @@ SPECS: dict[str, ActionSpec] = {
             "language": "language_enum",
             "token": "github_token",
         },
+        "detected_version": "is_detected_version",
     },
     "npm-publish": {
         "required": ["npm_token"],
@@ -248,6 +263,7 @@ SPECS: dict[str, ActionSpec] = {
             "token": "github_token",
             "username": "username",
         },
+        "detected_version": "is_detected_version",
     },
     "pr-lint": {
         "required": [],
@@ -256,6 +272,7 @@ SPECS: dict[str, ActionSpec] = {
             "token": "github_token",
             "username": "username",
         },
+        "detected_version": "is_detected_version",
     },
     "pre-commit": {
         "required": [],
@@ -299,6 +316,7 @@ SPECS: dict[str, ActionSpec] = {
             "username": "username",
             "working-directory": "file_path",
         },
+        "detected_version": "is_detected_version",
     },
     "release-monthly": {
         "required": ["token"],

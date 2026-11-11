@@ -317,3 +317,51 @@ def test_boolean_that_a_shell_test_would_misread_fails(action, variable, value):
     result = _run(action, {**_satisfying_required(action), variable: value})
     assert result.returncode == 1, result.stdout
     assert "::error::" in result.stdout
+
+
+DETECTING = [a for a in ACTIONS if "detected_version" in SPECS[a]]
+
+
+def _run_detected_version(action: str, *values: str) -> subprocess.CompletedProcess[str]:
+    """Run ``<action>/validate.py --detected-version`` with ``values`` and no INPUT_* set."""
+    return subprocess.run(
+        [sys.executable, "validate.py", "--detected-version", *values],
+        cwd=REPO_ROOT / action,
+        env={k: v for k, v in os.environ.items() if not k.startswith("INPUT_")},
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+@pytest.mark.parametrize("value", ["8.0", "1.22.3", "1.0.0-rc.1", "1.0.0+build"])
+@pytest.mark.parametrize("action", DETECTING)
+def test_detected_version_mode_accepts(action, value):
+    """A valid version exits 0 silently, without validating any input.
+
+    Required inputs are unset here: csharp-publish and language-version-detect would fail
+    main(), so a zero exit also proves this mode answers without validating inputs.
+    """
+    result = _run_detected_version(action, value)
+    assert (result.returncode, result.stdout, result.stderr) == (0, "", "")
+
+
+@pytest.mark.parametrize("value", ["", "latest", "8.4;evil", "8.4$(evil)", "8.0\ninjected=1"])
+@pytest.mark.parametrize("action", DETECTING)
+def test_detected_version_mode_rejects_quietly(action, value):
+    """A rejected file value exits 1 with no output: the step moves on to its next source."""
+    result = _run_detected_version(action, value)
+    assert (result.returncode, result.stdout, result.stderr) == (1, "", "")
+
+
+@pytest.mark.parametrize("action", DETECTING)
+def test_detected_version_mode_without_a_value_rejects_quietly(action):
+    """A missing value is a rejection too, not a traceback."""
+    result = _run_detected_version(action)
+    assert (result.returncode, result.stdout, result.stderr) == (1, "", "")
+
+
+@pytest.mark.parametrize("action", [a for a in ACTIONS if a not in DETECTING])
+def test_detected_version_mode_is_only_generated_where_used(action):
+    """Actions without ``detected_version`` in spec.py get no --detected-version entry point."""
+    assert "--detected-version" not in (REPO_ROOT / action / "validate.py").read_text("utf-8")
