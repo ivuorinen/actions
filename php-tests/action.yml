@@ -28,7 +28,7 @@ inputs:
     required: false
     default: 'none'
   composer-args:
-    description: 'Arguments to pass to Composer install'
+    description: 'Arguments for both Composer install steps. Plugins must be listed in config.allow-plugins in composer.json'
     required: false
     default: '--no-progress --prefer-dist --optimize-autoloader'
   max-retries:
@@ -36,7 +36,7 @@ inputs:
     required: false
     default: '3'
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for checkout and private Composer packages. Plugins, scripts and tests never get it, so plugin-placed private packages fail with --no-cache or --prefer-source'
     required: false
     default: ''
   username:
@@ -57,7 +57,7 @@ outputs:
     value: ${{ steps.setup-php.outputs.php-version }}
   composer-version:
     description: 'Installed Composer version'
-    value: ${{ steps.composer-config.outputs.version }}
+    value: ${{ steps.composer-version.outputs.version }}
   cache-hit:
     description: 'Indicates if there was a cache hit'
     value: ${{ steps.composer-cache.outputs.cache-hit }}
@@ -246,22 +246,18 @@ runs:
         coverage: ${{ inputs.coverage }}
         ini-values: memory_limit=1G, max_execution_time=600
         fail-fast: true
+        # setup-php defaults this to github.token and writes it to ~/.composer/auth.json, where tests can read it.
+        github-token: ''
 
-    - name: Configure Composer
-      id: composer-config
+    # Every Composer command up to and including the download passes --no-plugins: Composer otherwise loads
+    # plugins from a committed or restored vendor/, and they could tamper with the environment the token enters.
+    - name: Detect Composer Version
+      id: composer-version
       shell: sh
-      env:
-        GITHUB_TOKEN: ${{ inputs.token || github.token }}
       run: |
         set -eu
 
-        # Configure Composer environment
-        composer config --global process-timeout 600
-        composer config --global allow-plugins true
-        composer config --global github-oauth.github.com "$GITHUB_TOKEN"
-
-        # Verify Composer installation
-        composer_full_version=$(composer --version | sed -n 's/.*Composer version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' || echo "")
+        composer_full_version=$(composer --no-plugins --version | sed -n 's/.*Composer version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' || echo "")
         if [ -z "$composer_full_version" ]; then
           echo "::error::Failed to detect Composer version"
           exit 1
@@ -269,10 +265,6 @@ runs:
 
         echo "Detected Composer version: $composer_full_version"
         printf 'version=%s\n' "$composer_full_version" >> "$GITHUB_OUTPUT"
-
-        # Log Composer configuration
-        echo "Composer Configuration:"
-        composer config --list
 
     - name: Cache Composer packages
       id: composer-cache
@@ -293,8 +285,25 @@ runs:
       run: |
         set -eu
         echo "Clearing Composer cache to ensure clean installation..."
-        composer clear-cache
+        composer clear-cache --no-plugins
 
+    # The only step holding the token. Plugins and composer.json scripts can read a step's environment,
+    # so they stay off here and run in the next step, which has no token.
+    - name: Download Composer Dependencies
+      uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      env:
+        COMPOSER_ARGS: ${{ inputs.composer-args }}
+        # toJSON() quotes and escapes the token, so a stray newline or quote cannot break the JSON.
+        COMPOSER_AUTH: ${{ format('{{"github-oauth":{{"github.com":{0}}}}}', toJSON(inputs.token || github.token)) }}
+      with:
+        timeout_minutes: 10
+        max_attempts: ${{ inputs.max-retries }}
+        retry_wait_seconds: 30
+        command: composer install --no-plugins --no-scripts $COMPOSER_ARGS
+
+    # An installer plugin can move a package here, which reinstalls it. With no token, that
+    # reinstall must come from Composer's cache, so --no-cache or --prefer-source fail for
+    # private packages; giving this step the token would hand it to plugins and scripts.
     - name: Install Composer Dependencies
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
       env:
