@@ -457,4 +457,171 @@ The line 3 of output should equal "status=failure"
 End
 End
 End
+
+Context "when scoping the Composer token"
+# Answers questions about the step list. Parsing the YAML keeps these assertions on
+# step structure, where a token can reach, rather than on line positions.
+composer_token_fact() {
+  uv run python - "$ACTION_FILE" "$@" <<'PY'
+import json
+import re
+import sys
+
+import yaml
+
+action_file, fact, *args = sys.argv[1:]
+with open(action_file, encoding="utf-8") as handle:
+    steps = yaml.safe_load(handle)["runs"]["steps"]
+
+
+def find(name):
+    return next(step for step in steps if step.get("name") == name)
+
+
+def invocations(step):
+    source = step.get("run") or step.get("with", {}).get("command") or ""
+    return [line.strip() for line in source.splitlines() if re.search(r"(?<![\w./-])composer\s", line)]
+
+
+if fact == "composer-commands":
+    for step in steps:
+        print("\n".join(invocations(step)))
+elif fact == "plugins-enabled-before-credentials":
+    for step in steps:
+        for line in invocations(step):
+            if "--no-plugins" not in line:
+                print(f"{step.get('name')}: {line}")
+        if "COMPOSER_AUTH" in step.get("env", {}):
+            break
+elif fact in ("token-steps", "token-steps-probe"):
+    if fact == "token-steps-probe":
+        # Plants a value in one step's env, to show the scan catches that form of token reference.
+        target, value = args
+        find(target).setdefault("env", {})["PROBE"] = value
+
+    def strings(node):
+        """Every key and scalar in a step, raw: a YAML dump would rewrite the quotes in inputs['token']."""
+        if isinstance(node, dict):
+            for key, value in node.items():
+                yield str(key)
+                yield from strings(value)
+        elif isinstance(node, list):
+            for value in node:
+                yield from strings(value)
+        else:
+            yield str(node)
+
+    # Dotted and indexed token references, and the whole inputs or github object, which carries the token.
+    pattern = (
+        r"(inputs|github)(\.token|\[\s*['\"]token['\"]\s*\])|toJSON\(\s*(inputs|github)\s*\)"
+        r"|secrets\.|COMPOSER_AUTH|GITHUB_TOKEN|GH_TOKEN"
+    )
+    for step in steps:
+        if re.search(pattern, "\n".join(strings(step))):
+            print(step["name"])
+elif fact == "setup-php-token":
+    print(repr(find("Setup PHP")["with"].get("github-token")))
+elif fact == "composer-auth":
+    env_value = find("Download Composer Dependencies")["env"]["COMPOSER_AUTH"]
+    template, token = re.fullmatch(r"\$\{\{ format\('(.*)', (.*)\) \}\}", env_value).groups()
+    # str.format and the workflow format() share {0}, {{ and }} semantics. json.dumps stands in for
+    # toJSON(), which returns the token as a quoted, escaped JSON string.
+    print(json.dumps(json.loads(template.format(json.dumps("TOKEN")))))
+    print(token)
+    awkward = 'to"ken\n'
+    parsed = json.loads(template.format(json.dumps(awkward)))
+    print("escaped" if parsed["github-oauth"]["github.com"] == awkward else "broken")
+elif fact == "command":
+    print(find(args[0])["with"]["command"])
+elif fact == "env-keys":
+    print("\n".join(sorted(find(args[0]).get("env", {}))))
+elif fact == "step-after":
+    print(steps[steps.index(find(args[0])) + 1]["name"])
+PY
+}
+
+It "never prints the Composer configuration, which includes tokens"
+When call composer_token_fact composer-commands
+The output should not include "config --list"
+The output should not include "config -l"
+End
+
+It "stores no credentials or blanket plugin permission in Composer config"
+When call composer_token_fact composer-commands
+The output should not include "github-oauth"
+The output should not include "allow-plugins"
+End
+
+It "stops setup-php writing its default token to auth.json"
+When call composer_token_fact setup-php-token
+The output should equal "''"
+End
+
+It "limits the token to steps that run no repository code"
+When call composer_token_fact token-steps
+The lines of output should equal 3
+The line 1 of output should equal "Validate Inputs"
+The line 2 of output should equal "Checkout Repository"
+The line 3 of output should equal "Download Composer Dependencies"
+End
+
+Describe "token references in a step that runs repository code"
+Parameters
+"an indexed inputs reference" "\${{ inputs['token'] }}"
+"an indexed github reference" "\${{ github[\"token\"] }}"
+"the whole inputs object" "\${{ toJSON(inputs) }}"
+"the whole github object" "\${{ toJSON(github) }}"
+End
+
+It "catches $1"
+When call composer_token_fact token-steps-probe "Run PHPUnit Tests" "$2"
+The output should include "Run PHPUnit Tests"
+End
+End
+
+It "builds COMPOSER_AUTH in the shape Composer documents"
+When call composer_token_fact composer-auth
+The line 1 of output should equal '{"github-oauth": {"github.com": "TOKEN"}}'
+The line 2 of output should equal "toJSON(inputs.token || github.token)"
+End
+
+It "keeps COMPOSER_AUTH valid JSON when the token holds a quote or a newline"
+When call composer_token_fact composer-auth
+The line 3 of output should equal "escaped"
+End
+
+It "disables plugins and scripts while the token is in the environment"
+When call composer_token_fact command "Download Composer Dependencies"
+The output should include "--no-plugins"
+The output should include "--no-scripts"
+End
+
+It "keeps plugins disabled in every Composer command up to that step"
+When call composer_token_fact plugins-enabled-before-credentials
+The output should equal ""
+End
+
+It "runs plugins and scripts in the next step"
+When call composer_token_fact step-after "Download Composer Dependencies"
+The output should equal "Install Composer Dependencies"
+End
+
+It "leaves plugins and scripts enabled in that step"
+When call composer_token_fact command "Install Composer Dependencies"
+The output should include "composer install"
+The output should not include "--no-plugins"
+The output should not include "--no-scripts"
+End
+
+It "gives the plugins and scripts step no token"
+When call composer_token_fact env-keys "Install Composer Dependencies"
+The output should equal "COMPOSER_ARGS"
+End
+
+It "gives the test step no token"
+When call composer_token_fact env-keys "Run PHPUnit Tests"
+The output should not include "TOKEN"
+The output should not include "AUTH"
+End
+End
 End
