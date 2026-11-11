@@ -1,12 +1,12 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 # permissions:
-#   - contents: write  # Required for committing linter fixes
-#   - pull-requests: write  # Required for creating pull requests with fixes
+#   - contents: read  # Required for checking out the repository
+#   - pull-requests: write  # Required for the MegaLinter and dependency review PR comments
 ---
 # MegaLinter GitHub Action configuration file
 # More info at https://megalinter.io
 name: PR Lint
-description: Runs MegaLinter against pull requests
+description: Runs MegaLinter against pull requests. Refuses pull_request_target and workflow_run.
 author: Ismo Vuorinen
 
 branding:
@@ -53,6 +53,21 @@ runs:
         fi
         python3 validate.py
 
+    # MegaLinter reads its configuration from the checkout, so hardened install
+    # flags alone cannot make these triggers safe.
+    - name: Refuse Privileged Triggers
+      id: guard-trigger
+      shell: sh
+      run: |
+        set -eu
+
+        case "$GITHUB_EVENT_NAME" in
+          pull_request_target | workflow_run)
+            printf '::error::pr-lint refuses to run on %s, which grants secrets and a write token to code it would install and lint. Run it on pull_request instead.\n' "$GITHUB_EVENT_NAME"
+            exit 1
+            ;;
+        esac
+
     - name: Checkout Code
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
@@ -79,14 +94,16 @@ runs:
             has_package_manager=$(jq -r '.packageManager // empty' package.json 2>/dev/null || printf '')
             if [ -n "$has_package_manager" ]; then
               printf 'has-package-manager=%s\n' "true" >> "$GITHUB_OUTPUT"
-              printf 'Found packageManager field: %s\n' "$has_package_manager"
+              # The value comes from the checkout: never print it, the runner would
+              # act on a workflow command inside it.
+              printf '%s\n' "Found packageManager field in package.json"
             else
               printf 'has-package-manager=%s\n' "false" >> "$GITHUB_OUTPUT"
             fi
           else
             # Fallback: check with grep if jq not available
             # Use robust pattern to verify non-empty value
-            if grep -q '"packageManager"[[:space:]]*:[[:space:]]*"[^"]\+"' package.json 2>/dev/null; then
+            if grep -Eq '"packageManager"[[:space:]]*:[[:space:]]*"[^"]+"' package.json 2>/dev/null; then
               printf 'has-package-manager=%s\n' "true" >> "$GITHUB_OUTPUT"
               printf '%s\n' "Found packageManager field in package.json"
             else
@@ -138,6 +155,8 @@ runs:
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        # Otherwise Corepack takes settings from a .corepack.env in the checkout.
+        COREPACK_ENV_FILE: '0'
       run: |
         set -eu
 
@@ -173,11 +192,17 @@ runs:
         restore-keys: |
           ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-
 
+    # Installed for linters to read, so no scripts have to run. Yarn's yarnPath and
+    # plugins settings still load code from the checkout: `yarn install` has no flag
+    # to skip plugins, and ignoring yarnPath breaks projects that pin Yarn with it.
     - name: Install Node Dependencies
+      id: install-node
       if: steps.detect-node.outputs.found == 'true' && steps.node-cache.outputs.cache-hit != 'true'
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        # Otherwise Corepack takes settings from a .corepack.env in the checkout.
+        COREPACK_ENV_FILE: '0'
       run: |
         set -eu
 
@@ -185,25 +210,43 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           "pnpm")
-            pnpm install --frozen-lockfile
-            ;;
-          "yarn")
-            # Detect Yarn version by checking actual version output
-            # Yarn 2+ (Berry) uses --immutable, Yarn 1.x (Classic) uses --frozen-lockfile
-            yarn_version=$(yarn --version 2>/dev/null || printf '1.0.0')
-            if printf '%s' "$yarn_version" | grep -q '^[2-9]'; then
-              # Yarn 2+ (Berry) - use --immutable
-              yarn install --immutable
-            else
-              # Yarn 1.x (Classic) - use --frozen-lockfile
-              yarn install --frozen-lockfile
+            # pnpm compares the lockfile's pnpmfileChecksum even with the pnpmfile ignored, so
+            # a lockfile recording one fails a frozen install. Only for that error, install
+            # without the frozen check; that drops the checksum, so put the lockfile back
+            # for the steps that lint or commit the tree.
+            pnpm_status=0
+            pnpm_output=$(pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile 2>&1) || pnpm_status=$?
+            printf '%s\n' "$pnpm_output"
+            if [ "$pnpm_status" -ne 0 ]; then
+              case "$pnpm_output" in
+                *ERR_PNPM_LOCKFILE_CONFIG_MISMATCH*) ;;
+                *) exit "$pnpm_status" ;;
+              esac
+              pnpm install --no-frozen-lockfile --ignore-scripts --ignore-pnpmfile
+              git checkout -- pnpm-lock.yaml
             fi
             ;;
+          "yarn")
+            # Detect Yarn version by checking actual version output: each generation
+            # names its lockfile and script-skipping flags differently.
+            yarn_version=$(yarn --version 2>/dev/null || printf '1.0.0')
+            case "$yarn_version" in
+              1.*)
+                yarn install --frozen-lockfile --ignore-scripts
+                ;;
+              2.*)
+                yarn install --immutable --skip-builds
+                ;;
+              *)
+                yarn install --immutable --mode=skip-build
+                ;;
+            esac
+            ;;
           "bun")
-            bun install --frozen-lockfile
+            bun install --frozen-lockfile --ignore-scripts
             ;;
           "npm"|*)
-            npm ci
+            npm ci --ignore-scripts
             ;;
         esac
 
@@ -353,144 +396,18 @@ runs:
         printf '%s\n' "::add-matcher::$matcher_path"
 
     - name: Install PHP dependencies
+      id: install-php
       if: steps.detect-php.outputs.found == 'true'
       shell: sh
       run: |
         set -eu
 
-        composer install --no-progress --prefer-dist --no-interaction
+        composer install --no-progress --prefer-dist --no-interaction --no-scripts --no-plugins
 
-    # Python tests if requirements.txt exists
-    - name: Detect requirements.txt
-      id: detect-python
-      shell: sh
-      run: |
-        set -eu
-
-        if [ -f requirements.txt ]; then
-          printf 'found=%s\n' "true" >> "$GITHUB_OUTPUT"
-        fi
-
-    - name: Detect Python Version
-      if: steps.detect-python.outputs.found == 'true'
-      id: python-version
-      shell: sh
-      env:
-        ACTION_PATH: ${{ github.action_path }}
-        DEFAULT_VERSION: '3.14'
-      run: |
-        set -eu
-        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
-
-        # Repository files are untrusted: the rule lives in _validation/kit.py and ships in
-        # validate.py. Run from the action directory so the checkout cannot steer python3.
-        validate_version() {
-          (cd "$ACTION_PATH" && python3 validate.py --detected-version "$1")
-        }
-
-        # Function to clean version string
-        clean_version() {
-          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
-        }
-
-        detected_version=""
-
-        # Parse .tool-versions file
-        if [ -f .tool-versions ]; then
-          printf 'Checking .tool-versions for python...\n' >&2
-          version=$(awk '/^python[[:space:]]/ {gsub(/#.*/, ""); print $2; exit}' .tool-versions 2>/dev/null || echo "")
-          if [ -n "$version" ]; then
-            version=$(clean_version "$version")
-            if validate_version "$version"; then
-              printf 'Found Python version in .tool-versions: %s\n' "$version" >&2
-              detected_version="$version"
-            fi
-          fi
-        fi
-
-        # Parse Dockerfile
-        if [ -z "$detected_version" ] && [ -f Dockerfile ]; then
-          printf 'Checking Dockerfile for python...\n' >&2
-          version=$(grep -iF "FROM" Dockerfile | grep -F "python:" | head -1 | \
-            sed -n -E "s/.*python:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
-          if [ -n "$version" ]; then
-            version=$(clean_version "$version")
-            if validate_version "$version"; then
-              printf 'Found Python version in Dockerfile: %s\n' "$version" >&2
-              detected_version="$version"
-            fi
-          fi
-        fi
-
-        # Parse devcontainer.json
-        if [ -z "$detected_version" ] && [ -f .devcontainer/devcontainer.json ]; then
-          printf 'Checking devcontainer.json for python...\n' >&2
-          if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.image // empty' .devcontainer/devcontainer.json 2>/dev/null | sed -n -E "s/.*python:([0-9]+(\.[0-9]+)*)(-[^:]*)?.*/\1/p" || echo "")
-            if [ -n "$version" ]; then
-              version=$(clean_version "$version")
-              if validate_version "$version"; then
-                printf 'Found Python version in devcontainer: %s\n' "$version" >&2
-                detected_version="$version"
-              fi
-            fi
-          else
-            printf 'jq not found; skipping devcontainer.json parsing\n' >&2
-          fi
-        fi
-
-        # Parse .python-version file
-        if [ -z "$detected_version" ] && [ -f .python-version ]; then
-          printf 'Checking .python-version...\n' >&2
-          version=$(tr -d '\r' < .python-version | head -1)
-          if [ -n "$version" ]; then
-            version=$(clean_version "$version")
-            if validate_version "$version"; then
-              printf 'Found Python version in .python-version: %s\n' "$version" >&2
-              detected_version="$version"
-            fi
-          fi
-        fi
-
-        # Parse pyproject.toml
-        if [ -z "$detected_version" ] && [ -f pyproject.toml ]; then
-          printf 'Checking pyproject.toml...\n' >&2
-          if grep -q '^\[project\]' pyproject.toml; then
-            version=$(grep -A 20 '^\[project\]' pyproject.toml | grep -E '^\s*requires-python[[:space:]]*=' | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p' | head -1)
-            if [ -n "$version" ]; then
-              version=$(clean_version "$version")
-              if validate_version "$version"; then
-                printf 'Found Python version in pyproject.toml: %s\n' "$version" >&2
-                detected_version="$version"
-              fi
-            fi
-          fi
-        fi
-
-        # Use default version if nothing detected
-        if [ -z "$detected_version" ]; then
-          detected_version="$DEFAULT_VERSION"
-          printf 'Using default Python version: %s\n' "$detected_version" >&2
-        fi
-
-        # Set output
-        printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
-        printf 'Final detected Python version: %s\n' "$detected_version" >&2
-
-    - name: Setup Python
-      if: steps.detect-python.outputs.found == 'true'
-      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-      with:
-        python-version: ${{ steps.python-version.outputs.detected-version }}
-        cache: 'pip'
-
-    - name: Install Python dependencies
-      if: steps.detect-python.outputs.found == 'true'
-      shell: sh
-      run: |
-        set -eu
-
-        pip install -r requirements.txt
+    # Python dependencies are deliberately not installed here. MegaLinter's Python
+    # linters run in their own venvs inside its container, which cannot see packages
+    # installed on the runner. Use PRE_COMMANDS with `venv:` in .mega-linter.yml for
+    # a linter that has to import project dependencies.
 
     # Go tests if go.mod exists
     - name: Detect go.mod

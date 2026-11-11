@@ -46,7 +46,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`npm-semantic-release`][npm-semantic-release]       | Other      | Runs semantic-release for automated npm versioning and publi... | Caching, Auto-detection, Outputs             |
 |  ✅  | [`php-tests`][php-tests]                             | Testing    | Run PHPUnit tests with optional Laravel setup and Composer d... | Caching, Auto-detection, Token auth, Outputs |
-|  ✅  | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests                           | Caching, Auto-detection, Token auth, Outputs |
+|  ✅  | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests. Refuses pull_request_... | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`pre-commit`][pre-commit]                           | Linting    | Runs pre-commit on the repository and pushes the fixes back ... | Auto-detection, Token auth, Outputs          |
 |  ✅  | [`prettier-lint`][prettier-lint]                     | Linting    | Run Prettier in check or fix mode with advanced configuratio... | Caching, Auto-detection, Token auth, Outputs |
 |  📝  | [`python-lint-fix`][python-lint-fix]                 | Linting    | Lints and fixes Python files, commits changes, and uploads S... | Caching, Auto-detection, Token auth, Outputs |
@@ -73,7 +73,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | 📝 [`csharp-lint-check`][csharp-lint-check]   | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Caching, Auto-detection, Token auth, Outputs |
 | ✅ [`eslint-lint`][eslint-lint]               | Run ESLint in check or fix mode with advanced conf... | JavaScript, TypeScript                       | Caching, Auto-detection, Token auth, Outputs |
 | 📝 [`go-lint`][go-lint]                       | Run golangci-lint with advanced configuration, cac... | Go                                           | Caching, Token auth, Outputs                 |
-| ✅ [`pr-lint`][pr-lint]                       | Runs MegaLinter against pull requests                 | Conventional Commits                         | Caching, Auto-detection, Token auth, Outputs |
+| ✅ [`pr-lint`][pr-lint]                       | Runs MegaLinter against pull requests. Refuses pul... | Conventional Commits                         | Caching, Auto-detection, Token auth, Outputs |
 | 📦 [`pre-commit`][pre-commit]                 | Runs pre-commit on the repository and pushes the f... | Python, Multiple Languages                   | Auto-detection, Token auth, Outputs          |
 | ✅ [`prettier-lint`][prettier-lint]           | Run Prettier in check or fix mode with advanced co... | JavaScript, TypeScript, Markdown, YAML, JSON | Caching, Auto-detection, Token auth, Outputs |
 | 📝 [`python-lint-fix`][python-lint-fix]       | Lints and fixes Python files, commits changes, and... | Python                                       | Caching, Auto-detection, Token auth, Outputs |
