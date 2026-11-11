@@ -49,7 +49,6 @@ Parameters
 "go-build detect-go-version golang"
 "php-tests detect-php-version php"
 "pr-lint php-version php"
-"pr-lint python-version python"
 "pr-lint go-version golang"
 "python-lint-fix python-version python"
 "language-version-detect parse-version php php"
@@ -284,7 +283,7 @@ End
 
 It "accepts a free-threaded Python build from .python-version"
 printf '3.14t-dev\n' >.python-version
-When call run_site "pr-lint python-version python"
+When call run_site "language-version-detect parse-version python python"
 The status should be success
 The stderr should not include "Using default"
 Assert expect_output detected-version '3.14t-dev'
