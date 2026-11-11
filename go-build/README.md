@@ -37,13 +37,13 @@ jobs:
 
 ## 📤 Outputs
 
-| Parameter       | Description                                     |
-| --------------- | ----------------------------------------------- |
-| `binary_path`   | Path to built binaries                          |
-| `build_status`  | Build completion status (success/failure)       |
-| `coverage_path` | Path to coverage report                         |
-| `go_version`    | Version of Go used                              |
-| `test_status`   | Test execution status (success/failure/skipped) |
+| Parameter       | Description                                                           |
+| --------------- | --------------------------------------------------------------------- |
+| `binary_path`   | Path to built binaries                                                |
+| `build_status`  | Build completion status (success/failure)                             |
+| `coverage_path` | Path to coverage report                                               |
+| `go_version`    | Version of Go used; a pre-release is in semver form, e.g. 1.24.0-rc.1 |
+| `test_status`   | Test execution status (success/failure/skipped)                       |
 
 ## 🔐 Permissions
 

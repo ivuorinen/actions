@@ -69,6 +69,12 @@ def check_username(value: str) -> str | None:
     return "may only contain letters, digits, and internal - or _"
 
 
+def is_detected_version(value: str) -> bool:
+    """Dotted version with an optional suffix: 8.4, 1.22.3, 1.25.x, 1.23rc1, 3.13-dev, 1.0.0+b."""
+    pattern = r"[0-9]+\.[0-9][0-9A-Za-z]*(\.[0-9A-Za-z]+)*([-+][0-9A-Za-z.+-]+)?"
+    return re.fullmatch(pattern, value) is not None
+
+
 ACTION = "pr-lint"
 
 CHECKS = {
@@ -121,4 +127,6 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if sys.argv[1:2] == ["--detected-version"]:
+        sys.exit(0 if len(sys.argv) > 2 and is_detected_version(sys.argv[2]) else 1)
     main()
