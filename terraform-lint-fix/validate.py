@@ -46,9 +46,14 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
 def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     """Return why ``value`` is not a relative path below the working directory, or None.
 
+    A leading ``-`` is refused because a command would read it as an option, and buildx reads
+    ``-`` alone as stdin; ``./-name`` names the same file.
+
     With ``spaces``, runs of spaces may separate path characters. A leading or trailing space
     stays invalid, so the absolute-path check always sees the path's real first character.
     """
+    if value.startswith("-"):
+        return "must not start with -"
     import urllib.parse
 
     decoded = urllib.parse.unquote(value)
@@ -86,7 +91,7 @@ def check_email(value: str) -> str | None:
 
 
 def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
+    """Relative file path — rejects a leading ``-``, absolute paths, ``..`` and ``~`` expansion."""
     if _skip(value):
         return None
     return _file_path_error(value)

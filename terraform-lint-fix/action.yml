@@ -116,7 +116,7 @@ runs:
         # Use validated environment variable
         WORKING_DIRECTORY="$VALIDATED_WORKING_DIR"
 
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Check for Terraform files
         if ! find . \( -name "*.tf" -o -name "*.tfvars" \) | grep -q .; then
@@ -208,7 +208,7 @@ runs:
         FORMAT="$VALIDATED_FORMAT"
         FAIL_ON_ERROR="$VALIDATED_FAIL"
 
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Create reports directory
         mkdir -p reports
@@ -241,7 +241,7 @@ runs:
         # Use validated environment variable
         WORKING_DIRECTORY="$VALIDATED_WORKING_DIR"
 
-        cd "$WORKING_DIRECTORY"
+        cd -- "$WORKING_DIRECTORY"
 
         # Track fixed files
         fixed_count=0
