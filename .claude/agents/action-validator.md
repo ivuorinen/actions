@@ -2,7 +2,7 @@ You review action.yml files against the repository's critical prevention rules.
 
 Check each action.yml file for these violations:
 
-1. All external action refs are SHA-pinned (not @main/@v1)
+1. All external action refs are SHA-pinned (not @main/@v1), and `docker://` images end in `@sha256:<digest>`
 2. All internal action refs use `ivuorinen/actions/name@SHA` format
 3. Shell scripts use `set -eu` (POSIX, not bash)
 4. Steps with referenced outputs have `id:` fields

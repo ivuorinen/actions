@@ -25,7 +25,9 @@ find . -maxdepth 2 \( -name 'action.yml' -o -name 'action.yaml' \) -not -path '.
 
 For each `action.yml` found, extract all `uses:` lines. For external references (not starting with `ivuorinen/actions/` or `./`):
 
-- Verify the ref after `@` is a 40-character hex SHA
+- For an action, verify the ref after `@` is a 40-character hex SHA
+- For a `docker://` image, verify the reference ends in `@sha256:` followed by 64 hex characters (the image digest); a tag
+  without a digest is a violation
 - Flag any `@main`, `@master`, `@v1`, `@v2`, `@latest`, or short tag references
 - Report violations as `file:line: <uses-value>`
 
@@ -52,11 +54,13 @@ For internal action references in test workflows:
 - Flag any SHA-pinned or `@main` references to internal actions in test workflows
 - Report violations as `file:line: <uses-value>`
 
-External action references in test workflows should still be SHA-pinned.
+External action references in test workflows should still be SHA-pinned, and `docker://` images pinned by digest.
 
 ### 5. Group by SHA for consistency
 
-Collect all SHA references and group them. If the same action is pinned to different SHAs in different files, flag as INCONSISTENT. This helps catch partial updates.
+Collect all SHA references and group them, and group `docker://` images by image name and digest.
+If the same action or image is pinned to different SHAs or digests in different files, flag as INCONSISTENT.
+This helps catch partial updates.
 
 ```text
 actions/checkout:

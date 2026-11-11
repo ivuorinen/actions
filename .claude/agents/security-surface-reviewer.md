@@ -97,6 +97,12 @@ All `uses:` references to external actions must be SHA-pinned:
 
 # SAFE — immutable reference
 - uses: actions/checkout@abc123def456...
+
+# VULNERABLE — image tag can be re-pushed
+- uses: docker://ghcr.io/org/image:v1.2.3
+
+# SAFE — image digest
+- uses: docker://ghcr.io/org/image:v1.2.3@sha256:abc123def456...
 ```
 
 Check every `uses:` line in every action.yml and in `.github/workflows/*.yml` / `.github/workflows/*.yaml`.

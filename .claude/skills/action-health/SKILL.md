@@ -64,6 +64,7 @@ Scan all `run:` blocks in `<action-name>/action.yml`:
 Scan all `uses:` lines in `<action-name>/action.yml`:
 
 - External actions must use 40-character SHA pins (not `@main`, `@v1`, `@latest`)
+- `docker://` images must end in `@sha256:` followed by 64 hex characters (the image digest), not a tag alone
 - Internal actions must use `ivuorinen/actions/<name>@<sha>` format
 - Report any violations with line numbers
 
