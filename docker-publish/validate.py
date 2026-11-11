@@ -5,9 +5,10 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
-every expression in INPUT_*, so all other values are checked as literal data. Inputs named in
-MASKED_INPUTS are masked in the job's logs before any check runs.
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them. The runner has already expanded every expression in INPUT_*, so all other values
+are checked as literal data. Inputs named in MASKED_INPUTS are masked in the job's logs before
+any check runs.
 """
 
 from __future__ import annotations
@@ -40,6 +41,14 @@ def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> l
     if fold:
         items = [item.lower() for item in items]
     return [item for item in items if item and item not in allowed]
+
+
+def _is_docker_tag(tag: str) -> bool:
+    """Return True if ``tag`` follows the tag rule of the Distribution reference grammar.
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``.
+    """
+    return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
 
 
 def _shell_meta_error(value: str) -> str | None:
@@ -94,10 +103,15 @@ def _docker_local_path_error(value: str, *, spaces: bool = False) -> str | None:
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_docker_architectures(value: str) -> str | None:
@@ -147,7 +161,7 @@ def check_docker_tag_list(value: str) -> str | None:
     if _skip(value):
         return None
     for tag in value.split(","):
-        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
+        if not _is_docker_tag(tag):
             return f"invalid Docker tag: {tag!r} (letters, digits, _ . -, at most 128 characters)"
     return None
 
@@ -249,9 +263,14 @@ REQUIRED: set[str] = set()
 MASKED_INPUTS: list[str] = ["dockerhub-token", "token"]
 
 
+def _variable(name: str) -> str:
+    """Return the name of the INPUT_* env var that carries an input."""
+    return "INPUT_" + name.upper().replace("-", "_")
+
+
 def _input(name: str) -> str:
     """Return an input's raw value from its INPUT_* env var."""
-    return os.environ.get("INPUT_" + name.upper().replace("-", "_"), "")
+    return os.environ.get(_variable(name), "")
 
 
 def main() -> None:
@@ -268,7 +287,8 @@ def main() -> None:
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if _variable(input_name) in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

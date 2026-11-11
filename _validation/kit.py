@@ -19,6 +19,10 @@ Shared contract:
     ``$VAR`` in an input, so neither form is a reference here: both are literal data. Matches
     use ``re.fullmatch`` because ``re.match(...$)`` also accepts a trailing newline.
 
+``boolean`` and ``numeric_range_1_10`` refuse a blank value instead. Those inputs all declare a
+default and the runner applies it only when the caller leaves the input out, so blank means the
+caller passed it, and the steps reading such an input would then quietly skip their work.
+
 Security-critical checks (tokens, file paths, injection-bearing lists, URLs) are ported from
 the previous validator framework. Tool-version and enum format checks are written to match
 what each underlying tool actually accepts.
@@ -52,12 +56,24 @@ def _enum(value: str, *allowed: str) -> str | None:
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is an integer within ``[low, high]``."""
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
     if _skip(value):
         return None
     if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
+
+
+def _is_docker_tag(tag: str) -> bool:
+    """Return True if ``tag`` follows the tag rule of the Distribution reference grammar.
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``.
+    """
+    return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
 
 
 def _is_semver(core: str) -> bool:
@@ -413,10 +429,12 @@ def check_docker_image_name(value: str) -> str | None:
 
 
 def check_docker_tag(value: str) -> str | None:
-    """Docker tag: alphanumeric start/end with ``-._:/@`` inside (e.g. ``v1.0.0``, ``latest``)."""
-    if _skip(value):
-        return None
-    if re.fullmatch(r"[a-zA-Z0-9]([-a-zA-Z0-9._:/@]*[a-zA-Z0-9])?", value):
+    """Docker tag, per the Distribution reference grammar (e.g. ``v1.0.0``, ``latest``).
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``. So no registry or path
+    part, and no SemVer ``+build`` metadata.
+    """
+    if _skip(value) or _is_docker_tag(value):
         return None
     return "must be a valid Docker tag (e.g. v1.0.0, latest, sha-1234567)"
 
@@ -431,7 +449,7 @@ def check_docker_tag_list(value: str) -> str | None:
     if _skip(value):
         return None
     for tag in value.split(","):
-        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag):
+        if not _is_docker_tag(tag):
             return f"invalid Docker tag: {tag!r} (letters, digits, _ . -, at most 128 characters)"
     return None
 
@@ -740,10 +758,15 @@ def check_username(value: str) -> str | None:
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_repository_list(value: str) -> str | None:
@@ -945,7 +968,9 @@ def check_positive_integer(value: str) -> str | None:
 
 
 def check_numeric_range_1_10(value: str) -> str | None:
-    """Integer in [1, 10] (e.g. retry counts)."""
+    """Integer in [1, 10] (retry counts); blank is refused, see the module contract."""
+    if value.strip() == "":
+        return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
 
 

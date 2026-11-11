@@ -37,7 +37,7 @@ inputs:
     required: false
     default: '.js,.jsx,.ts,.tsx'
   cache:
-    description: 'Enable ESLint caching'
+    description: 'Enable ESLint caching (lowercase true or false)'
     required: false
     default: 'true'
   max-warnings:
@@ -45,7 +45,7 @@ inputs:
     required: false
     default: '0'
   fail-on-error:
-    description: 'Fail workflow if issues are found (check mode only)'
+    description: 'Fail workflow if issues are found (check mode only; lowercase true or false)'
     required: false
     default: 'true'
   report-format:
@@ -53,7 +53,7 @@ inputs:
     required: false
     default: 'sarif'
   max-retries:
-    description: 'Maximum number of retry attempts'
+    description: 'Maximum number of retry attempts (1-10, must not be empty)'
     required: false
     default: '3'
   token:

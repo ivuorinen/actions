@@ -5,9 +5,10 @@ Run `make update-validators` to regenerate. Pure stdlib, no third-party deps —
 runs it with `python3 validate.py`.
 
 Each check returns None when the value is acceptable or a short reason otherwise. Empty
-values pass (inputs are optional unless listed in REQUIRED). The runner has already expanded
-every expression in INPUT_*, so all other values are checked as literal data. Inputs named in
-MASKED_INPUTS are masked in the job's logs before any check runs.
+values pass (inputs are optional unless listed in REQUIRED), except where a check says it
+refuses them. The runner has already expanded every expression in INPUT_*, so all other values
+are checked as literal data. Inputs named in MASKED_INPUTS are masked in the job's logs before
+any check runs.
 """
 
 from __future__ import annotations
@@ -23,10 +24,15 @@ def _skip(value: str) -> bool:
 
 
 def check_boolean(value: str) -> str | None:
-    """Boolean flag — ``true`` or ``false`` (any case)."""
-    if _skip(value) or value.lower() in ("true", "false"):
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if value in ("true", "false"):
         return None
-    return 'must be "true" or "false"'
+    return 'must be "true" or "false" (lowercase)'
 
 
 def check_github_token(value: str) -> str | None:
@@ -81,9 +87,14 @@ REQUIRED = {"token"}
 MASKED_INPUTS: list[str] = ["token"]
 
 
+def _variable(name: str) -> str:
+    """Return the name of the INPUT_* env var that carries an input."""
+    return "INPUT_" + name.upper().replace("-", "_")
+
+
 def _input(name: str) -> str:
     """Return an input's raw value from its INPUT_* env var."""
-    return os.environ.get("INPUT_" + name.upper().replace("-", "_"), "")
+    return os.environ.get(_variable(name), "")
 
 
 def main() -> None:
@@ -100,7 +111,8 @@ def main() -> None:
         if input_name in REQUIRED and value.strip() == "":
             errors.append(f"{input_name}: required input is missing")
             continue
-        reason = check(value)
+        # action.yml forwards every input, so only a standalone run leaves a variable unset.
+        reason = check(value) if _variable(input_name) in os.environ else None
         if reason is not None:
             errors.append(f"{input_name}: {reason}")
     if errors:

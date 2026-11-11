@@ -37,11 +37,11 @@ inputs:
     required: false
     default: '**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}'
   cache:
-    description: 'Enable Prettier caching'
+    description: 'Enable Prettier caching (lowercase true or false)'
     required: false
     default: 'true'
   fail-on-error:
-    description: 'Fail workflow if issues are found (check mode only)'
+    description: 'Fail workflow if issues are found (check mode only; lowercase true or false)'
     required: false
     default: 'true'
   report-format:
@@ -49,7 +49,7 @@ inputs:
     required: false
     default: 'sarif'
   max-retries:
-    description: 'Maximum number of retry attempts'
+    description: 'Maximum number of retry attempts (1-10, must not be empty)'
     required: false
     default: '3'
   plugins:

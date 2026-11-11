@@ -63,7 +63,7 @@ inputs:
     description: 'Build arguments (newline-separated KEY=VALUE pairs)'
     required: false
   push:
-    description: 'Whether to push the image'
+    description: 'Whether to push the image (lowercase true or false)'
     required: false
     default: 'true'
   token:

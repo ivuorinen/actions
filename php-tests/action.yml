@@ -32,7 +32,7 @@ inputs:
     required: false
     default: '--no-progress --prefer-dist --optimize-autoloader'
   max-retries:
-    description: 'Maximum number of retry attempts for Composer commands'
+    description: 'Maximum number of retry attempts for Composer commands (1-10, must not be empty)'
     required: false
     default: '3'
   token:

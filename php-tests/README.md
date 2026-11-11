@@ -40,7 +40,7 @@ jobs:
 | `email`         | GitHub email for commits                                                                                | ❌       | `github-actions@github.com`                         |
 | `extensions`    | PHP extensions to install (comma-separated)                                                             | ❌       | `mbstring, intl, json, pdo_sqlite, sqlite3`         |
 | `framework`     | Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework) | ❌       | `auto`                                              |
-| `max-retries`   | Maximum number of retry attempts for Composer commands                                                  | ❌       | `3`                                                 |
+| `max-retries`   | Maximum number of retry attempts for Composer commands (1-10, must not be empty)                        | ❌       | `3`                                                 |
 | `php-version`   | PHP Version to use (latest, 8.4, 8.3, etc.)                                                             | ❌       | `latest`                                            |
 | `token`         | GitHub token for authentication                                                                         | ❌       | -                                                   |
 | `username`      | GitHub username for commits                                                                             | ❌       | `github-actions`                                    |
