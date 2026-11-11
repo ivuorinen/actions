@@ -37,7 +37,7 @@ jobs:
 | `fail-on-error` | Whether to fail the action if linting errors are found (check mode only; lowercase true or false) | ❌       | `true`                      |
 | `max-retries`   | Maximum number of retry attempts for npm install operations (1-10, must not be empty)             | ❌       | `3`                         |
 | `mode`          | Mode to run (check or fix)                                                                        | ❌       | `check`                     |
-| `token`         | GitHub token for authentication                                                                   | ❌       | -                           |
+| `token`         | GitHub token for authentication. Stays in git config after checkout in fix mode only.             | ❌       | -                           |
 | `username`      | GitHub username for commits (fix mode only)                                                       | ❌       | `github-actions`            |
 
 ## 📤 Outputs
