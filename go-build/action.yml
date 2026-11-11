@@ -201,7 +201,7 @@ runs:
         echo "Building Go project..."
 
         # Create destination directory
-        mkdir -p "$DESTINATION"
+        mkdir -p -- "$DESTINATION"
 
         build_success=true
         # Temp file to propagate failure flag out of the pipeline subshell

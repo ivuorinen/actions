@@ -44,7 +44,7 @@ everything else:
 
 - **List checks** split the value on their separators and allow spaces or tabs around each item.
   They reject a newline, except `repository_list` and `key_value_list`, which take one entry per
-  line.
+  line. `path_list` does not split on a comma inside braces, which belongs to a glob.
 - **`codeql_config`** holds inline YAML and rejects only unsafe YAML tags (`!!python/` and the
   like). Any other text passes, `${{ … }}` included.
 - **`cache_config`** checks only the leading `type=<backend>`. The options after it reach buildx

@@ -512,4 +512,23 @@ When call validate_input_python "prettier-lint" "plugins" "plugin1,plugin2; rm -
 The status should be failure
 End
 End
+
+Context "when file-pattern starts with a dash"
+It "rejects a leading dash"
+When call validate_input_python "prettier-lint" "file-pattern" "--help"
+The status should be failure
+End
+
+It "ends prettier options before the pattern in check mode"
+When call grep -F 'prettier --check "$@" -- "$FILE_PATTERN"' prettier-lint/action.yml
+The status should be success
+The output should include 'prettier --check'
+End
+
+It "ends prettier options before the pattern in fix mode"
+When call grep -F 'prettier --write -- "$FILE_PATTERN"' prettier-lint/action.yml
+The status should be success
+The output should include 'prettier --write'
+End
+End
 End

@@ -148,4 +148,17 @@ When call validate_input_python "python-lint-fix" "token" "\${SOME_TOKEN_VAR}"
 The status should be failure
 End
 End
+
+Context "when working-directory starts with a dash"
+It "rejects a leading dash"
+When call validate_input_python "python-lint-fix" "working-directory" "--help"
+The status should be failure
+End
+
+It "ends cd options before the working directory"
+When call grep -c 'cd -- "$WORKING_DIRECTORY"' python-lint-fix/action.yml
+The status should be success
+The output should equal 3
+End
+End
 End

@@ -23,9 +23,23 @@ def _skip(value: str) -> bool:
     return value.strip() == ""
 
 
-def _split_items(value: str, separators: str = ",") -> list[str]:
-    """Split a list input, allowing spaces or tabs around items but not newlines."""
-    return [part.strip(" \t") for part in re.split(f"[{separators}]", value)]
+def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> list[str]:
+    """Split a list input, allowing spaces or tabs around items but not newlines.
+
+    With ``globs``, a separator inside braces, nested or not, belongs to the glob
+    (``src/{a,-b{c,d}}.js``) and does not split. An unclosed brace groups nothing.
+    """
+    parts, depth, start = [], 0, 0
+    for index, char in enumerate(value):
+        if globs and char in "{}":
+            depth = depth + 1 if char == "{" else max(depth - 1, 0)
+        elif depth == 0 and char in separators:
+            parts.append(value[start:index])
+            start = index + 1
+    if depth:
+        return _split_items(value, separators)
+    parts.append(value[start:])
+    return [part.strip(" \t") for part in parts]
 
 
 def _is_semver(core: str) -> bool:
@@ -111,9 +125,14 @@ def _comma_key_value_error(value: str, value_pattern: str) -> str | None:
 def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     """Return why ``value`` is not a relative path below the working directory, or None.
 
+    A leading ``-`` is refused because a command would read it as an option, and buildx reads
+    ``-`` alone as stdin; ``./-name`` names the same file.
+
     With ``spaces``, runs of spaces may separate path characters. A leading or trailing space
     stays invalid, so the absolute-path check always sees the path's real first character.
     """
+    if value.startswith("-"):
+        return "must not start with -"
     import urllib.parse
 
     decoded = urllib.parse.unquote(value)
@@ -143,12 +162,9 @@ def _docker_local_path_error(value: str, *, spaces: bool = False) -> str | None:
     """Return why buildx would not read ``value`` as a path inside the workspace, or None.
 
     ``://`` and ``@host:`` cover more than buildx fetches today, any scheme and any user part.
-    A leading ``-`` is stdin or a flag.
     """
     if "://" in value or re.search(r"@[^/]*:", value) or _is_docker_remote_source(value):
         return "remote sources are not allowed, use a path relative to the workspace"
-    if value.startswith("-"):
-        return "must not start with -"
     return _file_path_error(value, spaces=spaces)
 
 

@@ -23,9 +23,23 @@ def _skip(value: str) -> bool:
     return value.strip() == ""
 
 
-def _split_items(value: str, separators: str = ",") -> list[str]:
-    """Split a list input, allowing spaces or tabs around items but not newlines."""
-    return [part.strip(" \t") for part in re.split(f"[{separators}]", value)]
+def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> list[str]:
+    """Split a list input, allowing spaces or tabs around items but not newlines.
+
+    With ``globs``, a separator inside braces, nested or not, belongs to the glob
+    (``src/{a,-b{c,d}}.js``) and does not split. An unclosed brace groups nothing.
+    """
+    parts, depth, start = [], 0, 0
+    for index, char in enumerate(value):
+        if globs and char in "{}":
+            depth = depth + 1 if char == "{" else max(depth - 1, 0)
+        elif depth == 0 and char in separators:
+            parts.append(value[start:index])
+            start = index + 1
+    if depth:
+        return _split_items(value, separators)
+    parts.append(value[start:])
+    return [part.strip(" \t") for part in parts]
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
@@ -51,9 +65,14 @@ def _shell_meta_error(value: str) -> str | None:
 def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     """Return why ``value`` is not a relative path below the working directory, or None.
 
+    A leading ``-`` is refused because a command would read it as an option, and buildx reads
+    ``-`` alone as stdin; ``./-name`` names the same file.
+
     With ``spaces``, runs of spaces may separate path characters. A leading or trailing space
     stays invalid, so the absolute-path check always sees the path's real first character.
     """
+    if value.startswith("-"):
+        return "must not start with -"
     import urllib.parse
 
     decoded = urllib.parse.unquote(value)
@@ -79,7 +98,7 @@ def check_email(value: str) -> str | None:
 
 
 def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects absolute paths, ``..`` traversal and ``~`` expansion."""
+    """Relative file path — rejects a leading ``-``, absolute paths, ``..`` and ``~`` expansion."""
     if _skip(value):
         return None
     return _file_path_error(value)
@@ -117,14 +136,19 @@ def check_numeric_range_0_100(value: str) -> str | None:
 
 
 def check_path_list(value: str) -> str | None:
-    """Comma-separated paths/globs — blocks injection characters and ``..`` traversal."""
+    """Comma-separated paths/globs — blocks injection characters, ``..`` and a leading ``-``.
+
+    A comma inside braces belongs to the glob (``src/{a,-b}.js``), so it does not separate items.
+    """
     if _skip(value):
         return None
     if meta := _shell_meta_error(value):
         return meta
-    for item in _split_items(value):
+    for item in _split_items(value, globs=True):
         if not item:
             continue
+        if item.startswith("-"):
+            return f"must not start with -: {item}"
         if ".." in item:
             return f"path traversal (..) is not allowed: {item}"
         if not re.fullmatch(r"[a-zA-Z0-9_\-./*?\[\]{},@~+]+", item):
