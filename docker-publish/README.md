@@ -39,7 +39,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter            | Description                                                                                                 | Required | Default                   |
-|----------------------|-------------------------------------------------------------------------------------------------------------|----------|---------------------------|
+| -------------------- | ----------------------------------------------------------------------------------------------------------- | -------- | ------------------------- |
 | `build-args`         | Build arguments (newline-separated KEY=VALUE pairs)                                                         | ❌       | -                         |
 | `context`            | Build context path, relative to the workspace. Remote sources are rejected.                                 | ❌       | `.`                       |
 | `dockerfile`         | Path to Dockerfile, relative to the workspace. Remote sources are rejected.                                 | ❌       | `Dockerfile`              |
@@ -55,7 +55,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter    | Description                   |
-|--------------|-------------------------------|
+| ------------ | ----------------------------- |
 | `digest`     | Image digest                  |
 | `image-name` | Full image name with registry |
 | `metadata`   | Build metadata                |
@@ -66,7 +66,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `read`       |
 | `packages` | `write`      |
 

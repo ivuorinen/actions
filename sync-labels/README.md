@@ -30,7 +30,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter    | Description                                                                                                                                                                                                                             | Required | Default               |
-|--------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------|
+| ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
 | `labels`     | Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when omitted (no longer the action's bundled labels.yml). A missing manifest is a warning + successful no-op, not an error. | ❌       | -                     |
 | `prune`      | Delete existing labels that are not listed in the manifest (lowercase true or false)                                                                                                                                                    | ❌       | `true`                |
 | `repository` | Newline-separated list of owner/repo targets. Defaults to the current repository. Cross-repo sync requires a PAT in the token input.                                                                                                    | ❌       | -                     |
@@ -39,7 +39,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter      | Description                       |
-|----------------|-----------------------------------|
+| -------------- | --------------------------------- |
 | `created`      | Number of labels created          |
 | `deleted`      | Number of labels deleted (pruned) |
 | `repositories` | Number of repositories synced     |
@@ -51,7 +51,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `issues`   | `write`      |
 
 **Usage in workflow:**

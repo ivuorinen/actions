@@ -42,7 +42,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                                                                                                                            | Required | Default               |
-|---------------------|----------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------|
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------- |
 | `build-mode`        | The build mode for compiled languages (none, manual, autobuild)                                                                        | ❌       | -                     |
 | `category`          | Analysis category (default: /language:<language>)                                                                                      | ❌       | -                     |
 | `checkout-ref`      | Git reference to checkout (default: current ref). A fork pull request head or merge ref fails on pull_request_target and workflow_run. | ❌       | -                     |
@@ -63,7 +63,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter           | Description                    |
-|---------------------|--------------------------------|
+| ------------------- | ------------------------------ |
 | `analysis-category` | Category used for the analysis |
 | `language-analyzed` | Language that was analyzed     |
 | `sarif-file`        | Path to generated SARIF file   |
@@ -73,7 +73,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `read`       |
 | `security-events` | `write`      |
 

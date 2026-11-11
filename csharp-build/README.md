@@ -28,7 +28,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter        | Description                                                                              | Required | Default |
-|------------------|------------------------------------------------------------------------------------------|----------|---------|
+| ---------------- | ---------------------------------------------------------------------------------------- | -------- | ------- |
 | `dotnet-version` | Version of .NET SDK to use.                                                              | ❌       | -       |
 | `max-retries`    | Maximum number of retry attempts for dotnet restore operations (1-10, must not be empty) | ❌       | `3`     |
 | `token`          | GitHub token for authentication                                                          | ❌       | -       |
@@ -36,7 +36,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter           | Description                                     |
-|---------------------|-------------------------------------------------|
+| ------------------- | ----------------------------------------------- |
 | `artifacts_path`    | Path to build artifacts                         |
 | `build_status`      | Build completion status (success/failure)       |
 | `dotnet_version`    | Version of .NET SDK used                        |
@@ -48,7 +48,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `read`       |
 
 **Usage in workflow:**

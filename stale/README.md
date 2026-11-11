@@ -33,7 +33,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                                                     | Required | Default |
-|---------------------|-----------------------------------------------------------------|----------|---------|
+| ------------------- | --------------------------------------------------------------- | -------- | ------- |
 | `days-before-close` | Number of days of inactivity before a stale issue is closed     | ❌       | `7`     |
 | `days-before-stale` | Number of days of inactivity before an issue is marked as stale | ❌       | `30`    |
 | `token`             | GitHub token for authentication                                 | ❌       | -       |
@@ -41,7 +41,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter             | Description                      |
-|-----------------------|----------------------------------|
+| --------------------- | -------------------------------- |
 | `closed_issues_count` | Number of issues closed          |
 | `staled_issues_count` | Number of issues marked as stale |
 
@@ -50,7 +50,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission      | Access Level |
-|-----------------|--------------|
+| --------------- | ------------ |
 | `issues`        | `write`      |
 | `pull-requests` | `write`      |
 

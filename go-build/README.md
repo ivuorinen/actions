@@ -29,7 +29,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter     | Description                                                                               | Required | Default |
-|---------------|-------------------------------------------------------------------------------------------|----------|---------|
+| ------------- | ----------------------------------------------------------------------------------------- | -------- | ------- |
 | `destination` | Build destination directory.                                                              | ❌       | `./bin` |
 | `go-version`  | Go version to use.                                                                        | ❌       | -       |
 | `max-retries` | Maximum number of retry attempts for go mod download operations (1-10, must not be empty) | ❌       | `3`     |
@@ -38,7 +38,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter       | Description                                     |
-|-----------------|-------------------------------------------------|
+| --------------- | ----------------------------------------------- |
 | `binary_path`   | Path to built binaries                          |
 | `build_status`  | Build completion status (success/failure)       |
 | `coverage_path` | Path to coverage report                         |
@@ -50,7 +50,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `read`       |
 
 **Usage in workflow:**

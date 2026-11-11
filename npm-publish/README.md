@@ -33,7 +33,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter         | Description                                                                                               | Required | Default                                |
-|-------------------|-----------------------------------------------------------------------------------------------------------|----------|----------------------------------------|
+| ----------------- | --------------------------------------------------------------------------------------------------------- | -------- | -------------------------------------- |
 | `npm_token`       | NPM token, in any format the registry issues. Must not contain whitespace or control characters.          | ✅       | -                                      |
 | `package-version` | The version to publish: X.Y.Z or vX.Y.Z, optionally with -prerelease and +build. Must match package.json. | ❌       | `${{ github.event.release.tag_name }}` |
 | `registry-url`    | Registry URL for publishing.                                                                              | ❌       | `https://registry.npmjs.org/`          |
@@ -43,7 +43,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter         | Description                  |
-|-------------------|------------------------------|
+| ----------------- | ---------------------------- |
 | `package-version` | The version to publish.      |
 | `registry-url`    | Registry URL for publishing. |
 | `scope`           | Package scope to use.        |
@@ -53,7 +53,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `read`       |
 | `packages` | `write`      |
 

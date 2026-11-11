@@ -29,7 +29,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter         | Description                                              | Required | Default |
-|-------------------|----------------------------------------------------------|----------|---------|
+| ----------------- | -------------------------------------------------------- | -------- | ------- |
 | `default-version` | Default version to use if no version is detected         | ❌       | -       |
 | `language`        | Language to detect version for (php, python, go, dotnet) | ✅       | -       |
 | `token`           | GitHub token for authentication                          | ❌       | -       |
@@ -37,7 +37,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter          | Description                                                         |
-|--------------------|---------------------------------------------------------------------|
+| ------------------ | ------------------------------------------------------------------- |
 | `detected-version` | Detected or default language version                                |
 | `package-manager`  | Detected package manager (python: pip/poetry/pipenv, php: composer) |
 
@@ -46,7 +46,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `read`       |
 
 **Usage in workflow:**

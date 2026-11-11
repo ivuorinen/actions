@@ -52,7 +52,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter               | Description                                                                                                                                                                                                                | Required | Default                                             |
-|-------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
+| ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------- |
 | `architectures`         | Comma-separated list of architectures to build for.                                                                                                                                                                        | ❌       | `linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6` |
 | `auto-detect-platforms` | Automatically detect and build for all available platforms (lowercase true or false)                                                                                                                                       | ❌       | `false`                                             |
 | `build-args`            | Build arguments in format KEY=VALUE,KEY2=VALUE2, on one line. A VALUE may contain spaces, but no comma or newline.                                                                                                         | ❌       | -                                                   |
@@ -84,7 +84,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter         | Description                                    |
-|-------------------|------------------------------------------------|
+| ----------------- | ---------------------------------------------- |
 | `build-time`      | Total build time in seconds                    |
 | `image-digest`    | The digest of the built image                  |
 | `metadata`        | Build metadata in JSON format                  |

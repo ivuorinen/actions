@@ -40,7 +40,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                                                                           | Required | Default                     |
-|---------------------|---------------------------------------------------------------------------------------|----------|-----------------------------|
+| ------------------- | ------------------------------------------------------------------------------------- | -------- | --------------------------- |
 | `cache`             | Enable ESLint caching (lowercase true or false)                                       | ❌       | `true`                      |
 | `config-file`       | Path to ESLint config file                                                            | ❌       | `.eslintrc`                 |
 | `email`             | GitHub email for commits (fix mode only)                                              | ❌       | `github-actions@github.com` |
@@ -59,7 +59,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter       | Description                                 |
-|-----------------|---------------------------------------------|
+| --------------- | ------------------------------------------- |
 | `error-count`   | Number of errors found (check mode only)    |
 | `errors-fixed`  | Number of errors fixed (fix mode only)      |
 | `files-changed` | Number of files changed (fix mode only)     |
@@ -73,7 +73,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `write`      |
 | `security-events` | `write`      |
 

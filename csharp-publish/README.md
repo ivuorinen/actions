@@ -32,7 +32,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter        | Description                                                                           | Required | Default     |
-|------------------|---------------------------------------------------------------------------------------|----------|-------------|
+| ---------------- | ------------------------------------------------------------------------------------- | -------- | ----------- |
 | `dotnet-version` | Version of .NET SDK to use.                                                           | ❌       | -           |
 | `max-retries`    | Maximum number of retry attempts for dependency restoration (1-10, must not be empty) | ❌       | `3`         |
 | `namespace`      | GitHub namespace for the package.                                                     | ✅       | `ivuorinen` |
@@ -41,7 +41,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter         | Description                              |
-|-------------------|------------------------------------------|
+| ----------------- | ---------------------------------------- |
 | `package_url`     | URL of the published package             |
 | `package_version` | Version of the published package         |
 | `publish_status`  | Overall publish status (success/failure) |
@@ -51,7 +51,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `read`       |
 | `packages` | `write`      |
 

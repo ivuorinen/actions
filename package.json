@@ -9,9 +9,8 @@
     "lint": "npm run lint:markdown && npm run lint:yaml",
     "lint:markdown": "markdownlint-cli2 '**/*.md' '#node_modules'",
     "lint:yaml": "npx yaml-lint '**/*.yml' '**/*.yaml'",
-    "format": "npm run format:prettier && npm run format:tables",
+    "format": "npm run format:prettier",
     "format:prettier": "prettier --write '**/*.{md,yml,yaml,json,cjs}'",
-    "format:tables": "markdown-table-formatter '**/*.md'",
     "format:markdown": "markdownlint-cli2 --fix '**/*.md' '#node_modules'",
     "docs": "make docs && make format",
     "test": "make test",
@@ -22,7 +21,6 @@
   "devDependencies": {
     "js-yaml": "^5",
     "markdown-table": "^3",
-    "markdown-table-formatter": "^2",
     "markdownlint-cli2": "^0.24",
     "prettier": "^3",
     "yaml-lint": "^1"

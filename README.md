@@ -29,7 +29,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 ### Quick Reference (25 Actions)
 
 | Icon | Action                                               | Category   | Description                                                     | Key Features                                 |
-|:----:|:-----------------------------------------------------|:-----------|:----------------------------------------------------------------|:---------------------------------------------|
+| :--: | :--------------------------------------------------- | :--------- | :-------------------------------------------------------------- | :------------------------------------------- |
 |  📦  | [`ansible-lint-fix`][ansible-lint-fix]               | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Caching, Auto-detection, Token auth, Outputs |
 |  ✅  | [`biome-lint`][biome-lint]                           | Linting    | Run Biome linter in check or fix mode                           | Caching, Auto-detection, Token auth, Outputs |
 |  🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Auto-detection, Token auth, Outputs          |
@@ -61,13 +61,13 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 #### 🔧 Setup (1 action)
 
 | Action                                                  | Description                                           | Languages                      | Features                            |
-|:--------------------------------------------------------|:------------------------------------------------------|:-------------------------------|:------------------------------------|
+| :------------------------------------------------------ | :---------------------------------------------------- | :----------------------------- | :---------------------------------- |
 | 📝 [`language-version-detect`][language-version-detect] | DEPRECATED: This action is deprecated. Inline vers... | PHP, Python, Go, .NET, Node.js | Auto-detection, Token auth, Outputs |
 
 #### 📝 Linting (10 actions)
 
 | Action                                        | Description                                           | Languages                                    | Features                                     |
-|:----------------------------------------------|:------------------------------------------------------|:---------------------------------------------|:---------------------------------------------|
+| :-------------------------------------------- | :---------------------------------------------------- | :------------------------------------------- | :------------------------------------------- |
 | 📦 [`ansible-lint-fix`][ansible-lint-fix]     | Lints and fixes Ansible playbooks, commits changes... | Ansible, YAML                                | Caching, Auto-detection, Token auth, Outputs |
 | ✅ [`biome-lint`][biome-lint]                 | Run Biome linter in check or fix mode                 | JavaScript, TypeScript, JSON                 | Caching, Auto-detection, Token auth, Outputs |
 | 📝 [`csharp-lint-check`][csharp-lint-check]   | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Caching, Auto-detection, Token auth, Outputs |
@@ -82,13 +82,13 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 #### 🧪 Testing (1 action)
 
 | Action                      | Description                                           | Languages    | Features                                     |
-|:----------------------------|:------------------------------------------------------|:-------------|:---------------------------------------------|
+| :-------------------------- | :---------------------------------------------------- | :----------- | :------------------------------------------- |
 | ✅ [`php-tests`][php-tests] | Run PHPUnit tests with optional Laravel setup and ... | PHP, Laravel | Caching, Auto-detection, Token auth, Outputs |
 
 #### 🏗️ Build (3 actions)
 
 | Action                            | Description                                           | Languages | Features                                     |
-|:----------------------------------|:------------------------------------------------------|:----------|:---------------------------------------------|
+| :-------------------------------- | :---------------------------------------------------- | :-------- | :------------------------------------------- |
 | 📝 [`csharp-build`][csharp-build] | Builds and tests C# projects.                         | C#, .NET  | Caching, Auto-detection, Token auth, Outputs |
 | 📦 [`docker-build`][docker-build] | Builds a Docker image for multiple architectures w... | Docker    | Caching, Auto-detection, Token auth, Outputs |
 | 📦 [`go-build`][go-build]         | Builds the Go project.                                | Go        | Caching, Auto-detection, Token auth, Outputs |
@@ -96,7 +96,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 #### 🚀 Publishing (3 actions)
 
 | Action                                | Description                                           | Languages    | Features                                     |
-|:--------------------------------------|:------------------------------------------------------|:-------------|:---------------------------------------------|
+| :------------------------------------ | :---------------------------------------------------- | :----------- | :------------------------------------------- |
 | 📦 [`csharp-publish`][csharp-publish] | Publishes a C# project to GitHub Packages.            | C#, .NET     | Caching, Auto-detection, Token auth, Outputs |
 | ☁️ [`docker-publish`][docker-publish] | Simple wrapper to publish Docker images to GitHub ... | Docker       | Token auth, Outputs                          |
 | 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Caching, Auto-detection, Token auth, Outputs |
@@ -104,7 +104,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 #### 📦 Repository (5 actions)
 
 | Action                                  | Description                                           | Languages                                               | Features                            |
-|:----------------------------------------|:------------------------------------------------------|:--------------------------------------------------------|:------------------------------------|
+| :-------------------------------------- | :---------------------------------------------------- | :------------------------------------------------------ | :---------------------------------- |
 | 🛡️ [`codeql-analysis`][codeql-analysis] | Run CodeQL security analysis for a single language... | JavaScript, TypeScript, Python, Java, C#, C++, Go, Ruby | Auto-detection, Token auth, Outputs |
 | 🖼️ [`compress-images`][compress-images] | Compress images on demand (workflow_dispatch), and... | Images, PNG, JPEG                                       | Token auth, Outputs                 |
 | 📦 [`release-monthly`][release-monthly] | Creates a release for the current month, increment... | GitHub Actions                                          | Token auth, Outputs                 |
@@ -114,13 +114,13 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 #### 🛡️ Security (1 action)
 
 | Action                              | Description                                           | Languages | Features                     |
-|:------------------------------------|:------------------------------------------------------|:----------|:-----------------------------|
+| :---------------------------------- | :---------------------------------------------------- | :-------- | :--------------------------- |
 | 🛡️ [`security-scan`][security-scan] | Comprehensive security scanning for GitHub Actions... | -         | Caching, Token auth, Outputs |
 
 ### Feature Matrix
 
 | Action                                               | Caching | Auto-detection | Token auth | Outputs |
-|:-----------------------------------------------------|:-------:|:--------------:|:----------:|:-------:|
+| :--------------------------------------------------- | :-----: | :------------: | :--------: | :-----: |
 | [`ansible-lint-fix`][ansible-lint-fix]               |   ✅    |       ✅       |     ✅     |   ✅    |
 | [`biome-lint`][biome-lint]                           |   ✅    |       ✅       |     ✅     |   ✅    |
 | [`codeql-analysis`][codeql-analysis]                 |    -    |       ✅       |     ✅     |   ✅    |
@@ -150,7 +150,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 ### Language Support
 
 | Language             | Actions                                                                                                                                                            |
-|:---------------------|:-------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| :------------------- | :----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | .NET                 | [`csharp-build`][csharp-build], [`csharp-lint-check`][csharp-lint-check], [`csharp-publish`][csharp-publish], [`language-version-detect`][language-version-detect] |
 | Ansible              | [`ansible-lint-fix`][ansible-lint-fix]                                                                                                                             |
 | C#                   | [`codeql-analysis`][codeql-analysis], [`csharp-build`][csharp-build], [`csharp-lint-check`][csharp-lint-check], [`csharp-publish`][csharp-publish]                 |

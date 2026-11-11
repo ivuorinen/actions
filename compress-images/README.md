@@ -36,7 +36,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                                        | Required | Default                            |
-|---------------------|----------------------------------------------------|----------|------------------------------------|
+| ------------------- | -------------------------------------------------- | -------- | ---------------------------------- |
 | `email`             | GitHub email for commits                           | ❌       | `github-actions@github.com`        |
 | `ignore-paths`      | Paths to ignore during compression (glob patterns) | ❌       | `node_modules/**,dist/**,build/**` |
 | `image-quality`     | JPEG compression quality (0-100)                   | ❌       | `85`                               |
@@ -48,7 +48,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter            | Description                                  |
-|----------------------|----------------------------------------------|
+| -------------------- | -------------------------------------------- |
 | `compression_report` | Markdown report of compression results       |
 | `images_compressed`  | Whether any images were compressed (boolean) |
 
@@ -57,7 +57,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission      | Access Level |
-|-----------------|--------------|
+| --------------- | ------------ |
 | `contents`      | `write`      |
 | `pull-requests` | `write`      |
 

@@ -37,7 +37,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                                                                                     | Required | Default                     |
-|---------------------|-------------------------------------------------------------------------------------------------|----------|-----------------------------|
+| ------------------- | ----------------------------------------------------------------------------------------------- | -------- | --------------------------- |
 | `auto-fix`          | Automatically fix issues when possible (lowercase true or false)                                | ❌       | `true`                      |
 | `config-file`       | Path to TFLint config file                                                                      | ❌       | `.tflint.hcl`               |
 | `email`             | GitHub email for commits                                                                        | ❌       | `github-actions@github.com` |
@@ -53,7 +53,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter     | Description               |
-|---------------|---------------------------|
+| ------------- | ------------------------- |
 | `error-count` | Number of errors found    |
 | `fixed-count` | Number of issues fixed    |
 | `sarif-file`  | Path to SARIF report file |
@@ -63,7 +63,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `write`      |
 | `security-events` | `write`      |
 

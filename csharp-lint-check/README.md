@@ -28,14 +28,14 @@ jobs:
 ## 📥 Inputs
 
 | Parameter        | Description                     | Required | Default |
-|------------------|---------------------------------|----------|---------|
+| ---------------- | ------------------------------- | -------- | ------- |
 | `dotnet-version` | Version of .NET SDK to use.     | ❌       | -       |
 | `token`          | GitHub token for authentication | ❌       | -       |
 
 ## 📤 Outputs
 
 | Parameter        | Description                           |
-|------------------|---------------------------------------|
+| ---------------- | ------------------------------------- |
 | `errors_count`   | Number of formatting errors found     |
 | `lint_status`    | Overall lint status (success/failure) |
 | `warnings_count` | Number of formatting warnings found   |
@@ -45,7 +45,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `read`       |
 | `security-events` | `write`      |
 

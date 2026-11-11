@@ -40,7 +40,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter               | Description                                                           | Required | Default         |
-|-------------------------|-----------------------------------------------------------------------|----------|-----------------|
+| ----------------------- | --------------------------------------------------------------------- | -------- | --------------- |
 | `cache`                 | Enable golangci-lint caching (lowercase true or false)                | ❌       | `true`          |
 | `config-file`           | Path to golangci-lint config file                                     | ❌       | `.golangci.yml` |
 | `disable-all`           | Disable all linters, useful with --enable-* (lowercase true or false) | ❌       | `false`         |
@@ -59,7 +59,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter        | Description                        |
-|------------------|------------------------------------|
+| ---------------- | ---------------------------------- |
 | `analyzed-files` | Number of files analyzed           |
 | `cache-hit`      | Indicates if there was a cache hit |
 | `error-count`    | Number of errors found             |
@@ -70,7 +70,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `read`       |
 | `security-events` | `write`      |
 

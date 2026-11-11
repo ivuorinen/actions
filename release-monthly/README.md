@@ -31,7 +31,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter | Description                                                                 | Required | Default               |
-|-----------|-----------------------------------------------------------------------------|----------|-----------------------|
+| --------- | --------------------------------------------------------------------------- | -------- | --------------------- |
 | `dry-run` | Run in dry-run mode without creating the release (lowercase true or false). | ❌       | `false`               |
 | `prefix`  | Optional prefix for release tags.                                           | ❌       | -                     |
 | `token`   | GitHub token with permission to create releases.                            | ✅       | `${{ github.token }}` |
@@ -39,7 +39,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter      | Description                    |
-|----------------|--------------------------------|
+| -------------- | ------------------------------ |
 | `previous-tag` | The previous release tag       |
 | `release-tag`  | The tag of the created release |
 | `release-url`  | The URL of the created release |
@@ -49,7 +49,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `write`      |
 
 **Usage in workflow:**

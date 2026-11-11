@@ -30,7 +30,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                     | Required | Default                     |
-|---------------------|---------------------------------|----------|-----------------------------|
+| ------------------- | ------------------------------- | -------- | --------------------------- |
 | `base-branch`       | Base branch to compare against  | ❌       | -                           |
 | `commit_email`      | Commit email                    | ❌       | `github-actions@github.com` |
 | `commit_user`       | Commit user                     | ❌       | `GitHub Actions`            |
@@ -40,7 +40,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter       | Description                                        |
-|-----------------|----------------------------------------------------|
+| --------------- | -------------------------------------------------- |
 | `files_changed` | Whether any files were changed by pre-commit hooks |
 | `hooks_passed`  | Whether all pre-commit hooks passed (true/false)   |
 
@@ -49,7 +49,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `write`      |
 
 **Usage in workflow:**

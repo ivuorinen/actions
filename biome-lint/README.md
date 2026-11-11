@@ -32,7 +32,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter       | Description                                                                                       | Required | Default                     |
-|-----------------|---------------------------------------------------------------------------------------------------|----------|-----------------------------|
+| --------------- | ------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
 | `email`         | GitHub email for commits (fix mode only)                                                          | ❌       | `github-actions@github.com` |
 | `fail-on-error` | Whether to fail the action if linting errors are found (check mode only; lowercase true or false) | ❌       | `true`                      |
 | `max-retries`   | Maximum number of retry attempts for npm install operations (1-10, must not be empty)             | ❌       | `3`                         |
@@ -43,7 +43,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter        | Description                                |
-|------------------|--------------------------------------------|
+| ---------------- | ------------------------------------------ |
 | `errors_count`   | Number of errors found (check mode only)   |
 | `files_changed`  | Number of files changed (fix mode only)    |
 | `status`         | Overall status (success/failure)           |
@@ -54,7 +54,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `write`      |
 | `security-events` | `write`      |
 
