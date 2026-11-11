@@ -8,9 +8,9 @@
 # organization, docs_url and support_email — none of those take effect in this
 # version, so they are deliberately absent rather than set-and-ignored.
 
-# Renders inputs/outputs/permissions as markdown tables (keeping
-# markdown-table-formatter meaningful) plus Overview/Configuration/
-# Troubleshooting sections. The default theme emits bullet lists instead.
+# Renders inputs/outputs/permissions as markdown tables plus
+# Overview/Configuration/Troubleshooting sections. The default theme emits
+# bullet lists instead.
 theme: github
 
 output_format: md

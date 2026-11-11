@@ -29,7 +29,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter  | Description                     | Required | Default                     |
-|------------|---------------------------------|----------|-----------------------------|
+| ---------- | ------------------------------- | -------- | --------------------------- |
 | `email`    | GitHub email for commits        | ❌       | `github-actions@github.com` |
 | `token`    | GitHub token for authentication | ❌       | -                           |
 | `username` | GitHub username for commits     | ❌       | `github-actions`            |
@@ -37,7 +37,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter           | Description                                 |
-|---------------------|---------------------------------------------|
+| ------------------- | ------------------------------------------- |
 | `errors_found`      | Number of linting errors found              |
 | `validation_status` | Overall validation status (success/failure) |
 
@@ -46,7 +46,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission      | Access Level |
-|-----------------|--------------|
+| --------------- | ------------ |
 | `contents`      | `write`      |
 | `pull-requests` | `write`      |
 

@@ -34,7 +34,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter            | Description                                           | Required | Default              |
-|----------------------|-------------------------------------------------------|----------|----------------------|
+| -------------------- | ----------------------------------------------------- | -------- | -------------------- |
 | `actionlint-enabled` | Enable actionlint scanning (lowercase true or false)  | ❌       | `true`               |
 | `gitleaks-config`    | Path to Gitleaks config file                          | ❌       | `.gitleaks.toml`     |
 | `gitleaks-license`   | Gitleaks license key (required for Gitleaks scanning) | ❌       | -                    |
@@ -46,7 +46,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter              | Description                                  |
-|------------------------|----------------------------------------------|
+| ---------------------- | -------------------------------------------- |
 | `critical_issues`      | Number of critical security issues found     |
 | `has_gitleaks_results` | Whether Gitleaks scan produced valid results |
 | `has_trivy_results`    | Whether Trivy scan produced valid results    |
@@ -57,7 +57,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `read`       |
 | `security-events` | `write`      |
 

@@ -28,7 +28,7 @@ The full external-tool list this repo uses is:
 `shellcheck`, `shfmt`, `shellspec`, `gh`, `docker`, `kubectl`,
 `node`, `npm`, `npx`, `pnpm`, `yarn`, `bun`, `bunx`,
 `python`, `python3`, `uv`, `ruff`, `pyright`, `mypy`, `pytest`,
-`prettier`, `markdownlint-cli2`, `markdown-table-formatter`, `yaml-lint`,
+`prettier`, `markdownlint-cli2`, `yaml-lint`,
 `pre-commit`, `tar`, `gzip`, `unzip`, `curl`, `wget`, `rsync`,
 `find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`,
 `mktemp`, `touch`, `chmod`, `chown`.

@@ -123,7 +123,6 @@ docs: $(GAR) ## Generate documentation for all actions
 		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
 			python3 _tools/fix-generated-readme.py "$$dir/README.md"; \
 			npx --yes prettier --write --prose-wrap always "$$dir/README.md" >/dev/null 2>&1; \
-			npx --yes markdown-table-formatter "$$dir/README.md" >/dev/null 2>&1; \
 			if grep -q "uses: ivuorinen/actions/$$dir@vYYYY.MM.DD" "$$dir/README.md"; then \
 				echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
 			else \
@@ -271,8 +270,8 @@ format-markdown: ## Format markdown files
 		echo "$(YELLOW)⚠️ Markdown formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
-format-yaml-json: ## Format YAML and JSON files
-	@echo "$(BLUE)✨ Formatting YAML/JSON...$(RESET)"
+format-yaml-json: ## Format YAML and JSON files, and Markdown (tables included) with prettier
+	@echo "$(BLUE)✨ Formatting YAML/JSON/Markdown...$(RESET)"
 	@if command -v yamlfmt >/dev/null 2>&1; then \
 		if yamlfmt . 2>/dev/null; then \
 			echo "$(GREEN)✅ YAML formatted with yamlfmt$(RESET)"; \
@@ -283,23 +282,9 @@ format-yaml-json: ## Format YAML and JSON files
 		echo "$(BLUE)ℹ️ yamlfmt not available, skipping$(RESET)"; \
 	fi
 	@if npx --yes prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json" 2>/dev/null; then \
-		echo "$(GREEN)✅ YAML/JSON formatted with prettier$(RESET)"; \
+		echo "$(GREEN)✅ YAML/JSON/Markdown formatted with prettier$(RESET)"; \
 	else \
-		echo "$(YELLOW)⚠️ YAML/JSON formatting issues found with prettier$(RESET)" | tee -a $(LOG_FILE); \
-	fi
-	@echo "$(BLUE)📊 Formatting tables...$(RESET)"
-	@if npx --yes markdown-table-formatter "**/*.md" 2>/dev/null; then \
-		echo "$(GREEN)✅ Tables formatted$(RESET)"; \
-	else \
-		echo "$(YELLOW)⚠️ Table formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
-	fi
-
-format-tables: ## Format markdown tables
-	@echo "$(BLUE)📊 Formatting tables...$(RESET)"
-	@if npx --yes markdown-table-formatter "**/*.md" 2>/dev/null; then \
-		echo "$(GREEN)✅ Tables formatted$(RESET)"; \
-	else \
-		echo "$(YELLOW)⚠️ Table formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		echo "$(YELLOW)⚠️ YAML/JSON/Markdown formatting issues found with prettier$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
 format-python: ## Format Python files with ruff
@@ -418,7 +403,6 @@ install-tools: ## Install/update required tools
 	@echo "$(YELLOW)Installing NPM tools...$(RESET)"
 	@npx --yes markdownlint-cli2 --version >/dev/null
 	@npx --yes prettier --version >/dev/null
-	@npx --yes markdown-table-formatter --version >/dev/null
 	@npx --yes yaml-lint --version >/dev/null
 	@echo "$(YELLOW)Fetching gh-action-readme...$(RESET)"
 	@$(MAKE) --no-print-directory $(GAR)

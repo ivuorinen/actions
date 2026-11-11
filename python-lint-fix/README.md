@@ -35,7 +35,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                                                                              | Required | Default                     |
-|---------------------|------------------------------------------------------------------------------------------|----------|-----------------------------|
+| ------------------- | ---------------------------------------------------------------------------------------- | -------- | --------------------------- |
 | `autopep8-version`  | Autopep8 version to use                                                                  | ❌       | `2.0.4`                     |
 | `email`             | GitHub email for commits                                                                 | ❌       | `github-actions@github.com` |
 | `fail-on-error`     | Whether to fail the action if linting errors are found (lowercase true or false)         | ❌       | `true`                      |
@@ -49,7 +49,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter     | Description                                     |
-|---------------|-------------------------------------------------|
+| ------------- | ----------------------------------------------- |
 | `error-count` | Number of errors found                          |
 | `fixed-files` | Number of files that were fixed                 |
 | `lint-result` | Result of the linting process (success/failure) |
@@ -59,7 +59,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `write`      |
 | `security-events` | `write`      |
 

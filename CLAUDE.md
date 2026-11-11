@@ -50,7 +50,7 @@ in hook commands
 ### Skills & Subagents
 
 | When                                        | Run                                       |
-|---------------------------------------------|-------------------------------------------|
+| ------------------------------------------- | ----------------------------------------- |
 | After modifying an action                   | `/action-health <name>`                   |
 | After creating an action modeled on another | `/compare-actions <source> <new>`         |
 | Before creating a PR                        | `/pin-check` and `/security-audit`        |
@@ -108,7 +108,8 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 
 ### Linters
 
-Use `make lint` (not direct calls). Runs: markdownlint-cli2, prettier, markdown-table-formatter, yaml-lint, actionlint, shellcheck, ruff
+Use `make lint` (not direct calls). Runs: markdownlint-cli2, yaml-lint, shellcheck, ruff, pyright, action-validator.
+`make format` runs prettier, which also formats markdown tables; actionlint runs in pre-commit.
 
 ### Tests
 
@@ -268,7 +269,7 @@ You do NOT need to manually instruct subagents about context-mode.
 ### ctx commands
 
 | Command       | Action                                                                                |
-|---------------|---------------------------------------------------------------------------------------|
+| ------------- | ------------------------------------------------------------------------------------- |
 | `ctx stats`   | Call the `ctx_stats` MCP tool and display the full output verbatim                    |
 | `ctx doctor`  | Call the `ctx_doctor` MCP tool, run the returned shell command, display as checklist  |
 | `ctx upgrade` | Call the `ctx_upgrade` MCP tool, run the returned shell command, display as checklist |

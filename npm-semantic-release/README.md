@@ -36,7 +36,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter       | Description                                                                                                                                                  | Required | Default                                             |
-|-----------------|--------------------------------------------------------------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------------------------------- |
 | `extra_plugins` | Extra semantic-release plugins: npm package specs (name or name@version) separated by whitespace or newlines. Version ranges can use ^ or ~, but not > or <. | ❌       | `conventional-changelog-conventionalcommits@^9.3.1` |
 | `github_token`  | GitHub token for creating releases, tags, and PR comments.                                                                                                   | ❌       | `${{ github.token }}`                               |
 | `node-version`  | Node.js version to use when .nvmrc is not present.                                                                                                           | ❌       | `24`                                                |
@@ -47,7 +47,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter               | Description                            |
-|-------------------------|----------------------------------------|
+| ----------------------- | -------------------------------------- |
 | `new-release-published` | Whether a new release was published.   |
 | `new-release-version`   | The new release version, if published. |
 
@@ -56,7 +56,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission      | Access Level |
-|-----------------|--------------|
+| --------------- | ------------ |
 | `contents`      | `write`      |
 | `id-token`      | `write`      |
 | `issues`        | `write`      |

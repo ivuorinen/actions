@@ -40,7 +40,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter           | Description                                                                           | Required | Default                                          |
-|---------------------|---------------------------------------------------------------------------------------|----------|--------------------------------------------------|
+| ------------------- | ------------------------------------------------------------------------------------- | -------- | ------------------------------------------------ |
 | `cache`             | Enable Prettier caching (lowercase true or false)                                     | ❌       | `true`                                           |
 | `config-file`       | Path to Prettier config file                                                          | ❌       | `.prettierrc`                                    |
 | `email`             | GitHub email for commits (fix mode only)                                              | ❌       | `github-actions@github.com`                      |
@@ -59,7 +59,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter           | Description                                              |
-|---------------------|----------------------------------------------------------|
+| ------------------- | -------------------------------------------------------- |
 | `files-changed`     | Number of files changed (fix mode only)                  |
 | `files-checked`     | Number of files checked (check mode only)                |
 | `sarif-file`        | Path to SARIF report file (check mode only)              |
@@ -71,7 +71,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission        | Access Level |
-|-------------------|--------------|
+| ----------------- | ------------ |
 | `contents`        | `write`      |
 | `security-events` | `write`      |
 

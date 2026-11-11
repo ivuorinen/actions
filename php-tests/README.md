@@ -34,7 +34,7 @@ jobs:
 ## 📥 Inputs
 
 | Parameter       | Description                                                                                             | Required | Default                                             |
-|-----------------|---------------------------------------------------------------------------------------------------------|----------|-----------------------------------------------------|
+| --------------- | ------------------------------------------------------------------------------------------------------- | -------- | --------------------------------------------------- |
 | `composer-args` | Arguments to pass to Composer install                                                                   | ❌       | `--no-progress --prefer-dist --optimize-autoloader` |
 | `coverage`      | Code-coverage driver (none, xdebug, pcov)                                                               | ❌       | `none`                                              |
 | `email`         | GitHub email for commits                                                                                | ❌       | `github-actions@github.com`                         |
@@ -48,7 +48,7 @@ jobs:
 ## 📤 Outputs
 
 | Parameter          | Description                             |
-|--------------------|-----------------------------------------|
+| ------------------ | --------------------------------------- |
 | `cache-hit`        | Indicates if there was a cache hit      |
 | `composer-version` | Installed Composer version              |
 | `framework`        | Detected framework (laravel or generic) |
@@ -62,7 +62,7 @@ jobs:
 This action requires the following permissions:
 
 | Permission | Access Level |
-|------------|--------------|
+| ---------- | ------------ |
 | `contents` | `read`       |
 
 **Usage in workflow:**
