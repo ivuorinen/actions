@@ -21,7 +21,7 @@ jobs:
       - name: Python Lint and Fix
         uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
         with:
-          autopep8-version: '2.0.4'
+          autopep8-version: '2.2.0'
           email: 'github-actions@github.com'
           fail-on-error: 'true'
           flake8-version: '7.0.0'
@@ -36,7 +36,7 @@ jobs:
 
 | Parameter           | Description                                                                              | Required | Default                     |
 | ------------------- | ---------------------------------------------------------------------------------------- | -------- | --------------------------- |
-| `autopep8-version`  | Autopep8 version to use                                                                  | ❌       | `2.0.4`                     |
+| `autopep8-version`  | Autopep8 version to use                                                                  | ❌       | `2.2.0`                     |
 | `email`             | GitHub email for commits                                                                 | ❌       | `github-actions@github.com` |
 | `fail-on-error`     | Whether to fail the action if linting errors are found (lowercase true or false)         | ❌       | `true`                      |
 | `flake8-version`    | Flake8 version to use                                                                    | ❌       | `7.0.0`                     |
@@ -80,7 +80,7 @@ permissions:
 - name: Python Lint and Fix
   uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
   with:
-    autopep8-version: '2.0.4'
+    autopep8-version: '2.2.0'
     email: 'github-actions@github.com'
     fail-on-error: 'true'
     flake8-version: '7.0.0'
@@ -100,7 +100,7 @@ permissions:
 - name: Python Lint and Fix with custom settings
   uses: ivuorinen/actions/python-lint-fix@vYYYY.MM.DD
   with:
-    autopep8-version: '2.0.4'
+    autopep8-version: '2.2.0'
     email: 'github-actions@github.com'
     fail-on-error: 'true'
     flake8-version: '7.0.0'
