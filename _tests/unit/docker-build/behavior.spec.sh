@@ -354,14 +354,56 @@ The output should include "Build attempt 1 of 1"
 Assert expect_argv docker -- "--no-cache"
 End
 
-It "passes the SBOM and verbose options as separate entries"
-export INPUT_SBOM_FORMAT="spdx-json"
+It "passes the verbose option as its own entry"
 export INPUT_VERBOSE="true"
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --sbom=true --sbom-format=spdx-json --progress=plain
+Assert expect_argv docker --load --progress=plain
+End
+End
+
+Describe "attestations"
+It "attaches provenance and an SBOM when pushing, without a format flag"
+export INPUT_PUSH="true"
+export INPUT_SBOM_FORMAT="spdx-json"
+mock_command docker "buildx imagetools inspect *" '{"digest":"sha256:fixture"}'
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --push --provenance=true --sbom=true
+Assert argv_lacks --sbom-format=spdx-json
+End
+
+It "omits attestations from a local load, which the docker exporter rejects"
+export INPUT_SBOM_FORMAT="spdx-json"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --load
+Assert argv_lacks --provenance=true
+Assert argv_lacks --sbom=true
+Assert argv_lacks --sbom-format=spdx-json
+End
+
+Context "with build metadata written"
+# The step reads a fixed path; the mocked docker writes nothing, so the fixture
+# stands in for the keys buildx does write.
+write_metadata() { printf '%s\n' '{"containerimage.digest":"sha256:fixture"}' >/tmp/build-metadata.json; }
+remove_metadata() { rm -f /tmp/build-metadata.json; }
+Before 'write_metadata'
+After 'remove_metadata'
+
+It "emits no SBOM location, because buildx metadata has none to read"
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+The contents of file "${GITHUB_OUTPUT}" should include "containerimage.digest"
+The contents of file "${GITHUB_OUTPUT}" should not include "sbom-location"
+End
 End
 End
 

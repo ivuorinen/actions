@@ -298,9 +298,13 @@ It "accepts valid SBOM format"
 When call validate_input_python "docker-build" "sbom-format" "spdx-json"
 The status should be success
 End
-It "accepts cyclonedx SBOM format"
+It "rejects cyclonedx SBOM format, which BuildKit does not produce"
 When call validate_input_python "docker-build" "sbom-format" "cyclonedx-json"
-The status should be success
+The status should be failure
+End
+It "rejects syft SBOM format, which BuildKit does not produce"
+When call validate_input_python "docker-build" "sbom-format" "syft-json"
+The status should be failure
 End
 It "rejects invalid SBOM format"
 When call validate_input_python "docker-build" "sbom-format" "invalid-format"
