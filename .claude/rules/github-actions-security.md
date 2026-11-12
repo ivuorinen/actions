@@ -1,9 +1,11 @@
 # GitHub Actions Security
 
 Pin all external actions to full SHA commits — never use `@main`, `@v1`, `@v6-beta`,
-or any other floating ref. This applies to every yaml file in the repo that uses
-`uses:`, including `.github/workflows/*.yml`, every `*/action.yml`, and every
-workflow under `_tests/integration/workflows/`.
+or any other floating ref. A `docker://` step is pinned by its image digest instead:
+`docker://<image>:<tag>@sha256:<64 hex characters>`. A registry tag can be re-pushed,
+so a tag without the digest is a floating ref. This applies to every yaml file in the
+repo that uses `uses:`, including `.github/workflows/*.yml`, every `*/action.yml`,
+and every workflow under `_tests/integration/workflows/`.
 
 In `.github/workflows/` and `_tests/integration/workflows/`, reference internal
 actions as `./<action-name>` — this avoids Renovate creating an endless
