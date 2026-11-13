@@ -2,7 +2,7 @@
 # base-branch mode runs pre-commit over `<from-ref>...HEAD`. That range only
 # resolves when the checkout holds the base branch as origin/<base> with history
 # back to the merge base, so the checkout must be full-depth in that mode and the
-# from-ref must name the remote-tracking branch.
+# from-ref must name the remote-tracking branch by its full ref name.
 
 Describe "pre-commit base-branch mode"
 ACTION_DIR="${PROJECT_ROOT}/pre-commit"
@@ -91,10 +91,24 @@ It "passes a from-ref that resolves in a full checkout"
 make_full_clone
 export INPUT_BASE_BRANCH="main"
 cd work || return 1
-When call run_with_from_ref "origin/main"
+When call run_with_from_ref "refs/remotes/origin/main"
 The status should be success
 The stdout should include "hooks ran"
-Assert diff_names_equal "origin/main" "changed.txt"
+Assert diff_names_equal "refs/remotes/origin/main" "changed.txt"
+End
+
+# git resolves a short origin/main as refs/tags/origin/main, then refs/heads/origin/main,
+# and only then refs/remotes/origin/main. Pointing both at HEAD would make the diff empty.
+It "passes the remote branch by its full name when a tag and a local branch share its short name"
+make_full_clone
+git -C work tag origin/main HEAD
+git -C work branch origin/main HEAD
+export INPUT_BASE_BRANCH="main"
+cd work || return 1
+When call run_with_from_ref "refs/remotes/origin/main"
+The status should be success
+The stdout should include "hooks ran"
+Assert diff_names_equal "refs/remotes/origin/main" "changed.txt"
 End
 
 It "prefixes a base branch containing a slash"
@@ -102,7 +116,7 @@ make_full_clone
 git -C work update-ref refs/remotes/origin/release/1.0 HEAD
 export INPUT_BASE_BRANCH="release/1.0"
 cd work || return 1
-When call run_with_from_ref "origin/release/1.0"
+When call run_with_from_ref "refs/remotes/origin/release/1.0"
 The status should be success
 The stdout should include "hooks ran"
 End
@@ -111,7 +125,7 @@ It "keeps a base-branch that already names a ref instead of prefixing it again"
 make_full_clone
 export INPUT_BASE_BRANCH="origin/main"
 cd work || return 1
-When call run_with_from_ref "origin/main"
+When call run_with_from_ref "refs/remotes/origin/main"
 The status should be success
 The stdout should include "hooks ran"
 End
@@ -121,7 +135,7 @@ make_full_clone
 git -C work update-ref refs/remotes/origin/origin/main HEAD
 export INPUT_BASE_BRANCH="origin/main"
 cd work || return 1
-When call run_with_from_ref "origin/main"
+When call run_with_from_ref "refs/remotes/origin/main"
 The status should be success
 The stdout should include "hooks ran"
 End
@@ -131,7 +145,7 @@ make_full_clone
 git -C work update-ref refs/remotes/origin/origin/only-nested HEAD
 export INPUT_BASE_BRANCH="origin/only-nested"
 cd work || return 1
-When call run_with_from_ref "origin/origin/only-nested"
+When call run_with_from_ref "refs/remotes/origin/origin/only-nested"
 The status should be success
 The stdout should include "hooks ran"
 End
