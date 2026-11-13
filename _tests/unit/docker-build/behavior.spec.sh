@@ -388,7 +388,7 @@ Describe "attestations"
 It "attaches provenance and an SBOM when pushing, without a format flag"
 export INPUT_PUSH="true"
 export INPUT_SBOM_FORMAT="spdx-json"
-mock_command docker "buildx imagetools inspect *" '{"digest":"sha256:fixture"}'
+write_docker_build_metadata
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
@@ -410,12 +410,7 @@ Assert argv_lacks --sbom-format=spdx-json
 End
 
 Context "with build metadata written"
-# The step reads a fixed path; the mocked docker writes nothing, so the fixture
-# stands in for the keys buildx does write.
-write_metadata() { printf '%s\n' '{"containerimage.digest":"sha256:fixture"}' >/tmp/build-metadata.json; }
-remove_metadata() { rm -f /tmp/build-metadata.json; }
-Before 'write_metadata'
-After 'remove_metadata'
+Before 'write_docker_build_metadata'
 
 It "emits no SBOM location, because buildx metadata has none to read"
 When call run_step "${ACTION_DIR}" "build"

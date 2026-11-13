@@ -26,6 +26,10 @@ Sourced automatically by `_tests/unit/spec_helper.sh`.
   matters: `mock_command` globs match the space-joined argv and cannot see it.
 - `harness_reset` — clear per-test session state. Call this from `BeforeEach`
   and `AfterEach`.
+- `HARNESS_STEP_OUTPUTS` — environment variable holding earlier steps' outputs as
+  JSON, for `run_step`, which runs one step without its predecessors:
+  `export HARNESS_STEP_OUTPUTS='{"build":{"outputs":{"digest":"sha256:abc"}}}'`.
+  `harness_reset` clears it.
 
 ## Example
 

@@ -418,8 +418,8 @@ runs:
       run: |
         {
           printf 'metadata<<%s\n' "$_delim"
-          cat /tmp/build-metadata.json
-          printf '%s\n' "$_delim"
+          cat "$metadata_file"
+          printf '\n%s\n' "$_delim"
         } >> "$GITHUB_OUTPUT"
         {
           printf '%s\n' 'tags<<EOF'
