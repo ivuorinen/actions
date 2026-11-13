@@ -1,0 +1,9 @@
+---
+# yaml-language-server: $schema=https://storage.googleapis.com/coderabbit_public_assets/schema.v2.json
+# Reviews here otherwise run on this repository's CodeRabbit UI settings, which leave automatic
+# approvals off. This file turns them on and inherits every other setting.
+inheritance: true
+reviews:
+  auto_approvals:
+    enabled: true
+    allow_author_approval: false
