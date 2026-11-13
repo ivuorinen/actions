@@ -23,6 +23,32 @@ def _skip(value: str) -> bool:
     return value.strip() == ""
 
 
+def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
+    """Return why ``value`` is not a relative path below the working directory, or None.
+
+    A leading ``-`` is refused because a command would read it as an option, and buildx reads
+    ``-`` alone as stdin; ``./-name`` names the same file.
+
+    With ``spaces``, runs of spaces may separate path characters. A leading or trailing space
+    stays invalid, so the absolute-path check always sees the path's real first character.
+    """
+    if value.startswith("-"):
+        return "must not start with -"
+    import urllib.parse
+
+    decoded = urllib.parse.unquote(value)
+    if decoded.startswith("/") or (len(decoded) > 1 and decoded[1] == ":"):
+        return "absolute paths are not allowed"
+    if ".." in decoded:
+        return "path traversal (..) is not allowed"
+    if value.startswith("~"):
+        return "home directory expansion (~) is not allowed"
+    chars = r"[a-zA-Z0-9._/\-@+~!#=:]+"
+    if re.fullmatch(f"{chars}( +{chars})*" if spaces else chars, value):
+        return None
+    return "contains invalid path characters"
+
+
 def check_dotnet_version(value: str) -> str | None:
     """.NET version: 8, 8.0, 8.0.100, or 8.0.x feature band, with optional -preview suffix."""
     if _skip(value):
@@ -30,6 +56,13 @@ def check_dotnet_version(value: str) -> str | None:
     if re.fullmatch(r"[0-9]+(\.[0-9]+)?(\.([0-9]+|x))?(-[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a .NET version (e.g. 8.0, 8.0.100, 8.0.x)"
+
+
+def check_file_path(value: str) -> str | None:
+    """Relative file path — rejects a leading ``-``, absolute paths, ``..`` and ``~`` expansion."""
+    if _skip(value):
+        return None
+    return _file_path_error(value)
 
 
 def check_github_token(value: str) -> str | None:
@@ -68,6 +101,7 @@ ACTION = "csharp-lint-check"
 
 CHECKS = {
     "dotnet-version": check_dotnet_version,
+    "project": check_file_path,
     "token": check_github_token,
 }
 

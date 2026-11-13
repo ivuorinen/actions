@@ -38,10 +38,57 @@ When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
 The status should be failure
 End
 
-It "succeeds when dotnet restore succeeds"
-mock_command dotnet "restore --verbosity normal" "" 0
+It "restores the given project"
+export INPUT_PROJECT="src/App.csproj"
+mock_command dotnet "restore src/App.csproj --verbosity normal" ""
 
 When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
+The status should be success
+End
+
+It "restores the repository root when no project is given"
+mock_command dotnet "restore --verbosity normal" ""
+
+When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
+The status should be success
+End
+
+# The harness runs the command in the shell the step names. On Windows, retry's default
+# is PowerShell, which cannot read the expansion, so the step has to name bash.
+It "runs the restore in bash with the project in its environment"
+When call yq -r '.runs.steps[] | select(.name == "Restore Dependencies") | .with.shell + " " + .env.PROJECT' "${ACTION_DIR}/action.yml"
+The stdout should equal 'bash ${{ inputs.project }}'
+End
+End
+
+Describe "project selection"
+It "builds the given project"
+export INPUT_PROJECT="src/App.csproj"
+mock_command dotnet "build src/App.csproj --configuration Release --no-restore" ""
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+End
+
+It "builds the repository root when no project is given"
+mock_command dotnet "build --configuration Release --no-restore" ""
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+End
+
+It "packs the given project"
+export INPUT_PROJECT="src/App.csproj"
+mock_command dotnet "pack src/App.csproj --configuration Release --no-build --no-restore --output ./artifacts" ""
+
+When call run_step "${ACTION_DIR}" "pack"
+The status should be success
+End
+
+It "packs the repository root when no project is given"
+mock_command dotnet "pack --configuration Release --no-build --no-restore --output ./artifacts" ""
+
+When call run_step "${ACTION_DIR}" "pack"
 The status should be success
 End
 End

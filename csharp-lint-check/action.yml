@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 # permissions:
 #   - contents: read          # Required for checking out repository
-#   - security-events: write  # Required for uploading SARIF results
 ---
 name: 'C# Lint Check'
 description: 'Runs linters like StyleCop or dotnet-format for C# code style checks.'
@@ -15,6 +14,10 @@ inputs:
   dotnet-version:
     description: 'Version of .NET SDK to use.'
     required: false
+  project:
+    description: 'Project or solution file, relative to the workspace. Empty uses the one in the repository root.'
+    required: false
+    default: ''
   token:
     description: 'GitHub token for authentication'
     required: false
@@ -25,10 +28,10 @@ outputs:
     description: 'Overall lint status (success/failure)'
     value: ${{ steps.dotnet-format.outcome == 'success' && 'success' || 'failure' }}
   errors_count:
-    description: 'Number of formatting errors found'
+    description: 'Number of formatting changes dotnet format would make'
     value: ${{ steps.dotnet-format.outputs.errors_count || '0' }}
   warnings_count:
-    description: 'Number of formatting warnings found'
+    description: 'Always 0; the dotnet format report has no severity, so all changes count as errors'
     value: ${{ steps.dotnet-format.outputs.warnings_count || '0' }}
 
 runs:
@@ -39,6 +42,7 @@ runs:
       working-directory: ${{ github.action_path }}
       env:
         INPUT_DOTNET_VERSION: ${{ inputs.dotnet-version }}
+        INPUT_PROJECT: ${{ inputs.project }}
         INPUT_TOKEN: ${{ inputs.token }}
       run: |
         set -eu
@@ -158,33 +162,35 @@ runs:
     - name: Run dotnet-format
       id: dotnet-format
       shell: sh
+      env:
+        PROJECT: ${{ inputs.project }}
       run: |
         set -eu
 
-        # Initialize counters
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the dotnet format report" >&2; exit 1; }
+
+        # dotnet format --report takes a directory and writes format-report.json (a JSON
+        # array of files with FileChanges); it does not produce SARIF.
+        report_dir=$(mktemp -d)
+        trap 'rm -rf "$report_dir"' EXIT
+
+        # --verify-no-changes exits 0 when clean and 2 when files would be reformatted.
+        status=0
+        dotnet format ${PROJECT:+"$PROJECT"} --verify-no-changes --report "$report_dir" || status=$?
+
         errors_count=0
-        warnings_count=0
-
-        if ! dotnet format --check --report sarif --report-file dotnet-format.sarif; then
-          # Parse SARIF file to count errors and warnings if it exists
-          if [ -f "dotnet-format.sarif" ]; then
-            if command -v jq >/dev/null 2>&1; then
-              errors_count=$(jq '[.runs[].results[]? | select(.level == "error" or (.level // "error") == "error")] | length' dotnet-format.sarif 2>/dev/null || echo "0")
-              warnings_count=$(jq '[.runs[].results[]? | select(.level == "warning")] | length' dotnet-format.sarif 2>/dev/null || echo "0")
-            fi
-          fi
-
-          printf 'errors_count=%s\n' "$errors_count" >> "$GITHUB_OUTPUT"
-          printf 'warnings_count=%s\n' "$warnings_count" >> "$GITHUB_OUTPUT"
-          echo "::error::Code formatting issues found. Check the SARIF report for details."
-          exit 1
-        else
-          printf 'errors_count=%s\n' "0" >> "$GITHUB_OUTPUT"
-          printf 'warnings_count=%s\n' "0" >> "$GITHUB_OUTPUT"
+        if [ -f "$report_dir/format-report.json" ]; then
+          errors_count=$(jq '[.[].FileChanges[]?] | length' "$report_dir/format-report.json")
         fi
 
-    - name: Upload SARIF Report
-      if: failure() && steps.dotnet-format.outcome == 'failure'
-      uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
-      with:
-        sarif_file: dotnet-format.sarif
+        printf 'errors_count=%s\n' "$errors_count" >> "$GITHUB_OUTPUT"
+        # The report carries no severity, so every change is counted as an error.
+        printf 'warnings_count=%s\n' "0" >> "$GITHUB_OUTPUT"
+
+        if [ "$status" -eq 2 ]; then
+          echo "::error::Code formatting issues found ($errors_count). Run 'dotnet format' to fix them."
+          exit 1
+        elif [ "$status" -ne 0 ]; then
+          echo "::error::dotnet format failed with exit code $status"
+          exit 1
+        fi

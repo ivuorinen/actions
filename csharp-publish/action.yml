@@ -19,6 +19,10 @@ inputs:
     description: 'GitHub namespace for the package.'
     required: true
     default: 'ivuorinen'
+  project:
+    description: 'Project or solution file, relative to the workspace. Empty uses the one in the repository root.'
+    required: false
+    default: ''
   token:
     description: 'GitHub token with package write permissions'
     required: false
@@ -48,6 +52,7 @@ runs:
         INPUT_DOTNET_VERSION: ${{ inputs.dotnet-version }}
         INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
         INPUT_NAMESPACE: ${{ inputs.namespace }}
+        INPUT_PROJECT: ${{ inputs.project }}
         INPUT_TOKEN: ${{ inputs.token }}
       run: |
         set -eu
@@ -166,24 +171,34 @@ runs:
 
     - name: Restore Dependencies
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      env:
+        PROJECT: ${{ inputs.project }}
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
-        command: dotnet restore --verbosity normal
+        # Windows defaults to PowerShell, which cannot read this expansion, and retry refuses sh there.
+        shell: bash
+        command: dotnet restore ${PROJECT:+"$PROJECT"} --verbosity normal
 
     - name: Build Solution
+      id: build
       shell: sh
+      env:
+        PROJECT: ${{ inputs.project }}
       run: |
         set -eu
 
-        dotnet build --configuration Release --no-restore
+        dotnet build ${PROJECT:+"$PROJECT"} --configuration Release --no-restore
 
     - name: Pack Solution
+      id: pack
       shell: sh
+      env:
+        PROJECT: ${{ inputs.project }}
       run: |
         set -eu
 
-        dotnet pack --configuration Release --no-build --no-restore --output ./artifacts
+        dotnet pack ${PROJECT:+"$PROJECT"} --configuration Release --no-build --no-restore --output ./artifacts
 
     - name: Extract Package Version
       id: extract-version
