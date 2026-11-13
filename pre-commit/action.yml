@@ -16,7 +16,7 @@ inputs:
     required: false
     default: '.pre-commit-config.yaml'
   base-branch:
-    description: 'Base branch to compare against'
+    description: 'Base branch name (for example main); only files changed since it diverged from HEAD are checked, and the full history is fetched'
     required: false
   token:
     description: 'GitHub token for authentication'
@@ -63,6 +63,11 @@ runs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         token: ${{ inputs.token || github.token }}
+        # base-branch mode diffs origin/<base>...HEAD, which needs the base branch
+        # and the history back to the merge base; the default depth of 1 has neither.
+        # Strings, not numbers: the expression returns an operand, and the number 0 is
+        # falsy, so `&& 0 || 1` would always give 1.
+        fetch-depth: ${{ inputs.base-branch != '' && '0' || '1' }}
         # git-auto-commit-action pushes the auto-fix commit using the token that
         # actions/checkout persists in .git/config; persist-credentials must stay
         # true or the "Commit Fixes" step cannot authenticate its push.
@@ -98,7 +103,21 @@ runs:
         set -eu
 
         if [ -n "$BASE_BRANCH" ]; then
-          set -- --from-ref "$BASE_BRANCH" --to-ref HEAD
+          # The checkout holds the base branch as origin/<base>, not as a local branch.
+          # A value that already names a remote ref, such as origin/main, is used as given,
+          # even when a branch actually called origin/main exists too.
+          if [ "${BASE_BRANCH#origin/}" != "$BASE_BRANCH" ] \
+            && git rev-parse --verify --quiet "refs/remotes/$BASE_BRANCH" >/dev/null; then
+            from_ref="$BASE_BRANCH"
+          elif git rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null; then
+            from_ref="origin/$BASE_BRANCH"
+          elif git rev-parse --verify --quiet --end-of-options "$BASE_BRANCH^{commit}" >/dev/null; then
+            from_ref="$BASE_BRANCH"
+          else
+            echo "::error::base-branch '$BASE_BRANCH' is neither origin/$BASE_BRANCH nor a ref in the checkout"
+            exit 1
+          fi
+          set -- --from-ref "$from_ref" --to-ref HEAD
         else
           set -- --all-files
         fi

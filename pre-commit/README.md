@@ -29,13 +29,13 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                     | Required | Default                     |
-| ------------------- | ------------------------------- | -------- | --------------------------- |
-| `base-branch`       | Base branch to compare against  | ❌       | -                           |
-| `commit_email`      | Commit email                    | ❌       | `github-actions@github.com` |
-| `commit_user`       | Commit user                     | ❌       | `GitHub Actions`            |
-| `pre-commit-config` | pre-commit configuration file   | ❌       | `.pre-commit-config.yaml`   |
-| `token`             | GitHub token for authentication | ❌       | -                           |
+| Parameter           | Description                                                                                                                      | Required | Default                     |
+| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
+| `base-branch`       | Base branch name (for example main); only files changed since it diverged from HEAD are checked, and the full history is fetched | ❌       | -                           |
+| `commit_email`      | Commit email                                                                                                                     | ❌       | `github-actions@github.com` |
+| `commit_user`       | Commit user                                                                                                                      | ❌       | `GitHub Actions`            |
+| `pre-commit-config` | pre-commit configuration file                                                                                                    | ❌       | `.pre-commit-config.yaml`   |
+| `token`             | GitHub token for authentication                                                                                                  | ❌       | -                           |
 
 ## 📤 Outputs
 
