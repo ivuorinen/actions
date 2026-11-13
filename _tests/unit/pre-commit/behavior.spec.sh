@@ -73,8 +73,12 @@ The stdout should include "hooks ran"
 End
 
 It "compares against the base branch when one is set"
+# The checkout holds the base branch as origin/<base>; base_branch.spec.sh covers the rest.
+git init -q .
+git -c user.email=test@example.com -c user.name=test -c commit.gpgsign=false commit -q --allow-empty -m base
+git update-ref refs/remotes/origin/main HEAD
 export INPUT_BASE_BRANCH="main"
-mock_command python3 "${RUN_PREFIX} --config .pre-commit-config.yaml --from-ref main --to-ref HEAD" "hooks ran"
+mock_command python3 "${RUN_PREFIX} --config .pre-commit-config.yaml --from-ref origin/main --to-ref HEAD" "hooks ran"
 
 When call run_step "${ACTION_DIR}" "pre-commit"
 The status should be success
@@ -114,12 +118,14 @@ End
 It "does not evaluate shell syntax in input values"
 # The action's validator rejects this value first. This covers the layer behind
 # it: the step must treat whatever reaches it as data.
+# The value names no ref, so the step stops at the base-branch check and prints it as text.
+# The action always runs in a checkout, so the example does too.
+git init -q .
 export INPUT_BASE_BRANCH="\$(touch evaluated)"
-mock_command python3 "${RUN_PREFIX} --config .pre-commit-config.yaml --from-ref \$(touch evaluated) --to-ref HEAD" "hooks ran"
 
 When call run_step "${ACTION_DIR}" "pre-commit"
-The status should be success
-The stdout should include "hooks ran"
+The status should be failure
+The stdout should include "::error::base-branch '\$(touch evaluated)' is neither"
 The path "evaluated" should not be exist
 End
 End
