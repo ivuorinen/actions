@@ -130,6 +130,24 @@ The output should equal "none"
 End
 End
 
+Context "when lint fails"
+It "lets the lint step fail without skipping the fix and commit steps"
+When call yq -r '.runs.steps[] | select(.id == "lint") | .["continue-on-error"]' "$ACTION_FILE"
+The output should equal "true"
+End
+
+It "fails the action after the commit step when lint failed"
+When call yq -r '.runs.steps[].name | select(. == "Commit Fixes" or . == "Fail on Lint Errors")' "$ACTION_FILE"
+The line 1 of output should equal "Commit Fixes"
+The line 2 of output should equal "Fail on Lint Errors"
+End
+
+It "gates the final failure step on the lint outcome"
+When call yq -r '.runs.steps[] | select(.name == "Fail on Lint Errors") | .if' "$ACTION_FILE"
+The output should equal "steps.lint.outcome == 'failure'"
+End
+End
+
 Context "when testing security validations"
 It "validates against command injection in username"
 When call validate_input_python "python-lint-fix" "username" "user\`whoami\`"
