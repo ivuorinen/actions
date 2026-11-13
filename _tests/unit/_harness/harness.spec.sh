@@ -79,4 +79,66 @@ The status should be success
 The output should include "hello_world"
 End
 End
+
+Describe "retry-step fixture"
+It "reports success when only an earlier line of an unguarded command fails"
+When call run_retry_step "${FIXTURES}/retry-step" "Unguarded"
+The status should be success
+End
+
+It "stops at the first failure when the command begins with set -eu"
+When call run_retry_step "${FIXTURES}/retry-step" "Guarded"
+The status should be failure
+End
+
+It "fails when a single-line command fails"
+When call run_retry_step "${FIXTURES}/retry-step" "Single line"
+The status should be failure
+End
+
+It "fails loudly when the named retry step does not exist"
+When call run_retry_step "${FIXTURES}/retry-step" "Missing"
+The status should be failure
+The stderr should include "retry step 'Missing' not found"
+End
+
+# Run literally, the command would test a non-empty string and pass for the wrong reason.
+It "refuses a command that holds an expression instead of running it literally"
+When call run_retry_step "${FIXTURES}/retry-step" "Expression"
+The status should be failure
+The stderr should include "pass the value through env:"
+End
+
+It "refuses a run step that holds an expression instead of running it literally"
+mkdir -p expression-fixture
+cat >expression-fixture/action.yml <<'YAML'
+runs:
+  using: composite
+  steps:
+    - id: expr
+      shell: sh
+      run: test -n "${{ github.sha }}"
+YAML
+When call run_step "${PWD}/expression-fixture" "expr"
+The status should be failure
+The stderr should include "pass the value through env:"
+End
+
+It "names only the multi-line command that does not begin with set -eu"
+When call list_unguarded_retry_commands "${FIXTURES}"
+The status should be success
+The output should equal "retry-step: Unguarded"
+End
+
+It "names the unguarded commands of every action under the root"
+mkdir -p scan-root/a scan-root/b
+cp "${FIXTURES}/retry-step/action.yml" scan-root/a/
+cp "${FIXTURES}/retry-step/action.yml" scan-root/b/
+When call list_unguarded_retry_commands "${PWD}/scan-root"
+The status should be success
+The lines of output should equal 2
+The line 1 of output should equal "a: Unguarded"
+The line 2 of output should equal "b: Unguarded"
+End
+End
 End
