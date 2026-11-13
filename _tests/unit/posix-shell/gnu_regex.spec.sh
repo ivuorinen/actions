@@ -62,6 +62,10 @@ Parameters
 "sed -Ei 's/a/b/' file"
 "sed -iE 's/(a)/X/' file"
 "sed -es/a/b/E file"
+"sed -e -E 's/a/b/' file"
+"grep -E -e '-F' -e '\s' file"
+"grep -E --regexp -F -e '\s' file"
+"grep -E -ve -F -e '\s' file"
 "sed -i '' 's/a/b/' file"
 "sed -i .bak 's/a/b/' file"
 "sed --in-place 's/a/b/' file"
@@ -186,6 +190,12 @@ It "reads the E in sed -iE as the backup extension, not as -E"
 When call scan_line "sed -iE 's/(a)/X/' file"
 The status should be failure
 The output should include "sed without -E"
+End
+
+It "reads the word after grep -e as its pattern, not as -F"
+When call scan_line "grep -E -e '-F' -e '\s' file"
+The status should be failure
+The output should include '\s is GNU-only'
 End
 
 # A backtracking regex would not return on this input, so the scan runs under a deadline.

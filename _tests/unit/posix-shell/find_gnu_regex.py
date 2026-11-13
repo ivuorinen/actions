@@ -28,6 +28,30 @@ GNU_BASIC_ESCAPE = re.compile(r"\\[+?|]")
 # Short options that take an argument, so the rest of their bundle is that argument and not
 # more options: sed -iE is in-place editing with the backup extension E, not -E.
 ARGUMENT_OPTIONS = {"sed": "efil", "grep": "ABCDdefm"}
+# At the end of its bundle such an option takes the next word instead, so grep -e -F searches
+# for -F. GNU sed reads the -i extension only attached, and a bare -i is reported anyway.
+ATTACHED_ONLY = {"sed": "i", "grep": ""}
+# Long options that take the next word as their argument unless given as --name=value.
+ARGUMENT_LONG_OPTIONS = {
+    "sed": {"--expression", "--file", "--line-length"},
+    "grep": {
+        "--regexp",
+        "--file",
+        "--max-count",
+        "--label",
+        "--after-context",
+        "--before-context",
+        "--context",
+        "--binary-files",
+        "--devices",
+        "--directories",
+        "--exclude",
+        "--exclude-from",
+        "--exclude-dir",
+        "--include",
+        "--group-separator",
+    },
+}
 
 # POSIX leaves a { that does not start an interval undefined. ${VAR} is the shell's, not sed's.
 BARE_BRACE = re.compile(r"\{(?![0-9])")
@@ -68,15 +92,30 @@ def invocation_args(text: str) -> list[str]:
     return args
 
 
-def options(args: list[str]) -> list[str]:
-    """Return the arguments before `--` that start with a dash."""
+def options(tool: str, args: list[str]) -> list[str]:
+    """Return the options before `--`, without the separate words options take as arguments."""
     found = []
+    takes_next = False
     for arg in args:
+        if takes_next:
+            takes_next = False
+            continue
         if arg == "--":
             break
         if arg.startswith("-"):
             found.append(arg)
+            takes_next = takes_separate_argument(tool, arg)
     return found
+
+
+def takes_separate_argument(tool: str, opt: str) -> bool:
+    """Tell whether the option takes the next word as its argument."""
+    if opt.startswith("--"):
+        return opt in ARGUMENT_LONG_OPTIONS[tool]
+    for index, letter in enumerate(opt[1:], 1):
+        if letter in ARGUMENT_OPTIONS[tool]:
+            return index == len(opt) - 1 and letter not in ATTACHED_ONLY[tool]
+    return False
 
 
 def has_short(opts: list[str], pattern: str) -> bool:
@@ -216,7 +255,7 @@ def scan(path: str) -> list[str]:
         for match in INVOCATION.finditer(line):
             tool = match.group(1)
             args = invocation_args(line[match.end() :])
-            opts = options(args)
+            opts = options(tool, args)
             problems = option_problems(tool, opts) + pattern_problems(tool, opts, args)
             findings.extend(f"{path}:{number}: {problem}" for problem in problems)
     return findings
