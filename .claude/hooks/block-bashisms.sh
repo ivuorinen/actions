@@ -32,7 +32,7 @@ fi
 
 # Strip comment lines before checking — avoids false positives on prose
 # For action.yml, the new_string from Edit is already scoped to the snippet
-CHECKABLE=$(printf '%s\n' "$NEW_CONTENT" | grep -v '^\s*#' || true)
+CHECKABLE=$(printf '%s\n' "$NEW_CONTENT" | grep -v '^[[:space:]]*#' || true)
 
 if [ -z "$CHECKABLE" ]; then
   exit 0
@@ -110,6 +110,6 @@ if printf '%s\n' "$CHECKABLE" | grep -qE '\$\{[a-zA-Z_][a-zA-Z0-9_]*\['; then
 fi
 
 if [ -n "$REASON" ]; then
-  REASON=$(printf '%s' "$REASON" | sed 's/"/\\"/g')
+  REASON=$(printf '%s' "$REASON" | sed -E 's/"/\\"/g')
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"POSIX violation(s): %s All scripts must be POSIX sh (set -eu), not bash."}}\n' "$REASON"
 fi

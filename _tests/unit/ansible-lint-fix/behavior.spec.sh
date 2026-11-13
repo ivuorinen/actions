@@ -36,6 +36,36 @@ The stdout should include "No Ansible files detected"
 Assert expect_output files_found false
 End
 
+Describe "play syntax in a YAML file"
+Parameters
+'- hosts: all' true
+'- name: play\n  hosts: all' true
+'hosts: all' false
+'- hostsfile: all' false
+'    hosts: all' false
+End
+
+It "reports files_found=$2 for: $1"
+mkdir -p deploy
+printf '%b\n' "$1" >deploy/main.yml
+
+When call run_step "${ACTION_DIR}" "check-files"
+The status should be success
+The stdout should be present
+Assert expect_output files_found "$2"
+End
+End
+
+It "finds a play in a file whose name has a space and a quote"
+mkdir -p deploy
+printf -- '- hosts: all\n' >"deploy/it's a play.yml"
+
+When call run_step "${ACTION_DIR}" "check-files"
+The status should be success
+The stdout should be present
+Assert expect_output files_found true
+End
+
 # Step-order regression check: run_step looks up steps by id regardless
 # of position, so the harness cannot detect order issues on its own.
 # Assert textually that Checkout Repository appears before

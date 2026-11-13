@@ -344,6 +344,26 @@ Assert argv_lacks --cache-to "${REGISTRY_CACHE},mode=max"
 End
 End
 
+Describe "registry cache reference"
+# The repository is lower-cased, and each character outside [a-z0-9._/-] becomes "-".
+Parameters
+"Owner/Repo" "owner/repo"
+"my.org_x/Repo-1" "my.org_x/repo-1"
+"Owner/Repo+Name@1" "owner/repo-name-1"
+"Owner/Repo(x)|y" "owner/repo-x--y"
+End
+
+It "normalizes $1 to $2"
+export INPUT_TOKEN="ghp_fixture_0000000000000000000000000000"
+export GITHUB_REPOSITORY="$1"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/$2/cache:latest"
+End
+End
+
 Describe "other arguments"
 It "keeps a dash-leading context from being read as a flag"
 export INPUT_CONTEXT="--no-cache"

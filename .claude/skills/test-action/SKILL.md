@@ -12,7 +12,7 @@ Ask the user which action to test if not already specified.
 List available actions if needed:
 
 ```bash
-ls -d */action.yml | sed 's|/action.yml||'
+ls -d */action.yml | sed -E 's|/action\.yml$||'
 ```
 
 ## 2. Run tests

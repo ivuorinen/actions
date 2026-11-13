@@ -217,7 +217,7 @@ runs:
         pkg_version=$(node -p "require('./package.json').version")
         input_version="$PACKAGE_VERSION"
         # Strip leading v/V and whitespace from input version
-        sanitized_version=$(echo "$input_version" | sed 's/^[[:space:]]*[vV]//' | sed 's/[[:space:]]*$//')
+        sanitized_version=$(echo "$input_version" | sed -E 's/^[[:space:]]*[vV]//' | sed -E 's/[[:space:]]*$//')
 
         if [ "$pkg_version" != "$sanitized_version" ]; then
           echo "::error::Version mismatch: package.json ($pkg_version) != input (sanitized: $sanitized_version, original: $input_version)"
@@ -225,7 +225,7 @@ runs:
         fi
 
         # Determine dist-tag: use prerelease label (e.g. "beta" from "1.0.0-beta.1") or "latest"
-        prerelease_label=$(printf '%s' "$sanitized_version" | sed 's/^[^-]*-\([^.]*\).*/\1/')
+        prerelease_label=$(printf '%s' "$sanitized_version" | sed -E 's/^[^-]*-([^.]*).*/\1/')
         if [ "$prerelease_label" != "$sanitized_version" ] && [ -n "$prerelease_label" ]; then
           dist_tag="$prerelease_label"
         else

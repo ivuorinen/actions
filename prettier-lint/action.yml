@@ -74,7 +74,7 @@ outputs:
     description: 'Overall status (success/failure)'
     value: ${{ steps.check.outputs.status || steps.fix.outputs.status }}
   files-checked:
-    description: 'Number of files checked (check mode only)'
+    description: 'Number of files with an extension named in file-pattern (check mode only). Directories in the pattern and ignore files are not applied, so it can differ from the files Prettier checked.'
     value: ${{ steps.check.outputs.files_checked }}
   unformatted-files:
     description: 'Number of files with formatting issues (check mode only)'
@@ -298,10 +298,10 @@ runs:
         # Handles both brace globs (**/*.{js,ts}) and plain globs (**/*.js).
         case "$FILE_PATTERN" in
           *\{*\}*)
-            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*{\([^}]*\)}.*/\1/' | tr ',' '\n')
+            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed -E 's/.*\{([^}]*)}.*/\1/' | tr ',' '\n')
             ;;
           *)
-            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed 's/.*\*\.\([a-zA-Z0-9]*\).*/\1/')
+            _pattern_exts=$(printf '%s' "$FILE_PATTERN" | sed -E 's/.*\*\.([a-zA-Z0-9]*).*/\1/')
             ;;
         esac
         if [ -n "$_pattern_exts" ]; then
