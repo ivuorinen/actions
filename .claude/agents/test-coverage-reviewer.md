@@ -12,7 +12,7 @@ For each action:
 To find all actions and their tests:
 
 ```bash
-ls -d */action.yml | sed 's|/action.yml||'
+ls -d */action.yml | sed -E 's|/action\.yml$||'
 ls -d _tests/unit/*/
 ```
 

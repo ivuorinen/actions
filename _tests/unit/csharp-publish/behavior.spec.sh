@@ -48,6 +48,14 @@ The status should be success
 Assert expect_output version "2.0.0-rc.1"
 End
 
+It "keeps the build metadata in the extracted version"
+: >artifacts/Acme.Widgets.2025.4.5+sha.abc1234.nupkg
+
+When call run_step "${ACTION_DIR}" "extract-version"
+The status should be success
+Assert expect_output version "2025.4.5+sha.abc1234"
+End
+
 It "selects the newest package by mtime when several are present"
 # The step uses the POSIX `-nt` test rather than GNU `find -printf`. Ordering
 # is established explicitly with touch so the assertion does not depend on

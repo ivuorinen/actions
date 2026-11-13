@@ -145,7 +145,7 @@ runs:
 
         # Function to clean version string
         clean_version() {
-          printf '%s' "$1" | sed 's/^[vV]//' | tr -d ' \n\r'
+          printf '%s' "$1" | sed -E 's/^[vV]//' | tr -d ' \n\r'
         }
 
         detected_version=""
@@ -211,9 +211,10 @@ runs:
         if [ -z "$detected_version" ] && [ -f composer.json ]; then
           echo "Checking composer.json..." >&2
           if command -v jq >/dev/null 2>&1; then
-            version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+            # A constraint can span lines; only the first version found is the one to use.
+            version=$(jq -r '.require.php // empty' composer.json 2>/dev/null | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p' | head -n 1)
             if [ -z "$version" ]; then
-              version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n 's/[^0-9]*\([0-9]\+\.[0-9]\+\(\.[0-9]\+\)\?\).*/\1/p')
+              version=$(jq -r '.config.platform.php // empty' composer.json 2>/dev/null | sed -n -E 's/[^0-9]*([0-9]+\.[0-9]+(\.[0-9]+)?).*/\1/p' | head -n 1)
             fi
             if [ -n "$version" ]; then
               version=$(clean_version "$version")
@@ -257,7 +258,7 @@ runs:
       run: |
         set -eu
 
-        composer_full_version=$(composer --no-plugins --version | sed -n 's/.*Composer version \([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*\).*/\1/p' || echo "")
+        composer_full_version=$(composer --no-plugins --version | sed -n -E 's/.*Composer version ([0-9][0-9]*\.[0-9][0-9]*\.[0-9][0-9]*).*/\1/p' || echo "")
         if [ -z "$composer_full_version" ]; then
           echo "::error::Failed to detect Composer version"
           exit 1

@@ -228,7 +228,7 @@ runs:
 
         # When auto-detect is enabled, try to detect available platforms
         if [ "$AUTO_DETECT" = "true" ]; then
-          available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed 's/,$//' || true)
+          available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed -E 's/,$//' || true)
 
           if [ -n "$available_platforms" ]; then
             printf 'platforms=%s\n' "$available_platforms" >> "$GITHUB_OUTPUT"
@@ -374,7 +374,7 @@ runs:
         # Registry cache configuration for better performance (only if authenticated)
         registry_cache_ref=""
         if [ "$PUSH" = "true" ] || [ "$HAS_TOKEN" = "true" ] || [ -n "${GITHUB_TOKEN:-}" ]; then
-          normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed 's/[^a-z0-9._\/-]/-/g')
+          normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._\/-]/-/g')
           registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
         fi
 
@@ -568,7 +568,7 @@ runs:
           fi
 
           # Get and verify platform support
-          platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2 | tr '\n' ',' | sed 's/,$//')
+          platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2 | tr '\n' ',' | sed -E 's/,$//')
           printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
         else
           # For local builds, verify it exists and extract platform
