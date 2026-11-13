@@ -1,0 +1,41 @@
+---
+name: Retry Step Fixture
+description: 'Fixture: nick-fields/retry commands in the shapes the harness has to tell apart.'
+
+runs:
+  using: composite
+  steps:
+    - name: Unguarded
+      uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      with:
+        timeout_minutes: 1
+        max_attempts: 1
+        command: |
+          false
+          true
+
+    - name: Guarded
+      uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      with:
+        timeout_minutes: 1
+        max_attempts: 1
+        command: |
+          set -eu
+          false
+          true
+
+    - name: Single line
+      uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      with:
+        timeout_minutes: 1
+        max_attempts: 1
+        command: |
+          false
+
+    - name: Expression
+      uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      with:
+        timeout_minutes: 1
+        max_attempts: 1
+        command: |
+          test -n "${{ github.sha }}"
