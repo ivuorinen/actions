@@ -58,13 +58,13 @@ jobs:
 
 ## 📤 Outputs
 
-| Parameter           | Description                                              |
-| ------------------- | -------------------------------------------------------- |
-| `files-changed`     | Number of files changed (fix mode only)                  |
-| `files-checked`     | Number of files checked (check mode only)                |
-| `sarif-file`        | Path to SARIF report file (check mode only)              |
-| `status`            | Overall status (success/failure)                         |
-| `unformatted-files` | Number of files with formatting issues (check mode only) |
+| Parameter           | Description                                                                                                                                                                               |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `files-changed`     | Number of files changed (fix mode only)                                                                                                                                                   |
+| `files-checked`     | Number of files with an extension named in file-pattern (check mode only). Directories in the pattern and ignore files are not applied, so it can differ from the files Prettier checked. |
+| `sarif-file`        | Path to SARIF report file (check mode only)                                                                                                                                               |
+| `status`            | Overall status (success/failure)                                                                                                                                                          |
+| `unformatted-files` | Number of files with formatting issues (check mode only)                                                                                                                                  |
 
 ## 🔐 Permissions
 

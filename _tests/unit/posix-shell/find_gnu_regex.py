@@ -18,13 +18,16 @@ import sys
 INVOCATION = re.compile(r"(?<![\w./-])(sed|grep)(?=\s)")
 SHELL_OPERATORS = set("();<>|&")
 
-# Undefined by POSIX in basic and extended patterns alike.
-GNU_ESCAPE = re.compile(r"\\[sSwWdDbB<>]")
+# Undefined by POSIX in basic and extended patterns alike: GNU's class, word and buffer
+# escapes, and the character escapes GNU sed reads as a tab, carriage return, hex byte and
+# so on, which other seds read as the letter. POSIX defines \n in sed, so it is not listed.
+GNU_ESCAPE = re.compile(r"\\[sSwWdDbB<>`'afrtvcox]")
 # GNU extensions in a basic pattern. In an extended pattern these are portable literals.
 GNU_BASIC_ESCAPE = re.compile(r"\\[+?|]")
 
-# A short option bundle holding -E, including one that ends in an attached -i extension.
-EXTENDED = r"-\w*E.*"
+# Short options that take an argument, so the rest of their bundle is that argument and not
+# more options: sed -iE is in-place editing with the backup extension E, not -E.
+ARGUMENT_OPTIONS = {"sed": "efil", "grep": "ABCDdefm"}
 
 # POSIX leaves a { that does not start an interval undefined. ${VAR} is the shell's, not sed's.
 BARE_BRACE = re.compile(r"\{(?![0-9])")
@@ -81,6 +84,19 @@ def has_short(opts: list[str], pattern: str) -> bool:
     return any(not o.startswith("--") and re.fullmatch(pattern, o) for o in opts)
 
 
+def short_options(tool: str, opts: list[str]) -> set[str]:
+    """Return the short option letters, stopping each bundle where an option's argument starts."""
+    letters = set()
+    for opt in opts:
+        if opt.startswith("--"):
+            continue
+        for letter in opt[1:]:
+            letters.add(letter)
+            if letter in ARGUMENT_OPTIONS[tool]:
+                break
+    return letters
+
+
 def has_long(opts: list[str], name: str) -> bool:
     """Tell whether a long option is present, with or without a value."""
     return any(o == name or o.startswith(f"{name}=") for o in opts)
@@ -89,12 +105,13 @@ def has_long(opts: list[str], name: str) -> bool:
 def option_problems(tool: str, opts: list[str]) -> list[str]:
     """Return the GNU-only options in use."""
     problems = []
-    if tool == "grep" and (has_short(opts, r"-\w*P\w*") or has_long(opts, "--perl-regexp")):
+    letters = short_options(tool, opts)
+    if tool == "grep" and ("P" in letters or has_long(opts, "--perl-regexp")):
         problems.append("grep -P is GNU-only, use grep -E")
     if tool == "sed":
         if has_short(opts, r"-\w*i") or has_long(opts, "--in-place"):
             problems.append("sed -i needs an attached extension, use sed -i.bak")
-        if not has_short(opts, EXTENDED):
+        if "E" not in letters:
             problems.append("sed without -E, see .claude/rules/posix-shell.md")
     return problems
 
@@ -167,9 +184,10 @@ def substitution_regexes(script: str) -> list[str]:
 
 def pattern_problems(tool: str, opts: list[str], args: list[str]) -> list[str]:
     """Return the GNU-only or misread regex syntax in the arguments."""
-    if tool == "grep" and (has_short(opts, r"-\w*F\w*") or has_long(opts, "--fixed-strings")):
+    letters = short_options(tool, opts)
+    if tool == "grep" and ("F" in letters or has_long(opts, "--fixed-strings")):
         return []
-    extended = has_short(opts, EXTENDED) or has_long(opts, "--extended-regexp")
+    extended = "E" in letters or has_long(opts, "--extended-regexp")
 
     problems = []
     for arg in args:

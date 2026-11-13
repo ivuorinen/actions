@@ -43,11 +43,25 @@ Parameters
 "grep '\bfoo' file"
 "grep '\Bfoo' file"
 "grep '\<foo\>' file"
+"sed -E 's/\t/X/'"
+"sed -E 's/a/\t/'"
+"grep -E 'a\tb' file"
+"sed -E 's/\r\$//'"
+"sed -E 's/\f//'"
+"sed -E 's/\v//'"
+"sed -E 's/\a//'"
+"sed -E 's/\x41/a/'"
+"sed -E 's/\o101/a/'"
+"sed -E 's/\cA//'"
+"sed -E 's/\\\`a/b/'"
+"sed -E \"s/a\\\\'/b/\""
 "grep -P 'x' file"
 "grep -oP 'x' file"
 "grep --perl-regexp 'x' file"
 "sed -i 's/a/b/' file"
 "sed -Ei 's/a/b/' file"
+"sed -iE 's/(a)/X/' file"
+"sed -es/a/b/E file"
 "sed -i '' 's/a/b/' file"
 "sed -i .bak 's/a/b/' file"
 "sed --in-place 's/a/b/' file"
@@ -92,11 +106,15 @@ Parameters
 "grep -E '^[[:space:]]*x' file"
 "grep -qE 'a|b' file"
 "grep -Eq 'a|b' file"
+"grep -iE 'a\+b' file"
+"grep -fPATTERNS file"
+"grep -eFOO -E 'a\+b' file"
 "grep --extended-regexp 'a+' file"
 "grep -E '1\.0\.0\+build' file"
 "grep -E 'a\|b' file"
 "sed -E 's/\+/plus/'"
 "sed -E 's/\?//'"
+"sed -E 'N;s/\n/ /'"
 "grep -F 'a\+b' file"
 "grep -iF 'a\sb' file"
 "grep --fixed-strings 'a\+b' file"
@@ -156,6 +174,18 @@ When call scan_line "grep -P 'a
   b'"
 The status should be failure
 The output should include "grep -P is GNU-only"
+End
+
+It "reports GNU sed's tab escape, which other seds read as the letter t"
+When call scan_line "sed -E 's/\t/X/'"
+The status should be failure
+The output should include '\t is GNU-only'
+End
+
+It "reads the E in sed -iE as the backup extension, not as -E"
+When call scan_line "sed -iE 's/(a)/X/' file"
+The status should be failure
+The output should include "sed without -E"
 End
 
 # A backtracking regex would not return on this input, so the scan runs under a deadline.

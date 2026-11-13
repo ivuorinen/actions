@@ -85,6 +85,10 @@ check_pattern() {
   run_step "${PROJECT_ROOT}/prettier-lint" "check"
 }
 
+# files_checked counts the files whose extension the pattern names, anywhere in the tree.
+# Prettier lists the files it checks only in its debug log, so the count does not apply the
+# pattern's directories: {a,b}/*.{js} counts the a.js at the root. These rows pin which
+# extensions the sed reads from each pattern.
 Parameters
 "**/*.{js,ts}" 2
 "**/*.{js,ts,md}" 3
@@ -95,7 +99,7 @@ Parameters
 "*.py" 0
 End
 
-It "counts $2 for $1"
+It "counts $2 files by extension for $1"
 When call check_pattern "$1"
 The status should be success
 The stdout should include "Prettier check completed"
