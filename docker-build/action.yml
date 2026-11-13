@@ -107,7 +107,9 @@ inputs:
     required: false
     default: 'false'
   sbom-format:
-    description: 'SBOM format (spdx-json, cyclonedx-json, or syft-json)'
+    description: >-
+      DEPRECATED, has no effect: BuildKit SBOM attestations are always SPDX JSON, so only spdx-json is accepted.
+      The SBOM and provenance attestations are attached only when push is true.
     required: false
     default: 'spdx-json'
 
@@ -134,8 +136,11 @@ outputs:
     description: 'Image signature if signing enabled'
     value: ${{ steps.sign.outputs.signature }}
   sbom-location:
-    description: 'SBOM document location'
-    value: ${{ steps.build.outputs.sbom-location }}
+    description: >-
+      DEPRECATED, always empty: buildx reports no SBOM location. The SBOM is an attestation on the pushed image;
+      read it with docker buildx imagetools inspect IMAGE --format "{{ json .SBOM.SPDX }}", or for a multi-platform image
+      --format '{{ json (index .SBOM "linux/amd64").SPDX }}'.
+    value: ''
 
 runs:
   using: composite
@@ -308,7 +313,6 @@ runs:
         DRY_RUN: ${{ inputs.dry-run }}
         MAX_RETRIES: ${{ inputs.max-retries }}
         VERBOSE: ${{ inputs.verbose }}
-        SBOM_FORMAT: ${{ inputs.sbom-format }}
         IMAGE_NAME: ${{ steps.image-name.outputs.name }}
         TAG: ${{ inputs.tag }}
         BUILD_ARGS: ${{ inputs.build-args }}
@@ -425,11 +429,11 @@ runs:
 
           set -- "$@" \
             --file "$DOCKERFILE" \
-            "${build_action}" \
-            --provenance=true \
-            --sbom=true
+            "${build_action}"
 
-          [ -z "$SBOM_FORMAT" ] || set -- "$@" "--sbom-format=$SBOM_FORMAT"
+          # Attestations go with a registry push only: --load uses the docker exporter,
+          # which fails on them unless the daemon runs the containerd image store.
+          [ "$PUSH" != "true" ] || set -- "$@" --provenance=true --sbom=true
           [ "$VERBOSE" != "true" ] || set -- "$@" --progress=plain
 
           set -- "$@" --metadata-file=/tmp/build-metadata.json -- "$CONTEXT"
@@ -453,10 +457,6 @@ runs:
                 cat /tmp/build-metadata.json
                 printf '%s\n' "$_delim"
               } >> "$GITHUB_OUTPUT"
-
-              # Extract SBOM location directly from file
-              sbom_location=$(jq -r '.sbom.location // ""' /tmp/build-metadata.json)
-              printf 'sbom-location=%s\n' "$sbom_location" >> "$GITHUB_OUTPUT"
             fi
 
             # Calculate build time

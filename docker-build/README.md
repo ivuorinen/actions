@@ -73,7 +73,7 @@ jobs:
 | `platform-build-args`   | Platform-specific build args in JSON format                                                                                                                                                                                | ❌       | -                                                   |
 | `platform-fallback`     | Continue building other platforms if one fails (lowercase true or false)                                                                                                                                                   | ❌       | `true`                                              |
 | `push`                  | Whether to push the image after building (lowercase true or false)                                                                                                                                                         | ❌       | `true`                                              |
-| `sbom-format`           | SBOM format (spdx-json, cyclonedx-json, or syft-json)                                                                                                                                                                      | ❌       | `spdx-json`                                         |
+| `sbom-format`           | DEPRECATED, has no effect: BuildKit SBOM attestations are always SPDX JSON, so only spdx-json is accepted. The SBOM and provenance attestations are attached only when push is true.                                       | ❌       | `spdx-json`                                         |
 | `scan-image`            | Scan built image for vulnerabilities (lowercase true or false)                                                                                                                                                             | ❌       | `false`                                             |
 | `secrets`               | Build secrets in format id=path,id2=path2, on one line. Each path is a file relative to the workspace (spaces allowed, no comma or newline).                                                                               | ❌       | -                                                   |
 | `sign-image`            | Sign the built image with cosign (lowercase true or false)                                                                                                                                                                 | ❌       | `false`                                             |
@@ -83,16 +83,16 @@ jobs:
 
 ## 📤 Outputs
 
-| Parameter         | Description                                    |
-| ----------------- | ---------------------------------------------- |
-| `build-time`      | Total build time in seconds                    |
-| `image-digest`    | The digest of the built image                  |
-| `metadata`        | Build metadata in JSON format                  |
-| `platform-matrix` | Build status per platform in JSON format       |
-| `platforms`       | Successfully built platforms                   |
-| `sbom-location`   | SBOM document location                         |
-| `scan-results`    | Vulnerability scan results if scanning enabled |
-| `signature`       | Image signature if signing enabled             |
+| Parameter         | Description                                                                                                                                                                                                                                                                            |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `build-time`      | Total build time in seconds                                                                                                                                                                                                                                                            |
+| `image-digest`    | The digest of the built image                                                                                                                                                                                                                                                          |
+| `metadata`        | Build metadata in JSON format                                                                                                                                                                                                                                                          |
+| `platform-matrix` | Build status per platform in JSON format                                                                                                                                                                                                                                               |
+| `platforms`       | Successfully built platforms                                                                                                                                                                                                                                                           |
+| `sbom-location`   | DEPRECATED, always empty: buildx reports no SBOM location. The SBOM is an attestation on the pushed image; read it with docker buildx imagetools inspect IMAGE --format "{{ json .SBOM.SPDX }}", or for a multi-platform image --format '{{ json (index .SBOM "linux/amd64").SPDX }}'. |
+| `scan-results`    | Vulnerability scan results if scanning enabled                                                                                                                                                                                                                                         |
+| `signature`       | Image signature if signing enabled                                                                                                                                                                                                                                                     |
 
 ## 💡 Examples
 
