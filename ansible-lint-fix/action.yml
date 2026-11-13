@@ -154,6 +154,9 @@ runs:
         commit_message: 'style: apply ansible lint fixes'
         commit_user_name: ${{ inputs.username }}
         commit_user_email: ${{ inputs.email }}
+        add_options: '-u'
+        # A report committed by an older run is tracked, so -u alone would stage it again.
+        file_pattern: '. :(exclude)ansible-lint.sarif'
 
     - name: Upload SARIF Report
       if: steps.check-files.outputs.files_found == 'true'
