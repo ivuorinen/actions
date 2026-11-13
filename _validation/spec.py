@@ -102,7 +102,7 @@ SPECS: dict[str, ActionSpec] = {
         "checks": {
             "dotnet-version": "dotnet_version",
             "max-retries": "numeric_range_1_10",
-            "project": "file_path",
+            "project": "dotnet_project",
             "token": "github_token",
         },
         "detected_version": "is_detected_dotnet_version",
@@ -111,7 +111,7 @@ SPECS: dict[str, ActionSpec] = {
         "required": [],
         "checks": {
             "dotnet-version": "dotnet_version",
-            "project": "file_path",
+            "project": "dotnet_project",
             "token": "github_token",
         },
         "detected_version": "is_detected_dotnet_version",
@@ -122,7 +122,7 @@ SPECS: dict[str, ActionSpec] = {
             "dotnet-version": "dotnet_version",
             "max-retries": "numeric_range_1_10",
             "namespace": "namespace_with_lookahead",
-            "project": "file_path",
+            "project": "dotnet_project",
             "token": "github_token",
         },
         "detected_version": "is_detected_dotnet_version",

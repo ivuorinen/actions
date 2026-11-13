@@ -22,7 +22,7 @@ jobs:
         with:
           dotnet-version: '8.0.x'
           max-retries: '3'
-          project: 'config/settings.yml'
+          project: 'src/App/App.csproj'
           token: '${{ github.token }}'
 ```
 
@@ -71,7 +71,7 @@ permissions:
   with:
     dotnet-version: '8.0.x'
     max-retries: '3'
-    project: 'config/settings.yml'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 
@@ -86,7 +86,7 @@ permissions:
   with:
     dotnet-version: '8.0.x'
     max-retries: '3'
-    project: 'config/settings.yml'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 

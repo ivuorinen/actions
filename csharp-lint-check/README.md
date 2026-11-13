@@ -21,7 +21,7 @@ jobs:
         uses: ivuorinen/actions/csharp-lint-check@vYYYY.MM.DD
         with:
           dotnet-version: '8.0.x'
-          project: 'config/settings.yml'
+          project: 'src/App/App.csproj'
           token: '${{ github.token }}'
 ```
 
@@ -66,7 +66,7 @@ permissions:
   uses: ivuorinen/actions/csharp-lint-check@vYYYY.MM.DD
   with:
     dotnet-version: '8.0.x'
-    project: 'config/settings.yml'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 
@@ -80,7 +80,7 @@ permissions:
   uses: ivuorinen/actions/csharp-lint-check@vYYYY.MM.DD
   with:
     dotnet-version: '8.0.x'
-    project: 'config/settings.yml'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 

@@ -26,6 +26,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 [ "$STUB_MODE" = "crash" ] && { echo "Unable to find a project" >&2; exit 1; }
+[ "$verify" = 1 ] || { echo "dotnet format was called without --verify-no-changes" >&2; exit 1; }
 if [ "$STUB_MODE" = "dirty" ]; then
   printf '[{"FileName":"a.cs","FileChanges":[{"LineNumber":1},{"LineNumber":2}]},{"FileName":"b.cs","FileChanges":[{"LineNumber":3}]}]' >"$report/format-report.json"
   exit 2

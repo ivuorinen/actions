@@ -62,6 +62,16 @@ def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     return "contains invalid path characters"
 
 
+def check_dotnet_project(value: str) -> str | None:
+    """``dotnet`` project or solution path — a relative file path that may hold spaces.
+
+    The csharp actions pass it to dotnet as one quoted argument, so a space never splits it.
+    """
+    if _skip(value):
+        return None
+    return _file_path_error(value, spaces=True)
+
+
 def check_dotnet_version(value: str) -> str | None:
     """.NET version: 8, 8.0, 8.0.100, or 8.0.x feature band, with optional -preview suffix."""
     if _skip(value):
@@ -69,13 +79,6 @@ def check_dotnet_version(value: str) -> str | None:
     if re.fullmatch(r"[0-9]+(\.[0-9]+)?(\.([0-9]+|x))?(-[0-9A-Za-z.-]+)?", value):
         return None
     return "must be a .NET version (e.g. 8.0, 8.0.100, 8.0.x)"
-
-
-def check_file_path(value: str) -> str | None:
-    """Relative file path — rejects a leading ``-``, absolute paths, ``..`` and ``~`` expansion."""
-    if _skip(value):
-        return None
-    return _file_path_error(value)
 
 
 def check_github_token(value: str) -> str | None:
@@ -134,7 +137,7 @@ CHECKS = {
     "dotnet-version": check_dotnet_version,
     "max-retries": check_numeric_range_1_10,
     "namespace": check_namespace_with_lookahead,
-    "project": check_file_path,
+    "project": check_dotnet_project,
     "token": check_github_token,
 }
 

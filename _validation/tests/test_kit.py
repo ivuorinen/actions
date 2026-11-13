@@ -368,8 +368,29 @@ CASES: dict[str, dict[str, list[str]]] = {
             "-x",
             "--help",
             "-",
-            # only a build context or secret path may hold a space
+            # only a build context, secret or dotnet project path may hold a space
             "my dir/file.txt",
+        ],
+    },
+    "dotnet_project": {
+        "valid": [
+            "App.sln",
+            "src/App/App.csproj",
+            "src/My App/App.csproj",
+            "releases/1.0.0-rc.1/App.csproj",
+            "releases/1.0.0+build/App.csproj",
+        ],
+        "invalid": [
+            "../App.sln",
+            "/abs/App.csproj",
+            "~/App.sln",
+            "src/$VAR/App.csproj",
+            "App.sln;id",
+            # dotnet would read a leading dash as an option
+            "-p:Configuration=Debug",
+            # a space only separates path characters
+            " App.sln",
+            "App.sln ",
         ],
     },
     "docker_local_path": {

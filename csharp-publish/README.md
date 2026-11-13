@@ -26,7 +26,7 @@ jobs:
           dotnet-version: '8.0.x'
           max-retries: '3'
           namespace: 'ivuorinen'
-          project: 'config/settings.yml'
+          project: 'src/App/App.csproj'
           token: '${{ github.token }}'
 ```
 
@@ -77,7 +77,7 @@ permissions:
     dotnet-version: '8.0.x'
     max-retries: '3'
     namespace: 'ivuorinen'
-    project: 'config/settings.yml'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 
@@ -93,7 +93,7 @@ permissions:
     dotnet-version: '8.0.x'
     max-retries: '3'
     namespace: 'ivuorinen'
-    project: 'config/settings.yml'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 

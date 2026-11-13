@@ -683,6 +683,16 @@ def check_file_path(value: str) -> str | None:
     return _file_path_error(value)
 
 
+def check_dotnet_project(value: str) -> str | None:
+    """``dotnet`` project or solution path — a relative file path that may hold spaces.
+
+    The csharp actions pass it to dotnet as one quoted argument, so a space never splits it.
+    """
+    if _skip(value):
+        return None
+    return _file_path_error(value, spaces=True)
+
+
 def check_docker_local_path(value: str) -> str | None:
     """Docker ``context`` / ``dockerfile`` — a path in the workspace, never a remote source."""
     if _skip(value):
@@ -1173,6 +1183,7 @@ EXAMPLES = {
     "docker_secrets": "npmrc=.npmrc",
     "docker_tag": "v1.0.0",
     "docker_tag_list": "latest,v1.0.0",
+    "dotnet_project": "src/App/App.csproj",
     "dotnet_version": "8.0.x",
     "email": "github-actions@users.noreply.github.com",
     "file_extensions": ".js,.ts",
