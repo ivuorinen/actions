@@ -1,9 +1,11 @@
 """Report composite action run: blocks that leave a variable open to word splitting.
 
 Nothing else runs shellcheck over these blocks: `make lint-shell` reads *.sh files, and
-actionlint reads workflows only. Lines between `set -f` and `set +f` are exempt. That is
-the documented form of a deliberate split (.claude/rules/posix-shell.md), and shellcheck
-reports it the same as an accidental one.
+actionlint reads workflows only. Lines between `set -f` and `set +f` are exempt from the
+word-splitting rules. That is the documented form of a deliberate split
+(.claude/rules/posix-shell.md), and shellcheck reports it the same as an accidental one.
+`set -f` stops pathname expansion only, so an unquoted pattern in `${x#$y}` is still
+reported there.
 
 Usage: check_quoting.py <root>. Exits 1 and prints each finding when any are found.
 """
@@ -21,6 +23,8 @@ import yaml
 
 # Unquoted variable, the same for a value shellcheck infers is safe, and ${x#$y}.
 CODES = {2086, 2248, 2295}
+# The codes a deliberate split between `set -f` and `set +f` answers.
+SPLIT_CODES = {2086, 2248}
 # `set -f` or `set +f` where a command starts. Quoted text is removed first, so that
 # printing the words does not count, while `IFS=','; set -f` still does.
 NOGLOB_TOGGLE = re.compile(r"^(?:[^#]*[;&|])?\s*set ([-+])f\b")
@@ -58,7 +62,10 @@ def findings(shellcheck: str, path: Path) -> list[str]:
             sys.exit(f"shellcheck failed on {path}: {checked.stderr}")
         lines = script.splitlines()
         for comment in json.loads(checked.stdout):
-            if comment["code"] not in CODES or in_deliberate_split(lines, comment["line"]):
+            code = comment["code"]
+            if code not in CODES or (
+                code in SPLIT_CODES and in_deliberate_split(lines, comment["line"])
+            ):
                 continue
             source = lines[comment["line"] - 1].strip()
             results.append(f"{path}: SC{comment['code']} in '{step.get('name')}': {source}")

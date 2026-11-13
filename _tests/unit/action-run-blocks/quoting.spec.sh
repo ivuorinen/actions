@@ -75,6 +75,15 @@ The status should be success
 The stdout should equal ""
 End
 
+It "still flags an unquoted prefix pattern inside a deliberate split"
+# set -f stops pathname expansion only; ${list#$1} still reads $1 as a pattern.
+fixture_action 'set -f' 'printf "%s\n" "${list#$1}"' 'set +f'
+
+When call _harness_python "$CHECKER" fixture
+The status should be failure
+The stdout should include 'SC2295'
+End
+
 It "flags an unquoted variable after set +f has closed the split"
 fixture_action 'set -f' 'set +f' 'printf "%s\n" $list'
 
