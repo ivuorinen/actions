@@ -111,7 +111,7 @@ runs:
         echo "Installing ShellSpec..."
         mkdir -p ~/.local/lib
         tar -xzf /tmp/shellspec.tar.gz -C ~/.local/lib
-        mv ~/.local/lib/shellspec-${SHELLSPEC_VERSION} ~/.local/lib/shellspec
+        mv ~/.local/lib/shellspec-"${SHELLSPEC_VERSION}" ~/.local/lib/shellspec
         rm /tmp/shellspec.tar.gz
 
         sudo ln -s ~/.local/lib/shellspec/shellspec /usr/local/bin/shellspec

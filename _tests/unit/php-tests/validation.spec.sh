@@ -248,48 +248,30 @@ When call validate_input_python "php-tests" "email" "github-actions@github.com"
 The status should be success
 End
 
-# Helper function that replicates the PHPUnit output parsing logic from action.yml
+# Runs the action's real test step against a fake PHPUnit that prints the given output
+# and exits with the given code, then prints the outputs the step wrote.
 parse_phpunit_output() {
-  local phpunit_output="$1"
-  local phpunit_exit_code="$2"
-
-  local tests_run="0"
-  local tests_passed="0"
-
-  # Pattern 1: "OK (N test(s), M assertions)" - success case (handles both singular and plural)
-  if echo "$phpunit_output" | grep -qE 'OK \([0-9]+ tests?,'; then
-    tests_run=$(echo "$phpunit_output" | grep -oE 'OK \([0-9]+ tests?,' | grep -oE '[0-9]+' | head -1)
-    tests_passed="$tests_run"
-  # Pattern 2: "Tests: N" line - failure/error/skipped case
-  elif echo "$phpunit_output" | grep -qE '^Tests:'; then
-    tests_run=$(echo "$phpunit_output" | grep -E '^Tests:' | grep -oE '[0-9]+' | head -1)
-
-    # Calculate passed from failures and errors
-    failures=$(echo "$phpunit_output" | grep -oE 'Failures: [0-9]+' | grep -oE '[0-9]+' | head -1 || echo "0")
-    errors=$(echo "$phpunit_output" | grep -oE 'Errors: [0-9]+' | grep -oE '[0-9]+' | head -1 || echo "0")
-    tests_passed=$((tests_run - failures - errors))
-
-    # Ensure non-negative
-    if [ "$tests_passed" -lt 0 ]; then
-      tests_passed="0"
-    fi
-  fi
-
-  # Determine status
-  local status
-  if [ "$phpunit_exit_code" -eq 0 ]; then
-    status="success"
-  else
-    status="failure"
-  fi
-
-  # Output as KEY=VALUE format
-  echo "tests_run=$tests_run"
-  echo "tests_passed=$tests_passed"
-  echo "status=$status"
+  printf '%s\n' "$1" >phpunit-output.txt
+  printf '#!/bin/sh\ncat phpunit-output.txt\nexit %s\n' "$2" >vendor/bin/phpunit
+  chmod +x vendor/bin/phpunit
+  run_step "${PROJECT_ROOT}/php-tests" test >/dev/null 2>&1 || true
+  cat "$GITHUB_OUTPUT"
 }
 
 Context "when parsing PHPUnit output"
+before_parse() {
+  shellspec_setup_test_env "php-tests-parse-$$"
+  harness_reset
+  mkdir -p vendor/bin
+}
+BeforeEach 'before_parse'
+
+after_parse() {
+  shellspec_cleanup_test_env "php-tests-parse-$$"
+  harness_reset
+}
+AfterEach 'after_parse'
+
 # Success cases
 It "parses single successful test"
 output="OK (1 test, 2 assertions)"
@@ -420,6 +402,18 @@ Time: 00:00.234, Memory: 12.00 MB
 
 FAILURES!
 Tests: 5, Assertions: 10, Failures: 1."
+When call parse_phpunit_output "$output" 1
+The line 1 of output should equal "tests_run=5"
+The line 2 of output should equal "tests_passed=4"
+The line 3 of output should equal "status=failure"
+End
+
+It "counts results printed after a namespace holding a backslash sequence"
+# dash's echo stops at \c, which a lower-case namespace such as app\controllers contains.
+output='1) app\controllers\FooTest::test
+
+FAILURES!
+Tests: 5, Assertions: 10, Failures: 1.'
 When call parse_phpunit_output "$output" 1
 The line 1 of output should equal "tests_run=5"
 The line 2 of output should equal "tests_passed=4"
