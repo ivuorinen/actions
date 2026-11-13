@@ -106,11 +106,13 @@ runs:
           # The checkout holds the base branch as origin/<base>, not as a local branch.
           # A value that already names a remote ref, such as origin/main, is used as given,
           # even when a branch actually called origin/main exists too.
+          # The remote ref is passed by its full name: git resolves a short origin/main to
+          # a tag or a local branch of that name before the remote-tracking branch.
           if [ "${BASE_BRANCH#origin/}" != "$BASE_BRANCH" ] \
             && git rev-parse --verify --quiet "refs/remotes/$BASE_BRANCH" >/dev/null; then
-            from_ref="$BASE_BRANCH"
+            from_ref="refs/remotes/$BASE_BRANCH"
           elif git rev-parse --verify --quiet "refs/remotes/origin/$BASE_BRANCH" >/dev/null; then
-            from_ref="origin/$BASE_BRANCH"
+            from_ref="refs/remotes/origin/$BASE_BRANCH"
           elif git rev-parse --verify --quiet --end-of-options "$BASE_BRANCH^{commit}" >/dev/null; then
             from_ref="$BASE_BRANCH"
           else

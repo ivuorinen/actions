@@ -78,7 +78,7 @@ git init -q .
 git -c user.email=test@example.com -c user.name=test -c commit.gpgsign=false commit -q --allow-empty -m base
 git update-ref refs/remotes/origin/main HEAD
 export INPUT_BASE_BRANCH="main"
-mock_command python3 "${RUN_PREFIX} --config .pre-commit-config.yaml --from-ref origin/main --to-ref HEAD" "hooks ran"
+mock_command python3 "${RUN_PREFIX} --config .pre-commit-config.yaml --from-ref refs/remotes/origin/main --to-ref HEAD" "hooks ran"
 
 When call run_step "${ACTION_DIR}" "pre-commit"
 The status should be success
