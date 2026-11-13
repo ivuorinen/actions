@@ -89,13 +89,13 @@ runs:
               patch="${rest#*.}"
 
               # Validate year (4 digits)
-              if [ ${#year} -ne 4 ]; then
+              if [ "${#year}" -ne 4 ]; then
                 echo "::error::Invalid version format: $version"
                 return 1
               fi
 
               # Validate month (1 or 2 digits)
-              if [ ${#month} -gt 2 ] || [ ${#month} -lt 1 ]; then
+              if [ "${#month}" -gt 2 ] || [ "${#month}" -lt 1 ]; then
                 echo "::error::Invalid version format: $version"
                 return 1
               fi
@@ -191,7 +191,7 @@ runs:
         fi
 
         # Validate final release tag
-        validate_version "${release_tag#$PREFIX}" || {
+        validate_version "${release_tag#"$PREFIX"}" || {
           echo "::error::Invalid release tag format: $release_tag"
           exit 1
         }

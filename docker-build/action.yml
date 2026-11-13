@@ -378,7 +378,7 @@ runs:
           registry_cache_ref="ghcr.io/${normalized_repo}/cache:latest"
         fi
 
-        while [ $attempt -le $max_attempts ]; do
+        while [ "$attempt" -le "$max_attempts" ]; do
           echo "Build attempt $attempt of $max_attempts"
 
           # Build command with platform restriction for local load
@@ -465,9 +465,12 @@ runs:
             printf 'build-time=%s\n' "$build_time" >> "$GITHUB_OUTPUT"
 
             # Build platform matrix
+            # Deliberate split on commas; set -f keeps glob characters literal.
             OLD_IFS="$IFS"
             IFS=','
+            set -f
             set -- $platforms
+            set +f
             IFS="$OLD_IFS"
             platform_matrix="{"
             for p in "$@"; do
@@ -486,7 +489,7 @@ runs:
           fi
 
           attempt=$((attempt + 1))
-          if [ $attempt -le $max_attempts ]; then
+          if [ "$attempt" -le "$max_attempts" ]; then
             echo "Build failed, waiting 10 seconds before retry..."
             sleep 10
           else

@@ -221,6 +221,7 @@ runs:
         echo "✅ Dependencies installed successfully"
 
     - name: Install Prettier Plugins
+      id: install-plugins
       if: inputs.plugins != ''
       shell: sh
       env:
@@ -229,23 +230,29 @@ runs:
       run: |
         set -eu
 
-        echo "Installing Prettier plugins: $PLUGINS"
+        printf 'Installing Prettier plugins: %s\n' "$PLUGINS"
 
         # Convert comma-separated list to space-separated
-        plugins_list=$(echo "$PLUGINS" | tr ',' ' ')
+        plugins_list=$(printf '%s\n' "$PLUGINS" | tr ',' ' ')
+
+        # Deliberate split into one argument per plugin; set -f keeps glob
+        # characters in a version range such as plugin@* literal.
+        set -f
+        set -- $plugins_list
+        set +f
 
         case "$PACKAGE_MANAGER" in
           "pnpm")
-            pnpm add -D $plugins_list
+            pnpm add -D "$@"
             ;;
           "yarn")
-            yarn add -D $plugins_list
+            yarn add -D "$@"
             ;;
           "bun")
-            bun add -D $plugins_list
+            bun add -D "$@"
             ;;
           "npm"|*)
-            npm install --save-dev $plugins_list
+            npm install --save-dev "$@"
             ;;
         esac
 
@@ -320,7 +327,7 @@ runs:
 
         # Exit with prettier's exit code if fail-on-error is true
         if [ "$FAIL_ON_ERROR" = "true" ]; then
-          exit $prettier_exit_code
+          exit "$prettier_exit_code"
         fi
 
     - name: Run Prettier Fix
