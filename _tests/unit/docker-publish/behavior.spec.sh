@@ -151,4 +151,74 @@ The status should be success
 The stdout should include "docker.io/acme/app:*"
 The stdout should not include "docker.io/acme/app:1.0.0"
 End
+
+# Reads GITHUB_OUTPUT the way the runner does: a `tags<<delim` line opens a block
+# that only a line equal to delim closes. Prints `unexpected:<line>` for a line outside
+# the block that is not `key=value`, each value line as `value:<line>`, then
+# `closed=yes|no`, then `extra=` with any `key=value` keys after the block.
+parse_tags_output() {
+  awk '
+    !seen && /^tags<</ { seen = 1; open = 1; delim = substr($0, 7); next }
+    seen && open { if ($0 == delim) open = 0; else print "value:" $0; next }
+    $0 != "" && $0 !~ /^[^=]+=/ { print "unexpected:" $0; next }
+    seen && /^[^=]+=/ { split($0, a, "="); keys = keys sep a[1]; sep = " " }
+    END { print "closed=" (seen && !open ? "yes" : "no"); print "extra=" keys }
+  ' "$GITHUB_OUTPUT"
+}
+
+tags_delimiter() { sed -En 's/^tags<<//p' "$GITHUB_OUTPUT"; }
+
+# Two runs of the step, compared; a fixed delimiter of any spelling fails this.
+delimiters_differ() {
+  run_step "${ACTION_DIR}" "meta" >/dev/null
+  first=$(tags_delimiter)
+  : >"$GITHUB_OUTPUT"
+  run_step "${ACTION_DIR}" "meta" >/dev/null
+  second=$(tags_delimiter)
+  [ -n "$first" ] && [ -n "$second" ] && [ "$first" != "$second" ]
+}
+
+It "writes only lines the runner accepts for ordinary input"
+export INPUT_REGISTRY="dockerhub"
+export INPUT_IMAGE_NAME="acme/app"
+export INPUT_TAGS="1.0.0"
+
+When call run_step "${ACTION_DIR}" "meta"
+The status should be success
+The line 1 of result of function parse_tags_output should equal "value:docker.io/acme/app:1.0.0"
+The line 2 of result of function parse_tags_output should equal "closed=yes"
+The lines of result of function parse_tags_output should equal 3
+End
+
+It "uses a different delimiter on every run"
+export INPUT_REGISTRY="dockerhub"
+export INPUT_IMAGE_NAME="acme/app"
+export INPUT_TAGS="1.0.0"
+
+When call delimiters_differ
+The status should be success
+End
+
+It "keeps a line equal to the old fixed delimiter inside the tags value"
+# With a fixed `EOF` delimiter, a value line that says EOF closes the block
+# early and the lines after it parse as extra output keys. The image name carries
+# such a line here. validate.py rejects it in a real run; run alone, the step still
+# has to write a well-formed block. The image-name output ahead of the block is not
+# protected, which is the `unexpected:` line.
+export INPUT_REGISTRY="dockerhub"
+export INPUT_IMAGE_NAME="acme/app
+EOF
+injected=1"
+export INPUT_TAGS="1.0.0"
+
+When call run_step "${ACTION_DIR}" "meta"
+The status should be success
+The line 1 of result of function parse_tags_output should equal "unexpected:EOF"
+The line 2 of result of function parse_tags_output should equal "value:docker.io/acme/app"
+The line 3 of result of function parse_tags_output should equal "value:EOF"
+The line 4 of result of function parse_tags_output should equal "value:injected=1:1.0.0"
+The line 5 of result of function parse_tags_output should equal "closed=yes"
+The line 6 of result of function parse_tags_output should equal "extra="
+The lines of result of function parse_tags_output should equal 6
+End
 End
