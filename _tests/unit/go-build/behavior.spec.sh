@@ -59,7 +59,22 @@ Describe "main-package discovery"
 set_destination() { export INPUT_DESTINATION="${PWD}/out"; }
 Before 'set_destination'
 
-It "builds a main package in a directory containing a space"
+It "builds the package of a main file whose name contains a space"
+mkdir -p cmd
+printf 'package main\n\nfunc main() {}\n' >"cmd/main file.go"
+# Only this build is mocked, so a build of any other directory fails the step.
+mock_command go "build -ldflags=-s -w -o ${PWD}/out/cmd ./cmd" "" 0
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The stdout should include "Building package in ./cmd..."
+The stdout should include "Build completed successfully"
+Assert expect_output status success
+End
+
+# Go rejects a package directory whose name holds a space or starts with a dash, so
+# the next two cases check discovery only: the mocked go stands in for the build.
+It "discovers a main package in a directory containing a space"
 mkdir -p "my app"
 printf 'package main\n\nfunc main() {}\n' >"my app/main.go"
 mock_command go "build*" "" 0
@@ -67,11 +82,10 @@ mock_command go "build*" "" 0
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The stdout should include "Building package in ./my app..."
-The stdout should include "Build completed successfully"
-Assert expect_output status success
+Assert expect_argv go build "-ldflags=-s -w" -o "${PWD}/out/my app" "./my app"
 End
 
-It "builds a main package whose directory starts with a dash"
+It "discovers a main package whose directory starts with a dash"
 mkdir -p -- "-cmd"
 printf 'package main\n\nfunc main() {}\n' >"-cmd/main.go"
 mock_command go "build*" "" 0
@@ -79,7 +93,7 @@ mock_command go "build*" "" 0
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The stdout should include "Building package in ./-cmd..."
-Assert expect_output status success
+Assert expect_argv go build "-ldflags=-s -w" -o "${PWD}/out/-cmd" ./-cmd
 End
 End
 End
