@@ -39,12 +39,14 @@ symlinked_reports_scenario() {
   [ -z "$(ls "$_root/victim" | grep -v '^marker$')" ] && echo "symlink target untouched: yes" || echo "symlink target untouched: no"
 
   # A .terraform symlink must not be followed either
-  mkdir -p "$_root/tfvictim"
+  mkdir -p "$_root/tfvictim" "$_root/home"
   : >"$_root/tfvictim/marker"
   ln -s "$_root/tfvictim" "$_root/workspace/.terraform"
+  # The cleanup removes ~/.tflint.d, so HOME points inside the scenario rather than at
+  # the account running the suite.
   (
     cd "$_root/workspace"
-    env RUNNER_TEMP="$_root/runner" REPORTS_DIR="$_reports_dir" sh "$_root/cleanup.sh" >/dev/null 2>&1
+    env HOME="$_root/home" RUNNER_TEMP="$_root/runner" REPORTS_DIR="$_reports_dir" sh "$_root/cleanup.sh" >/dev/null 2>&1
   )
   [ -f "$_root/victim/marker" ] && [ -f "$_root/tfvictim/marker" ] && echo "markers survive cleanup: yes" || echo "markers survive cleanup: no"
   [ -e "$_reports_dir" ] && echo "reports removed: no" || echo "reports removed: yes"
@@ -82,7 +84,6 @@ It "uploads the SARIF file the lint step reports"
 When call upload_path
 The output should equal '${{ steps.lint.outputs.sarif_file }}'
 End
-
 
 It "validates syntax inside working-directory"
 When call syntax_scenario
