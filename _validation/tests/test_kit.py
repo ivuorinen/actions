@@ -204,14 +204,15 @@ CASES: dict[str, dict[str, list[str]]] = {
             "V2.1.0",
             "2.1",
             "2",
-            "v3.0.0",
-            "10.0.0",
             "2.1.0-rc.1",
             "v2.1.0-rc.1",
             "2.1.0+build",
             "latest",
         ],
         "invalid": [
+            # go-lint installs the /v2 module path, which Go requires to match the major.
+            "v3.0.0",
+            "10.0.0",
             "1.64.8",
             "v1.64.8",
             "1.64",

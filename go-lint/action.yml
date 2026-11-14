@@ -17,7 +17,7 @@ inputs:
     required: false
     default: '.'
   golangci-lint-version:
-    description: 'Version of golangci-lint to use, v2 or newer (empty: the version pinned in this action, "latest": the newest release)'
+    description: 'Version of golangci-lint v2 to use (empty: the version pinned in this action, "latest": the newest v2 release)'
     required: false
     default: ''
   go-version:
@@ -135,11 +135,13 @@ runs:
       run: |
         set -eu
 
-        version="${REQUESTED_VERSION:-$DEFAULT_GOLANGCI_LINT_VERSION}"
-        version=$(printf '%s' "$version" | tr -d '[:space:]')
+        # validate.py lets a blank value through as "use the pin", so whitespace is removed before
+        # the fallback applies, not after it.
+        requested=$(printf '%s' "$REQUESTED_VERSION" | tr -d '[:space:]')
+        version="${requested:-$DEFAULT_GOLANGCI_LINT_VERSION}"
 
         # go install needs a lowercase 'v' prefix on anything but 'latest'.
-        # validate.py allows surrounding whitespace, 'V' and any case of 'latest'.
+        # validate.py allows 'V' and any case of 'latest'.
         case "$version" in
           [Ll][Aa][Tt][Ee][Ss][Tt]) version="latest" ;;
           [Vv]*) version="v${version#[Vv]}" ;;

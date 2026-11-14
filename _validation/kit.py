@@ -320,13 +320,17 @@ def check_semantic_version(value: str) -> str | None:
 
 
 def check_golangci_lint_version(value: str) -> str | None:
-    """``semantic_version`` at major 2 or newer: v1 has another module path and other CLI flags."""
+    """``semantic_version`` at major 2.
+
+    go-lint installs the ``/v2`` module path, which Go requires to match the version's major,
+    and v1 also has other CLI flags.
+    """
     if _skip(value) or value.lower() == "latest":
         return None
     core = _strip_v(value)
-    if _is_semver(core) and int(re.split(r"\D", core, maxsplit=1)[0]) >= 2:
+    if _is_semver(core) and int(re.split(r"\D", core, maxsplit=1)[0]) == 2:
         return None
-    return 'must be golangci-lint v2 or newer (e.g. 2.1.0, v2.1.0, or "latest")'
+    return 'must be golangci-lint v2 (e.g. 2.1.0, v2.1.0, or "latest")'
 
 
 def check_strict_semantic_version(value: str) -> str | None:

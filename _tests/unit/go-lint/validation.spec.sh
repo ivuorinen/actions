@@ -61,6 +61,12 @@ The status should be failure
 End
 End
 
+# go-lint installs the /v2 module path, and Go requires the path to match the major.
+It "rejects golangci-lint v3, which the /v2 module path cannot install"
+When call validate_input_python "go-lint" "golangci-lint-version" "v3.0.0"
+The status should be failure
+End
+
 It "rejects invalid version format"
 When call validate_input_python "go-lint" "golangci-lint-version" "invalid-version"
 The status should be failure

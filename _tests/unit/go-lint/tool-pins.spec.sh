@@ -32,6 +32,14 @@ The status should be success
 Assert expect_output version "$(pinned_version go-lint DEFAULT_GOLANGCI_LINT_VERSION)"
 End
 
+# validate.py lets a blank value through; stripped after the fallback, it became "v".
+It "resolves an all-space version to the pin"
+export INPUT_GOLANGCI_LINT_VERSION="   "
+When call run_step "${ACTION_DIR}" "golangci-version"
+The status should be success
+Assert expect_output version "$(pinned_version go-lint DEFAULT_GOLANGCI_LINT_VERSION)"
+End
+
 Describe "when the caller names a version"
 Parameters
 "latest" "latest"

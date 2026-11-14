@@ -48,7 +48,7 @@ jobs:
 | `enable-linters`        | Comma-separated list of linters to enable                                                                                            | ❌       | -               |
 | `fail-on-error`         | Fail workflow if issues are found (lowercase true or false)                                                                          | ❌       | `true`          |
 | `go-version`            | Go version to use (empty: the version pinned in this action, "stable": the newest release)                                           | ❌       | -               |
-| `golangci-lint-version` | Version of golangci-lint to use, v2 or newer (empty: the version pinned in this action, "latest": the newest release)                | ❌       | -               |
+| `golangci-lint-version` | Version of golangci-lint v2 to use (empty: the version pinned in this action, "latest": the newest v2 release)                       | ❌       | -               |
 | `max-retries`           | Maximum number of retry attempts (1-10, must not be empty)                                                                           | ❌       | `3`             |
 | `only-new-issues`       | Report only new issues since main branch (lowercase true or false)                                                                   | ❌       | `true`          |
 | `report-format`         | Output format: sarif, json or text. github-actions, line-number and colored-line-number, the golangci-lint v1 names, also give text. | ❌       | `sarif`         |
