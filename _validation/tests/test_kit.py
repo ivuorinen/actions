@@ -93,13 +93,16 @@ CASES: dict[str, dict[str, list[str]]] = {
             "v0.34.2",
             "0.34.2",
             "1.0.0-rc.1",
-            "1.0.0+build",
             "latest",
             "v0.34.2@sha256:" + "a" * 64,
             "1.0.0-rc.1@sha256:" + "0" * 64,
-            "1.0.0+build@sha256:" + "0" * 64,
         ],
         "invalid": [
+            # A Docker tag cannot hold "+", so SemVer build metadata cannot name an image.
+            "1.0.0+build",
+            "1.0.0+build@sha256:" + "0" * 64,
+            "v0.34.2\n",
+            " v0.34.2",
             "v0.34.2@sha256:" + "a" * 63,
             "v0.34.2@sha256:" + "a" * 65,
             "v0.34.2@sha256:" + "A" * 64,
