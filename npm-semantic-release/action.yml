@@ -26,7 +26,7 @@ inputs:
     required: false
     default: '@ivuorinen'
   registry-url:
-    description: 'Registry URL for publishing.'
+    description: 'Registry URL for publishing. Must be https:// (http:// only for localhost or 127.0.0.1), with no credentials, query, or fragment.'
     required: false
     default: 'https://registry.npmjs.org/'
   node-version:
