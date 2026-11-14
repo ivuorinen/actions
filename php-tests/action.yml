@@ -247,9 +247,10 @@ runs:
         echo "Final detected PHP version: $detected_version" >&2
 
         # An exact Composer version keeps setup-php from choosing one for the PHP version, so the
-        # choice is made here: PHP below 7.2 gets the 2.2 LTS line, the last that runs on it.
+        # choice is made here: PHP below 7.2 gets the 2.2 LTS line, the last that runs on it. A
+        # bare 7 can mean 7.0, and 2.2 runs on every PHP 7, so it gets that line too.
         case "$detected_version" in
-          5 | 5.* | 7.0 | 7.0.* | 7.1 | 7.1.*) composer_version="$COMPOSER_LTS_VERSION" ;;
+          5 | 5.* | 7 | 7.0 | 7.0.* | 7.1 | 7.1.*) composer_version="$COMPOSER_LTS_VERSION" ;;
           *) composer_version="$COMPOSER_TOOL_VERSION" ;;
         esac
         printf 'composer-version=%s\n' "$composer_version" >> "$GITHUB_OUTPUT"

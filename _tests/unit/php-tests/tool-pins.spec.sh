@@ -68,6 +68,15 @@ Assert expect_output composer-version "$(pinned_version php-tests "$2")"
 End
 End
 
+# setup-php can read a bare 7 as 7.0, which Composer 2.3 and later cannot run on.
+It "picks the LTS Composer when the caller asks for PHP 7"
+export INPUT_PHP_VERSION="7"
+When call run_step "${ACTION_DIR}" "detect-php-version"
+The status should be success
+The stderr should include "Using default PHP version: 7"
+Assert expect_output composer-version "$(pinned_version php-tests COMPOSER_LTS_VERSION)"
+End
+
 It "picks the current Composer for the pinned PHP"
 When call run_step "${ACTION_DIR}" "detect-php-version"
 The status should be success
