@@ -271,16 +271,40 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         REQUESTED_VERSION: ${{ inputs.prettier-version }}
         # renovate: datasource=npm depName=prettier
         DEFAULT_PRETTIER_VERSION: '3.9.10'
       run: |
         set -eu
 
-        # The repository's own copy wins, so it formats the way the repository expects.
-        if ! npx --no-install prettier --version >/dev/null 2>&1; then
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
+
+        # The repository's own copy wins, so it formats the way the repository expects. Running
+        # it cannot tell, because npx and pnpm exec also find a global install, so ownership is
+        # read from node_modules, or from package.json for Yarn Plug'n'Play, which has none.
+        # The same check as eslint-lint's Ensure ESLint step: each action is self-contained.
+        owns() {
+          [ -d "node_modules/$1" ] || {
+            [ -f package.json ] && jq -e --arg name "$1" \
+              '(.dependencies // {}) + (.devDependencies // {}) | has($name)' package.json >/dev/null
+          }
+        }
+
+        if owns prettier; then
+          # The package manager resolves it, which npx cannot under Plug'n'Play. None of these
+          # fetches a package, so a copy that is not installed fails the run.
+          case "$PACKAGE_MANAGER" in
+            "pnpm") set -- pnpm exec prettier ;;
+            "yarn") set -- yarn prettier ;;
+            "bun") set -- bunx --no-install prettier ;;
+            "npm"|*) set -- npx --no-install prettier ;;
+          esac
+        else
           npm install -g "prettier@${REQUESTED_VERSION:-$DEFAULT_PRETTIER_VERSION}"
+          set -- prettier
         fi
+        printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
 
     - name: Run Prettier Check
       if: inputs.mode == 'check'
@@ -288,7 +312,7 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
         CONFIG_FILE: ${{ inputs.config-file }}
         CACHE: ${{ inputs.cache }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
@@ -298,8 +322,10 @@ runs:
 
         echo "Running Prettier check mode..."
 
-        # Build common Prettier options (shared between check and count runs)
-        set --
+        # PRETTIER_COMMAND is several words, so it is split on purpose
+        set -f
+        set -- $PRETTIER_COMMAND --check
+        set +f
 
         # Add config file if specified and exists
         if [ "$CONFIG_FILE" != ".prettierrc" ] && [ -f "$CONFIG_FILE" ]; then
@@ -316,7 +342,7 @@ runs:
         files_checked=0
         unformatted_files=0
 
-        if npx --no-install prettier --check "$@" -- "$FILE_PATTERN" > prettier-output.txt 2>&1; then
+        if "$@" -- "$FILE_PATTERN" > prettier-output.txt 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
@@ -360,7 +386,7 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |
         set -eu
@@ -370,8 +396,10 @@ runs:
         # Count files before fix
         files_before=$(git status --porcelain | wc -l | tr -d ' ')
 
-        # Run Prettier fix
-        npx --no-install prettier --write -- "$FILE_PATTERN" || true
+        # Run Prettier fix. PRETTIER_COMMAND is several words, so it is split on purpose
+        set -f
+        $PRETTIER_COMMAND --write -- "$FILE_PATTERN" || true
+        set +f
 
         # Count files after fix
         files_after=$(git status --porcelain | wc -l | tr -d ' ')

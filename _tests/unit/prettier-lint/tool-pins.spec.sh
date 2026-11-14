@@ -39,22 +39,54 @@ The contents of file "${ACTION_DIR}/action.yml" should include 'bun-version: ${{
 End
 
 Describe "Ensure Prettier"
-It "installs nothing when the repository has its own copy"
-mock_command npx "--no-install prettier --version" "3.0.0"
+Describe "when the repository has its own copy"
+Parameters
+# package manager, command, its arguments
+"npm" "npx" "--no-install prettier"
+"pnpm" "pnpm" "exec prettier"
+"yarn" "yarn" "prettier"
+"bun" "bunx" "--no-install prettier"
+End
+
+# npm is not mocked, so any install fails the step.
+It "runs it with $1 and installs nothing"
+use_package_manager "$1"
+mkdir -p node_modules/prettier
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be success
+Assert expect_output command "$2 $3"
+End
+End
+
+# Yarn Plug'n'Play leaves no node_modules, and npx cannot load a copy through its loader.
+It "runs a Plug'n'Play repository's copy through Yarn"
+use_package_manager yarn
+printf '%s\n' '{"devDependencies": {"prettier": "^3.0.0"}}' >package.json
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "yarn prettier"
 End
 
 Describe "when the repository has no copy"
 before_missing() {
-  mock_command npx "--no-install prettier --version" "" 1
+  use_package_manager npm
 }
 BeforeEach 'before_missing'
 
-It "installs the pinned version"
+It "installs the pinned version and runs that"
 mock_command npm "install -g prettier@$(pinned_version prettier-lint DEFAULT_PRETTIER_VERSION)" ""
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be success
+Assert expect_output command "prettier"
+End
+
+# npx --no-install also finds a global copy, so a probe that runs it would pick this one.
+It "installs the pinned version even when an older global copy runs"
+mock_command npx "--no-install prettier --version" "2.0.0"
+mock_command npm "install -g prettier@$(pinned_version prettier-lint DEFAULT_PRETTIER_VERSION)" ""
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "prettier"
 End
 
 Parameters
@@ -71,27 +103,31 @@ End
 End
 
 It "fails the step when the pinned version cannot be installed"
-mock_command npx "--no-install prettier --version" "" 1
+use_package_manager npm
 mock_command npm "install -g *" "" 1
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be failure
 End
 End
 
-Describe "running Prettier"
-It "checks without letting npx fetch it"
+Describe "running the resolved command"
+before_run() {
+  export HARNESS_STEP_OUTPUTS='{"ensure-prettier":{"outputs":{"command":"yarn prettier"}}}'
+  export INPUT_FILE_PATTERN="**/*.js"
+}
+BeforeEach 'before_run'
+
+It "checks with it"
 export INPUT_CONFIG_FILE=".prettierrc" INPUT_CACHE="false" INPUT_FAIL_ON_ERROR="true"
-export INPUT_FILE_PATTERN="**/*.js"
-mock_command npx "--no-install prettier --check **/*.js" ""
+mock_command yarn "prettier --check -- **/*.js" ""
 When call run_step "${ACTION_DIR}" "check"
 The status should be success
 The stdout should include "Prettier check completed"
 Assert expect_output status success
 End
 
-It "fixes without letting npx fetch it"
-export INPUT_FILE_PATTERN="**/*.js"
-mock_command npx "--no-install prettier --write **/*.js" ""
+It "fixes with it"
+mock_command yarn "prettier --write -- **/*.js" ""
 mock_command git "status --porcelain" ""
 When call run_step "${ACTION_DIR}" "fix"
 The status should be success
