@@ -23,7 +23,7 @@ inputs:
   autopep8-version:
     description: 'Autopep8 version to use'
     required: false
-    default: '2.0.4'
+    default: '2.2.0'
   max-retries:
     description: 'Maximum number of retry attempts for installations and linting (1-10, must not be empty)'
     required: false
@@ -287,13 +287,19 @@ runs:
       run: |
         set -eu
 
-        # Create virtual environment
-        python -m venv .venv
-        . .venv/bin/activate
+        # Keep the virtual environment and the reports outside the workspace, where
+        # flake8 would lint the installed packages and the commit step's '*.py'
+        # pathspec would stage them. The runner empties RUNNER_TEMP after the job.
+        work_dir=$(mktemp -d "$RUNNER_TEMP/python-lint-fix.XXXXXX")
+        printf 'work_dir=%s\n' "$work_dir" >> "$GITHUB_OUTPUT"
+
+        # -I keeps the checked-out repository off sys.path: plain `python -m` would
+        # import a venv module from it, as this step runs in the workspace.
+        python -I -m venv "$work_dir/venv"
+        . "$work_dir/venv/bin/activate"
 
         # Install dependencies (pip has built-in retry logic)
         pip install "flake8==$FLAKE8_VERSION"
-        pip install flake8-sarif==0.6.0
         pip install "autopep8==$AUTOPEP8_VERSION"
 
         # Verify installations
@@ -305,23 +311,41 @@ runs:
       id: lint
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
+        WORK_DIR: ${{ steps.install.outputs.work_dir }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         set -eu
 
-        . .venv/bin/activate
+        . "$WORK_DIR/venv/bin/activate"
         cd -- "$WORKING_DIRECTORY"
 
-        # Create temporary directory for reports
-        mkdir -p reports
+        # flake8 has no SARIF output of its own; flake8_to_sarif.py records why it
+        # converts this format instead of using a plugin. %a escapes each field into
+        # an ASCII literal, so any file name stays on one line.
+        results_file="$WORK_DIR/flake8-results.txt"
+        sarif_file="$WORK_DIR/flake8.sarif"
+        : > "$results_file"
+        flake8_status=0
+        flake8 --no-show-source --output-file="$results_file" \
+          --format='(%(row)d, %(col)d, %(code)a, %(path)a, %(text)a)' . || flake8_status=$?
 
-        # Run flake8 with error handling
-        error_count=0
-        if ! flake8 --format=sarif --output-file=reports/flake8.sarif .; then
-          error_count=$(grep -c "level\": \"error\"" reports/flake8.sarif || echo 0)
+        error_count=$(python "$ACTION_PATH/flake8_to_sarif.py" "$results_file" "$sarif_file" "$GITHUB_WORKSPACE")
+        printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
+
+        # A failure with no results means flake8 did not lint: its config or a plugin
+        # failed, or a 'quiet' setting replaced the format. Uploading the empty log
+        # would close the repository's open alerts, so no report is published.
+        if [ "$flake8_status" -ne 0 ] && [ "$error_count" -eq 0 ]; then
+          echo "::error::flake8 exited with status $flake8_status without reporting any results"
+          printf 'result=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        fi
+        printf 'sarif_file=%s\n' "$sarif_file" >> "$GITHUB_OUTPUT"
+
+        if [ "$error_count" -gt 0 ]; then
           echo "Found $error_count linting errors"
-          printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
           if [ "$FAIL_ON_ERROR" = "true" ]; then
             echo "::error::Linting failed with $error_count errors"
@@ -331,18 +355,18 @@ runs:
         fi
 
         printf 'result=%s\n' "success" >> "$GITHUB_OUTPUT"
-        printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
     - name: Run autopep8 Fix
       if: steps.check-files.outputs.result == 'found'
       id: fix
       shell: sh
       env:
+        WORK_DIR: ${{ steps.install.outputs.work_dir }}
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
       run: |
         set -eu
 
-        . .venv/bin/activate
+        . "$WORK_DIR/venv/bin/activate"
         cd -- "$WORKING_DIRECTORY"
 
         # Create temporary file for tracking changes
@@ -350,7 +374,9 @@ runs:
 
         # Run autopep8 with change detection
         find . -name "*.py" -type f -not -path "*/\.*" | while read -r file; do
-          if autopep8 --diff "$file" | grep -q '^[+\-][^+\-]'; then
+          # autopep8 prints nothing when it has no fix. Its failure has to stop this step.
+          file_diff=$(autopep8 --diff "$file")
+          if [ -n "$file_diff" ]; then
             autopep8 --in-place "$file"
             echo "$file" >> "$_changed_files"
           fi
@@ -365,7 +391,8 @@ runs:
         rm -f "$_changed_files"
 
     - name: Commit Fixes
-      if: ${{ fromJSON(steps.fix.outputs.fixed_count) > 0 }}
+      # The count is empty when no Python files were found, and fromJSON fails on it.
+      if: steps.check-files.outputs.result == 'found' && fromJSON(steps.fix.outputs.fixed_count) > 0
       uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
       with:
         commit_message: 'style: apply python lint fixes'
@@ -374,20 +401,9 @@ runs:
         file_pattern: '*.py'
 
     - name: Upload SARIF Report
-      if: steps.check-files.outputs.result == 'found'
+      # Findings fail the lint step by default, and that is when they must be uploaded.
+      if: always() && steps.lint.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
-        sarif_file: ${{ inputs.working-directory }}/reports/flake8.sarif
+        sarif_file: ${{ steps.lint.outputs.sarif_file }}
         category: 'python-lint'
-
-    - name: Cleanup
-      if: always()
-      shell: sh
-      run: |-
-        set -eu
-
-        # Remove virtual environment
-        rm -rf .venv
-
-        # Remove temporary files
-        rm -rf reports
