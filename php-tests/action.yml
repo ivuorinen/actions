@@ -136,6 +136,11 @@ runs:
         # setup-php takes major.minor, so that is the finest pin it can hold.
         # renovate: datasource=github-tags depName=php/php-src extractVersion=^php-(?<version>\d+\.\d+)\.\d+$
         DEFAULT_VERSION: '8.5'
+        # renovate: datasource=github-releases depName=composer/composer
+        COMPOSER_TOOL_VERSION: '2.11.1'
+        # Composer 2.3 and later need PHP 7.2.5; the 2.2 LTS line still runs on older PHP.
+        # renovate: datasource=github-releases depName=composer/composer versioning=regex:^(?<major>2)\.(?<minor>2)\.(?<patch>\d+)$
+        COMPOSER_LTS_VERSION: '2.2.32'
       run: |
         set -eu
         command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
@@ -241,15 +246,20 @@ runs:
         printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
         echo "Final detected PHP version: $detected_version" >&2
 
+        # An exact Composer version keeps setup-php from choosing one for the PHP version, so the
+        # choice is made here: PHP below 7.2 gets the 2.2 LTS line, the last that runs on it.
+        case "$detected_version" in
+          5 | 5.* | 7.0 | 7.0.* | 7.1 | 7.1.*) composer_version="$COMPOSER_LTS_VERSION" ;;
+          *) composer_version="$COMPOSER_TOOL_VERSION" ;;
+        esac
+        printf 'composer-version=%s\n' "$composer_version" >> "$GITHUB_OUTPUT"
+
     - name: Setup PHP
       id: setup-php
       uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
-      env:
-        # renovate: datasource=github-releases depName=composer/composer
-        COMPOSER_TOOL_VERSION: '2.11.1'
       with:
         php-version: ${{ steps.detect-php-version.outputs.detected-version }}
-        tools: composer:${{ env.COMPOSER_TOOL_VERSION }}
+        tools: composer:${{ steps.detect-php-version.outputs.composer-version }}
         extensions: ${{ inputs.extensions }}
         coverage: ${{ inputs.coverage }}
         ini-values: memory_limit=1G, max_execution_time=600

@@ -278,6 +278,11 @@ runs:
       env:
         ACTION_PATH: ${{ github.action_path }}
         DEFAULT_VERSION: '8.4'
+        # renovate: datasource=github-releases depName=composer/composer
+        COMPOSER_TOOL_VERSION: '2.11.1'
+        # Composer 2.3 and later need PHP 7.2.5; the 2.2 LTS line still runs on older PHP.
+        # renovate: datasource=github-releases depName=composer/composer versioning=regex:^(?<major>2)\.(?<minor>2)\.(?<patch>\d+)$
+        COMPOSER_LTS_VERSION: '2.2.32'
       run: |
         set -eu
         command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }
@@ -383,17 +388,23 @@ runs:
         printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
         printf 'Final detected PHP version: %s\n' "$detected_version" >&2
 
+        # An exact Composer version keeps setup-php from choosing one for the PHP version, so the
+        # choice is made here: PHP below 7.2 gets the 2.2 LTS line, the last that runs on it.
+        case "$detected_version" in
+          5 | 5.* | 7.0 | 7.0.* | 7.1 | 7.1.*) composer_version="$COMPOSER_LTS_VERSION" ;;
+          *) composer_version="$COMPOSER_TOOL_VERSION" ;;
+        esac
+        printf 'composer-version=%s\n' "$composer_version" >> "$GITHUB_OUTPUT"
+
     - name: Setup PHP
       if: steps.detect-php.outputs.found == 'true'
       uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
       with:
         php-version: ${{ steps.php-version.outputs.detected-version }}
-        tools: composer:${{ env.COMPOSER_TOOL_VERSION }}
+        tools: composer:${{ steps.php-version.outputs.composer-version }}
         coverage: none
       env:
         GITHUB_TOKEN: ${{ inputs.token || github.token }}
-        # renovate: datasource=github-releases depName=composer/composer
-        COMPOSER_TOOL_VERSION: '2.11.1'
 
     - name: Setup problem matchers for PHP
       if: steps.detect-php.outputs.found == 'true'
