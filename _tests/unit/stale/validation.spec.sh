@@ -125,6 +125,23 @@ The output should equal "none"
 End
 End
 
+Context "when checking workspace and permission needs"
+It "does not check out the repository"
+When call grep -c 'actions/checkout' "$ACTION_FILE"
+The output should equal "0"
+The status should be failure
+End
+
+It "grants the stale job only issue and pull request write access"
+job_permissions() {
+  _harness_python -c 'import json, sys, yaml; print(json.dumps(yaml.safe_load(open(sys.argv[1], encoding="utf-8"))["jobs"]["stale"]["permissions"], sort_keys=True))' \
+    ".github/workflows/stale.yml"
+}
+When call job_permissions
+The output should equal '{"issues": "write", "pull-requests": "write"}'
+End
+End
+
 Context "when testing security validations"
 It "validates against command injection in token"
 When call validate_input_python "stale" "token" "ghp_token\`whoami\`"
