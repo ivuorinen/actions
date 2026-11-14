@@ -43,9 +43,13 @@ PLACEHOLDERS = ("value", "example-value", "custom-value")
 INPUT_EXAMPLES = {
     ("docker-build", "buildx-version"): "v0.38.2",
     ("docker-build", "buildkit-version"): "v0.34.2",
+    ("eslint-lint", "eslint-version"): "10.14.0",
     ("go-build", "go-version"): "1.27",
     # The example's language is python, so the fallback version is a Python release.
     ("language-version-detect", "default-version"): "3.13",
+    ("php-tests", "php-version"): "8.5",
+    ("prettier-lint", "prettier-version"): "3.9.10",
+    ("terraform-lint-fix", "tflint-version"): "v0.65.0",
 }
 
 

@@ -26,7 +26,7 @@ jobs:
           extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
           framework: 'auto'
           max-retries: '3'
-          php-version: '1.2.3'
+          php-version: '8.5'
           token: '${{ github.token }}'
           username: 'github-actions'
 ```
@@ -87,7 +87,7 @@ permissions:
     extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
     framework: 'auto'
     max-retries: '3'
-    php-version: '1.2.3'
+    php-version: '8.5'
     token: '${{ github.token }}'
     username: 'github-actions'
 ```
@@ -107,7 +107,7 @@ permissions:
     extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
     framework: 'auto'
     max-retries: '3'
-    php-version: '1.2.3'
+    php-version: '8.5'
     token: '${{ github.token }}'
     username: 'github-actions'
 ```
