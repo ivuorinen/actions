@@ -7,12 +7,13 @@
 # suite's result depend on the calendar month and hid a production defect that only
 # fires in August and September (see docs/audit/findings, tests-c1051f2d).
 #
-# Every example below runs with INPUT_DRY_RUN=true, and the action calls
-# `gh release create` only when DRY_RUN is "false". So no `release create` mock is
-# registered here, deliberately: an unregistered call exits 127 via the harness
-# dispatcher, which turns "the dry-run gate regressed and we published for real"
-# into a test failure. Registering the mock would satisfy that erroneous call and
-# leave the suite green. Do not add one.
+# Every example outside "release creation target" runs with INPUT_DRY_RUN=true, and
+# the action calls `gh release create` only when DRY_RUN is "false". So those examples
+# register no `release create` mock, deliberately: an unregistered call exits 127 via
+# the harness dispatcher, which turns "the dry-run gate regressed and we published for
+# real" into a test failure. Registering the mock there would satisfy that erroneous
+# call and leave the suite green. Only the "release creation target" examples, which
+# run with DRY_RUN=false, register one.
 
 Describe "release-monthly create-release (behavior)"
 ACTION_DIR="${PROJECT_ROOT}/release-monthly"
@@ -102,6 +103,90 @@ When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
 The stdout should include "2026.4.0"
 Assert expect_output release_tag "v*2026.4.0"
+End
+
+Describe "release creation target"
+# `gh release create` cuts a missing tag from the default branch tip unless
+# --target is given, so the release must be pinned to the commit the workflow
+# ran on (GITHUB_SHA). `--target` only applies when the tag does not exist yet;
+# an existing tag keeps its own commit, so the step refuses one that points
+# anywhere but GITHUB_SHA. The create mock matches only when --target carries
+# GITHUB_SHA; without it the call is unregistered, exits 127, and the step fails.
+# The action runs after a full checkout, so each example runs in a repository. Its
+# identity and signing settings are local, because a CI runner has no global ones and
+# both a commit and an annotated tag need them.
+setup_release() {
+  git init -q .
+  git config user.email test@example.com
+  git config user.name test
+  git config commit.gpgsign false
+  git config tag.gpgSign false
+  git commit -q --allow-empty -m one
+  export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  export INPUT_PREFIX=""
+  export INPUT_DRY_RUN="false"
+  mock_clock "2026" "04"
+  mock_command gh "release list --limit 1*" "2026.3.7"
+}
+
+It "pins the new release to GITHUB_SHA"
+setup_release
+export GITHUB_SHA="$(git rev-parse HEAD)"
+mock_command gh "release create 2026.4.0*--target=${GITHUB_SHA}*" "https://example.test/release/2026.4.0"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "Release created successfully"
+Assert expect_output release_url "https://example.test/release/2026.4.0"
+End
+
+It "refuses a tag that already exists at another commit"
+setup_release
+git tag 2026.4.0
+tagged="$(git rev-parse HEAD)"
+git commit -q --allow-empty -m two
+export GITHUB_SHA="$(git rev-parse HEAD)"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be failure
+The stdout should include "::error::Tag 2026.4.0 already exists at ${tagged}, not at ${GITHUB_SHA}"
+End
+
+It "creates the release on a tag that already points at GITHUB_SHA"
+setup_release
+git tag 2026.4.0
+export GITHUB_SHA="$(git rev-parse HEAD)"
+mock_command gh "release create 2026.4.0*--target=${GITHUB_SHA}*" "https://example.test/release/2026.4.0"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "Release created successfully"
+End
+
+# An annotated tag's ref names a tag object, not the commit, so these two only pass
+# when the step dereferences the tag to its commit.
+It "refuses an annotated tag that already exists at another commit"
+setup_release
+git tag -a -m test 2026.4.0
+tagged="$(git rev-parse HEAD)"
+git commit -q --allow-empty -m two
+export GITHUB_SHA="$(git rev-parse HEAD)"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be failure
+The stdout should include "::error::Tag 2026.4.0 already exists at ${tagged}, not at ${GITHUB_SHA}"
+End
+
+It "creates the release on an annotated tag that already points at GITHUB_SHA"
+setup_release
+git tag -a -m test 2026.4.0
+export GITHUB_SHA="$(git rev-parse HEAD)"
+mock_command gh "release create 2026.4.0*--target=${GITHUB_SHA}*" "https://example.test/release/2026.4.0"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "Release created successfully"
+End
 End
 
 Describe "month normalization"
