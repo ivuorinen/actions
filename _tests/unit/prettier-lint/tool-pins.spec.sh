@@ -39,18 +39,24 @@ The contents of file "${ACTION_DIR}/action.yml" should include 'bun-version: ${{
 End
 
 Describe "Ensure Prettier"
+before_ensure() {
+  export GITHUB_WORKSPACE="$PWD"
+}
+BeforeEach 'before_ensure'
+
 Describe "when the repository has its own copy"
 Parameters
 # package manager, command, its arguments
 "npm" "npx" "--no-install prettier"
 "pnpm" "pnpm" "exec prettier"
-"yarn" "yarn" "prettier"
+"yarn" "yarn" "run --binaries-only prettier"
 "bun" "bunx" "--no-install prettier"
 End
 
 # npm is not mocked, so any install fails the step.
 It "runs it with $1 and installs nothing"
 use_package_manager "$1"
+mock_command yarn "--version" "4.18.1"
 mkdir -p node_modules/prettier
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be success
@@ -59,12 +65,45 @@ End
 End
 
 # Yarn Plug'n'Play leaves no node_modules, and npx cannot load a copy through its loader.
+# --binaries-only keeps a package.json script named prettier from running in its place.
 It "runs a Plug'n'Play repository's copy through Yarn"
 use_package_manager yarn
+mock_command yarn "--version" "4.18.1"
 printf '%s\n' '{"devDependencies": {"prettier": "^3.0.0"}}' >package.json
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be success
-Assert expect_output command "yarn prettier"
+Assert expect_output command "yarn run --binaries-only prettier"
+End
+
+# Yarn 1 has no --binaries-only, but it has no Plug'n'Play and always installs node_modules.
+It "runs a Yarn 1 repository's copy through npx"
+use_package_manager yarn
+mock_command yarn "--version" "1.22.22"
+mkdir -p node_modules/prettier
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "npx --no-install prettier"
+End
+
+# Node resolves packages through parent directories, so a subdirectory still finds them.
+It "finds a copy installed at the repository root when the working directory is below it"
+use_package_manager npm
+mkdir -p node_modules/prettier src
+cd src || return 1
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "npx --no-install prettier"
+End
+
+It "looks no higher than the checkout"
+use_package_manager npm
+mkdir -p node_modules/prettier src
+export GITHUB_WORKSPACE="$PWD/src"
+cd src || return 1
+mock_command npm "install -g prettier@$(pinned_version prettier-lint DEFAULT_PRETTIER_VERSION)" ""
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "prettier"
 End
 
 Describe "when the repository has no copy"

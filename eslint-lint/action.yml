@@ -252,20 +252,35 @@ runs:
         command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
 
         # The repository's own copy wins: its config and plugins are written for it. Running the
-        # tool cannot tell, because npx --no-install and pnpm exec also find a global install, so ownership is
-        # read from node_modules, or from package.json for Yarn Plug'n'Play, which has none.
+        # tool cannot tell, because npx --no-install and pnpm exec also find a global install, so
+        # ownership is read from node_modules, or from package.json for Yarn Plug'n'Play, which has
+        # none, here and in each parent up to the checkout: Node resolves packages through those,
+        # so a working directory below the project root still has the root's copy.
         owns() {
-          [ -d "node_modules/$1" ] || {
-            [ -f package.json ] && jq -e --arg name "$1" \
-              '(.dependencies // {}) + (.devDependencies // {}) | has($name)' package.json >/dev/null
-          }
+          _dir=$PWD
+          while :; do
+            [ -d "$_dir/node_modules/$1" ] && return 0
+            if [ -f "$_dir/package.json" ] && jq -e --arg name "$1" \
+              '(.dependencies // {}) + (.devDependencies // {}) | has($name)' "$_dir/package.json" >/dev/null; then
+              return 0
+            fi
+            case "$_dir" in "${GITHUB_WORKSPACE:-$PWD}" | /) return 1 ;; esac
+            _dir=$(dirname -- "$_dir")
+          done
         }
 
         if owns eslint; then
-          # None of these fetches a package, so a copy that is not installed fails the run.
+          # None of these fetches a package, so a copy that is not installed fails the run. Yarn 2
+          # and later run a package.json script before a binary of the same name, so they are told
+          # to run the binary; Yarn 1 cannot be, but it always installs node_modules for npx.
           case "$PACKAGE_MANAGER" in
             "pnpm") set -- pnpm exec eslint ;;
-            "yarn") set -- yarn eslint ;;
+            "yarn")
+              case "$(yarn --version)" in
+                1.*) set -- npx --no-install eslint ;;
+                *) set -- yarn run --binaries-only eslint ;;
+              esac
+              ;;
             "bun") set -- bunx --no-install eslint ;;
             "npm"|*) set -- npx --no-install eslint ;;
           esac

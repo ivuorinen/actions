@@ -45,6 +45,7 @@ before_ensure() {
   export RUNNER_TEMP="${SHELLSPEC_TEST_TEMP_DIR}/runner-temp"
   mkdir -p "$RUNNER_TEMP"
   export INPUT_REPORT_FORMAT="sarif"
+  export GITHUB_WORKSPACE="$PWD"
 }
 BeforeEach 'before_ensure'
 
@@ -67,13 +68,14 @@ Parameters
 # package manager, command, its arguments
 "npm" "npx" "--no-install eslint"
 "pnpm" "pnpm" "exec eslint"
-"yarn" "yarn" "eslint"
+"yarn" "yarn" "run --binaries-only eslint"
 "bun" "bunx" "--no-install eslint"
 End
 
 # npm is not mocked, so any install fails the step.
 It "runs it with $1 and installs nothing"
 use_package_manager "$1"
+mock_command yarn "--version" "4.18.1"
 mkdir -p node_modules/eslint "node_modules/${FORMATTER}"
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
@@ -83,13 +85,47 @@ End
 End
 
 # Yarn Plug'n'Play leaves no node_modules; package.json names what the repository has.
+# --binaries-only keeps a package.json script named eslint from running in its place.
 It "reads a Plug'n'Play repository's copy from package.json"
 use_package_manager yarn
+mock_command yarn "--version" "4.18.1"
 printf '%s\n' '{"devDependencies": {"eslint": "^9.0.0", "@microsoft/eslint-formatter-sarif": "^3.0.0"}}' >package.json
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
-Assert expect_output command "yarn eslint"
+Assert expect_output command "yarn run --binaries-only eslint"
 Assert expect_output formatter "$FORMATTER"
+End
+
+# Yarn 1 has no --binaries-only, but it always installs node_modules for npx.
+It "runs a Yarn 1 repository's copy through npx"
+use_package_manager yarn
+mock_command yarn "--version" "1.22.22"
+mkdir -p node_modules/eslint "node_modules/${FORMATTER}"
+When call run_step "${ACTION_DIR}" "ensure-eslint"
+The status should be success
+Assert expect_output command "npx --no-install eslint"
+End
+
+# Node resolves packages through parent directories, so linting a subdirectory still finds them.
+It "finds a copy installed at the repository root when the working directory is below it"
+use_package_manager npm
+mkdir -p node_modules/eslint "node_modules/${FORMATTER}" src
+cd src || return 1
+When call run_step "${ACTION_DIR}" "ensure-eslint"
+The status should be success
+Assert expect_output command "npx --no-install eslint"
+Assert expect_output formatter "$FORMATTER"
+End
+
+It "looks no higher than the checkout"
+use_package_manager npm
+mkdir -p node_modules/eslint "node_modules/${FORMATTER}" src
+export GITHUB_WORKSPACE="$PWD/src" INPUT_REPORT_FORMAT="stylish"
+cd src || return 1
+mock_command npm "install -g eslint@$(pinned_version eslint-lint DEFAULT_ESLINT_VERSION)" ""
+When call run_step "${ACTION_DIR}" "ensure-eslint"
+The status should be success
+Assert expect_output command "eslint"
 End
 
 It "installs the SARIF formatter apart when the repository's own ESLint has none"
