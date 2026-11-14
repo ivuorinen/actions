@@ -23,6 +23,11 @@ def _skip(value: str) -> bool:
     return value.strip() == ""
 
 
+def _strip_v(version: str) -> str:
+    """Return version without one leading ``v`` or ``V``."""
+    return version[1:] if version[:1] in ("v", "V") else version
+
+
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
@@ -121,8 +126,7 @@ def check_semantic_version(value: str) -> str | None:
     """SemVer with optional v prefix: X.Y.Z[-pre][+build], partial X.Y / X, or latest."""
     if _skip(value) or value.lower() == "latest":
         return None
-    core = value[1:] if value[:1] in ("v", "V") else value
-    if _is_semver(core):
+    if _is_semver(_strip_v(value)):
         return None
     return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
 
