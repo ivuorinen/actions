@@ -286,12 +286,17 @@ runs:
         # none, here and in each parent up to the checkout: Node resolves packages through those,
         # so a working directory below the project root still has the root's copy.
         # The same check as eslint-lint's Ensure ESLint step: each action is self-contained.
+        # owns sets found_in to node_modules or package.json, saying how it found the copy.
         owns() {
           _dir=$PWD
           while :; do
-            [ -d "$_dir/node_modules/$1" ] && return 0
+            if [ -d "$_dir/node_modules/$1" ]; then
+              found_in=node_modules
+              return 0
+            fi
             if [ -f "$_dir/package.json" ] && jq -e --arg name "$1" \
               '(.dependencies // {}) + (.devDependencies // {}) | has($name)' "$_dir/package.json" >/dev/null; then
+              found_in=package.json
               return 0
             fi
             case "$_dir" in "${GITHUB_WORKSPACE:-$PWD}" | /) return 1 ;; esac
@@ -303,12 +308,19 @@ runs:
           # The package manager resolves it; npx --no-install cannot under Plug'n'Play. None of these
           # fetches a package, so a copy that is not installed fails the run. Yarn 2 and later run a
           # package.json script before a binary of the same name, so they are told to run the
-          # binary; Yarn 1 cannot be, but it has no Plug'n'Play and always installs node_modules.
+          # binary. Yarn 1 cannot be: a node_modules install runs through npx --no-install
+          # instead, and a Plug'n'Play one, which that cannot load, through Yarn as before.
           case "$PACKAGE_MANAGER" in
             "pnpm") set -- pnpm exec prettier ;;
             "yarn")
               case "$(yarn --version)" in
-                1.*) set -- npx --no-install prettier ;;
+                1.*)
+                  if [ "$found_in" = node_modules ]; then
+                    set -- npx --no-install prettier
+                  else
+                    set -- yarn prettier
+                  fi
+                  ;;
                 *) set -- yarn run --binaries-only prettier ;;
               esac
               ;;

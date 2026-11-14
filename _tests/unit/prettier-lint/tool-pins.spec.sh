@@ -75,7 +75,7 @@ The status should be success
 Assert expect_output command "yarn run --binaries-only prettier"
 End
 
-# Yarn 1 has no --binaries-only, but it has no Plug'n'Play and always installs node_modules.
+# Yarn 1 has no --binaries-only, so a node_modules install runs through npx.
 It "runs a Yarn 1 repository's copy through npx"
 use_package_manager yarn
 mock_command yarn "--version" "1.22.22"
@@ -83,6 +83,17 @@ mkdir -p node_modules/prettier
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be success
 Assert expect_output command "npx --no-install prettier"
+End
+
+# Yarn 1 Plug'n'Play has no node_modules for npx, so it runs through Yarn, as before this
+# action pinned anything. Yarn 1 has no way to skip a script of the same name.
+It "runs a Yarn 1 Plug'n'Play repository's copy through Yarn"
+use_package_manager yarn
+mock_command yarn "--version" "1.22.22"
+printf '%s\n' '{"devDependencies": {"prettier": "^3.0.0"}}' >package.json
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "yarn prettier"
 End
 
 # Node resolves packages through parent directories, so a subdirectory still finds them.

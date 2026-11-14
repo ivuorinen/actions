@@ -106,6 +106,17 @@ The status should be success
 Assert expect_output command "npx --no-install eslint"
 End
 
+# Yarn 1 Plug'n'Play has no node_modules for npx, so it runs through Yarn, as before this
+# action pinned anything. Yarn 1 has no way to skip a script of the same name.
+It "runs a Yarn 1 Plug'n'Play repository's copy through Yarn"
+use_package_manager yarn
+mock_command yarn "--version" "1.22.22"
+printf '%s\n' '{"devDependencies": {"eslint": "^8.0.0", "@microsoft/eslint-formatter-sarif": "^3.0.0"}}' >package.json
+When call run_step "${ACTION_DIR}" "ensure-eslint"
+The status should be success
+Assert expect_output command "yarn eslint"
+End
+
 # Node resolves packages through parent directories, so linting a subdirectory still finds them.
 It "finds a copy installed at the repository root when the working directory is below it"
 use_package_manager npm
