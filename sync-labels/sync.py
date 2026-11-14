@@ -43,11 +43,22 @@ LIST_LIMIT = "9999"  # fetch every label in one paginated call (avoid silent tru
 # _HEX6 validates manifest *content* (label colors), which has no canonical home in kit.
 # See .claude/rules/code-quality.md.
 _HEX6 = re.compile(r"[0-9a-f]{6}")
+# C0/C1 control characters plus the Unicode line/paragraph separators.
+_CONTROL = re.compile(r"[\x00-\x1f\x7f-\x9f\N{LINE SEPARATOR}\N{PARAGRAPH SEPARATOR}]")
+
+
+def _clean(text: str) -> str:
+    """Replace control characters so a manifest/repo-derived value stays on one log line.
+
+    The runner parses stdout and stderr for ``::command::`` lines, so a newline or
+    escape character inside a label name could otherwise start a workflow command.
+    """
+    return _CONTROL.sub("?", text)
 
 
 def fail(message: str) -> NoReturn:
     """Emit a GitHub Actions error annotation and exit non-zero."""
-    sys.stderr.write(f"::error::sync-labels: {message}\n")
+    sys.stderr.write(f"::error::sync-labels: {_clean(message)}\n")
     sys.exit(1)
 
 
@@ -171,7 +182,7 @@ def sync_repo(repo: str, desired: list[dict], *, prune: bool) -> dict[str, int]:
                 ]
             )
             counts["created"] += 1
-            print(f"  + created '{label['name']}' in {repo}")
+            print(f"  + created '{_clean(label['name'])}' in {repo}")
             continue
         cur_color = (existing.get("color") or "").lstrip("#").lower()
         cur_desc = existing.get("description") or ""
@@ -202,7 +213,7 @@ def sync_repo(repo: str, desired: list[dict], *, prune: bool) -> dict[str, int]:
             ]
         )
         counts["updated"] += 1
-        print(f"  ~ updated '{label['name']}' in {repo}")
+        print(f"  ~ updated '{_clean(label['name'])}' in {repo}")
 
     if prune:
         for label in current:
@@ -211,7 +222,7 @@ def sync_repo(repo: str, desired: list[dict], *, prune: bool) -> dict[str, int]:
                 # a dash (manifest names are dash-guarded, but repo labels may not be).
                 _run(["gh", "label", "delete", "-R", repo, "--yes", "--", label["name"]])
                 counts["deleted"] += 1
-                print(f"  - deleted '{label['name']}' from {repo}")
+                print(f"  - deleted '{_clean(label['name'])}' from {repo}")
 
     return counts
 
@@ -257,7 +268,7 @@ def main() -> int:
     if not Path(manifest).is_file():
         # A repo without a manifest has nothing to sync — warn and succeed so the
         # action can run unconditionally across repos that opt in by adding one.
-        print(f'::warning::sync-labels: manifest not found: "{manifest}" — nothing to sync')
+        print(f'::warning::sync-labels: manifest not found: "{_clean(manifest)}" — nothing to sync')
         write_outputs(totals, 0)
         return 0
     prune = _bool(os.environ.get("INPUT_PRUNE", ""), default=True)
