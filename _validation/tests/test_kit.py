@@ -1044,7 +1044,7 @@ def test_invalid_values_rejected(check):
 
 # Inputs of these types all declare a default (tests/test_spec.py), so blank only comes from a
 # caller passing it, and the steps that read them then skip their work instead of failing.
-REFUSES_BLANK = {"boolean", "numeric_range_1_10"}
+REFUSES_BLANK = {"boolean", "numeric_range_1_10", "report_format", "golangci_report_format"}
 
 
 @pytest.mark.parametrize("check", sorted(set(kit.CHECKS) - REFUSES_BLANK))

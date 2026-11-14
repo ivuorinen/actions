@@ -196,6 +196,12 @@ It "rejects invalid report format"
 When call validate_input_python "go-lint" "report-format" "invalid-format"
 The status should be failure
 End
+
+# The input defaults to sarif, so a blank one was passed, and would build --output. .path.
+It "rejects a blank report format"
+When call validate_input_python "go-lint" "report-format" " "
+The status should be failure
+End
 End
 
 Context "when validating max-retries input"

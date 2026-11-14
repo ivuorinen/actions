@@ -19,9 +19,10 @@ Shared contract:
     ``$VAR`` in an input, so neither form is a reference here: both are literal data. Matches
     use ``re.fullmatch`` because ``re.match(...$)`` also accepts a trailing newline.
 
-``boolean`` and ``numeric_range_1_10`` refuse a blank value instead. Those inputs all declare a
-default and the runner applies it only when the caller leaves the input out, so blank means the
-caller passed it, and the steps reading such an input would then quietly skip their work.
+``boolean``, ``numeric_range_1_10`` and the two report-format checks refuse a blank value
+instead. Those inputs all declare a default and the runner applies it only when the caller
+leaves the input out, so blank means the caller passed it, and the steps reading such an input
+would then quietly skip their work.
 
 Security-critical checks (tokens, file paths, injection-bearing lists) are ported from the
 previous validator framework. Tool-version and enum format checks are written to match what
@@ -891,7 +892,9 @@ def check_mode_enum(value: str) -> str | None:
 
 
 def check_report_format(value: str) -> str | None:
-    """Lint/report output format."""
+    """Lint/report output format. A blank is refused for the reason in the module contract."""
+    if not value.strip():
+        return "must not be blank: leave the input out for its default"
     return _enum(
         value,
         "checkstyle",
@@ -915,8 +918,11 @@ def check_golangci_report_format(value: str) -> str | None:
     """A go-lint report format: golangci-lint v2's sarif, json or text, or a v1 name for text.
 
     go-lint counts the issues in these three; v2 has no github-actions, line-number or
-    colored-line-number format, so go-lint writes text for them.
+    colored-line-number format, so go-lint writes text for them. A blank is refused for the
+    reason in the module contract.
     """
+    if not value.strip():
+        return "must not be blank: leave the input out for its default"
     return _enum(
         value, "colored-line-number", "github-actions", "json", "line-number", "sarif", "text"
     )

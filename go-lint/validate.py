@@ -185,8 +185,11 @@ def check_golangci_report_format(value: str) -> str | None:
     """A go-lint report format: golangci-lint v2's sarif, json or text, or a v1 name for text.
 
     go-lint counts the issues in these three; v2 has no github-actions, line-number or
-    colored-line-number format, so go-lint writes text for them.
+    colored-line-number format, so go-lint writes text for them. A blank is refused for the
+    reason in the module contract.
     """
+    if not value.strip():
+        return "must not be blank: leave the input out for its default"
     return _enum(
         value, "colored-line-number", "github-actions", "json", "line-number", "sarif", "text"
     )
