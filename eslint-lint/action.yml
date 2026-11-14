@@ -252,7 +252,7 @@ runs:
         command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
 
         # The repository's own copy wins: its config and plugins are written for it. Running the
-        # tool cannot tell, because npx and pnpm exec also find a global install, so ownership is
+        # tool cannot tell, because npx --no-install and pnpm exec also find a global install, so ownership is
         # read from node_modules, or from package.json for Yarn Plug'n'Play, which has none.
         owns() {
           [ -d "node_modules/$1" ] || {

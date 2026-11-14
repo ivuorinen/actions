@@ -281,7 +281,7 @@ runs:
         command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
 
         # The repository's own copy wins, so it formats the way the repository expects. Running
-        # it cannot tell, because npx and pnpm exec also find a global install, so ownership is
+        # it cannot tell, because npx --no-install and pnpm exec also find a global install, so ownership is
         # read from node_modules, or from package.json for Yarn Plug'n'Play, which has none.
         # The same check as eslint-lint's Ensure ESLint step: each action is self-contained.
         owns() {
@@ -292,7 +292,7 @@ runs:
         }
 
         if owns prettier; then
-          # The package manager resolves it, which npx cannot under Plug'n'Play. None of these
+          # The package manager resolves it; npx --no-install cannot under Plug'n'Play. None of these
           # fetches a package, so a copy that is not installed fails the run.
           case "$PACKAGE_MANAGER" in
             "pnpm") set -- pnpm exec prettier ;;
