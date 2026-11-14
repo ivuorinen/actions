@@ -10,6 +10,8 @@ MODULE="github.com/golangci/golangci-lint/v2/cmd/golangci-lint"
 before() {
   shellspec_setup_test_env "go-lint-pins-$$"
   harness_reset
+  export RUNNER_TEMP="${SHELLSPEC_TEST_TEMP_DIR}/runner-temp"
+  mkdir -p "$RUNNER_TEMP"
 }
 BeforeEach 'before'
 
@@ -79,13 +81,19 @@ before_lint() {
   export INPUT_WORKING_DIRECTORY="." INPUT_CONFIG_FILE=".golangci.yml" INPUT_TIMEOUT="5m"
   export INPUT_FAIL_ON_ERROR="true" INPUT_ONLY_NEW_ISSUES="false" INPUT_DISABLE_ALL="false"
   export INPUT_ENABLE_LINTERS="" INPUT_DISABLE_LINTERS="" INPUT_REPORT_FORMAT="sarif" INPUT_CACHE="true"
+  export HARNESS_STEP_OUTPUTS='{"config":{"outputs":{"config_file":".golangci.yml"}}}'
+  # The step writes reports into a fresh directory under RUNNER_TEMP. A known one lets an
+  # example place the report a real golangci-lint would write, which the mock cannot.
+  REPORTS="${SHELLSPEC_TEST_TEMP_DIR}/reports"
+  mkdir -p "$REPORTS"
+  mock_command mktemp "-d ${RUNNER_TEMP}/go-lint.XXXXXX" "$REPORTS"
 }
 BeforeEach 'before_lint'
 
 BASE="run --config .golangci.yml --timeout 5m"
 
 It "passes only flags v2 has when caching is on"
-mock_command golangci-lint "${BASE} --output.sarif.path=reports/golangci-lint.sarif ./..." "{}"
+mock_command golangci-lint "${BASE} --output.sarif.path=${REPORTS}/golangci-lint.sarif ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -93,7 +101,7 @@ End
 
 It "passes only flags v2 has when caching is off"
 export INPUT_CACHE="false"
-mock_command golangci-lint "${BASE} --output.sarif.path=reports/golangci-lint.sarif ./..." "{}"
+mock_command golangci-lint "${BASE} --output.sarif.path=${REPORTS}/golangci-lint.sarif ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -101,7 +109,7 @@ End
 
 It "asks v2 for no default linters when disable-all is set"
 export INPUT_DISABLE_ALL="true" INPUT_ENABLE_LINTERS="govet"
-mock_command golangci-lint "${BASE} --default=none --enable=govet --output.sarif.path=reports/golangci-lint.sarif ./..." "{}"
+mock_command golangci-lint "${BASE} --default=none --enable=govet --output.sarif.path=${REPORTS}/golangci-lint.sarif ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -116,11 +124,11 @@ End
 
 It "writes $1 through --output.$2.path"
 export INPUT_REPORT_FORMAT="$1"
-mock_command golangci-lint "${BASE} --output.$2.path=reports/golangci-lint.$1 ./..." "{}"
+mock_command golangci-lint "${BASE} --output.$2.path=${REPORTS}/golangci-lint.$1 ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
-Assert expect_output sarif_file "reports/golangci-lint.$1"
+Assert expect_output sarif_file "${REPORTS}/golangci-lint.$1"
 End
 End
 
@@ -162,20 +170,19 @@ End
 # mock prints statistics to stdout as v2 does; a redirect to the report would overwrite it.
 It "counts the $1 report and keeps statistics out of it"
 export INPUT_REPORT_FORMAT="$1"
-mkdir -p reports
-report_fixture "$1" >"reports/golangci-lint.$1"
-mock_command golangci-lint "${BASE} --output.$2.path=reports/golangci-lint.$1 ./..." "3 issues:" 1
+report_fixture "$1" >"${REPORTS}/golangci-lint.$1"
+mock_command golangci-lint "${BASE} --output.$2.path=${REPORTS}/golangci-lint.$1 ./..." "3 issues:" 1
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "3 issues:"
-The contents of file "reports/golangci-lint.$1" should not include "issues:"
+The contents of file "${REPORTS}/golangci-lint.$1" should not include "issues:"
 Assert expect_output error_count "$3"
 Assert only_key_value_lines
 End
 End
 
 It "fails without a count when golangci-lint could not run"
-mock_command golangci-lint "${BASE} --output.sarif.path=reports/golangci-lint.sarif ./..." "" 3
+mock_command golangci-lint "${BASE} --output.sarif.path=${REPORTS}/golangci-lint.sarif ./..." "" 3
 When call run_step "${ACTION_DIR}" "lint"
 The status should be failure
 The stdout should include "::error::golangci-lint exited with 3, 0 issues found"
@@ -186,15 +193,16 @@ End
 Describe "Prepare Configuration"
 It "writes a default config in the v2 format"
 export INPUT_WORKING_DIRECTORY="." INPUT_CONFIG_FILE=".golangci.yml" INPUT_TIMEOUT="5m"
+default_config="${RUNNER_TEMP}/golangci-lint-default.yml"
 When call run_step "${ACTION_DIR}" "config"
 The status should be success
 The stdout should include "Creating default"
-The contents of file ".golangci.yml" should include 'version: "2"'
-The contents of file ".golangci.yml" should include "default: all"
-The contents of file ".golangci.yml" should include "timeout: 5m"
-The contents of file ".golangci.yml" should not include "enable-all"
-The contents of file ".golangci.yml" should not include "linters-settings"
-The contents of file ".golangci.yml" should not include "deadline"
+The contents of file "$default_config" should include 'version: "2"'
+The contents of file "$default_config" should include "default: all"
+The contents of file "$default_config" should include "timeout: 5m"
+The contents of file "$default_config" should not include "enable-all"
+The contents of file "$default_config" should not include "linters-settings"
+The contents of file "$default_config" should not include "deadline"
 End
 End
 End

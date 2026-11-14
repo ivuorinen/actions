@@ -19,7 +19,13 @@ symlinked_reports_scenario() {
   mkdir -p "$_root/workspace" "$_root/victim" "$_root/runner" "$_root/home" "$_root/bin"
   : >"$_root/victim/marker"
   ln -s "$_root/victim" "$_root/workspace/reports"
-  printf '#!/bin/sh\nprintf "{}\\n"\n' >"$_root/bin/golangci-lint"
+  # golangci-lint v2 writes the report to the path its --output.<format>.path flag names.
+  cat >"$_root/bin/golangci-lint" <<'SH'
+#!/bin/sh
+for arg in "$@"; do
+  case "$arg" in --output.*.path=*) printf '{}\n' >"${arg#*=}" ;; esac
+done
+SH
   chmod +x "$_root/bin/golangci-lint"
   step_script "Run golangci-lint" >"$_root/lint.sh"
   step_script "Cleanup" >"$_root/cleanup.sh"

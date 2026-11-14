@@ -42,6 +42,11 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
+def _strip_v(version: str) -> str:
+    """Return version without one leading ``v`` or ``V``."""
+    return version[1:] if version[:1] in ("v", "V") else version
+
+
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
@@ -168,10 +173,9 @@ def check_go_version(value: str) -> str | None:
 
 def check_golangci_lint_version(value: str) -> str | None:
     """``semantic_version`` at major 2 or newer: v1 has another module path and other CLI flags."""
-    if _skip(value) or value.strip().lower() == "latest":
+    if _skip(value) or value.lower() == "latest":
         return None
-    core = value.strip()
-    core = core[1:] if core[:1] in ("v", "V") else core
+    core = _strip_v(value)
     if _is_semver(core) and int(re.split(r"\D", core, maxsplit=1)[0]) >= 2:
         return None
     return 'must be golangci-lint v2 or newer (e.g. 2.1.0, v2.1.0, or "latest")'
