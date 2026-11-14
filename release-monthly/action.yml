@@ -199,6 +199,19 @@ runs:
 
         # Create release if not in dry-run mode
         if [ "$DRY_RUN" = "false" ]; then
+          # --target applies only when gh creates the tag; an existing tag keeps its own
+          # commit. The checkout fetched every tag, so refuse one that points elsewhere.
+          if ! command -v git >/dev/null 2>&1; then
+            echo "::error::git is required to check whether ${release_tag} already exists"
+            exit 1
+          fi
+          if existing_commit=$(git rev-parse -q --verify "refs/tags/${release_tag}^{commit}"); then
+            if [ "$existing_commit" != "$GITHUB_SHA" ]; then
+              echo "::error::Tag ${release_tag} already exists at ${existing_commit}, not at ${GITHUB_SHA}"
+              exit 1
+            fi
+          fi
+
           echo "Creating release ${release_tag}..."
           release_url=$(gh release create "${release_tag}" \
               --repo="${GITHUB_REPOSITORY}" \
