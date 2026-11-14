@@ -26,17 +26,19 @@ jobs:
           dotnet-version: '8.0.x'
           max-retries: '3'
           namespace: 'ivuorinen'
+          project: 'src/App/App.csproj'
           token: '${{ github.token }}'
 ```
 
 ## 📥 Inputs
 
-| Parameter        | Description                                                                           | Required | Default     |
-| ---------------- | ------------------------------------------------------------------------------------- | -------- | ----------- |
-| `dotnet-version` | Version of .NET SDK to use.                                                           | ❌       | -           |
-| `max-retries`    | Maximum number of retry attempts for dependency restoration (1-10, must not be empty) | ❌       | `3`         |
-| `namespace`      | GitHub namespace for the package.                                                     | ✅       | `ivuorinen` |
-| `token`          | GitHub token with package write permissions                                           | ❌       | -           |
+| Parameter        | Description                                                                                     | Required | Default     |
+| ---------------- | ----------------------------------------------------------------------------------------------- | -------- | ----------- |
+| `dotnet-version` | Version of .NET SDK to use.                                                                     | ❌       | -           |
+| `max-retries`    | Maximum number of retry attempts for dependency restoration (1-10, must not be empty)           | ❌       | `3`         |
+| `namespace`      | GitHub namespace for the package.                                                               | ✅       | `ivuorinen` |
+| `project`        | Project or solution file, relative to the workspace. Empty uses the one in the repository root. | ❌       | -           |
+| `token`          | GitHub token with package write permissions                                                     | ❌       | -           |
 
 ## 📤 Outputs
 
@@ -75,6 +77,7 @@ permissions:
     dotnet-version: '8.0.x'
     max-retries: '3'
     namespace: 'ivuorinen'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 
@@ -90,6 +93,7 @@ permissions:
     dotnet-version: '8.0.x'
     max-retries: '3'
     namespace: 'ivuorinen'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 

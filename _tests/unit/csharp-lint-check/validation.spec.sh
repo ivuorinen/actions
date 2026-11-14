@@ -22,6 +22,29 @@ The status should be failure
 End
 End
 
+Context "when validating project input"
+It "accepts a project file below the repository root"
+When call validate_input_python "csharp-lint-check" "project" "src/App/App.csproj"
+The status should be success
+End
+It "accepts a project path with a space, which dotnet receives as one argument"
+When call validate_input_python "csharp-lint-check" "project" "src/My App/App.csproj"
+The status should be success
+End
+It "rejects a path that leaves the workspace"
+When call validate_input_python "csharp-lint-check" "project" "../App.sln"
+The status should be failure
+End
+It "rejects shell metacharacters"
+When call validate_input_python "csharp-lint-check" "project" "App.sln;id"
+The status should be failure
+End
+It "rejects a leading dash, which dotnet would read as an option"
+When call validate_input_python "csharp-lint-check" "project" "-p:Configuration=Debug"
+The status should be failure
+End
+End
+
 Context "when checking action.yml structure"
 It "has valid YAML syntax"
 When call validate_action_yml_quiet "$ACTION_FILE"

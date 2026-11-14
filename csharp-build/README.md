@@ -22,16 +22,18 @@ jobs:
         with:
           dotnet-version: '8.0.x'
           max-retries: '3'
+          project: 'src/App/App.csproj'
           token: '${{ github.token }}'
 ```
 
 ## 📥 Inputs
 
-| Parameter        | Description                                                                              | Required | Default |
-| ---------------- | ---------------------------------------------------------------------------------------- | -------- | ------- |
-| `dotnet-version` | Version of .NET SDK to use.                                                              | ❌       | -       |
-| `max-retries`    | Maximum number of retry attempts for dotnet restore operations (1-10, must not be empty) | ❌       | `3`     |
-| `token`          | GitHub token for authentication                                                          | ❌       | -       |
+| Parameter        | Description                                                                                     | Required | Default |
+| ---------------- | ----------------------------------------------------------------------------------------------- | -------- | ------- |
+| `dotnet-version` | Version of .NET SDK to use.                                                                     | ❌       | -       |
+| `max-retries`    | Maximum number of retry attempts for dotnet restore operations (1-10, must not be empty)        | ❌       | `3`     |
+| `project`        | Project or solution file, relative to the workspace. Empty uses the one in the repository root. | ❌       | -       |
+| `token`          | GitHub token for authentication                                                                 | ❌       | -       |
 
 ## 📤 Outputs
 
@@ -69,6 +71,7 @@ permissions:
   with:
     dotnet-version: '8.0.x'
     max-retries: '3'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 
@@ -83,6 +86,7 @@ permissions:
   with:
     dotnet-version: '8.0.x'
     max-retries: '3'
+    project: 'src/App/App.csproj'
     token: '${{ github.token }}'
 ```
 

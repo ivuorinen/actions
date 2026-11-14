@@ -18,6 +18,10 @@ inputs:
     description: 'Maximum number of retry attempts for dotnet restore operations (1-10, must not be empty)'
     required: false
     default: '3'
+  project:
+    description: 'Project or solution file, relative to the workspace. Empty uses the one in the repository root.'
+    required: false
+    default: ''
   token:
     description: 'GitHub token for authentication'
     required: false
@@ -49,6 +53,7 @@ runs:
       env:
         INPUT_DOTNET_VERSION: ${{ inputs.dotnet-version }}
         INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
+        INPUT_PROJECT: ${{ inputs.project }}
         INPUT_TOKEN: ${{ inputs.token }}
       run: |
         set -eu
@@ -167,18 +172,24 @@ runs:
 
     - name: Restore Dependencies
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      env:
+        PROJECT: ${{ inputs.project }}
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
-        command: dotnet restore --verbosity normal
+        # Windows defaults to PowerShell, which cannot read this expansion, and retry refuses sh there.
+        shell: bash
+        command: dotnet restore ${PROJECT:+"$PROJECT"} --verbosity normal
 
     - name: Build Solution
       id: build
       shell: sh
+      env:
+        PROJECT: ${{ inputs.project }}
       run: |
         set -eu
         echo "Building .NET solution..."
-        if dotnet build --configuration Release --no-restore --verbosity normal; then
+        if dotnet build ${PROJECT:+"$PROJECT"} --configuration Release --no-restore --verbosity normal; then
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
           echo "Build completed successfully"
         else
@@ -190,11 +201,13 @@ runs:
     - name: Run Tests
       id: test
       shell: sh
+      env:
+        PROJECT: ${{ inputs.project }}
       run: |
         set -eu
         echo "Running .NET tests..."
         if find . -name "*.csproj" | xargs grep -lE "(Microsoft\.NET\.Test\.Sdk|xunit|nunit)" | head -1 | grep -q .; then
-          if dotnet test --configuration Release --no-build \
+          if dotnet test ${PROJECT:+"$PROJECT"} --configuration Release --no-build \
             --collect:"XPlat Code Coverage" \
             --logger "trx;LogFileName=test-results.trx" \
             --verbosity normal; then
