@@ -240,6 +240,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
         REQUESTED_VERSION: ${{ inputs.eslint-version }}
         # renovate: datasource=npm depName=eslint
         DEFAULT_ESLINT_VERSION: '10.14.0'
@@ -248,32 +249,43 @@ runs:
       run: |
         set -eu
 
-        # The repository's own copy wins: its config and plugins are written for it. None of
-        # these fetches a package, so a missing copy fails here instead of pulling the newest.
-        case "$PACKAGE_MANAGER" in
-          "pnpm")
-            set -- pnpm exec eslint
-            ;;
-          "yarn")
-            set -- yarn eslint
-            ;;
-          "bun")
-            set -- bunx --no-install eslint
-            ;;
-          "npm"|*)
-            set -- npx --no-install eslint
-            ;;
-        esac
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
 
-        if ! "$@" --version >/dev/null 2>&1; then
-          npm install -g "eslint@${REQUESTED_VERSION:-$DEFAULT_ESLINT_VERSION}" \
-            "@microsoft/eslint-formatter-sarif@$ESLINT_FORMATTER_SARIF_VERSION"
+        # The repository's own copy wins: its config and plugins are written for it. Running the
+        # tool cannot tell, because npx and pnpm exec also find a global install, so ownership is
+        # read from node_modules, or from package.json for Yarn Plug'n'Play, which has none.
+        owns() {
+          [ -d "node_modules/$1" ] || {
+            [ -f package.json ] && jq -e --arg name "$1" \
+              '(.dependencies // {}) + (.devDependencies // {}) | has($name)' package.json >/dev/null
+          }
+        }
+
+        if owns eslint; then
+          # None of these fetches a package, so a copy that is not installed fails the run.
+          case "$PACKAGE_MANAGER" in
+            "pnpm") set -- pnpm exec eslint ;;
+            "yarn") set -- yarn eslint ;;
+            "bun") set -- bunx --no-install eslint ;;
+            "npm"|*) set -- npx --no-install eslint ;;
+          esac
+        else
+          npm install -g "eslint@${REQUESTED_VERSION:-$DEFAULT_ESLINT_VERSION}"
           set -- eslint
         fi
-
         printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
-        # ESLint resolves a formatter from the working directory, not from its own install.
-        printf 'node-path=%s\n' "$(npm root -g)" >> "$GITHUB_OUTPUT"
+
+        # ESLint loads a formatter named as a package from the working directory, which a global
+        # install is outside of and Plug'n'Play limits to declared dependencies. A path it loads
+        # as is, so a formatter the repository does not have is installed apart and passed by path.
+        formatter="@microsoft/eslint-formatter-sarif"
+        if [ "$REPORT_FORMAT" = "sarif" ] && ! owns "$formatter"; then
+          prefix="$RUNNER_TEMP/eslint-formatter-sarif"
+          npm install --prefix "$prefix" "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
+          dir="$prefix/node_modules/$formatter"
+          formatter="$dir/$(jq -r '.main // "index.js"' "$dir/package.json")"
+        fi
+        printf 'formatter=%s\n' "$formatter" >> "$GITHUB_OUTPUT"
 
     - name: Run ESLint Check
       if: inputs.mode == 'check'
@@ -282,7 +294,7 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         ESLINT_COMMAND: ${{ steps.ensure-eslint.outputs.command }}
-        NODE_PATH: ${{ steps.ensure-eslint.outputs.node-path }}
+        SARIF_FORMATTER: ${{ steps.ensure-eslint.outputs.formatter }}
         CONFIG_FILE: ${{ inputs.config-file }}
         CACHE: ${{ inputs.cache }}
         MAX_WARNINGS: ${{ inputs.max-warnings }}
@@ -313,7 +325,7 @@ runs:
 
         # Add format
         if [ "$REPORT_FORMAT" = "sarif" ]; then
-          set -- "$@" --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif
+          set -- "$@" --format "$SARIF_FORMATTER" --output-file eslint-results.sarif
         else
           set -- "$@" --format "$REPORT_FORMAT"
         fi
