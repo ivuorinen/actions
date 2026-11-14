@@ -18,11 +18,13 @@ after() {
 }
 AfterEach 'after'
 
-It "installs the pinned Biome with npm"
+It "installs the pinned Biome with npm and puts npm's global bin first for the next steps"
 mock_command npm "install -g @biomejs/biome@$(pinned_version biome-lint BIOME_VERSION)" ""
+mock_command npm "prefix -g" "/opt/npm"
 When call run_step "${ACTION_DIR}" "install-biome"
 The status should be success
 The stdout should include "Biome installed successfully"
+The contents of file "$GITHUB_PATH" should equal "/opt/npm/bin"
 End
 
 # npm is not mocked, so any install fails the step.
@@ -33,13 +35,16 @@ The status should be success
 The stdout should include "Biome $(pinned_version biome-lint BIOME_VERSION) already installed"
 End
 
+# The older binary stays where it is, so npm's global bin has to come first on PATH.
 It "installs the pinned Biome over another version on PATH"
 mock_command biome "--version" "Version: 1.9.4"
 mock_command npm "install -g @biomejs/biome@$(pinned_version biome-lint BIOME_VERSION)" ""
+mock_command npm "prefix -g" "/opt/npm"
 When call run_step "${ACTION_DIR}" "install-biome"
 The status should be success
 The stdout should include "Biome 1.9.4 is on PATH"
 The stdout should include "Biome installed successfully"
+The contents of file "$GITHUB_PATH" should equal "/opt/npm/bin"
 End
 
 It "fails with an error when npm cannot install it"

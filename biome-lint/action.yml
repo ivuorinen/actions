@@ -115,6 +115,9 @@ runs:
           # npm whatever the repository uses: this is a global tool, the repository's own
           # package manager is not involved, and pnpm and Yarn cannot do this on a runner.
           if npm install -g "@biomejs/biome@$BIOME_VERSION"; then
+            # Another Biome can sit earlier on PATH than npm's global bin directory, and check and
+            # fix run bare `biome`, so that directory goes first for the steps after this one.
+            printf '%s\n' "$(npm prefix -g)/bin" >> "$GITHUB_PATH"
             echo "✅ Biome installed successfully"
             exit 0
           fi
