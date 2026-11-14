@@ -197,68 +197,12 @@ runs:
         printf 'detected-version=%s\n' "$detected_version" >> "$GITHUB_OUTPUT"
         echo "Final detected Python version: $detected_version" >&2
 
-    - name: Detect Package Manager
-      id: package-manager
-      shell: sh
-      run: |
-        set -eu
-
-        # Detect Python package manager based on lock files and config
-        package_manager="pip"
-
-        if [ -f "uv.lock" ]; then
-          # uv uses pip-compatible caching, so we use 'pip' as cache type
-          package_manager="pip"
-          echo "Detected uv (using pip-compatible caching)" >&2
-        elif [ -f "poetry.lock" ]; then
-          package_manager="poetry"
-          echo "Detected Poetry" >&2
-        elif [ -f "Pipfile.lock" ] || [ -f "Pipfile" ]; then
-          package_manager="pipenv"
-          echo "Detected Pipenv" >&2
-        elif [ -f "requirements.txt" ] || [ -f "requirements-dev.txt" ] || [ -f "setup.py" ] || [ -f "pyproject.toml" ]; then
-          package_manager="pip"
-          echo "Detected pip" >&2
-        else
-          package_manager="pip"
-          echo "No package manager detected, defaulting to pip" >&2
-        fi
-
-        printf 'package-manager=%s\n' "$package_manager" >> "$GITHUB_OUTPUT"
-        echo "Using package manager: $package_manager" >&2
-
-    - name: Setup Python (pip)
-      if: steps.package-manager.outputs.package-manager == 'pip'
+    # No setup-python dependency cache: it fails the step when the checked-out repo has no
+    # file matching its dependency glob, and this action installs only its own lint tools.
+    - name: Setup Python
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: ${{ steps.python-version.outputs.detected-version }}
-        cache: 'pip'
-        cache-dependency-path: |
-          **/requirements.txt
-          **/requirements-dev.txt
-          **/pyproject.toml
-          **/setup.py
-          **/uv.lock
-
-    - name: Setup Python (pipenv)
-      if: steps.package-manager.outputs.package-manager == 'pipenv'
-      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-      with:
-        python-version: ${{ steps.python-version.outputs.detected-version }}
-        cache: 'pipenv'
-        cache-dependency-path: |
-          **/Pipfile
-          **/Pipfile.lock
-
-    - name: Setup Python (poetry)
-      if: steps.package-manager.outputs.package-manager == 'poetry'
-      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
-      with:
-        python-version: ${{ steps.python-version.outputs.detected-version }}
-        cache: 'poetry'
-        cache-dependency-path: |
-          **/poetry.lock
-          **/pyproject.toml
 
     - name: Check for Python Files
       id: check-files
