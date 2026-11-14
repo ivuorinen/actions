@@ -156,6 +156,31 @@ When call run_step "${ACTION_DIR}" "create-release"
 The status should be success
 The stdout should include "Release created successfully"
 End
+
+# An annotated tag's ref names a tag object, not the commit, so these two only pass
+# when the step dereferences the tag to its commit.
+It "refuses an annotated tag that already exists at another commit"
+setup_release
+git -c tag.gpgSign=false tag -a -m test 2026.4.0
+tagged="$(git rev-parse HEAD)"
+git -c user.email=test@example.com -c user.name=test -c commit.gpgsign=false commit -q --allow-empty -m two
+export GITHUB_SHA="$(git rev-parse HEAD)"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be failure
+The stdout should include "::error::Tag 2026.4.0 already exists at ${tagged}, not at ${GITHUB_SHA}"
+End
+
+It "creates the release on an annotated tag that already points at GITHUB_SHA"
+setup_release
+git -c tag.gpgSign=false tag -a -m test 2026.4.0
+export GITHUB_SHA="$(git rev-parse HEAD)"
+mock_command gh "release create 2026.4.0*--target=${GITHUB_SHA}*" "https://example.test/release/2026.4.0"
+
+When call run_step "${ACTION_DIR}" "create-release"
+The status should be success
+The stdout should include "Release created successfully"
+End
 End
 
 Describe "month normalization"
