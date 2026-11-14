@@ -10,12 +10,20 @@ runs:
       env:
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
         DELETED: ${{ github.event.deleted }}
+        DELETED_OR_FALLBACK: ${{ github.event.deleted || 'fallback' }}
       run: |
         printf 'default-branch=%s\n' "$DEFAULT_BRANCH" >> "$GITHUB_OUTPUT"
         printf 'deleted=%s\n' "$DELETED" >> "$GITHUB_OUTPUT"
+        printf 'deleted-or-fallback=%s\n' "$DELETED_OR_FALLBACK" >> "$GITHUB_OUTPUT"
 
     - id: gated
       if: github.event.deleted
       shell: sh
       run: |
         echo "ran-gated"
+
+    - id: on-action
+      if: github.event.action
+      shell: sh
+      run: |
+        echo "ran-on-action"
