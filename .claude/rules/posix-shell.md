@@ -25,7 +25,7 @@ Always check tool availability with `command -v <tool> >/dev/null 2>&1` before u
 any tool not in POSIX base.
 The full external-tool list this repo uses is:
 `jq`, `bc`, `yq`, `terraform`, `tflint`, `actionlint`, `action-validator`,
-`shellcheck`, `shfmt`, `shellspec`, `gh`, `docker`, `kubectl`,
+`shellcheck`, `shfmt`, `shellspec`, `git`, `gh`, `docker`, `kubectl`,
 `node`, `npm`, `npx`, `pnpm`, `yarn`, `bun`, `bunx`,
 `python`, `python3`, `uv`, `ruff`, `pyright`, `mypy`, `pytest`,
 `prettier`, `markdownlint-cli2`, `yaml-lint`,
