@@ -95,10 +95,15 @@ runs:
       run: |
         set -eu
 
-        # Check if biome is already installed
+        # An earlier step's Biome is reused only at the pinned version: check and fix run it,
+        # and another version can read the same config differently.
         if command -v biome >/dev/null 2>&1; then
-          echo "✅ Biome already installed: $(biome --version)"
-          exit 0
+          installed=$(biome --version | sed -nE 's/^Version: *//p')
+          if [ "$installed" = "$BIOME_VERSION" ]; then
+            echo "✅ Biome $installed already installed"
+            exit 0
+          fi
+          echo "Biome ${installed:-of an unknown version} is on PATH, not the pinned $BIOME_VERSION"
         fi
 
         echo "Installing Biome $BIOME_VERSION..."

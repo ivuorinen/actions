@@ -25,11 +25,21 @@ The status should be success
 The stdout should include "Biome installed successfully"
 End
 
-It "leaves a Biome already on PATH alone"
-mock_command biome "--version" "Version: 1.9.4"
+# npm is not mocked, so any install fails the step.
+It "reuses a Biome on PATH at the pinned version"
+mock_command biome "--version" "Version: $(pinned_version biome-lint BIOME_VERSION)"
 When call run_step "${ACTION_DIR}" "install-biome"
 The status should be success
-The stdout should include "already installed: Version: 1.9.4"
+The stdout should include "Biome $(pinned_version biome-lint BIOME_VERSION) already installed"
+End
+
+It "installs the pinned Biome over another version on PATH"
+mock_command biome "--version" "Version: 1.9.4"
+mock_command npm "install -g @biomejs/biome@$(pinned_version biome-lint BIOME_VERSION)" ""
+When call run_step "${ACTION_DIR}" "install-biome"
+The status should be success
+The stdout should include "Biome 1.9.4 is on PATH"
+The stdout should include "Biome installed successfully"
 End
 
 It "fails with an error when npm cannot install it"
