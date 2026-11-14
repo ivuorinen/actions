@@ -181,6 +181,17 @@ def check_golangci_lint_version(value: str) -> str | None:
     return 'must be golangci-lint v2 or newer (e.g. 2.1.0, v2.1.0, or "latest")'
 
 
+def check_golangci_report_format(value: str) -> str | None:
+    """A go-lint report format: golangci-lint v2's sarif, json or text, or a v1 name for text.
+
+    go-lint counts the issues in these three; v2 has no github-actions, line-number or
+    colored-line-number format, so go-lint writes text for them.
+    """
+    return _enum(
+        value, "colored-line-number", "github-actions", "json", "line-number", "sarif", "text"
+    )
+
+
 def check_linter_list(value: str) -> str | None:
     """Comma-separated linter names (e.g. ``gosec,govet``)."""
     if _skip(value):
@@ -200,27 +211,6 @@ def check_numeric_range_1_10(value: str) -> str | None:
     if value.strip() == "":
         return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
-
-
-def check_report_format(value: str) -> str | None:
-    """Lint/report output format."""
-    return _enum(
-        value,
-        "checkstyle",
-        "colored-line-number",
-        "compact",
-        "github-actions",
-        "html",
-        "json",
-        "junit",
-        "junit-xml",
-        "line-number",
-        "sarif",
-        "stylish",
-        "tab",
-        "teamcity",
-        "xml",
-    )
 
 
 def check_timeout_with_unit(value: str) -> str | None:
@@ -245,7 +235,7 @@ CHECKS = {
     "golangci-lint-version": check_golangci_lint_version,
     "max-retries": check_numeric_range_1_10,
     "only-new-issues": check_boolean,
-    "report-format": check_report_format,
+    "report-format": check_golangci_report_format,
     "timeout": check_timeout_with_unit,
     "token": check_github_token,
     "working-directory": check_file_path,

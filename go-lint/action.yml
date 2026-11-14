@@ -41,7 +41,7 @@ inputs:
     required: false
     default: 'true'
   report-format:
-    description: 'Output format (json, sarif, github-actions)'
+    description: 'Output format: sarif, json or text. github-actions, line-number and colored-line-number, the golangci-lint v1 names, also give text.'
     required: false
     default: 'sarif'
   max-retries:
@@ -288,11 +288,17 @@ runs:
           set -- "$@" "--disable=$DISABLE_LINTERS"
         fi
 
-        # v2 has no github-actions format; its plain text output replaces it
+        # v2 has no github-actions, line-number or colored-line-number format; text replaces them
         case "$REPORT_FORMAT" in
-          github-actions) output_format="text" ;;
+          github-actions | line-number | colored-line-number) output_format="text" ;;
           *) output_format="$REPORT_FORMAT" ;;
         esac
+
+        # The issue count reads the linter name that ends each text issue line, so that is not
+        # left to the repository's config, which can turn it off.
+        if [ "$output_format" = "text" ]; then
+          set -- "$@" --output.text.print-linter-name=true
+        fi
 
         # golangci-lint writes the report itself: its stdout also carries run statistics, and
         # any stdout output the repository's own config asks for, which a redirect would mix in

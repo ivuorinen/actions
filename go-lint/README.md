@@ -39,22 +39,22 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter               | Description                                                                                                                        | Required | Default         |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------- |
-| `cache`                 | Enable golangci-lint caching (lowercase true or false)                                                                             | ❌       | `true`          |
-| `config-file`           | Path to golangci-lint config file, relative to working-directory. A built-in default is used when this path is not a regular file. | ❌       | `.golangci.yml` |
-| `disable-all`           | Disable all linters, useful with --enable-* (lowercase true or false)                                                              | ❌       | `false`         |
-| `disable-linters`       | Comma-separated list of linters to disable                                                                                         | ❌       | -               |
-| `enable-linters`        | Comma-separated list of linters to enable                                                                                          | ❌       | -               |
-| `fail-on-error`         | Fail workflow if issues are found (lowercase true or false)                                                                        | ❌       | `true`          |
-| `go-version`            | Go version to use (empty: the version pinned in this action, "stable": the newest release)                                         | ❌       | -               |
-| `golangci-lint-version` | Version of golangci-lint to use, v2 or newer (empty: the version pinned in this action, "latest": the newest release)              | ❌       | -               |
-| `max-retries`           | Maximum number of retry attempts (1-10, must not be empty)                                                                         | ❌       | `3`             |
-| `only-new-issues`       | Report only new issues since main branch (lowercase true or false)                                                                 | ❌       | `true`          |
-| `report-format`         | Output format (json, sarif, github-actions)                                                                                        | ❌       | `sarif`         |
-| `timeout`               | Timeout for analysis (e.g., 5m, 1h)                                                                                                | ❌       | `5m`            |
-| `token`                 | GitHub token for authentication                                                                                                    | ❌       | -               |
-| `working-directory`     | Directory containing Go files                                                                                                      | ❌       | `.`             |
+| Parameter               | Description                                                                                                                          | Required | Default         |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------- |
+| `cache`                 | Enable golangci-lint caching (lowercase true or false)                                                                               | ❌       | `true`          |
+| `config-file`           | Path to golangci-lint config file, relative to working-directory. A built-in default is used when this path is not a regular file.   | ❌       | `.golangci.yml` |
+| `disable-all`           | Disable all linters, useful with --enable-* (lowercase true or false)                                                                | ❌       | `false`         |
+| `disable-linters`       | Comma-separated list of linters to disable                                                                                           | ❌       | -               |
+| `enable-linters`        | Comma-separated list of linters to enable                                                                                            | ❌       | -               |
+| `fail-on-error`         | Fail workflow if issues are found (lowercase true or false)                                                                          | ❌       | `true`          |
+| `go-version`            | Go version to use (empty: the version pinned in this action, "stable": the newest release)                                           | ❌       | -               |
+| `golangci-lint-version` | Version of golangci-lint to use, v2 or newer (empty: the version pinned in this action, "latest": the newest release)                | ❌       | -               |
+| `max-retries`           | Maximum number of retry attempts (1-10, must not be empty)                                                                           | ❌       | `3`             |
+| `only-new-issues`       | Report only new issues since main branch (lowercase true or false)                                                                   | ❌       | `true`          |
+| `report-format`         | Output format: sarif, json or text. github-actions, line-number and colored-line-number, the golangci-lint v1 names, also give text. | ❌       | `sarif`         |
+| `timeout`               | Timeout for analysis (e.g., 5m, 1h)                                                                                                  | ❌       | `5m`            |
+| `token`                 | GitHub token for authentication                                                                                                      | ❌       | -               |
+| `working-directory`     | Directory containing Go files                                                                                                        | ❌       | `.`             |
 
 ## 📤 Outputs
 

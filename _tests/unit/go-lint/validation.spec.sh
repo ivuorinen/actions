@@ -176,6 +176,22 @@ When call validate_input_python "go-lint" "report-format" "github-actions"
 The status should be success
 End
 
+It "accepts the v1 line-number format, which gives text"
+When call validate_input_python "go-lint" "report-format" "line-number"
+The status should be success
+End
+
+# ESLint's stylish, and v2's checkstyle, which go-lint cannot count issues in.
+It "rejects a format golangci-lint has no counted output for"
+When call validate_input_python "go-lint" "report-format" "stylish"
+The status should be failure
+End
+
+It "rejects checkstyle"
+When call validate_input_python "go-lint" "report-format" "checkstyle"
+The status should be failure
+End
+
 It "rejects invalid report format"
 When call validate_input_python "go-lint" "report-format" "invalid-format"
 The status should be failure

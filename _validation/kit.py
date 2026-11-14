@@ -911,6 +911,17 @@ def check_report_format(value: str) -> str | None:
     )
 
 
+def check_golangci_report_format(value: str) -> str | None:
+    """A go-lint report format: golangci-lint v2's sarif, json or text, or a v1 name for text.
+
+    go-lint counts the issues in these three; v2 has no github-actions, line-number or
+    colored-line-number format, so go-lint writes text for them.
+    """
+    return _enum(
+        value, "colored-line-number", "github-actions", "json", "line-number", "sarif", "text"
+    )
+
+
 def check_coverage_driver(value: str) -> str | None:
     """PHP coverage driver."""
     return _enum(value, "none", "xdebug", "pcov", "xdebug3")
@@ -1235,6 +1246,7 @@ EXAMPLES = {
     "github_token": _actions_expression("github.token"),
     "go_version": "1.24",
     "golangci_lint_version": "2.1.0",
+    "golangci_report_format": "sarif",
     "json_format": '{"linux/amd64": "--build-arg ARCH=amd64"}',
     "key_value_list": "NODE_ENV=production",
     "language_enum": "python",

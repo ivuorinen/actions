@@ -115,16 +115,25 @@ The status should be success
 The stdout should include "Running golangci-lint"
 End
 
+# The text count needs each issue line's linter name, so a text run asks for it whatever the
+# repository's config says.
+format_flags() {
+  [ "$1" != "text" ] || printf ' --output.text.print-linter-name=true'
+}
+
 Describe "report formats"
 Parameters
 "json" "json"
 "sarif" "sarif"
+"text" "text"
 "github-actions" "text"
+"line-number" "text"
+"colored-line-number" "text"
 End
 
 It "writes $1 through --output.$2.path"
 export INPUT_REPORT_FORMAT="$1"
-mock_command golangci-lint "${BASE} --output.$2.path=${REPORTS}/golangci-lint.$1 ./..." "{}"
+mock_command golangci-lint "${BASE}$(format_flags "$2") --output.$2.path=${REPORTS}/golangci-lint.$1 ./..." "{}"
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -147,7 +156,7 @@ report_fixture() {
   json)
     printf '%s\n' '{"Issues":[{"FromLinter":"unused"},{"FromLinter":"ineffassign"},{"FromLinter":"govet"}]}'
     ;;
-  github-actions)
+  text | github-actions | line-number)
     printf '%s\n' 'main.go:5:6: func unusedHelper is unused (unused)' 'func unusedHelper() int {' '     ^' \
       'main.go:1: : # example.com/x' './main.go:10:2: declared and not used: x (typecheck)' 'package main'
     ;;
@@ -163,7 +172,9 @@ BeforeEach 'before_findings'
 Parameters
 "sarif" "sarif" "2"
 "json" "json" "3"
+"text" "text" "2"
 "github-actions" "text" "2"
+"line-number" "text" "2"
 End
 
 # golangci-lint writes the report itself and a mock can't, so the report is in place first. The
@@ -171,7 +182,7 @@ End
 It "counts the $1 report and keeps statistics out of it"
 export INPUT_REPORT_FORMAT="$1"
 report_fixture "$1" >"${REPORTS}/golangci-lint.$1"
-mock_command golangci-lint "${BASE} --output.$2.path=${REPORTS}/golangci-lint.$1 ./..." "3 issues:" 1
+mock_command golangci-lint "${BASE}$(format_flags "$2") --output.$2.path=${REPORTS}/golangci-lint.$1 ./..." "3 issues:" 1
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The stdout should include "3 issues:"

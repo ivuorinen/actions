@@ -803,6 +803,11 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "mode_enum": {"valid": ["check", "fix"], "invalid": ["lint"]},
     "report_format": {"valid": ["json", "sarif", "github-actions"], "invalid": ["yaml"]},
+    "golangci_report_format": {
+        "valid": ["sarif", "json", "text", "github-actions", "line-number", "colored-line-number"],
+        # Formats of other linters, and v2 formats go-lint cannot count issues in.
+        "invalid": ["stylish", "compact", "junit", "checkstyle", "tab", "yaml"],
+    },
     "coverage_driver": {"valid": ["none", "xdebug", "pcov", "xdebug3"], "invalid": ["phpdbg"]},
     "framework_mode": {"valid": ["auto", "laravel", "generic"], "invalid": ["symfony"]},
     "language_enum": {"valid": ["php", "python", "go", "dotnet"], "invalid": ["ruby"]},

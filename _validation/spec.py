@@ -217,7 +217,7 @@ SPECS: dict[str, ActionSpec] = {
             "golangci-lint-version": "golangci_lint_version",
             "max-retries": "numeric_range_1_10",
             "only-new-issues": "boolean",
-            "report-format": "report_format",
+            "report-format": "golangci_report_format",
             "timeout": "timeout_with_unit",
             "token": "github_token",
             "working-directory": "file_path",
