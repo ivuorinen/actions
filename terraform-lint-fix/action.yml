@@ -134,6 +134,7 @@ runs:
         terraform_wrapper: false
 
     - name: Validate Terraform Syntax
+      id: syntax
       if: steps.check-files.outputs.found == 'true'
       shell: sh
       run: |
@@ -142,7 +143,10 @@ runs:
         find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
           file="$1"
           if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
-            echo "::warning::Invalid Terraform syntax in $file"
+            # A repository filename is untrusted: control characters (a newline in
+            # particular) could start a new workflow command in the log, so drop them.
+            safe_name=$(printf "%s" "$file" | tr -d "\000-\037\177")
+            printf "::warning::Invalid Terraform syntax in %s\n" "$safe_name"
           fi
         ' _ {} \;
 
@@ -151,6 +155,17 @@ runs:
       uses: terraform-linters/setup-tflint@6ffdbaa3be476b3431f7275c26966ef32ff60337 # v6.3.2
       with:
         tflint_version: ${{ inputs.tflint-version }}
+
+    # TFLint installs plugins into TFLINT_PLUGIN_DIR (by default under the runner user's
+    # home), which self-hosted runners share between jobs. Exporting it for the later steps keeps the
+    # action's plugins in a directory of its own that Cleanup can delete safely.
+    - name: Isolate TFLint Plugins
+      id: plugin-dir
+      if: steps.check-files.outputs.found == 'true'
+      shell: sh
+      run: |
+        set -eu
+        printf 'TFLINT_PLUGIN_DIR=%s\n' "$RUNNER_TEMP/tflint-plugins" >> "$GITHUB_ENV"
 
     - name: Initialize TFLint
       if: steps.check-files.outputs.found == 'true'
@@ -264,6 +279,7 @@ runs:
         category: terraform-lint
 
     - name: Cleanup
+      id: cleanup
       if: always()
       shell: sh
       run: |-
@@ -273,5 +289,5 @@ runs:
         rm -rf .terraform/
         rm -rf reports/
 
-        # Clean up TFLint cache
-        rm -rf ~/.tflint.d/
+        # The path Isolate TFLint Plugins exports, never TFLINT_PLUGIN_DIR: a caller may have set that
+        rm -rf "$RUNNER_TEMP/tflint-plugins"
