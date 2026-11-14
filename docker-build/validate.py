@@ -356,18 +356,25 @@ def check_docker_image_name(value: str) -> str | None:
 
 
 def check_docker_image_version(value: str) -> str | None:
-    """Image tag in SemVer form or ``latest``, optionally pinned ``@sha256:<64 hex>``."""
+    """Image tag in SemVer form or ``latest``, optionally pinned ``@sha256:<64 hex>``.
+
+    The tag goes into an ``image:tag`` reference, so it also follows the Docker tag rule, which
+    has no room for SemVer ``+build`` metadata.
+    """
     if _skip(value):
         return None
     # Repeats check_semantic_version's core: generated validators inline each check alone,
     # so one check cannot call another.
-    tag, at, digest = value.strip().partition("@")
+    tag, at, digest = value.partition("@")
     if at and not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         return "digest must be sha256: followed by 64 lowercase hex characters"
     core = tag[1:] if tag[:1] in ("v", "V") else tag
-    if tag.lower() == "latest" or _is_semver(core):
+    if _is_docker_tag(tag) and (tag.lower() == "latest" or _is_semver(core)):
         return None
-    return "must be a semantic version with an optional @sha256 digest (e.g. v1.2.3@sha256:abc...)"
+    return (
+        "must be a semantic version without +build metadata, with an optional @sha256 digest"
+        " (e.g. v1.2.3@sha256:abc...)"
+    )
 
 
 def check_docker_local_path(value: str) -> str | None:

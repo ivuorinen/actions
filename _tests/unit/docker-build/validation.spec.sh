@@ -387,6 +387,22 @@ When call validate_input_python "docker-build" "buildkit-version" "v0.34.2@sha25
 The status should be failure
 End
 
+It "accepts a pre-release BuildKit version"
+When call validate_input_python "docker-build" "buildkit-version" "v0.35.0-rc.1"
+The status should be success
+End
+
+It "rejects a BuildKit version with build metadata, which a Docker tag cannot hold"
+When call validate_input_python "docker-build" "buildkit-version" "v0.34.2+build"
+The status should be failure
+End
+
+It "rejects a BuildKit version followed by a second driver option"
+When call validate_input_python "docker-build" "buildkit-version" "v0.34.2
+image=other"
+The status should be failure
+End
+
 It "rejects a malicious BuildKit version"
 When call validate_input_python "docker-build" "buildkit-version" "v0.34.2;malicious"
 The status should be failure
