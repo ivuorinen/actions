@@ -156,4 +156,60 @@ The status should be success
 Assert expect_output seen ""
 End
 End
+
+Describe "event-payload fixture"
+It "resolves github.event fields from the file at GITHUB_EVENT_PATH"
+printf '%s' '{"repository":{"default_branch":"trunk"}}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_step "${FIXTURES}/event-payload" "emit"
+The status should be success
+Assert expect_output default-branch trunk
+End
+
+It "resolves github.event fields to empty without a payload file"
+export GITHUB_EVENT_PATH="${PWD}/absent.json"
+When call run_step "${FIXTURES}/event-payload" "emit"
+The status should be success
+Assert expect_output default-branch ""
+End
+
+It "renders a true github.event field as GitHub does and runs a step gated on it"
+printf '%s' '{"deleted":true}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_all_owned_steps "${FIXTURES}/event-payload"
+The status should be success
+The output should include "ran-gated"
+Assert expect_output deleted true
+Assert expect_output deleted-or-fallback true
+End
+
+It "renders a false github.event field as GitHub does and skips a step gated on it"
+printf '%s' '{"deleted":false}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_all_owned_steps "${FIXTURES}/event-payload"
+The status should be success
+The output should not include "ran-gated"
+The output should not include "ran-on-action"
+Assert expect_output deleted false
+End
+
+# GitHub's || returns its first truthy operand, and boolean false is falsy.
+It "takes the || fallback past a false github.event field"
+printf '%s' '{"deleted":false}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_step "${FIXTURES}/event-payload" "emit"
+The status should be success
+Assert expect_output deleted-or-fallback fallback
+End
+
+# Any nonempty string is truthy, not only "true".
+It "runs a step gated on a nonempty string github.event field"
+printf '%s' '{"action":"opened"}' >event.json
+export GITHUB_EVENT_PATH="${PWD}/event.json"
+When call run_all_owned_steps "${FIXTURES}/event-payload"
+The status should be success
+The output should include "ran-on-action"
+The output should not include "ran-gated"
+End
+End
 End

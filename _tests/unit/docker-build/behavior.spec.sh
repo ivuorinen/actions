@@ -8,7 +8,7 @@
 
 Describe "docker-build build step (behavior)"
 ACTION_DIR="${PROJECT_ROOT}/docker-build"
-REGISTRY_CACHE="type=registry,ref=ghcr.io/acme/app/cache:latest"
+CACHE_IMAGE="type=registry,ref=ghcr.io/acme/app/cache"
 
 before() {
   shellspec_setup_test_env "docker-build-behavior-$$"
@@ -22,6 +22,10 @@ before() {
   export INPUT_CONTEXT="."
   export INPUT_CACHE_MODE="max"
   export GITHUB_REPOSITORY="Acme/App"
+  # A CI runner sets both; the registry cache tag depends on them.
+  export GITHUB_REF="refs/heads/main"
+  printf '%s' '{"repository":{"default_branch":"main"}}' >event.json
+  export GITHUB_EVENT_PATH="${PWD}/event.json"
   unset GITHUB_TOKEN
   mock_command docker "buildx build *" ""
   mock_command docker "inspect *" "sha256:fixture"
@@ -268,32 +272,12 @@ Assert expect_argv docker --cache-from "type=gha"
 Assert expect_argv docker --cache-to "type=gha,mode=max"
 End
 
-It "always adds the local cache as a fallback"
+It "adds no local cache, because no later run restores it"
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-from "type=local,src=/tmp/.buildx-cache"
-Assert expect_argv docker --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=max"
-End
-
-It "adds no second local export when cache-export is already local"
-export INPUT_CACHE_EXPORT="type=local,dest=cache"
-
-When call run_step "${ACTION_DIR}" "build"
-The status should be success
-The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-to "type=local,dest=cache"
-Assert argv_lacks --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=max"
-End
-
-It "still adds the local export when only another field mentions type=local"
-export INPUT_CACHE_EXPORT="type=gha,scope=type=local"
-
-When call run_step "${ACTION_DIR}" "build"
-The status should be success
-The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-to "type=gha,scope=type=local"
-Assert expect_argv docker --cache-to "type=local,dest=/tmp/.buildx-cache-new,mode=max"
+Assert argv_lacks --cache-from
+Assert argv_lacks --cache-to
 End
 
 It "keeps a local cache path with spaces in one argv entry"
@@ -304,43 +288,110 @@ The status should be success
 The output should include "Build attempt 1 of 1"
 Assert expect_argv docker --cache-to "type=local,dest=/tmp/my cache"
 End
+End
 
-It "uses the registry cache when a token is set"
-export INPUT_TOKEN="ghp_fixture_0000000000000000000000000000"
+Describe "registry cache scope"
+# The registry cache needs the login step, which runs only on a push.
+push_build() {
+  export INPUT_PUSH="true"
+  write_docker_build_metadata
+}
+Before 'push_build'
+
+It "reads and writes the reserved tag on the default branch"
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-from "${CACHE_IMAGE}:default-branch" --cache-to "${CACHE_IMAGE}:default-branch,mode=max"
+End
+
+It "lets a branch read the default branch's tag but write only its own"
+export GITHUB_REF="refs/heads/feature/x"
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-from "${REGISTRY_CACHE}"
-Assert expect_argv docker --cache-to "${REGISTRY_CACHE},mode=max"
+Assert expect_argv docker --cache-from "${CACHE_IMAGE}:default-branch" \
+  --cache-from "${CACHE_IMAGE}:refs-heads-feature-x" --cache-to "${CACHE_IMAGE}:refs-heads-feature-x,mode=max"
 End
 
-It "uses the registry cache when GITHUB_TOKEN is set"
+It "keeps a pull request build on its own tag"
+export GITHUB_REF="refs/pull/7/merge"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-pull-7-merge,mode=max"
+End
+
+It "does not let a branch named after the reserved tag write it"
+export GITHUB_REF="refs/heads/default-branch"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-default-branch,mode=max"
+End
+
+It "never writes the reserved tag when the event does not name the default branch"
+printf '%s' '{}' >event.json
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-main,mode=max"
+End
+
+It "reduces a ref to tag characters, so it cannot add cache attributes"
+export GITHUB_REF="refs/heads/fix,mode=min/#1"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-fix-mode-min--1,mode=max"
+End
+
+It "keeps a long ref within the registry's 128-character tag limit"
+long_name=$(printf 'a%.0s' $(seq 1 200))
+export GITHUB_REF="refs/heads/${long_name}"
+tag="refs-heads-$(printf 'a%.0s' $(seq 1 117))"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:${tag},mode=max"
+End
+
+It "skips the registry cache when no ref is available"
+unset GITHUB_REF
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert argv_lacks --cache-from
+Assert argv_lacks --cache-to
+End
+
+It "skips the registry cache without a push, even with a token, because the login step has not run"
+export INPUT_PUSH="false"
+export INPUT_TOKEN="ghp_fixture_0000000000000000000000000000"
 export GITHUB_TOKEN="ghp_fixture_0000000000000000000000000000"
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-from "${REGISTRY_CACHE}"
-End
-
-It "skips the registry cache without a push or a token"
-When call run_step "${ACTION_DIR}" "build"
-The status should be success
-The output should include "Build attempt 1 of 1"
-Assert argv_lacks --cache-from "${REGISTRY_CACHE}"
-Assert argv_lacks --cache-to "${REGISTRY_CACHE},mode=max"
+Assert argv_lacks --cache-from
+Assert argv_lacks --cache-to
 End
 
 It "lets cache-export replace the registry cache export"
-export INPUT_TOKEN="ghp_fixture_0000000000000000000000000000"
 export INPUT_CACHE_EXPORT="type=gha,mode=max"
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-to "type=gha,mode=max"
-Assert argv_lacks --cache-to "${REGISTRY_CACHE},mode=max"
+Assert expect_argv docker --cache-from "${CACHE_IMAGE}:default-branch" --cache-to "type=gha,mode=max"
+Assert argv_lacks --cache-to "${CACHE_IMAGE}:default-branch,mode=max"
 End
 End
 
@@ -354,13 +405,14 @@ Parameters
 End
 
 It "normalizes $1 to $2"
-export INPUT_TOKEN="ghp_fixture_0000000000000000000000000000"
+export INPUT_PUSH="true"
+write_docker_build_metadata
 export GITHUB_REPOSITORY="$1"
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/$2/cache:latest"
+Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/$2/cache:default-branch"
 End
 End
 

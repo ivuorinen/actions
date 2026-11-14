@@ -55,6 +55,9 @@ Sourced automatically by `_tests/unit/spec_helper.sh`.
 `${{ inputs.X }}`, `${{ steps.X.outputs.Y }}`, `${{ github.X }}`,
 `${{ env.X }}`, string literals, `||` (default fallback), `==`, `!=`.
 
+`${{ github.event.X }}` reads the JSON file at `$GITHUB_EVENT_PATH`, and resolves
+to empty when no such file exists.
+
 Anything else raises `UnsupportedExpressionError` and fails the test loudly.
 
 The harness resolves expressions in `env:` values and `if:` conditions only. A `run:` script

@@ -37,6 +37,14 @@ CHECKOUT_SHA = "11d5960a326750d5838078e36cf38b85af677262"
 # metadata default.
 PLACEHOLDERS = ("value", "example-value", "custom-value")
 
+# Whoever copies an example installs the version it names, so a version example has to
+# be a published release. The generic example for the input's validation type names
+# none, and an empty input would use the action's pin, so these entries name a real one.
+INPUT_EXAMPLES = {
+    ("docker-build", "buildx-version"): "v0.38.2",
+    ("docker-build", "buildkit-version"): "v0.34.2",
+}
+
 
 def actions_expression(reference: str) -> str:
     """Wrap a context reference in GitHub Actions expression syntax.
@@ -159,9 +167,10 @@ def yaml_quote(value: str) -> str:
 def fix_values(text: str, action: str) -> str:
     """Replace the themes' generic placeholders with a value the action accepts.
 
-    Credentials resolve to the runtime token or a secret. Everything else uses
-    the canonical example for that input's validation type, so the published
-    example is a value the action's own validator passes.
+    Credentials resolve to the runtime token or a secret. An input listed in
+    INPUT_EXAMPLES uses that value. Everything else uses the canonical example
+    for that input's validation type, so the published example is a value the
+    action's own validator passes.
     """
     checks = SPECS.get(action, {}).get("checks", {})
     alternatives = "|".join(re.escape(p) for p in PLACEHOLDERS)
@@ -174,7 +183,7 @@ def fix_values(text: str, action: str) -> str:
         indent, name = match.group(1), match.group(2)
         if name in CREDENTIALS:
             return f"{indent}{name}: {yaml_quote(CREDENTIALS[name])}"
-        example = kit.EXAMPLES.get(checks.get(name, ""))
+        example = INPUT_EXAMPLES.get((action, name), kit.EXAMPLES.get(checks.get(name, "")))
         if example is None:
             return match.group(0)
         return f"{indent}{name}: {yaml_quote(example)}"

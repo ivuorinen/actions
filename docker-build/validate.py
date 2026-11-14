@@ -42,6 +42,11 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
+def _strip_v(version: str) -> str:
+    """Return version without one leading ``v`` or ``V``."""
+    return version[1:] if version[:1] in ("v", "V") else version
+
+
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
@@ -355,6 +360,25 @@ def check_docker_image_name(value: str) -> str | None:
     return "must be a lowercase Docker image name (e.g. myapp, registry.example.com/ns/app)"
 
 
+def check_docker_image_version(value: str) -> str | None:
+    """Image tag in SemVer form or ``latest``, optionally pinned ``@sha256:<64 hex>``.
+
+    The tag goes into an ``image:tag`` reference, so it also follows the Docker tag rule, which
+    has no room for SemVer ``+build`` metadata.
+    """
+    if _skip(value):
+        return None
+    tag, at, digest = value.partition("@")
+    if at and not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        return "digest must be sha256: followed by 64 lowercase hex characters"
+    if _is_docker_tag(tag) and (tag.lower() == "latest" or _is_semver(_strip_v(tag))):
+        return None
+    return (
+        "must be a semantic version without +build metadata, with an optional @sha256 digest"
+        " (e.g. v1.2.3@sha256:abc...)"
+    )
+
+
 def check_docker_local_path(value: str) -> str | None:
     """Docker ``context`` / ``dockerfile`` — a path in the workspace, never a remote source."""
     if _skip(value):
@@ -443,8 +467,7 @@ def check_semantic_version(value: str) -> str | None:
     """SemVer with optional v prefix: X.Y.Z[-pre][+build], partial X.Y / X, or latest."""
     if _skip(value) or value.lower() == "latest":
         return None
-    core = value[1:] if value[:1] in ("v", "V") else value
-    if _is_semver(core):
+    if _is_semver(_strip_v(value)):
         return None
     return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
 
@@ -456,7 +479,7 @@ CHECKS = {
     "auto-detect-platforms": check_boolean,
     "build-args": check_comma_key_value_list,
     "build-contexts": check_docker_build_contexts,
-    "buildkit-version": check_semantic_version,
+    "buildkit-version": check_docker_image_version,
     "buildx-version": check_semantic_version,
     "cache-export": check_cache_config,
     "cache-from": check_cache_config,

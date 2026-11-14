@@ -114,6 +114,11 @@ class ExpressionResolver:
     Supported: inputs.X, steps.X.outputs.Y, github.X, env.X, string literals,
     the || (default) operator, == and != equality. Unsupported constructs
     raise UnsupportedExpressionError — no silent fallback.
+
+    Values keep their JSON type while an expression is reduced, so || and an if:
+    condition apply GitHub's truthiness (false, 0, null and "" are falsy, any other
+    string is truthy). == and != compare the rendered text, a simplification of
+    GitHub's type coercion. A value becomes text only when the result is rendered.
     """
 
     _TOKEN_RE = re.compile(
@@ -140,7 +145,7 @@ class ExpressionResolver:
                 if end == -1:
                     raise UnsupportedExpressionError(f"unterminated expression: {text!r}")
                 expr = text[i + 3 : end]
-                out.append(self._reduce_expression(expr))
+                out.append(self._render(self._reduce_expression(expr)))
                 i = end + 2
             else:
                 out.append(text[i])
@@ -148,8 +153,30 @@ class ExpressionResolver:
         return "".join(out)
 
     def is_truthy(self, text: str) -> bool:
-        resolved = self.resolve(text).strip()
-        return resolved == "true"
+        stripped = text.strip()
+        if stripped.startswith("${{") and stripped.endswith("}}") and stripped.count("${{") == 1:
+            return self._truthy(self._reduce_expression(stripped[3:-2]))
+        # Text around an expression makes the condition a string, which is truthy unless empty.
+        return self.resolve(text).strip() != ""
+
+    # ---------- values ----------
+
+    @staticmethod
+    def _truthy(value: object) -> bool:
+        if value is None:
+            return False
+        if isinstance(value, (bool, int, float)):
+            return bool(value)
+        return value != ""
+
+    @staticmethod
+    def _render(value: object) -> str:
+        if value is None:
+            return ""
+        # Python renders JSON's true as "True"; GitHub's expressions render it as "true".
+        if isinstance(value, bool):
+            return str(value).lower()
+        return str(value)
 
     # ---------- parser ----------
 
@@ -165,7 +192,7 @@ class ExpressionResolver:
                 tokens.append(("id", ident))
         return tokens
 
-    def _reduce_expression(self, expr: str) -> str:
+    def _reduce_expression(self, expr: str) -> object:
         tokens = self._tokenize(expr)
         if not tokens:
             raise UnsupportedExpressionError(f"empty expression: {expr!r}")
@@ -183,17 +210,17 @@ class ExpressionResolver:
                 raise UnsupportedExpressionError(f"expected operator, got {tokens[i]}")
             rhs = self._reduce_value(tokens[i + 1])
             if op == "||":
-                result = result or rhs
+                result = result if self._truthy(result) else rhs
             elif op == "==":
-                result = "true" if result == rhs else "false"
+                result = self._render(result) == self._render(rhs)
             elif op == "!=":
-                result = "true" if result != rhs else "false"
+                result = self._render(result) != self._render(rhs)
             else:
                 raise UnsupportedExpressionError(f"unknown operator: {op}")
             i += 2
         return result
 
-    def _reduce_value(self, token: tuple[str, str]) -> str:
+    def _reduce_value(self, token: tuple[str, str]) -> object:
         kind, text = token
         if kind == "str":
             return text
@@ -201,7 +228,7 @@ class ExpressionResolver:
             return self._resolve_identifier(text)
         raise UnsupportedExpressionError(f"expected value, got {token}")
 
-    def _resolve_identifier(self, path: str) -> str:
+    def _resolve_identifier(self, path: str) -> object:
         parts = path.split(".")
         head = parts[0]
         allowed = {"inputs", "steps", "github", "env"}
@@ -214,9 +241,7 @@ class ExpressionResolver:
             if not isinstance(node, dict):
                 return ""
             node = node.get(part, "")
-        if node is None:
-            return ""
-        return str(node)
+        return node
 
 
 def _resolve_python_exe() -> str:
@@ -355,10 +380,20 @@ def _inputs_from_env() -> dict[str, str]:
     return out
 
 
+def _event_payload() -> dict:
+    """Return the payload behind github.event, as the runner does from GITHUB_EVENT_PATH."""
+    path = Path(os.environ.get("GITHUB_EVENT_PATH", ""))
+    if not path.is_file():
+        return {}
+    with path.open(encoding="utf-8") as f:
+        return json.load(f)
+
+
 def _build_context(action_dir: Path | None = None) -> dict:
     return {
         "inputs": _inputs_from_env(),
         "github": {
+            "event": _event_payload(),
             "token": os.environ.get("GITHUB_TOKEN", "ghp_fixture_token_0000000000000000000000"),
             "actor": os.environ.get("GITHUB_ACTOR", "test-actor"),
             "repository": os.environ.get("GITHUB_REPOSITORY", "ivuorinen/actions"),
