@@ -6,6 +6,7 @@ it checked, and a tree with none of them fails, so the check cannot pass by find
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 import re
 import sys
@@ -40,7 +41,23 @@ ENV_REFERENCE = re.compile(r"(?<![\w.])env\.([A-Z][A-Z0-9_]*)")
 STEP_START = re.compile(r"^    - ", re.MULTILINE)
 
 
-def check_action(action: Path) -> tuple[list[str], int]:
+def repository_managers(root: Path) -> list[re.Pattern[str]]:
+    """Return the matchStrings of the repository's own regex managers in .github/renovate.json.
+
+    Renovate reads these as well as the preset, so a comment one of them matches is tracked.
+    """
+    config = root / ".github" / "renovate.json"
+    if not config.is_file():
+        return []
+    managers = json.loads(config.read_text(encoding="utf-8")).get("customManagers", [])
+    return [
+        re.compile(pattern.replace("(?<", "(?P<"))
+        for manager in managers
+        for pattern in manager.get("matchStrings", [])
+    ]
+
+
+def check_action(action: Path, managers: list[re.Pattern[str]]) -> tuple[list[str], int]:
     """Return the violations in one action.yml and the number of Renovate comments in it."""
     text = action.read_text(encoding="utf-8")
     label = action.parent.name
@@ -60,7 +77,10 @@ def check_action(action: Path) -> tuple[list[str], int]:
     comments = list(re.finditer(r"^[ \t]*# renovate:.*$", text, re.MULTILINE))
     for comment in comments:
         start = comment.group(0).index("#") + comment.start()
-        found = RENOVATE_PRESET.match(text, start)
+        found = RENOVATE_PRESET.match(text, start) or next(
+            (match for match in (manager.match(text, start) for manager in managers) if match),
+            None,
+        )
         if found is None:
             problems.append(f"{label}: outside the preset's shape: {comment.group(0).strip()}")
         elif not EXACT_VERSION.match(found.group("currentValue")):
@@ -80,10 +100,11 @@ def check_action(action: Path) -> tuple[list[str], int]:
 
 def main() -> int:
     root = Path(sys.argv[1])
+    managers = repository_managers(root)
     problems: list[str] = []
     comments = 0
     for action in sorted(root.glob("*/action.yml")):
-        action_problems, action_comments = check_action(action)
+        action_problems, action_comments = check_action(action, managers)
         problems += action_problems
         comments += action_comments
 

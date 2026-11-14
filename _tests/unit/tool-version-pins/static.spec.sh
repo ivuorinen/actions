@@ -1,7 +1,8 @@
 #!/usr/bin/env shellspec
 # Static checks across every action.yml: nothing fetches a tool at a floating version, and every
-# pin is written in the shape Renovate's githubActionsVersions preset can track. The per-action
-# tool-pins.spec.sh files test what each action does with its pins.
+# pin is written in a shape Renovate tracks: the githubActionsVersions preset, or one of the
+# repository's own managers in .github/renovate.json. The per-action tool-pins.spec.sh files test
+# what each action does with its pins.
 
 Describe "tool version pins"
 CHECK_PINS="${PROJECT_ROOT}/_tests/unit/tool-version-pins/check_pins.py"
@@ -120,6 +121,44 @@ printf '%s\n' "runs:" "  steps:" "    - uses: a/b@1" "      env:" \
 When run python3 "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "env.SAMPL_VERSION is not defined"
+End
+
+Describe "on a pin only the repository's own manager reads"
+# A digest-pinned image tag, as .github/renovate.json's manager matches it.
+write_manager() {
+  mkdir -p "${TREE}/.github"
+  printf '%s\n' '{"customManagers": [{"customType": "regex", "matchStrings": [' \
+    "\"# renovate: datasource=(?<datasource>\\\\S+) depName=(?<depName>\\\\S+)\\\\s+[A-Z0-9_]+_IMAGE_TAG:\\\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'\"" \
+    ']}]}' >"${TREE}/.github/renovate.json"
+}
+write_image_pin() {
+  printf '%s\n' "runs:" "  steps:" "    - run: true" "      env:" \
+    "        # renovate: datasource=docker depName=moby/buildkit" \
+    "        DEFAULT_BUILDKIT_IMAGE_TAG: '$1@sha256:$(printf 'a%.0s' $(seq 1 64))'" >"${TREE}/sample/action.yml"
+}
+
+It "accepts an exact version the manager matches"
+write_manager
+write_image_pin "v0.34.2"
+When run python3 "${CHECK_PINS}" "${TREE}"
+The status should be success
+The stdout should match pattern "checked * renovate comments"
+End
+
+It "still fails on a range the manager matches"
+write_manager
+write_image_pin "^0.34.2"
+When run python3 "${CHECK_PINS}" "${TREE}"
+The status should be failure
+The stdout should include "not an exact version: ^0.34.2"
+End
+
+It "fails on it when the repository has no such manager"
+write_image_pin "v0.34.2"
+When run python3 "${CHECK_PINS}" "${TREE}"
+The status should be failure
+The stdout should include "outside the preset's shape"
+End
 End
 
 It "fails on a tree with no renovate comments"
