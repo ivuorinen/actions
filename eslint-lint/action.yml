@@ -256,10 +256,17 @@ runs:
         # ownership is read from node_modules, or from package.json for Yarn Plug'n'Play, which has
         # none, here and in each parent up to the checkout: Node resolves packages through those,
         # so a working directory below the project root still has the root's copy.
-        # owns sets found_in to node_modules or package.json, saying how it found the copy.
+        # owns sets found_in to node_modules or package.json, saying how it found the copy,
+        # found_dir to the directory it found it in, and manifest_dir to the nearest directory
+        # with a package.json, whose package Yarn 2 and later resolve binaries for.
         owns() {
           _dir=$PWD
+          manifest_dir=
           while :; do
+            found_dir=$_dir
+            if [ -z "$manifest_dir" ] && [ -f "$_dir/package.json" ]; then
+              manifest_dir=$_dir
+            fi
             if [ -d "$_dir/node_modules/$1" ]; then
               found_in=node_modules
               return 0
@@ -277,9 +284,11 @@ runs:
         if owns eslint; then
           # None of these fetches a package, so a copy that is not installed fails the run. Yarn 2
           # and later run a package.json script before a binary of the same name, so they are told
-          # to run the binary. Yarn 1 cannot be: a node_modules install runs through
-          # npx --no-install instead, and a Plug'n'Play one, which that cannot load, through Yarn
-          # as before.
+          # to run the binary. They only see binaries of the nearest package's own dependencies,
+          # so a copy that the root workspace declares for a child one is run with --top-level,
+          # which resolves it from the root and still runs it in this directory. Yarn 1 cannot
+          # skip the script: a node_modules install runs through npx --no-install instead, and a
+          # Plug'n'Play one, which that cannot load, through Yarn as before.
           case "$PACKAGE_MANAGER" in
             "pnpm") set -- pnpm exec eslint ;;
             "yarn")
@@ -291,7 +300,13 @@ runs:
                     set -- yarn eslint
                   fi
                   ;;
-                *) set -- yarn run --binaries-only eslint ;;
+                *)
+                  if [ -n "$manifest_dir" ] && [ "$found_dir" != "$manifest_dir" ]; then
+                    set -- yarn run --top-level --binaries-only eslint
+                  else
+                    set -- yarn run --binaries-only eslint
+                  fi
+                  ;;
               esac
               ;;
             "bun") set -- bunx --no-install eslint ;;

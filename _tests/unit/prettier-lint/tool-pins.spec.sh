@@ -75,6 +75,33 @@ The status should be success
 Assert expect_output command "yarn run --binaries-only prettier"
 End
 
+# Yarn 2 and later only see binaries of the nearest package's dependencies, so a child
+# workspace that does not declare Prettier reaches the root's copy through --top-level.
+It "runs the root workspace's Yarn copy from a child workspace that does not declare it"
+use_package_manager yarn
+mock_command yarn "--version" "4.18.1"
+printf '%s\n' '{"workspaces": ["packages/*"], "devDependencies": {"prettier": "^3.0.0"}}' >package.json
+mkdir -p packages/app
+printf '%s\n' '{"name": "app"}' >packages/app/package.json
+cd packages/app || return 1
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "yarn run --top-level --binaries-only prettier"
+End
+
+# A directory below the workspace that declares Prettier is still that workspace for Yarn.
+It "runs a child workspace's own Yarn copy from a directory below it"
+use_package_manager yarn
+mock_command yarn "--version" "4.18.1"
+printf '%s\n' '{"workspaces": ["packages/*"]}' >package.json
+mkdir -p packages/app/src
+printf '%s\n' '{"name": "app", "devDependencies": {"prettier": "^3.0.0"}}' >packages/app/package.json
+cd packages/app/src || return 1
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be success
+Assert expect_output command "yarn run --binaries-only prettier"
+End
+
 # Yarn 1 has no --binaries-only, so a node_modules install runs through npx.
 It "runs a Yarn 1 repository's copy through npx"
 use_package_manager yarn
