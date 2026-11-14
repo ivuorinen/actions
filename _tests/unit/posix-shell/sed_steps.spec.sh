@@ -29,16 +29,6 @@ The stdout should include "Detected platforms"
 Assert expect_output platforms "linux/amd64,linux/arm64"
 End
 
-It "drops the trailing comma from verified platforms"
-export INPUT_PUSH="true"
-mock_command docker "buildx imagetools inspect *" "Platform: linux/amd64
-Platform: linux/arm64"
-
-When call run_step "${ACTION_DIR}" "verify"
-The status should be success
-Assert expect_output built "linux/amd64,linux/arm64"
-End
-
 # The registry cache reference is normalized inside the build step, so its cases live in
 # _tests/unit/docker-build/behavior.spec.sh, which sets up that step's inputs and mocks.
 End

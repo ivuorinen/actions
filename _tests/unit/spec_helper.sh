@@ -273,11 +273,22 @@ shellspec_setup_test_env() {
   export GITHUB_PATH="${SHELLSPEC_TEST_TEMP_DIR}/github-path"
   export GITHUB_STEP_SUMMARY="${SHELLSPEC_TEST_TEMP_DIR}/github-step-summary"
 
+  # The runner sets RUNNER_TEMP for every job, and steps write job-private files there
+  export RUNNER_TEMP="${SHELLSPEC_TEST_TEMP_DIR}/runner-temp"
+  mkdir -p "$RUNNER_TEMP"
+
   # Initialize output files
   touch "$GITHUB_OUTPUT" "$GITHUB_ENV" "$GITHUB_PATH" "$GITHUB_STEP_SUMMARY"
 
   # Change to test workspace
   cd "$SHELLSPEC_TEST_WORKSPACE"
+}
+
+# docker-build's build step reads the digest of a push from the metadata file buildx
+# writes in RUNNER_TEMP. A mocked docker writes none, so a spec that runs a push writes
+# this stand-in for the one key the step reads.
+write_docker_build_metadata() {
+  printf '%s\n' '{"containerimage.digest":"sha256:fixture"}' >"${RUNNER_TEMP}/docker-build-metadata.json"
 }
 
 # Test environment cleanup for ShellSpec

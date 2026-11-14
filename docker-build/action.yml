@@ -115,13 +115,15 @@ inputs:
 
 outputs:
   image-digest:
-    description: 'The digest of the built image'
+    description: >-
+      When push is true, the digest of the pushed manifest. Attestations make that an OCI index even for one platform,
+      so it is the digest the tag points at, not a per-platform image. When push is false, the local image ID.
     value: ${{ steps.build.outputs.digest }}
   metadata:
     description: 'Build metadata in JSON format'
     value: ${{ steps.build.outputs.metadata }}
   platforms:
-    description: 'Successfully built platforms'
+    description: 'Comma-separated platforms in the built image, e.g. linux/amd64,linux/arm/v7. Attestation manifests are not listed.'
     value: ${{ steps.verify.outputs.built }}
   platform-matrix:
     description: 'Build status per platform in JSON format'
@@ -133,7 +135,7 @@ outputs:
     description: 'Vulnerability scan results if scanning enabled'
     value: ${{ steps.scan-output.outputs.results }}
   signature:
-    description: 'Image signature if signing enabled'
+    description: 'Digest reference (image@sha256:...) of the signed image if signing enabled'
     value: ${{ steps.sign.outputs.signature }}
   sbom-location:
     description: >-
@@ -357,8 +359,18 @@ runs:
           exit 0
         fi
 
+        if [ "$PUSH" = "true" ] && ! command -v jq >/dev/null 2>&1; then
+          echo "::error::jq is required to read the digest of a pushed image"
+          exit 1
+        fi
+
         attempt=1
         max_attempts="$MAX_RETRIES"
+
+        # RUNNER_TEMP belongs to this job, so a concurrent build on the same machine cannot replace
+        # the digest read below, as it could in a shared /tmp. The file is read only after a build
+        # succeeds, and buildx rewrites it then, so an earlier attempt's file is never read.
+        metadata_file="$RUNNER_TEMP/docker-build-metadata.json"
 
         # Whitespace around a value is not part of it: `A=1, B=2`, or the trailing
         # newline of a YAML block scalar.
@@ -436,26 +448,39 @@ runs:
           [ "$PUSH" != "true" ] || set -- "$@" --provenance=true --sbom=true
           [ "$VERBOSE" != "true" ] || set -- "$@" --progress=plain
 
-          set -- "$@" --metadata-file=/tmp/build-metadata.json -- "$CONTEXT"
+          set -- "$@" --metadata-file="$metadata_file" -- "$CONTEXT"
 
           if "$@"; then
 
-            # Get image digest
+            # Later steps address the image through image-ref. A pushed image uses the digest
+            # buildx recorded for this build, because the tag can move. A loaded image has no
+            # registry digest and cannot be looked up by one, so it stays on its local tag.
             if [ "$PUSH" = "true" ]; then
-              digest=$(docker buildx imagetools inspect "$IMAGE_NAME:$TAG" --raw | jq -r '.digest // "unknown"' || echo "unknown")
+              digest=$(jq -r '."containerimage.digest" // empty' "$metadata_file")
+              if [ -z "$digest" ]; then
+                echo "::error::buildx reported no digest for the pushed image"
+                exit 1
+              fi
+              image_ref="${IMAGE_NAME}@${digest}"
             else
-              digest=$(docker inspect "$IMAGE_NAME:$TAG" --format='{{.Id}}' || echo "unknown")
+              if ! digest=$(docker inspect "$IMAGE_NAME:$TAG" --format='{{.Id}}'); then
+                echo "::error::could not read the ID of the loaded image"
+                exit 1
+              fi
+              image_ref="${IMAGE_NAME}:${TAG}"
             fi
             printf 'digest=%s\n' "$digest" >> "$GITHUB_OUTPUT"
+            printf 'image-ref=%s\n' "$image_ref" >> "$GITHUB_OUTPUT"
 
             # Parse metadata
-            if [ -f /tmp/build-metadata.json ]; then
+            if [ -f "$metadata_file" ]; then
               # Use a random delimiter to avoid collision if JSON contains a line equal to the delimiter
               _delim="$(head -c 16 /dev/urandom | base64 | tr -d '=+/\n')"
               {
                 printf 'metadata<<%s\n' "$_delim"
-                cat /tmp/build-metadata.json
-                printf '%s\n' "$_delim"
+                cat "$metadata_file"
+                # buildx ends the file without a newline; the delimiter needs a line of its own
+                printf '\n%s\n' "$_delim"
               } >> "$GITHUB_OUTPUT"
             fi
 
@@ -509,7 +534,7 @@ runs:
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
         scan-type: 'image'
-        image-ref: ${{ steps.image-name.outputs.name }}:${{ inputs.tag }}
+        image-ref: ${{ steps.build.outputs.image-ref }}
         format: 'json'
         output: 'trivy-results.json'
         severity: 'HIGH,CRITICAL'
@@ -541,16 +566,16 @@ runs:
       shell: sh
       env:
         IMAGE_NAME: ${{ steps.image-name.outputs.name }}
-        IMAGE_TAG: ${{ inputs.tag }}
+        IMAGE_DIGEST: ${{ steps.build.outputs.digest }}
       run: |
         set -eu
 
         # Sign the image (using keyless signing with OIDC)
         export COSIGN_EXPERIMENTAL=1
-        cosign sign --yes "${IMAGE_NAME}:${IMAGE_TAG}"
+        cosign sign --yes "${IMAGE_NAME}@${IMAGE_DIGEST}"
 
         # Emit the signed image reference so callers know what was signed
-        printf 'signature=%s\n' "${IMAGE_NAME}:${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+        printf 'signature=%s\n' "${IMAGE_NAME}@${IMAGE_DIGEST}" >> "$GITHUB_OUTPUT"
 
     - name: Verify Build
       id: verify
@@ -558,28 +583,37 @@ runs:
       shell: sh
       env:
         PUSH: ${{ inputs.push }}
-        IMAGE_NAME: ${{ steps.image-name.outputs.name }}
-        IMAGE_TAG: ${{ inputs.tag }}
+        IMAGE_REF: ${{ steps.build.outputs.image-ref }}
       run: |
         set -eu
 
         # Verify image exists
         if [ "$PUSH" = "true" ]; then
-          if ! docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
+          if ! command -v jq >/dev/null 2>&1; then
+            echo "::error::jq is required to read the platforms of a pushed image"
+            exit 1
+          fi
+
+          if ! manifest=$(docker buildx imagetools inspect "$IMAGE_REF" --raw); then
             echo "::error::Built image not found"
             exit 1
           fi
 
-          # Get and verify platform support
-          platforms=$(docker buildx imagetools inspect "${IMAGE_NAME}:${IMAGE_TAG}" | grep "Platform:" | cut -d' ' -f2 | tr '\n' ',' | sed -E 's/,$//')
+          # Get and verify platform support. The index lists each attestation as a manifest
+          # with platform unknown/unknown, which is not a platform that was built.
+          platforms=$(printf '%s' "$manifest" | jq -r '[.manifests[]? | .platform | select(.os != "unknown") | [.os, .architecture, .variant // empty] | join("/")] | join(",")')
+          if [ -z "$platforms" ]; then
+            echo "::error::Built image lists no platforms"
+            exit 1
+          fi
           printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
         else
           # For local builds, verify it exists and extract platform
-          if ! docker image inspect "${IMAGE_NAME}:${IMAGE_TAG}" >/dev/null 2>&1; then
+          if ! docker image inspect "$IMAGE_REF" >/dev/null 2>&1; then
             echo "::error::Built image not found locally"
             exit 1
           fi
-          platforms=$(docker image inspect --format '{{.Os}}/{{.Architecture}}' "${IMAGE_NAME}:${IMAGE_TAG}")
+          platforms=$(docker image inspect --format '{{.Os}}/{{.Architecture}}{{if .Variant}}/{{.Variant}}{{end}}' "$IMAGE_REF")
           printf 'built=%s\n' "$platforms" >> "$GITHUB_OUTPUT"
         fi
 

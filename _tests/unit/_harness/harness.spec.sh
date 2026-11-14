@@ -141,4 +141,19 @@ The line 1 of output should equal "a: Unguarded"
 The line 2 of output should equal "b: Unguarded"
 End
 End
+
+Describe "step-outputs fixture"
+It "resolves an earlier step's output from HARNESS_STEP_OUTPUTS in run_step"
+export HARNESS_STEP_OUTPUTS='{"first":{"outputs":{"flag":"seeded"}}}'
+When call run_step "${FIXTURES}/step-outputs" "reader"
+The status should be success
+Assert expect_output seen seeded
+End
+
+It "resolves an earlier step's output to empty without HARNESS_STEP_OUTPUTS"
+When call run_step "${FIXTURES}/step-outputs" "reader"
+The status should be success
+Assert expect_output seen ""
+End
+End
 End

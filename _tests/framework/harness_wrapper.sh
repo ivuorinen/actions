@@ -49,7 +49,7 @@ harness_reset() {
   if [ -n "${HARNESS_SESSION:-}" ] && [ -d "${HARNESS_SESSION}" ]; then
     rm -rf "${HARNESS_SESSION}"
   fi
-  unset HARNESS_SESSION
+  unset HARNESS_SESSION HARNESS_STEP_OUTPUTS
 }
 
 mock_command() {

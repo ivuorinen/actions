@@ -14,7 +14,7 @@ before() {
   export INPUT_DOCKERFILE="Dockerfile"
   export INPUT_CONTEXT="."
   mock_command docker "buildx build*" ""
-  mock_command docker "buildx imagetools*" '{"digest":"sha256:0000"}'
+  write_docker_build_metadata
 }
 BeforeEach 'before'
 

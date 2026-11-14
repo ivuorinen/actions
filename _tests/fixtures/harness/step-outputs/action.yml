@@ -1,0 +1,21 @@
+---
+name: Step Outputs Fixture
+description: 'Fixture: a run step that reads an earlier step output through env.'
+outputs:
+  seen:
+    description: 'the value the reader step received'
+    value: ${{ steps.reader.outputs.seen }}
+
+runs:
+  using: composite
+  steps:
+    - id: first
+      shell: sh
+      run: |
+        printf 'flag=%s\n' "real" >> "$GITHUB_OUTPUT"
+    - id: reader
+      shell: sh
+      env:
+        FLAG: ${{ steps.first.outputs.flag }}
+      run: |
+        printf 'seen=%s\n' "$FLAG" >> "$GITHUB_OUTPUT"
