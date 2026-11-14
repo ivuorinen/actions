@@ -4,6 +4,18 @@
     "github>ivuorinen/renovate-config",
     "customManagers:biomeVersions"
   ],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Digest-pinned image tags in action env blocks. customManagers:githubActionsVersions reads '*_VERSION' keys, and has no digest group.",
+      "managerFilePatterns": [
+        "/(^|/)action\\.ya?ml$/"
+      ],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+_IMAGE_TAG:\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'"
+      ]
+    }
+  ],
   "pinDigests": true,
   "platformAutomerge": true,
   "packageRules": [

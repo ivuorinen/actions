@@ -21,7 +21,7 @@ jobs:
         uses: ivuorinen/actions/go-build@vYYYY.MM.DD
         with:
           destination: './bin'
-          go-version: '1.2.3'
+          go-version: '1.27'
           max-retries: '3'
           token: '${{ github.token }}'
 ```
@@ -70,7 +70,7 @@ permissions:
   uses: ivuorinen/actions/go-build@vYYYY.MM.DD
   with:
     destination: './bin'
-    go-version: '1.2.3'
+    go-version: '1.27'
     max-retries: '3'
     token: '${{ github.token }}'
 ```
@@ -85,7 +85,7 @@ permissions:
   uses: ivuorinen/actions/go-build@vYYYY.MM.DD
   with:
     destination: './bin'
-    go-version: '1.2.3'
+    go-version: '1.27'
     max-retries: '3'
     token: '${{ github.token }}'
 ```

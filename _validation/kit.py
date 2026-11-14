@@ -90,6 +90,11 @@ def _is_docker_tag(tag: str) -> bool:
     return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
 
 
+def _strip_v(version: str) -> str:
+    """Return version without one leading ``v`` or ``V``."""
+    return version[1:] if version[:1] in ("v", "V") else version
+
+
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
@@ -308,8 +313,7 @@ def check_semantic_version(value: str) -> str | None:
     """SemVer with optional v prefix: X.Y.Z[-pre][+build], partial X.Y / X, or latest."""
     if _skip(value) or value.lower() == "latest":
         return None
-    core = value[1:] if value[:1] in ("v", "V") else value
-    if _is_semver(core):
+    if _is_semver(_strip_v(value)):
         return None
     return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
 
@@ -338,7 +342,7 @@ def check_calver_version(value: str) -> str | None:
     """Calendar version: YYYY.MM.DD / .PATCH, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, or YYYY-MM-DD."""
     if _skip(value):
         return None
-    core = value[1:] if value[:1] in ("v", "V") else value
+    core = _strip_v(value)
     patterns = (
         r"[0-9]{4}\.[0-9]{1,2}\.[0-9]{1,2}",  # YYYY.MM.DD
         r"[0-9]{4}\.0[0-9]\.0[0-9]",  # YYYY.0M.0D
@@ -495,6 +499,25 @@ def check_docker_tag_list(value: str) -> str | None:
         if not _is_docker_tag(tag):
             return f"invalid Docker tag: {tag!r} (letters, digits, _ . -, at most 128 characters)"
     return None
+
+
+def check_docker_image_version(value: str) -> str | None:
+    """Image tag in SemVer form or ``latest``, optionally pinned ``@sha256:<64 hex>``.
+
+    The tag goes into an ``image:tag`` reference, so it also follows the Docker tag rule, which
+    has no room for SemVer ``+build`` metadata.
+    """
+    if _skip(value):
+        return None
+    tag, at, digest = value.partition("@")
+    if at and not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
+        return "digest must be sha256: followed by 64 lowercase hex characters"
+    if _is_docker_tag(tag) and (tag.lower() == "latest" or _is_semver(_strip_v(tag))):
+        return None
+    return (
+        "must be a semantic version without +build metadata, with an optional @sha256 digest"
+        " (e.g. v1.2.3@sha256:abc...)"
+    )
 
 
 def check_cache_mode(value: str) -> str | None:
@@ -1187,6 +1210,7 @@ EXAMPLES = {
     "docker_architectures": "linux/amd64,linux/arm64",
     "docker_build_contexts": "shared=./shared,base=docker-image://alpine:3.20",
     "docker_image_name": "myapp",
+    "docker_image_version": "v1.2.3",
     "docker_local_path": "docker/app",
     "docker_secrets": "npmrc=.npmrc",
     "docker_tag": "v1.0.0",

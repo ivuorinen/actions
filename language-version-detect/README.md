@@ -21,7 +21,7 @@ jobs:
       - name: Language Version Detect
         uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
         with:
-          default-version: '1.2.3'
+          default-version: '3.13'
           language: 'python'
           token: '${{ github.token }}'
 ```
@@ -65,7 +65,7 @@ permissions:
 - name: Language Version Detect
   uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
   with:
-    default-version: '1.2.3'
+    default-version: '3.13'
     language: 'python'
     token: '${{ github.token }}'
 ```
@@ -79,7 +79,7 @@ permissions:
 - name: Language Version Detect with custom settings
   uses: ivuorinen/actions/language-version-detect@vYYYY.MM.DD
   with:
-    default-version: '1.2.3'
+    default-version: '3.13'
     language: 'python'
     token: '${{ github.token }}'
 ```
