@@ -309,6 +309,9 @@ runs:
     - name: Run flake8
       if: steps.check-files.outputs.result == 'found'
       id: lint
+      # Findings must not skip the fixer and the commit below; the "Fail on Lint
+      # Errors" step fails the action at the end from this step's outcome.
+      continue-on-error: true
       shell: sh
       env:
         ACTION_PATH: ${{ github.action_path }}
@@ -407,3 +410,11 @@ runs:
       with:
         sarif_file: ${{ steps.lint.outputs.sarif_file }}
         category: 'python-lint'
+
+    - name: Fail on Lint Errors
+      if: steps.lint.outcome == 'failure'
+      shell: sh
+      run: |-
+        set -eu
+        echo "::error::flake8 reported errors; see the Run flake8 step"
+        exit 1
