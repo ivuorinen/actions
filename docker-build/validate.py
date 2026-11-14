@@ -42,6 +42,11 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
+def _strip_v(version: str) -> str:
+    """Return version without one leading ``v`` or ``V``."""
+    return version[1:] if version[:1] in ("v", "V") else version
+
+
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
@@ -363,13 +368,10 @@ def check_docker_image_version(value: str) -> str | None:
     """
     if _skip(value):
         return None
-    # Repeats check_semantic_version's core: generated validators inline each check alone,
-    # so one check cannot call another.
     tag, at, digest = value.partition("@")
     if at and not re.fullmatch(r"sha256:[0-9a-f]{64}", digest):
         return "digest must be sha256: followed by 64 lowercase hex characters"
-    core = tag[1:] if tag[:1] in ("v", "V") else tag
-    if _is_docker_tag(tag) and (tag.lower() == "latest" or _is_semver(core)):
+    if _is_docker_tag(tag) and (tag.lower() == "latest" or _is_semver(_strip_v(tag))):
         return None
     return (
         "must be a semantic version without +build metadata, with an optional @sha256 digest"
@@ -465,8 +467,7 @@ def check_semantic_version(value: str) -> str | None:
     """SemVer with optional v prefix: X.Y.Z[-pre][+build], partial X.Y / X, or latest."""
     if _skip(value) or value.lower() == "latest":
         return None
-    core = value[1:] if value[:1] in ("v", "V") else value
-    if _is_semver(core):
+    if _is_semver(_strip_v(value)):
         return None
     return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
 

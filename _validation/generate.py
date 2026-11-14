@@ -38,6 +38,7 @@ ROOT = Path(__file__).resolve().parent.parent
 _HELPERS = (
     "_skip",
     "_split_items",
+    "_strip_v",
     "_is_semver",
     "_enum",
     "_enum_list",
