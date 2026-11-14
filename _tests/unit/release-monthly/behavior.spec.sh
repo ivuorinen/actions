@@ -112,10 +112,16 @@ Describe "release creation target"
 # an existing tag keeps its own commit, so the step refuses one that points
 # anywhere but GITHUB_SHA. The create mock matches only when --target carries
 # GITHUB_SHA; without it the call is unregistered, exits 127, and the step fails.
-# The action runs after a full checkout, so each example runs in a repository.
+# The action runs after a full checkout, so each example runs in a repository. Its
+# identity and signing settings are local, because a CI runner has no global ones and
+# both a commit and an annotated tag need them.
 setup_release() {
   git init -q .
-  git -c user.email=test@example.com -c user.name=test -c commit.gpgsign=false commit -q --allow-empty -m one
+  git config user.email test@example.com
+  git config user.name test
+  git config commit.gpgsign false
+  git config tag.gpgSign false
+  git commit -q --allow-empty -m one
   export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   export INPUT_PREFIX=""
   export INPUT_DRY_RUN="false"
@@ -138,7 +144,7 @@ It "refuses a tag that already exists at another commit"
 setup_release
 git tag 2026.4.0
 tagged="$(git rev-parse HEAD)"
-git -c user.email=test@example.com -c user.name=test -c commit.gpgsign=false commit -q --allow-empty -m two
+git commit -q --allow-empty -m two
 export GITHUB_SHA="$(git rev-parse HEAD)"
 
 When call run_step "${ACTION_DIR}" "create-release"
@@ -161,9 +167,9 @@ End
 # when the step dereferences the tag to its commit.
 It "refuses an annotated tag that already exists at another commit"
 setup_release
-git -c tag.gpgSign=false tag -a -m test 2026.4.0
+git tag -a -m test 2026.4.0
 tagged="$(git rev-parse HEAD)"
-git -c user.email=test@example.com -c user.name=test -c commit.gpgsign=false commit -q --allow-empty -m two
+git commit -q --allow-empty -m two
 export GITHUB_SHA="$(git rev-parse HEAD)"
 
 When call run_step "${ACTION_DIR}" "create-release"
@@ -173,7 +179,7 @@ End
 
 It "creates the release on an annotated tag that already points at GITHUB_SHA"
 setup_release
-git -c tag.gpgSign=false tag -a -m test 2026.4.0
+git tag -a -m test 2026.4.0
 export GITHUB_SHA="$(git rev-parse HEAD)"
 mock_command gh "release create 2026.4.0*--target=${GITHUB_SHA}*" "https://example.test/release/2026.4.0"
 
