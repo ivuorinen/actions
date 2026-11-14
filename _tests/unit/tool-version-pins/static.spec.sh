@@ -103,6 +103,8 @@ Parameters
 "^1.2.3"
 "latest"
 "1"
+"1.2"
+"1.2.3 - 2.0.0"
 End
 
 It "fails on the value: $1"
@@ -112,6 +114,15 @@ When run python3 "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "not an exact version: $1"
 End
+End
+
+# setup-php installs the newest patch of the major.minor it is given.
+It "accepts major.minor for the PHP pin only"
+printf '%s\n' "runs:" "  steps:" "    - run: true" "      env:" \
+  "        # renovate: datasource=github-tags depName=php/php-src" "        DEFAULT_VERSION: '8.5'" >"${TREE}/sample/action.yml"
+When run python3 "${CHECK_PINS}" "${TREE}"
+The status should be success
+The stdout should match pattern "checked * renovate comments"
 End
 
 It "fails on an env reference its own step does not define"

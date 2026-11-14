@@ -24,8 +24,13 @@ RENOVATE_PRESET = re.compile(
     r"\s+[A-Za-z0-9_]+?_VERSION\s*:\s*[\"']?(?P<currentValue>.+?)[\"']?\s"
 )
 
-# An exact version, or for setup-php and tonistiigi/binfmt the exact form they publish.
-EXACT_VERSION = re.compile(r"^(qemu-)?v?\d+\.\d+(\.\d+)?$")
+# An exact version: three components, or qemu-vX.Y.Z as tonistiigi/binfmt publishes it.
+EXACT_VERSION = re.compile(r"^(qemu-)?v?\d+\.\d+\.\d+$")
+
+# setup-php takes major.minor and installs that line's newest patch, so a PHP pin can be no finer.
+# For every other tool a two-component value is a range: npm reads 1.2 as 1.2.x.
+MAJOR_MINOR_DEPS = {"php/php-src"}
+MAJOR_MINOR = re.compile(r"^\d+\.\d+$")
 
 # Fetching a tool at whatever upstream published last.
 FLOATING_LINE = re.compile(
@@ -57,6 +62,21 @@ def repository_managers(root: Path) -> list[re.Pattern[str]]:
     ]
 
 
+def pinned_value(text: str, comment_end: int) -> str:
+    """Return the whole value on the line after a renovate comment, without its quotes.
+
+    Renovate's match captures only a prefix of a value it cannot parse, so `1.2.3 - 2.0.0`
+    would pass a check of that capture; the exact-version check reads the whole scalar.
+    """
+    start = text.find("\n", comment_end) + 1
+    end = text.find("\n", start)
+    line = text[start : end if end != -1 else len(text)]
+    value = line.split(":", 1)[1].strip() if ":" in line else ""
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in "'\"":
+        value = value[1:-1]
+    return value
+
+
 def check_action(action: Path, managers: list[re.Pattern[str]]) -> tuple[list[str], int]:
     """Return the violations in one action.yml and the number of Renovate comments in it."""
     text = action.read_text(encoding="utf-8")
@@ -83,8 +103,13 @@ def check_action(action: Path, managers: list[re.Pattern[str]]) -> tuple[list[st
         )
         if found is None:
             problems.append(f"{label}: outside the preset's shape: {comment.group(0).strip()}")
-        elif not EXACT_VERSION.match(found.group("currentValue")):
-            problems.append(f"{label}: not an exact version: {found.group('currentValue')}")
+            continue
+        value = pinned_value(text, comment.end())
+        if found.groupdict().get("currentDigest"):
+            value = value.split("@", 1)[0]
+        major_minor = found.group("depName") in MAJOR_MINOR_DEPS and MAJOR_MINOR.match(value)
+        if not (EXACT_VERSION.match(value) or major_minor):
+            problems.append(f"{label}: not an exact version: {value}")
 
     # A misspelt env reference is empty at run time, and an empty version input means upstream's
     # default: the floating version again, with nothing failing to say so.
