@@ -201,10 +201,13 @@ runs:
 
         # Output results
         printf 'image-name=%s\n' "$base_name" >> "$GITHUB_OUTPUT"
+        # Random delimiter so a value line cannot close the block early
+        # (same pattern as docker-build "Parse metadata").
+        _delim="$(head -c 16 /dev/urandom | base64 | tr -d '=+/\n')"
         {
-          printf '%s\n' 'tags<<EOF'
+          printf 'tags<<%s\n' "$_delim"
           printf '%s\n' "$tags"
-          printf '%s\n' 'EOF'
+          printf '%s\n' "$_delim"
         } >> "$GITHUB_OUTPUT"
 
         printf 'Image name: %s\n' "$base_name"
