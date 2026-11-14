@@ -57,6 +57,13 @@ End
 End
 
 Describe "Run TFLint"
+# The step writes the report into a fresh directory under RUNNER_TEMP and reports both paths.
+sarif_file_is_in_reports_dir() {
+  reports_dir=$(sed -En 's/^reports_dir=//p' "$GITHUB_OUTPUT")
+  case "$reports_dir" in "$RUNNER_TEMP"/terraform-lint-fix.*) ;; *) return 1 ;; esac
+  grep -Fxq "sarif_file=$reports_dir/tflint.sarif" "$GITHUB_OUTPUT"
+}
+
 It "does not pass or write through a dangling config symlink"
 ln -s "$OUTSIDE_TARGET" .tflint.hcl
 mock_command tflint "--format sarif --no-color" ""
@@ -64,7 +71,7 @@ When call run_step "${ACTION_DIR}" "lint"
 The status should be success
 The path "$OUTSIDE_TARGET" should not be exist
 The path .tflint.hcl should be symlink
-Assert expect_output sarif_file "reports/tflint.sarif"
+Assert sarif_file_is_in_reports_dir
 End
 
 It "writes no config to the workspace when none exists"

@@ -221,7 +221,6 @@ runs:
           exclude-use-default: false
           max-issues-per-linter: 0
           max-same-issues: 0
-          new: true
 
         run:
           deadline: $TIMEOUT
@@ -252,8 +251,10 @@ runs:
 
         cd -- "$WORKING_DIRECTORY"
 
-        # Create reports directory
-        mkdir -p reports
+        # Keep the reports outside the workspace: a repository can commit
+        # 'reports' as a symlink, which would redirect the writes and the cleanup.
+        reports_dir=$(mktemp -d "$RUNNER_TEMP/go-lint.XXXXXX")
+        printf 'reports_dir=%s\n' "$reports_dir" >> "$GITHUB_OUTPUT"
 
         # Build golangci-lint args as positional parameters
         set -- --config "$CONFIG_FILE" --timeout "$TIMEOUT"
@@ -281,7 +282,7 @@ runs:
         # Run golangci-lint
         echo "Running golangci-lint..."
 
-        result_file="reports/golangci-lint.$REPORT_FORMAT"
+        result_file="$reports_dir/golangci-lint.$REPORT_FORMAT"
         error_count=0
         exit_code=0
 
@@ -316,10 +317,11 @@ runs:
         fi
 
     - name: Upload Lint Results
-      if: always() && inputs.report-format == 'sarif'
+      # The output is empty when the lint step never got far enough to write a report.
+      if: always() && inputs.report-format == 'sarif' && steps.lint.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
-        sarif_file: ${{ inputs.working-directory }}/reports/golangci-lint.sarif
+        sarif_file: ${{ steps.lint.outputs.sarif_file }}
         category: golangci-lint
 
     - name: Cleanup
@@ -328,13 +330,16 @@ runs:
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         CACHE: ${{ inputs.cache }}
+        REPORTS_DIR: ${{ steps.lint.outputs.reports_dir }}
       run: |-
         set -eu
 
         cd -- "$WORKING_DIRECTORY"
 
-        # Remove temporary files
-        rm -rf reports/
+        # Remove temporary files; empty when the lint step never ran
+        if [ -n "$REPORTS_DIR" ]; then
+          rm -rf "$REPORTS_DIR"
+        fi
 
         # Clean cache if not being preserved
         if [ "$CACHE" != "true" ]; then
