@@ -324,7 +324,10 @@ runs:
         formatter="@microsoft/eslint-formatter-sarif"
         if [ "$REPORT_FORMAT" = "sarif" ] && ! owns "$formatter"; then
           prefix="$RUNNER_TEMP/eslint-formatter-sarif"
-          npm install --prefix "$prefix" "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
+          # The formatter pins itself but not all of its dependencies (jschardet is "latest"),
+          # so their lifecycle scripts stay off. The prefix is throwaway: no lockfile or audit.
+          npm install --prefix "$prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
+            "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
           dir="$prefix/node_modules/$formatter"
           formatter="$dir/$(jq -r '.main // "index.js"' "$dir/package.json")"
         fi
