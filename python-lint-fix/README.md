@@ -32,17 +32,17 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                                                                                       | Required | Default                     |
-| ------------------- | ----------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
-| `autopep8-version`  | Deprecated and ignored: the action installs the autopep8 version locked in its requirements.lock.txt.             | ❌       | -                           |
-| `email`             | GitHub email for commits                                                                                          | ❌       | `github-actions@github.com` |
-| `fail-on-error`     | Whether to fail the action if linting errors are found (lowercase true or false)                                  | ❌       | `true`                      |
-| `flake8-version`    | Deprecated and ignored: the action installs the flake8 version locked in its requirements.lock.txt.               | ❌       | -                           |
-| `max-retries`       | Maximum number of retries for the connections pip makes while installing the lint tools (1-10, must not be empty) | ❌       | `3`                         |
-| `python-version`    | Python version to use                                                                                             | ❌       | `3.11`                      |
-| `token`             | GitHub token for authentication                                                                                   | ❌       | -                           |
-| `username`          | GitHub username for commits                                                                                       | ❌       | `github-actions`            |
-| `working-directory` | Directory containing Python files to lint                                                                         | ❌       | `.`                         |
+| Parameter           | Description                                                                                                                                                       | Required | Default                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
+| `autopep8-version`  | Deprecated: has no effect, because the action installs the autopep8 version locked in its requirements.lock.txt. A value set here must still be a version number. | ❌       | -                           |
+| `email`             | GitHub email for commits                                                                                                                                          | ❌       | `github-actions@github.com` |
+| `fail-on-error`     | Whether to fail the action if linting errors are found (lowercase true or false)                                                                                  | ❌       | `true`                      |
+| `flake8-version`    | Deprecated: has no effect, because the action installs the flake8 version locked in its requirements.lock.txt. A value set here must still be a version number.   | ❌       | -                           |
+| `max-retries`       | Maximum number of retries for the connections pip makes while installing the lint tools (1-10, must not be empty)                                                 | ❌       | `3`                         |
+| `python-version`    | Python version to use                                                                                                                                             | ❌       | `3.11`                      |
+| `token`             | GitHub token for authentication                                                                                                                                   | ❌       | -                           |
+| `username`          | GitHub username for commits                                                                                                                                       | ❌       | `github-actions`            |
+| `working-directory` | Directory containing Python files to lint                                                                                                                         | ❌       | `.`                         |
 
 ## 📤 Outputs
 

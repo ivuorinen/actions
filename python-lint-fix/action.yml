@@ -17,12 +17,12 @@ inputs:
     required: false
     default: '3.11'
   flake8-version:
-    description: 'Deprecated and ignored: the action installs the flake8 version locked in its requirements.lock.txt.'
-    deprecationMessage: 'This input is ignored. python-lint-fix installs flake8 from its hash-locked requirements.lock.txt.'
+    description: 'Deprecated: has no effect, because the action installs the flake8 version locked in its requirements.lock.txt. A value set here must still be a version number.'
+    deprecationMessage: 'This input has no effect. python-lint-fix installs flake8 from its hash-locked requirements.lock.txt.'
     required: false
   autopep8-version:
-    description: 'Deprecated and ignored: the action installs the autopep8 version locked in its requirements.lock.txt.'
-    deprecationMessage: 'This input is ignored. python-lint-fix installs autopep8 from its hash-locked requirements.lock.txt.'
+    description: 'Deprecated: has no effect, because the action installs the autopep8 version locked in its requirements.lock.txt. A value set here must still be a version number.'
+    deprecationMessage: 'This input has no effect. python-lint-fix installs autopep8 from its hash-locked requirements.lock.txt.'
     required: false
   max-retries:
     description: 'Maximum number of retries for the connections pip makes while installing the lint tools (1-10, must not be empty)'
