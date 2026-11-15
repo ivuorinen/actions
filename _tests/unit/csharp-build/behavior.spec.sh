@@ -24,7 +24,7 @@ AfterEach 'after'
 
 Describe "Restore Dependencies"
 It "fails when dotnet restore fails"
-mock_command dotnet "restore --verbosity normal" "" 1
+mock_command dotnet "restore --locked-mode --verbosity normal" "" 1
 
 When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
 The status should be failure
@@ -32,14 +32,14 @@ End
 
 It "restores the given project"
 export INPUT_PROJECT="src/App.sln"
-mock_command dotnet "restore src/App.sln --verbosity normal" ""
+mock_command dotnet "restore src/App.sln --locked-mode --verbosity normal" ""
 
 When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
 The status should be success
 End
 
 It "restores the repository root when no project is given"
-mock_command dotnet "restore --verbosity normal" ""
+mock_command dotnet "restore --locked-mode --verbosity normal" ""
 
 When call run_retry_step "${ACTION_DIR}" "Restore Dependencies"
 The status should be success

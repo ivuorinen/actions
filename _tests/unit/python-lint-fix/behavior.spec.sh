@@ -115,11 +115,14 @@ THREE_VIOLATIONS='[
 ]'
 
 Context "installing the lint tools"
-It "installs flake8 and autopep8 at the requested versions and no SARIF plugin"
+# before() sets both deprecated version inputs, so this also shows they change nothing.
+It "installs the lint tools from the action's hash-locked requirements and no SARIF plugin"
+export INPUT_MAX_RETRIES="3"
 When call run_action
 The status should be success
-The contents of file "$TOOL_LOG" should include "pip install flake8==7.0.0"
-The contents of file "$TOOL_LOG" should include "pip install autopep8==2.0.4"
+The contents of file "$TOOL_LOG" should include "pip install --require-hashes --only-binary=:all: --retries 3 -r ${ACTION_DIR}/requirements.lock.txt"
+The contents of file "$TOOL_LOG" should not include "flake8=="
+The contents of file "$TOOL_LOG" should not include "autopep8=="
 The contents of file "$TOOL_LOG" should not include "sarif"
 End
 End
