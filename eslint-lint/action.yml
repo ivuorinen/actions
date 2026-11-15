@@ -83,7 +83,7 @@ outputs:
     description: 'Path to SARIF report file (check mode only)'
     value: ${{ steps.check.outputs.sarif_file }}
   files-checked:
-    description: 'Number of files checked (check mode only)'
+    description: 'Number of files ESLint linted (check mode with the sarif report only; 0 otherwise)'
     value: ${{ steps.check.outputs.files_checked }}
   files-changed:
     description: 'Number of files changed (fix mode only)'
@@ -384,7 +384,9 @@ runs:
         if [ "$REPORT_FORMAT" = "sarif" ] && [ -f eslint-results.sarif ]; then
           error_count=$(jq '[.runs[]?.results[]? | select(.level == "error")] | length' eslint-results.sarif 2>/dev/null || echo "0")
           warning_count=$(jq '[.runs[]?.results[]? | select(.level == "warning")] | length' eslint-results.sarif 2>/dev/null || echo "0")
-          files_checked=$(jq '[.runs[]?.results[]?.locations[]?.physicalLocation?.artifactLocation?.uri] | unique | length' eslint-results.sarif 2>/dev/null || echo "0")
+          # The SARIF formatter lists every linted file under artifacts, with or without findings;
+          # results name only the files that have one.
+          files_checked=$(jq '[.runs[]?.artifacts[]?] | length' eslint-results.sarif 2>/dev/null || echo "0")
           sarif_file="eslint-results.sarif"
         else
           error_count="0"

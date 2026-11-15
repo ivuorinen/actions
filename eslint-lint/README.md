@@ -58,15 +58,15 @@ jobs:
 
 ## 📤 Outputs
 
-| Parameter       | Description                                 |
-| --------------- | ------------------------------------------- |
-| `error-count`   | Number of errors found (check mode only)    |
-| `errors-fixed`  | Number of errors fixed (fix mode only)      |
-| `files-changed` | Number of files changed (fix mode only)     |
-| `files-checked` | Number of files checked (check mode only)   |
-| `sarif-file`    | Path to SARIF report file (check mode only) |
-| `status`        | Overall status (success/failure)            |
-| `warning-count` | Number of warnings found (check mode only)  |
+| Parameter       | Description                                                                        |
+| --------------- | ---------------------------------------------------------------------------------- |
+| `error-count`   | Number of errors found (check mode only)                                           |
+| `errors-fixed`  | Number of errors fixed (fix mode only)                                             |
+| `files-changed` | Number of files changed (fix mode only)                                            |
+| `files-checked` | Number of files ESLint linted (check mode with the sarif report only; 0 otherwise) |
+| `sarif-file`    | Path to SARIF report file (check mode only)                                        |
+| `status`        | Overall status (success/failure)                                                   |
+| `warning-count` | Number of warnings found (check mode only)                                         |
 
 ## 🔐 Permissions
 
