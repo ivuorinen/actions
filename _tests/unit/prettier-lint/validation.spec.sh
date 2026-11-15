@@ -248,9 +248,10 @@ When call validate_input_python "prettier-lint" "report-format" "sarif"
 The status should be success
 End
 
-It "accepts empty report-format (uses default)"
+# Left out, the input reaches the validator as its default; empty means a caller passed it.
+It "rejects an empty report-format"
 When call validate_input_python "prettier-lint" "report-format" ""
-The status should be success
+The status should be failure
 End
 
 It "rejects invalid format"
@@ -519,16 +520,17 @@ When call validate_input_python "prettier-lint" "file-pattern" "--help"
 The status should be failure
 End
 
+# tool-pins.spec.sh runs both steps and matches the exact argv, `--` included.
 It "ends prettier options before the pattern in check mode"
-When call grep -F 'prettier --check "$@" -- "$FILE_PATTERN"' prettier-lint/action.yml
+When call grep -F 'if "$@" -- "$FILE_PATTERN"' prettier-lint/action.yml
 The status should be success
-The output should include 'prettier --check'
+The output should include '-- "$FILE_PATTERN"'
 End
 
 It "ends prettier options before the pattern in fix mode"
-When call grep -F 'prettier --write -- "$FILE_PATTERN"' prettier-lint/action.yml
+When call grep -F '$PRETTIER_COMMAND --write -- "$FILE_PATTERN"' prettier-lint/action.yml
 The status should be success
-The output should include 'prettier --write'
+The output should include '--write --'
 End
 End
 End

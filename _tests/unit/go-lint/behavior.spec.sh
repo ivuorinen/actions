@@ -17,6 +17,8 @@ before() {
   export RUNNER_TEMP="${SHELLSPEC_TEST_TEMP_DIR}/runner-temp"
   mkdir -p "$RUNNER_TEMP"
   DEFAULT_CONFIG="${RUNNER_TEMP}/golangci-lint-default.yml"
+  # golangci-lint writes the report itself, into a fresh directory under RUNNER_TEMP.
+  REPORT="${RUNNER_TEMP}/go-lint.*/golangci-lint.sarif"
   OUTSIDE_TARGET="${SHELLSPEC_TEST_TEMP_DIR}/outside-workspace.yml"
   export INPUT_WORKING_DIRECTORY="."
   export INPUT_CONFIG_FILE=".golangci.yml"
@@ -102,7 +104,7 @@ End
 Describe "Run golangci-lint"
 It "lints with the default config when the repository has a dangling symlink"
 ln -s "$OUTSIDE_TARGET" .golangci.yml
-mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --new --out-format sarif ./..." ""
+mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --new --output.sarif.path=${REPORT} ./..." ""
 When call run_config_then_lint
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -111,7 +113,7 @@ End
 
 It "lints with the repository's own config when it has one"
 printf 'run:\n  tests: false\n' >.golangci.yml
-mock_command golangci-lint "run --config .golangci.yml --timeout 5m --new --out-format sarif ./..." ""
+mock_command golangci-lint "run --config .golangci.yml --timeout 5m --new --output.sarif.path=${REPORT} ./..." ""
 When call run_config_then_lint
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -120,7 +122,7 @@ End
 
 It "passes no cache flag when caching is disabled, as golangci-lint has none"
 export INPUT_CACHE="false"
-mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --new --out-format sarif ./..." ""
+mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --new --output.sarif.path=${REPORT} ./..." ""
 When call run_config_then_lint
 The status should be success
 The stdout should include "Running golangci-lint"

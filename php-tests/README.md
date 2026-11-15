@@ -26,7 +26,7 @@ jobs:
           extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
           framework: 'auto'
           max-retries: '3'
-          php-version: 'latest'
+          php-version: '8.5'
           token: '${{ github.token }}'
           username: 'github-actions'
 ```
@@ -41,7 +41,7 @@ jobs:
 | `extensions`    | PHP extensions to install (comma-separated)                                                                                                                                 | ❌       | `mbstring, intl, json, pdo_sqlite, sqlite3`         |
 | `framework`     | Framework detection mode (auto=detect Laravel via artisan, laravel=force Laravel, generic=no framework)                                                                     | ❌       | `auto`                                              |
 | `max-retries`   | Maximum number of retry attempts for Composer commands (1-10, must not be empty)                                                                                            | ❌       | `3`                                                 |
-| `php-version`   | PHP Version to use (latest, 8.4, 8.3, etc.)                                                                                                                                 | ❌       | `latest`                                            |
+| `php-version`   | PHP version to use when the repository states none, such as 8.4 (empty: the version pinned in this action, "latest": the newest release)                                    | ❌       | -                                                   |
 | `token`         | GitHub token for checkout and private Composer packages. Plugins, scripts and tests never get it, so plugin-placed private packages fail with --no-cache or --prefer-source | ❌       | -                                                   |
 | `username`      | GitHub username for commits                                                                                                                                                 | ❌       | `github-actions`                                    |
 
@@ -87,7 +87,7 @@ permissions:
     extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
     framework: 'auto'
     max-retries: '3'
-    php-version: 'latest'
+    php-version: '8.5'
     token: '${{ github.token }}'
     username: 'github-actions'
 ```
@@ -107,7 +107,7 @@ permissions:
     extensions: 'mbstring, intl, json, pdo_sqlite, sqlite3'
     framework: 'auto'
     max-retries: '3'
-    php-version: 'latest'
+    php-version: '8.5'
     token: '${{ github.token }}'
     username: 'github-actions'
 ```

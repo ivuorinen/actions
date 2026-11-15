@@ -197,6 +197,34 @@ CASES: dict[str, dict[str, list[str]]] = {
         "valid": ["1.21", "1.21.5", "1.21.x", "v1.21", "stable", "oldstable"],
         "invalid": ["abc", "1"],
     },
+    "golangci_lint_version": {
+        "valid": [
+            "2.1.0",
+            "v2.1.0",
+            "V2.1.0",
+            "2.1",
+            "2",
+            "2.1.0-rc.1",
+            "v2.1.0-rc.1",
+            "2.1.0+build",
+            "latest",
+        ],
+        "invalid": [
+            # go-lint installs the /v2 module path, which Go requires to match the major.
+            "v3.0.0",
+            "10.0.0",
+            "1.64.8",
+            "v1.64.8",
+            "1.64",
+            "1",
+            "v1",
+            "0.1.0",
+            "1.64.8-rc.1",
+            "1.64.8+build",
+            "abc",
+            "2.x",
+        ],
+    },
     "docker_architectures": {
         "valid": ["linux/amd64", "linux/amd64,linux/arm64", "linux/arm/v7"],
         "invalid": ["windows/amd64", "linux/amd64,bogus"],
@@ -776,6 +804,11 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "mode_enum": {"valid": ["check", "fix"], "invalid": ["lint"]},
     "report_format": {"valid": ["json", "sarif", "github-actions"], "invalid": ["yaml"]},
+    "golangci_report_format": {
+        "valid": ["sarif", "json", "text", "github-actions", "line-number", "colored-line-number"],
+        # Formats of other linters, and v2 formats go-lint cannot count issues in.
+        "invalid": ["stylish", "compact", "junit", "checkstyle", "tab", "yaml"],
+    },
     "coverage_driver": {"valid": ["none", "xdebug", "pcov", "xdebug3"], "invalid": ["phpdbg"]},
     "framework_mode": {"valid": ["auto", "laravel", "generic"], "invalid": ["symfony"]},
     "language_enum": {"valid": ["php", "python", "go", "dotnet"], "invalid": ["ruby"]},
@@ -1012,7 +1045,7 @@ def test_invalid_values_rejected(check):
 
 # Inputs of these types all declare a default (tests/test_spec.py), so blank only comes from a
 # caller passing it, and the steps that read them then skip their work instead of failing.
-REFUSES_BLANK = {"boolean", "numeric_range_1_10"}
+REFUSES_BLANK = {"boolean", "numeric_range_1_10", "report_format", "golangci_report_format"}
 
 
 @pytest.mark.parametrize("check", sorted(set(kit.CHECKS) - REFUSES_BLANK))

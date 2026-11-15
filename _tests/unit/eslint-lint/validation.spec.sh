@@ -290,9 +290,10 @@ When call validate_input_python "eslint-lint" "report-format" "sarif"
 The status should be success
 End
 
-It "accepts empty report-format (uses default)"
+# Left out, the input reaches the validator as its default; empty means a caller passed it.
+It "rejects an empty report-format"
 When call validate_input_python "eslint-lint" "report-format" ""
-The status should be success
+The status should be failure
 End
 
 It "rejects invalid format"

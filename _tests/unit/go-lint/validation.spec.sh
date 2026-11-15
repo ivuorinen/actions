@@ -36,13 +36,35 @@ The status should be success
 End
 
 It "accepts semantic version"
-When call validate_input_python "go-lint" "golangci-lint-version" "1.55.2"
+When call validate_input_python "go-lint" "golangci-lint-version" "2.1.0"
 The status should be success
 End
 
 It "accepts semantic version with v prefix"
-When call validate_input_python "go-lint" "golangci-lint-version" "v1.55.2"
+When call validate_input_python "go-lint" "golangci-lint-version" "v2.1.0"
 The status should be success
+End
+
+Describe "golangci-lint v1, whose module path and flags this action cannot use"
+Parameters
+"1.55.2"
+"v1.55.2"
+"1"
+"v1"
+"1.55.2-rc.1"
+"1.55.2+build"
+End
+
+It "rejects $1"
+When call validate_input_python "go-lint" "golangci-lint-version" "$1"
+The status should be failure
+End
+End
+
+# go-lint installs the /v2 module path, and Go requires the path to match the major.
+It "rejects golangci-lint v3, which the /v2 module path cannot install"
+When call validate_input_python "go-lint" "golangci-lint-version" "v3.0.0"
+The status should be failure
 End
 
 It "rejects invalid version format"
@@ -160,8 +182,30 @@ When call validate_input_python "go-lint" "report-format" "github-actions"
 The status should be success
 End
 
+It "accepts the v1 line-number format, which gives text"
+When call validate_input_python "go-lint" "report-format" "line-number"
+The status should be success
+End
+
+# ESLint's stylish, and v2's checkstyle, which go-lint cannot count issues in.
+It "rejects a format golangci-lint has no counted output for"
+When call validate_input_python "go-lint" "report-format" "stylish"
+The status should be failure
+End
+
+It "rejects checkstyle"
+When call validate_input_python "go-lint" "report-format" "checkstyle"
+The status should be failure
+End
+
 It "rejects invalid report format"
 When call validate_input_python "go-lint" "report-format" "invalid-format"
+The status should be failure
+End
+
+# The input defaults to sarif, so a blank one was passed, and would build --output. .path.
+It "rejects a blank report format"
+When call validate_input_python "go-lint" "report-format" " "
 The status should be failure
 End
 End

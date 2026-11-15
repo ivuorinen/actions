@@ -19,9 +19,10 @@ Shared contract:
     ``$VAR`` in an input, so neither form is a reference here: both are literal data. Matches
     use ``re.fullmatch`` because ``re.match(...$)`` also accepts a trailing newline.
 
-``boolean`` and ``numeric_range_1_10`` refuse a blank value instead. Those inputs all declare a
-default and the runner applies it only when the caller leaves the input out, so blank means the
-caller passed it, and the steps reading such an input would then quietly skip their work.
+``boolean``, ``numeric_range_1_10`` and the two report-format checks refuse a blank value
+instead. Those inputs all declare a default and the runner applies it only when the caller
+leaves the input out, so blank means the caller passed it, and the steps reading such an input
+would then quietly skip their work.
 
 Security-critical checks (tokens, file paths, injection-bearing lists) are ported from the
 previous validator framework. Tool-version and enum format checks are written to match what
@@ -316,6 +317,20 @@ def check_semantic_version(value: str) -> str | None:
     if _is_semver(_strip_v(value)):
         return None
     return 'must be a semantic version (e.g. 1.2.3, 1.2.3-rc.1, 1.2, 1, or "latest")'
+
+
+def check_golangci_lint_version(value: str) -> str | None:
+    """``semantic_version`` at major 2.
+
+    go-lint installs the ``/v2`` module path, which Go requires to match the version's major,
+    and v1 also has other CLI flags.
+    """
+    if _skip(value) or value.lower() == "latest":
+        return None
+    core = _strip_v(value)
+    if _is_semver(core) and int(re.split(r"\D", core, maxsplit=1)[0]) == 2:
+        return None
+    return 'must be golangci-lint v2 (e.g. 2.1.0, v2.1.0, or "latest")'
 
 
 def check_strict_semantic_version(value: str) -> str | None:
@@ -881,7 +896,9 @@ def check_mode_enum(value: str) -> str | None:
 
 
 def check_report_format(value: str) -> str | None:
-    """Lint/report output format."""
+    """Lint/report output format. A blank is refused for the reason in the module contract."""
+    if not value.strip():
+        return "must not be blank: leave the input out for its default"
     return _enum(
         value,
         "checkstyle",
@@ -898,6 +915,20 @@ def check_report_format(value: str) -> str | None:
         "tab",
         "teamcity",
         "xml",
+    )
+
+
+def check_golangci_report_format(value: str) -> str | None:
+    """A go-lint report format: golangci-lint v2's sarif, json or text, or a v1 name for text.
+
+    go-lint counts the issues in these three; v2 has no github-actions, line-number or
+    colored-line-number format, so go-lint writes text for them. A blank is refused for the
+    reason in the module contract.
+    """
+    if not value.strip():
+        return "must not be blank: leave the input out for its default"
+    return _enum(
+        value, "colored-line-number", "github-actions", "json", "line-number", "sarif", "text"
     )
 
 
@@ -1224,6 +1255,8 @@ EXAMPLES = {
     "git_author_name": "github-actions[bot]",
     "github_token": _actions_expression("github.token"),
     "go_version": "1.24",
+    "golangci_lint_version": "2.1.0",
+    "golangci_report_format": "sarif",
     "json_format": '{"linux/amd64": "--build-arg ARCH=amd64"}',
     "key_value_list": "NODE_ENV=production",
     "language_enum": "python",

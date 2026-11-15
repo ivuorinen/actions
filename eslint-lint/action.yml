@@ -21,9 +21,9 @@ inputs:
     required: false
     default: '.'
   eslint-version:
-    description: 'ESLint version to use'
+    description: 'ESLint version to install when the repository has no copy of its own (empty: the version pinned in this action, "latest": the newest release)'
     required: false
-    default: 'latest'
+    default: ''
   config-file:
     description: 'Path to ESLint config file'
     required: false
@@ -161,18 +161,23 @@ runs:
         corepack enable
 
     - name: Install Package Manager
+      id: install-pm
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        # renovate: datasource=npm depName=pnpm
+        PNPM_VERSION: '12.18.0'
+        # renovate: datasource=npm depName=@yarnpkg/cli-dist
+        YARN_VERSION: '4.18.1'
       run: |
         set -eu
 
         case "$PACKAGE_MANAGER" in
           pnpm)
-            corepack prepare pnpm@latest --activate
+            corepack prepare "pnpm@$PNPM_VERSION" --activate
             ;;
           yarn)
-            corepack prepare yarn@stable --activate
+            corepack prepare "yarn@$YARN_VERSION" --activate
             ;;
           bun|npm)
             # Bun installed separately, npm built-in
@@ -182,8 +187,11 @@ runs:
     - name: Setup Bun
       if: steps.detect-pm.outputs.package-manager == 'bun'
       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      env:
+        # renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
+        BUN_VERSION: '1.4.4'
       with:
-        bun-version: latest
+        bun-version: ${{ env.BUN_VERSION }}
 
     - name: Cache Node Dependencies
       id: cache
@@ -226,14 +234,110 @@ runs:
 
         echo "✅ Dependencies installed successfully"
 
+    - name: Ensure ESLint
+      id: ensure-eslint
+      shell: sh
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        REPORT_FORMAT: ${{ inputs.report-format }}
+        REQUESTED_VERSION: ${{ inputs.eslint-version }}
+        # renovate: datasource=npm depName=eslint
+        DEFAULT_ESLINT_VERSION: '10.14.0'
+        # renovate: datasource=npm depName=@microsoft/eslint-formatter-sarif
+        ESLINT_FORMATTER_SARIF_VERSION: '3.1.0'
+      run: |
+        set -eu
+
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
+
+        # The repository's own copy wins: its config and plugins are written for it. Running the
+        # tool cannot tell, because npx --no-install and pnpm exec also find a global install, so
+        # ownership is read from node_modules, or from package.json for Yarn Plug'n'Play, which has
+        # none, here and in each parent up to the checkout: Node resolves packages through those,
+        # so a working directory below the project root still has the root's copy.
+        # owns sets found_in to node_modules or package.json, saying how it found the copy,
+        # found_dir to the directory it found it in, and manifest_dir to the nearest directory
+        # with a package.json, whose package Yarn 2 and later resolve binaries for.
+        owns() {
+          _dir=$PWD
+          manifest_dir=
+          while :; do
+            found_dir=$_dir
+            if [ -z "$manifest_dir" ] && [ -f "$_dir/package.json" ]; then
+              manifest_dir=$_dir
+            fi
+            if [ -d "$_dir/node_modules/$1" ]; then
+              found_in=node_modules
+              return 0
+            fi
+            if [ -f "$_dir/package.json" ] && jq -e --arg name "$1" \
+              '(.dependencies // {}) + (.devDependencies // {}) | has($name)' "$_dir/package.json" >/dev/null; then
+              found_in=package.json
+              return 0
+            fi
+            case "$_dir" in "${GITHUB_WORKSPACE:-$PWD}" | /) return 1 ;; esac
+            _dir=$(dirname -- "$_dir")
+          done
+        }
+
+        if owns eslint; then
+          # None of these fetches a package, so a copy that is not installed fails the run. Yarn 2
+          # and later run a package.json script before a binary of the same name, so they are told
+          # to run the binary. They only see binaries of the nearest package's own dependencies,
+          # so a copy that the root workspace declares for a child one is run with --top-level,
+          # which resolves it from the root and still runs it in this directory. Yarn 1 cannot
+          # skip the script: a node_modules install runs through npx --no-install instead, and a
+          # Plug'n'Play one, which that cannot load, through Yarn as before.
+          case "$PACKAGE_MANAGER" in
+            "pnpm") set -- pnpm exec eslint ;;
+            "yarn")
+              case "$(yarn --version)" in
+                1.*)
+                  if [ "$found_in" = node_modules ]; then
+                    set -- npx --no-install eslint
+                  else
+                    set -- yarn eslint
+                  fi
+                  ;;
+                *)
+                  if [ -n "$manifest_dir" ] && [ "$found_dir" != "$manifest_dir" ]; then
+                    set -- yarn run --top-level --binaries-only eslint
+                  else
+                    set -- yarn run --binaries-only eslint
+                  fi
+                  ;;
+              esac
+              ;;
+            "bun") set -- bunx --no-install eslint ;;
+            "npm"|*) set -- npx --no-install eslint ;;
+          esac
+        else
+          npm install -g "eslint@${REQUESTED_VERSION:-$DEFAULT_ESLINT_VERSION}"
+          set -- eslint
+        fi
+        printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
+
+        # ESLint loads a formatter named as a package from the working directory, which a global
+        # install is outside of and Plug'n'Play limits to declared dependencies. A path it loads
+        # as is, so a formatter the repository does not have is installed apart and passed by path.
+        formatter="@microsoft/eslint-formatter-sarif"
+        if [ "$REPORT_FORMAT" = "sarif" ] && ! owns "$formatter"; then
+          prefix="$RUNNER_TEMP/eslint-formatter-sarif"
+          npm install --prefix "$prefix" "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
+          dir="$prefix/node_modules/$formatter"
+          formatter="$dir/$(jq -r '.main // "index.js"' "$dir/package.json")"
+        fi
+        printf 'formatter=%s\n' "$formatter" >> "$GITHUB_OUTPUT"
+
     - name: Run ESLint Check
       if: inputs.mode == 'check'
       id: check
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
-        ESLINT_VERSION: ${{ inputs.eslint-version }}
+        ESLINT_COMMAND: ${{ steps.ensure-eslint.outputs.command }}
+        SARIF_FORMATTER: ${{ steps.ensure-eslint.outputs.formatter }}
         CONFIG_FILE: ${{ inputs.config-file }}
         CACHE: ${{ inputs.cache }}
         MAX_WARNINGS: ${{ inputs.max-warnings }}
@@ -245,21 +349,9 @@ runs:
 
         echo "Running ESLint check mode..."
 
-        # Build ESLint command based on package manager
-        case "$PACKAGE_MANAGER" in
-          "pnpm")
-            set -- pnpm exec eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-          "yarn")
-            set -- yarn eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-          "bun")
-            set -- bunx eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-          "npm"|*)
-            set -- npx eslint . --ext "$FILE_EXTENSIONS"
-            ;;
-        esac
+        # ESLINT_COMMAND is several words, so it is split on purpose
+        set -f
+        set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS"
 
         # Add config file if specified
         if [ "$CONFIG_FILE" != ".eslintrc" ] && [ -f "$CONFIG_FILE" ]; then
@@ -276,7 +368,7 @@ runs:
 
         # Add format
         if [ "$REPORT_FORMAT" = "sarif" ]; then
-          set -- "$@" --format @microsoft/eslint-formatter-sarif --output-file eslint-results.sarif
+          set -- "$@" --format "$SARIF_FORMATTER" --output-file eslint-results.sarif
         else
           set -- "$@" --format "$REPORT_FORMAT"
         fi
@@ -329,28 +421,16 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        ESLINT_COMMAND: ${{ steps.ensure-eslint.outputs.command }}
         FILE_EXTENSIONS: ${{ inputs.file-extensions }}
       run: |
         set -eu
 
         echo "Running ESLint fix mode..."
 
-        # Run ESLint fix based on package manager
-        case "$PACKAGE_MANAGER" in
-          "pnpm")
-            pnpm exec eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-          "yarn")
-            yarn eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-          "bun")
-            bunx eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-          "npm"|*)
-            npx eslint . --ext "$FILE_EXTENSIONS" --fix || true
-            ;;
-        esac
+        # ESLINT_COMMAND is several words, so it is split on purpose
+        set -f
+        $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS" --fix || true
 
         # Count only files actually modified by ESLint
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')

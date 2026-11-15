@@ -21,9 +21,9 @@ inputs:
     required: false
     default: '.'
   prettier-version:
-    description: 'Prettier version to use'
+    description: 'Prettier version to install when the repository has no copy of its own (empty: the version pinned in this action, "latest": the newest release)'
     required: false
-    default: 'latest'
+    default: ''
   config-file:
     description: 'Path to Prettier config file'
     required: false
@@ -155,18 +155,23 @@ runs:
         corepack enable
 
     - name: Install Package Manager
+      id: install-pm
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        # renovate: datasource=npm depName=pnpm
+        PNPM_VERSION: '12.18.0'
+        # renovate: datasource=npm depName=@yarnpkg/cli-dist
+        YARN_VERSION: '4.18.1'
       run: |
         set -eu
 
         case "$PACKAGE_MANAGER" in
           pnpm)
-            corepack prepare pnpm@latest --activate
+            corepack prepare "pnpm@$PNPM_VERSION" --activate
             ;;
           yarn)
-            corepack prepare yarn@stable --activate
+            corepack prepare "yarn@$YARN_VERSION" --activate
             ;;
           bun|npm)
             # Bun installed separately, npm built-in
@@ -176,8 +181,11 @@ runs:
     - name: Setup Bun
       if: steps.detect-pm.outputs.package-manager == 'bun'
       uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      env:
+        # renovate: datasource=github-releases depName=oven-sh/bun extractVersion=^bun-v(?<version>.+)$
+        BUN_VERSION: '1.4.4'
       with:
-        bun-version: latest
+        bun-version: ${{ env.BUN_VERSION }}
 
     - name: Cache Node Dependencies
       id: cache
@@ -258,13 +266,96 @@ runs:
 
         echo "✅ Plugins installed successfully"
 
+    - name: Ensure Prettier
+      id: ensure-prettier
+      shell: sh
+      working-directory: ${{ inputs.working-directory }}
+      env:
+        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        REQUESTED_VERSION: ${{ inputs.prettier-version }}
+        # renovate: datasource=npm depName=prettier
+        DEFAULT_PRETTIER_VERSION: '3.9.10'
+      run: |
+        set -eu
+
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
+
+        # The repository's own copy wins, so it formats the way the repository expects. Running
+        # it cannot tell, because npx --no-install and pnpm exec also find a global install, so
+        # ownership is read from node_modules, or from package.json for Yarn Plug'n'Play, which has
+        # none, here and in each parent up to the checkout: Node resolves packages through those,
+        # so a working directory below the project root still has the root's copy.
+        # The same check as eslint-lint's Ensure ESLint step: each action is self-contained.
+        # owns sets found_in to node_modules or package.json, saying how it found the copy,
+        # found_dir to the directory it found it in, and manifest_dir to the nearest directory
+        # with a package.json, whose package Yarn 2 and later resolve binaries for.
+        owns() {
+          _dir=$PWD
+          manifest_dir=
+          while :; do
+            found_dir=$_dir
+            if [ -z "$manifest_dir" ] && [ -f "$_dir/package.json" ]; then
+              manifest_dir=$_dir
+            fi
+            if [ -d "$_dir/node_modules/$1" ]; then
+              found_in=node_modules
+              return 0
+            fi
+            if [ -f "$_dir/package.json" ] && jq -e --arg name "$1" \
+              '(.dependencies // {}) + (.devDependencies // {}) | has($name)' "$_dir/package.json" >/dev/null; then
+              found_in=package.json
+              return 0
+            fi
+            case "$_dir" in "${GITHUB_WORKSPACE:-$PWD}" | /) return 1 ;; esac
+            _dir=$(dirname -- "$_dir")
+          done
+        }
+
+        if owns prettier; then
+          # The package manager resolves it; npx --no-install cannot under Plug'n'Play. None of these
+          # fetches a package, so a copy that is not installed fails the run. Yarn 2 and later run a
+          # package.json script before a binary of the same name, so they are told to run the
+          # binary. They only see binaries of the nearest package's own dependencies, so a copy
+          # that the root workspace declares for a child one is run with --top-level, which
+          # resolves it from the root and still runs it in this directory. Yarn 1 cannot skip
+          # the script: a node_modules install runs through npx --no-install instead, and a
+          # Plug'n'Play one, which that cannot load, through Yarn as before.
+          case "$PACKAGE_MANAGER" in
+            "pnpm") set -- pnpm exec prettier ;;
+            "yarn")
+              case "$(yarn --version)" in
+                1.*)
+                  if [ "$found_in" = node_modules ]; then
+                    set -- npx --no-install prettier
+                  else
+                    set -- yarn prettier
+                  fi
+                  ;;
+                *)
+                  if [ -n "$manifest_dir" ] && [ "$found_dir" != "$manifest_dir" ]; then
+                    set -- yarn run --top-level --binaries-only prettier
+                  else
+                    set -- yarn run --binaries-only prettier
+                  fi
+                  ;;
+              esac
+              ;;
+            "bun") set -- bunx --no-install prettier ;;
+            "npm"|*) set -- npx --no-install prettier ;;
+          esac
+        else
+          npm install -g "prettier@${REQUESTED_VERSION:-$DEFAULT_PRETTIER_VERSION}"
+          set -- prettier
+        fi
+        printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
+
     - name: Run Prettier Check
       if: inputs.mode == 'check'
       id: check
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
         CONFIG_FILE: ${{ inputs.config-file }}
         CACHE: ${{ inputs.cache }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
@@ -274,8 +365,10 @@ runs:
 
         echo "Running Prettier check mode..."
 
-        # Build common Prettier options (shared between check and count runs)
-        set --
+        # PRETTIER_COMMAND is several words, so it is split on purpose
+        set -f
+        set -- $PRETTIER_COMMAND --check
+        set +f
 
         # Add config file if specified and exists
         if [ "$CONFIG_FILE" != ".prettierrc" ] && [ -f "$CONFIG_FILE" ]; then
@@ -292,7 +385,7 @@ runs:
         files_checked=0
         unformatted_files=0
 
-        if npx prettier --check "$@" -- "$FILE_PATTERN" > prettier-output.txt 2>&1; then
+        if "$@" -- "$FILE_PATTERN" > prettier-output.txt 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
@@ -336,7 +429,7 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
-        PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |
         set -eu
@@ -346,8 +439,10 @@ runs:
         # Count files before fix
         files_before=$(git status --porcelain | wc -l | tr -d ' ')
 
-        # Run Prettier fix
-        npx prettier --write -- "$FILE_PATTERN" || true
+        # Run Prettier fix. PRETTIER_COMMAND is several words, so it is split on purpose
+        set -f
+        $PRETTIER_COMMAND --write -- "$FILE_PATTERN" || true
+        set +f
 
         # Count files after fix
         files_after=$(git status --porcelain | wc -l | tr -d ' ')

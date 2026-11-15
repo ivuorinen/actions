@@ -215,7 +215,9 @@ def check_plugin_list(value: str) -> str | None:
 
 
 def check_report_format(value: str) -> str | None:
-    """Lint/report output format."""
+    """Lint/report output format. A blank is refused for the reason in the module contract."""
+    if not value.strip():
+        return "must not be blank: leave the input out for its default"
     return _enum(
         value,
         "checkstyle",
