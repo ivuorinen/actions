@@ -179,7 +179,7 @@ clean: ## Clean up temporary files and caches
 precommit: ## Run pre-commit hooks on all files
 	@echo "$(BLUE)🔍 Running pre-commit hooks...$(RESET)"
 	@if command -v pre-commit >/dev/null 2>&1; then \
-		if PRE_COMMIT_USE_UV=1 pre-commit run --all-files; then \
+		if pre-commit run --all-files; then \
 			echo "$(GREEN)✅ All pre-commit hooks passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Some pre-commit hooks failed$(RESET)"; \
@@ -352,7 +352,7 @@ lint-python: ## Lint Python files with ruff and pyright
 lint-actions: ## Validate GitHub Actions workflows and action.yml files
 	@echo "$(BLUE)🔍 Validating GitHub Actions...$(RESET)"
 	@if command -v pre-commit >/dev/null 2>&1; then \
-		if PRE_COMMIT_USE_UV=1 pre-commit run action-validator --all-files; then \
+		if pre-commit run action-validator --all-files; then \
 			echo "$(GREEN)✅ Actions validation passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Actions validation failed$(RESET)" | tee -a $(LOG_FILE); \
