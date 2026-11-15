@@ -22,6 +22,10 @@ setup() {
   mkdir -p "$FAKE_BIN"
   cat >"${FAKE_BIN}/fakepm" <<'FAKE'
 #!/bin/sh
+if [ "$*" = "--version" ]; then
+  printf '%s\n' "${FAKE_PM_VERSION:-1.22.22}"
+  exit 0
+fi
 printf '%s %s\n' "$(basename "$0")" "$*" >>"$CALLS"
 printf 'scripts=%s\n' "${YARN_ENABLE_SCRIPTS:-unset}" >>"$CALLS"
 case " $* " in
@@ -103,14 +107,32 @@ Assert [ "$(installed_call | head -n 1)" = "yarn add -D --ignore-scripts plugin-
 Assert manifests_unchanged
 End
 
-It "yarn berry disables scripts through the environment and restores the manifests"
+It "yarn classic keeps --ignore-scripts even with a .yarnrc.yml"
 printf 'nodeLinker: node-modules\n' >.yarnrc.yml
+When call run_install yarn "plugin-a,plugin-b"
+The status should be success
+The stdout should include "Installing Prettier plugins"
+Assert [ "$(installed_call | head -n 1)" = "yarn add -D --ignore-scripts plugin-a plugin-b" ]
+End
+
+# No .yarnrc.yml: a Yarn 4 project can pin Yarn through packageManager alone.
+It "yarn 4 disables scripts and builds, without a .yarnrc.yml, and restores the manifests"
+export FAKE_PM_VERSION="4.18.1"
+When call run_install yarn "plugin-a,plugin-b"
+The status should be success
+The stdout should include "Installing Prettier plugins"
+Assert [ "$(installed_call | head -n 1)" = "yarn add -D --mode=skip-build plugin-a plugin-b" ]
+Assert [ "$(grep '^scripts=' "$CALLS")" = "scripts=false" ]
+Assert manifests_unchanged
+End
+
+It "yarn 2 disables scripts without --mode, which its add command lacks"
+export FAKE_PM_VERSION="2.4.3"
 When call run_install yarn "plugin-a,plugin-b"
 The status should be success
 The stdout should include "Installing Prettier plugins"
 Assert [ "$(installed_call | head -n 1)" = "yarn add -D plugin-a plugin-b" ]
 Assert [ "$(grep '^scripts=' "$CALLS")" = "scripts=false" ]
-Assert manifests_unchanged
 End
 
 It "restores package.json and the lockfile when the install fails"

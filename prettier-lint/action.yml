@@ -271,12 +271,15 @@ runs:
             pnpm add -D --ignore-scripts "$@"
             ;;
           "yarn")
-            if [ -f ".yarnrc.yml" ]; then
-              # Yarn Berry has no --ignore-scripts flag; the setting does the same
-              YARN_ENABLE_SCRIPTS=false yarn add -D "$@"
-            else
-              yarn add -D --ignore-scripts "$@"
-            fi
+            # The running Yarn decides the flags: a Yarn 2+ project needs no .yarnrc.yml.
+            # Yarn 2+ has no --ignore-scripts; enableScripts off stops lifecycle scripts,
+            # and --mode=skip-build (Yarn 3+) also skips builds a repository's
+            # dependenciesMeta turns back on with built: true.
+            case "$(yarn --version)" in
+              1.*) yarn add -D --ignore-scripts "$@" ;;
+              2.*) YARN_ENABLE_SCRIPTS=false yarn add -D "$@" ;;
+              *) YARN_ENABLE_SCRIPTS=false yarn add -D --mode=skip-build "$@" ;;
+            esac
             ;;
           "bun")
             bun add --no-save --ignore-scripts "$@"
