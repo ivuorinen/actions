@@ -39,8 +39,8 @@ When using these actions:
 2. Use least-privilege token permissions
 3. Validate all inputs
 4. Set appropriate timeouts
-5. Configure required security scanners:
-   - Add `.gitleaks.toml` for Gitleaks configuration
+5. Configure security scanners:
+   - Add `.gitleaks.toml` to customize Gitleaks rules (its default rules apply without one)
 
 ## Required Secrets
 
