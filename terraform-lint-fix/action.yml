@@ -165,16 +165,18 @@ runs:
       with:
         tflint_version: ${{ inputs.tflint-version || env.DEFAULT_TFLINT_VERSION }}
 
-    # TFLint installs plugins into TFLINT_PLUGIN_DIR (by default under the runner user's
-    # home), which self-hosted runners share between jobs. Exporting it for the later steps keeps the
-    # action's plugins in a directory of its own that Cleanup can delete safely.
+    # Without a TFLINT_PLUGIN_DIR, TFLint installs plugins under the runner user's home, which
+    # self-hosted runners share between jobs. The Initialize and Run steps get a directory of the
+    # action's own that Cleanup can delete safely; a step output keeps it out of the caller's later
+    # steps. A plugin_dir set in the TFLint config still takes precedence, as TFLint documents, and
+    # those plugins stay where the config put them.
     - name: Isolate TFLint Plugins
       id: plugin-dir
       if: steps.check-files.outputs.found == 'true'
       shell: sh
       run: |
         set -eu
-        printf 'TFLINT_PLUGIN_DIR=%s\n' "$RUNNER_TEMP/tflint-plugins" >> "$GITHUB_ENV"
+        printf 'dir=%s\n' "$RUNNER_TEMP/tflint-plugins" >> "$GITHUB_OUTPUT"
 
     - name: Initialize TFLint
       if: steps.check-files.outputs.found == 'true'
@@ -183,6 +185,7 @@ runs:
       env:
         VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
         VALIDATED_CONFIG: ${{ inputs.config-file }}
+        TFLINT_PLUGIN_DIR: ${{ steps.plugin-dir.outputs.dir }}
       run: |
         set -eu
 
@@ -204,6 +207,7 @@ runs:
         VALIDATED_CONFIG: ${{ inputs.config-file }}
         VALIDATED_FORMAT: ${{ inputs.format }}
         VALIDATED_FAIL: ${{ inputs.fail-on-error }}
+        TFLINT_PLUGIN_DIR: ${{ steps.plugin-dir.outputs.dir }}
       run: |
         set -eu
         # Use validated environment variables

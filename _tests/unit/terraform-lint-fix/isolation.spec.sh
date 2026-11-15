@@ -46,10 +46,29 @@ End
 End
 
 Describe "Isolate TFLint Plugins"
-It "points TFLINT_PLUGIN_DIR under RUNNER_TEMP for the later steps"
+github_env_is_empty() {
+  [ ! -s "$GITHUB_ENV" ]
+}
+
+It "publishes a plugin directory under RUNNER_TEMP as a step output"
 When call run_step "${ACTION_DIR}" "plugin-dir"
 The status should be success
-The contents of file "$GITHUB_ENV" should include "TFLINT_PLUGIN_DIR=${RUNNER_TEMP}/"
+Assert expect_output dir "${RUNNER_TEMP}/tflint-plugins"
+End
+
+# GITHUB_ENV would reach the caller's steps after this action, and override a
+# TFLINT_PLUGIN_DIR they set with a directory Cleanup deletes.
+It "leaves the caller's later steps alone"
+When call run_step "${ACTION_DIR}" "plugin-dir"
+The status should be success
+Assert github_env_is_empty
+End
+
+It "hands the directory to Initialize TFLint and Run TFLint only"
+When call yq -r '.runs.steps[] | select(.env.TFLINT_PLUGIN_DIR != null) | .id + " " + .env.TFLINT_PLUGIN_DIR' "${ACTION_DIR}/action.yml"
+The line 1 of output should equal 'init ${{ steps.plugin-dir.outputs.dir }}'
+The line 2 of output should equal 'lint ${{ steps.plugin-dir.outputs.dir }}'
+The lines of output should equal 2
 End
 End
 
