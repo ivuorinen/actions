@@ -86,8 +86,9 @@ The status should be success
 End
 End
 
-# The analysis deletes the output directory, so a symlink the checkout commits on that path
-# would redirect the deletion. The directory "shared" stands in for a path outside the workspace.
+# The analysis deletes the output directory, so a symlink on that path, committed or made by the
+# build, would redirect the deletion. The directory "shared" stands in for a path outside the
+# workspace.
 Describe "output-path"
 before_output() {
   export GITHUB_WORKSPACE="$PWD"
@@ -133,12 +134,24 @@ When call run_step "${ACTION_DIR}" "output-path"
 The status should be success
 End
 
-It "runs after the checkout that could bring the symlink in, and before the analysis"
-checkout_line=$(grep -n '^    - name: Checkout repository' "${ACTION_DIR}/action.yml" | cut -d: -f1)
-check_line=$(grep -n '^    - name: Check output path' "${ACTION_DIR}/action.yml" | cut -d: -f1)
-analysis_line=$(grep -n '^    - name: Perform CodeQL Analysis' "${ACTION_DIR}/action.yml" | cut -d: -f1)
-When call test "$checkout_line" -lt "$check_line" -a "$check_line" -lt "$analysis_line"
+step_names() {
+  yq -r '.runs.steps[].name' "${ACTION_DIR}/action.yml"
+}
+
+step_after_check() {
+  step_names | grep -A1 -x 'Check output path' | tail -n 1
+}
+
+It "runs after the checkout and the build that could make the symlink"
+autobuild_line=$(step_names | grep -n -x 'Autobuild' | cut -d: -f1)
+check_line=$(step_names | grep -n -x 'Check output path' | cut -d: -f1)
+When call test "$autobuild_line" -lt "$check_line"
 The status should be success
+End
+
+It "is the last step before the analysis that deletes the directory"
+When call step_after_check
+The stdout should equal "Perform CodeQL Analysis"
 End
 
 It "runs on every trigger, because no condition can skip it"
