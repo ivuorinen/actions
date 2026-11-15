@@ -300,6 +300,18 @@ The output should include "always()"
 The output should include "has_gitleaks == 'true'"
 End
 
+It "still runs Trivy after leaks fail the Gitleaks step, unless the job was cancelled"
+When call step_value "Run Trivy vulnerability scanner" "if"
+The output should include "!cancelled()"
+The output should include "run_trivy == 'true'"
+End
+
+It "uploads the Trivy report after a failed Gitleaks scan"
+When call step_value "Upload Trivy results" "if"
+The output should include "always()"
+The output should include "has_trivy == 'true'"
+End
+
 It "uploads the report Gitleaks writes"
 When call step_value "Upload Gitleaks results" "with.sarif_file"
 The output should equal "results.sarif"

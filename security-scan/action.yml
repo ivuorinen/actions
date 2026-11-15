@@ -144,8 +144,9 @@ runs:
         GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
         GITLEAKS_CONFIG: ${{ steps.check-configs.outputs.gitleaks_config }}
 
+    # Leaks fail the Gitleaks step; the vulnerability scan still runs unless the job was cancelled.
     - name: Run Trivy vulnerability scanner
-      if: steps.check-configs.outputs.run_trivy == 'true'
+      if: ${{ !cancelled() && steps.check-configs.outputs.run_trivy == 'true' }}
       uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
       with:
         scan-type: 'fs'
@@ -196,7 +197,7 @@ runs:
         fi
 
     - name: Upload Trivy results
-      if: steps.verify-sarif.outputs.has_trivy == 'true'
+      if: always() && steps.verify-sarif.outputs.has_trivy == 'true'
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
         sarif_file: 'trivy-results.sarif'
