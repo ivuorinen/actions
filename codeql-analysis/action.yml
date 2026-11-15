@@ -82,7 +82,7 @@ inputs:
     default: ''
 
   output:
-    description: 'Workspace-relative directory for the SARIF results. Absolute paths and .. are rejected. The analysis deletes and recreates this directory, so it must not hold tracked files.'
+    description: 'Workspace-relative directory for the SARIF results. Absolute paths, .. and paths through a symlink in the checkout are rejected. The analysis deletes and recreates this directory, so it must not hold tracked files.'
     required: false
     default: 'codeql-results'
 
@@ -161,6 +161,29 @@ runs:
         ref: ${{ inputs.checkout-ref || github.sha }}
         token: ${{ inputs.token }}
         persist-credentials: false
+
+    # The analysis deletes the output directory before writing to it. validate.py runs before
+    # checkout, so a symlink the checkout brings in is refused here: one anywhere on the path
+    # would point that deletion outside the workspace.
+    - name: Check output path
+      id: output-path
+      shell: sh
+      env:
+        OUTPUT: ${{ inputs.output }}
+      run: |
+        set -eu
+        path="$GITHUB_WORKSPACE"
+        rest="$OUTPUT"
+        while [ -n "$rest" ]; do
+          part="${rest%%/*}"
+          if [ "$part" = "$rest" ]; then rest=""; else rest="${rest#*/}"; fi
+          if [ -z "$part" ] || [ "$part" = "." ]; then continue; fi
+          path="$path/$part"
+          if [ -L "$path" ]; then
+            printf '::error::output must not pass through a symlink, and %s is one\n' "${path#"$GITHUB_WORKSPACE"/}"
+            exit 1
+          fi
+        done
 
     - name: Set analysis category
       id: set-category

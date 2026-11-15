@@ -1,5 +1,5 @@
 #!/usr/bin/env shellspec
-# Behavior-level tests for codeql-analysis's `checkout-safety` step.
+# Behavior-level tests for codeql-analysis's `checkout-safety` and `output-path` steps.
 #
 # Autobuild runs the checked-out code with the job's token and secrets. On
 # pull_request_target and workflow_run those belong to the base repository, so a
@@ -83,6 +83,67 @@ Describe "sarif-file output"
 It "reads the output github/codeql-action/analyze sets"
 When call grep -qF 'value: ${{ steps.analysis.outputs.sarif-output }}' "${ACTION_DIR}/action.yml"
 The status should be success
+End
+End
+
+# The analysis deletes the output directory, so a symlink the checkout commits on that path
+# would redirect the deletion. The directory "shared" stands in for a path outside the workspace.
+Describe "output-path"
+before_output() {
+  export GITHUB_WORKSPACE="$PWD"
+  mkdir shared
+}
+BeforeEach 'before_output'
+
+It "refuses an output path through a symlinked directory"
+ln -s "$PWD/shared" reports
+export INPUT_OUTPUT="reports/sarif"
+When call run_step "${ACTION_DIR}" "output-path"
+The status should be failure
+The stdout should include "::error::"
+The stdout should include "reports is one"
+End
+
+It "refuses it after a leading ./"
+ln -s "$PWD/shared" reports
+export INPUT_OUTPUT="./reports/sarif"
+When call run_step "${ACTION_DIR}" "output-path"
+The status should be failure
+The stdout should include "reports is one"
+End
+
+It "refuses an output directory that is itself a symlink"
+ln -s "$PWD/shared" codeql-results
+export INPUT_OUTPUT="codeql-results"
+When call run_step "${ACTION_DIR}" "output-path"
+The status should be failure
+The stdout should include "codeql-results is one"
+End
+
+It "accepts a nested path of real directories"
+mkdir -p reports/sarif
+export INPUT_OUTPUT="reports/sarif"
+When call run_step "${ACTION_DIR}" "output-path"
+The status should be success
+End
+
+It "accepts a path that does not exist yet"
+export INPUT_OUTPUT="codeql-results"
+When call run_step "${ACTION_DIR}" "output-path"
+The status should be success
+End
+
+It "runs after the checkout that could bring the symlink in, and before the analysis"
+checkout_line=$(grep -n '^    - name: Checkout repository' "${ACTION_DIR}/action.yml" | cut -d: -f1)
+check_line=$(grep -n '^    - name: Check output path' "${ACTION_DIR}/action.yml" | cut -d: -f1)
+analysis_line=$(grep -n '^    - name: Perform CodeQL Analysis' "${ACTION_DIR}/action.yml" | cut -d: -f1)
+When call test "$checkout_line" -lt "$check_line" -a "$check_line" -lt "$analysis_line"
+The status should be success
+End
+
+It "runs on every trigger, because no condition can skip it"
+When call yq -r '.runs.steps[] | select(.id == "output-path") | has("if")' "${ACTION_DIR}/action.yml"
+The stdout should equal "false"
 End
 End
 End
