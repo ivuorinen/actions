@@ -594,18 +594,26 @@ def main(argv: list[str] | None = None) -> int:
     p_unguarded = sub.add_parser("list-unguarded-retry-commands")
     p_unguarded.add_argument("root")
 
-    p_output = sub.add_parser("output-value")
+    p_output = sub.add_parser("expect-output")
     p_output.add_argument("file")
     p_output.add_argument("key")
+    p_output.add_argument("expected")
 
     args = parser.parse_args(argv)
 
-    if args.command == "output-value":
+    if args.command == "expect-output":
         # The value GitHub stores for a key: the last one written, heredoc bodies parsed as values.
+        # Compared here because shell command substitution would strip its trailing newlines.
         outputs = _parse_github_output(Path(args.file))
+        expected = f"expected {args.expected!r} in {args.file}"
         if args.key not in outputs:
+            print(f"expect_output: {args.key} was never written, {expected}", file=sys.stderr)
             return 1
-        print(outputs[args.key])
+        if outputs[args.key] != args.expected:
+            print(
+                f"expect_output: {args.key} is {outputs[args.key]!r}, {expected}", file=sys.stderr
+            )
+            return 1
         return 0
 
     if args.command == "list-run-steps":

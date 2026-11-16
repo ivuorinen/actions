@@ -40,6 +40,21 @@ When call expect_output flag true
 The status should be success
 End
 
+# A value ending in a newline: $(...) would strip it, so the harness compares instead.
+It "keeps a heredoc value's trailing newline"
+printf '%s\n' 'details<<EOF' 'value' '' 'EOF' >"$GITHUB_OUTPUT"
+expected=$(printf 'value\n.')
+When call expect_output details "${expected%.}"
+The status should be success
+End
+
+It "does not match a heredoc value without its trailing newline"
+printf '%s\n' 'details<<EOF' 'value' '' 'EOF' >"$GITHUB_OUTPUT"
+When call expect_output details value
+The status should be failure
+The stderr should include "details is 'value\\n', expected 'value'"
+End
+
 It "passes when the last value written matches"
 printf '%s\n' 'flag=false' 'flag=true' >"$GITHUB_OUTPUT"
 When call expect_output flag true
