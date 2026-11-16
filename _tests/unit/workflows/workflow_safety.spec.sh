@@ -141,6 +141,30 @@ print(sorted(key for key in trigger if key.startswith("paths")))
 PY
 }
 
+# Runs pr-lint.yml's Cleanup step in a scratch directory that holds a temporary MegaLinter
+# file and a report, and prints the files left.
+megalinter_cleanup_leaves() {
+  cleanup_script=$(
+    _harness_python - .github/workflows/pr-lint.yml <<'PY'
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    doc = yaml.safe_load(handle)
+for job in doc["jobs"].values():
+    for step in job.get("steps", []):
+        if step.get("name") == "Cleanup":
+            print(step["run"])
+PY
+  )
+  cleanup_dir="${SHELLSPEC_TMPBASE}/megalinter-cleanup"
+  mkdir -p "$cleanup_dir/megalinter-reports"
+  : >"$cleanup_dir/megalinter.log"
+  : >"$cleanup_dir/megalinter-reports/megalinter.log"
+  (cd "$cleanup_dir" && sh -c "$cleanup_script" && find . -type f | sort)
+}
+
 Describe "GitHub workflows and actions"
 It "contain no \${{ }} expression inside a run: block"
 When call workflow_scan expressions
@@ -158,6 +182,12 @@ It "give the pr-lint job read on contents and write only where MegaLinter report
 When call pr_lint_permissions
 The status should be success
 The output should equal "contents=read pull-requests=write security-events=write statuses=write"
+End
+
+It "remove temporary MegaLinter files after linting but keep the reports"
+When call megalinter_cleanup_leaves
+The status should be success
+The output should equal "./megalinter-reports/megalinter.log"
 End
 
 # The branch ruleset requires the MegaLinter check. A workflow that a paths filter skips

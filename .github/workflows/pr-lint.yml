@@ -20,9 +20,9 @@ on:
   merge_group:
 
 env:
-  # MegaLinter configuration - these override the action's defaults
+  # MegaLinter configuration - these override the action's defaults. VALIDATE_ALL_CODEBASE
+  # is not set here: the action's MegaLinter step sets it, and a step's env wins.
   DISABLE_LINTERS: REPOSITORY_DEVSKIM
-  VALIDATE_ALL_CODEBASE: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
 
   # Report configuration
   REPORT_OUTPUT_FOLDER: megalinter-reports
@@ -98,5 +98,5 @@ jobs:
         shell: sh
         run: |-
           # Remove temporary files but keep reports
-          find . -type f -name "megalinter.*" ! -name "megalinter-reports" -delete || true
+          find . -type f -name "megalinter.*" ! -path "./megalinter-reports/*" -delete || true
           find . -type d -name ".megalinter" -exec rm -rf {} + || true
