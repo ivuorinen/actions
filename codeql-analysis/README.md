@@ -57,7 +57,7 @@ jobs:
 | `source-root`       | Path of the root source code directory                                                                                                                                                                                                  | ❌       | -                     |
 | `threads`           | Number of threads that can be used by CodeQL                                                                                                                                                                                            | ❌       | -                     |
 | `token`             | GitHub token for API access                                                                                                                                                                                                             | ❌       | `${{ github.token }}` |
-| `upload-results`    | Upload results to GitHub Security tab (lowercase true or false)                                                                                                                                                                         | ❌       | `true`                |
+| `upload-results`    | Upload results to GitHub Security tab (lowercase true or false). 'false' disables the upload entirely, including on failure.                                                                                                            | ❌       | `true`                |
 | `working-directory` | Working directory for the analysis                                                                                                                                                                                                      | ❌       | `.`                   |
 
 ## 📤 Outputs
