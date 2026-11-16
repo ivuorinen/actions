@@ -7,7 +7,7 @@
 #   run_retry_step <action-dir> <step-name> -- execute a nick-fields/retry step's command once
 #   list_unguarded_retry_commands <root>    -- name multi-line retry commands lacking set -eu
 #   mock_command <cmd> <argv-glob> <stdout> [exit-code]
-#   expect_output <key> <value>        -- the last <key>= line of $GITHUB_OUTPUT is <key>=<value>
+#   expect_output <key> <value>        -- the value GitHub stores for <key> in $GITHUB_OUTPUT is <value>
 #   expect_argv <cmd> <arg>...         -- exact, consecutive argv entries of a mocked call
 #
 # $GITHUB_OUTPUT and $GITHUB_ENV must be set by the spec (shellspec_setup_test_env).
@@ -100,16 +100,22 @@ list_unguarded_retry_commands() {
   _harness_python "$(_harness_py)" list-unguarded-retry-commands "$1"
 }
 
-# GitHub keeps the last value written for a key, so only the last `key=` line counts:
-# a value that a later line overwrites is not the output.
+# Compares the value GitHub stores for the key, read by the parser the harness uses for
+# step outputs: the last value written wins, and heredoc bodies are values, not keys.
 expect_output() {
   local key="$1"
   local value="$2"
   local file="${3:-$GITHUB_OUTPUT}"
-  local last
-  last=$(KEY_PREFIX="${key}=" awk 'index($0, ENVIRON["KEY_PREFIX"]) == 1 { line = $0 } END { print line }' "$file")
-  if [ "$last" != "${key}=${value}" ]; then
-    printf 'expect_output: last %s= line is not '"'"'%s=%s'"'"' in %s\n' "$key" "$key" "$value" "$file" >&2
+  local actual
+  if ! actual=$(_harness_python "$(_harness_py)" output-value "$file" "$key"); then
+    printf 'expect_output: %s was never written, expected '"'"'%s'"'"' in %s\n' "$key" "$value" "$file" >&2
+    printf '%s\n' '--- actual ---' >&2
+    cat "$file" >&2
+    printf '%s\n' '--- end ---' >&2
+    return 1
+  fi
+  if [ "$actual" != "$value" ]; then
+    printf 'expect_output: %s is '"'"'%s'"'"', expected '"'"'%s'"'"' in %s\n' "$key" "$actual" "$value" "$file" >&2
     printf '%s\n' '--- actual ---' >&2
     cat "$file" >&2
     printf '%s\n' '--- end ---' >&2

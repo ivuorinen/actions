@@ -4,13 +4,16 @@
 #   permissions:
 #     security-events: write  # Required for SARIF uploads
 #     contents: read          # Required for repository access
+#     pull-requests: read     # Required for Gitleaks to list a pull request's commits in a private repository
 #
 ---
 name: Security Scan
 description: |
   Comprehensive security scanning for GitHub Actions including actionlint,
   Gitleaks (optional), and Trivy vulnerability scanning. Requires
-  'security-events: write' and 'contents: read' permissions in the workflow.
+  'security-events: write' and 'contents: read' permissions in the workflow,
+  and 'pull-requests: read' for Gitleaks on pull requests in private repositories.
+  On a pull request, gitleaks-action scans only the first 30 commits.
 author: Ismo Vuorinen
 branding:
   icon: shield

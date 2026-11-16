@@ -594,7 +594,19 @@ def main(argv: list[str] | None = None) -> int:
     p_unguarded = sub.add_parser("list-unguarded-retry-commands")
     p_unguarded.add_argument("root")
 
+    p_output = sub.add_parser("output-value")
+    p_output.add_argument("file")
+    p_output.add_argument("key")
+
     args = parser.parse_args(argv)
+
+    if args.command == "output-value":
+        # The value GitHub stores for a key: the last one written, heredoc bodies parsed as values.
+        outputs = _parse_github_output(Path(args.file))
+        if args.key not in outputs:
+            return 1
+        print(outputs[args.key])
+        return 0
 
     if args.command == "list-run-steps":
         for step_id in ActionParser.list_run_steps(Path(args.action_dir)):

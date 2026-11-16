@@ -3,7 +3,7 @@
 ![shield](https://img.shields.io/badge/icon-shield-red) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Comprehensive security scanning for GitHub Actions including actionlint, Gitleaks (optional), and Trivy vulnerability scanning. Requires 'security-events: write' and 'contents: read' permissions in
-> the workflow.
+> the workflow, and 'pull-requests: read' for Gitleaks on pull requests in private repositories. On a pull request, gitleaks-action scans only the first 30 commits.
 
 ## 🚀 Quick Start
 
@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
       security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -59,6 +60,7 @@ This action requires the following permissions:
 | Permission        | Access Level |
 | ----------------- | ------------ |
 | `contents`        | `read`       |
+| `pull-requests`   | `read`       |
 | `security-events` | `write`      |
 
 **Usage in workflow:**
@@ -66,6 +68,7 @@ This action requires the following permissions:
 ```yaml
 permissions:
   contents: read
+  pull-requests: read
   security-events: write
 ```
 

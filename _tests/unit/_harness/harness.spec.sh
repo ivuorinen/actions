@@ -31,7 +31,13 @@ It "checks the last value written for a key, as GitHub keeps it"
 printf '%s\n' 'flag=false' 'other=1' 'flag=true' >"$GITHUB_OUTPUT"
 When call expect_output flag false
 The status should be failure
-The stderr should include "last flag= line is not 'flag=false'"
+The stderr should include "flag is 'true', expected 'false'"
+End
+
+It "reads a heredoc body as the value, not as keys"
+printf '%s\n' 'flag=true' 'details<<EOF' 'flag=false' 'EOF' >"$GITHUB_OUTPUT"
+When call expect_output flag true
+The status should be success
 End
 
 It "passes when the last value written matches"
@@ -50,7 +56,7 @@ It "fails when the key was never written"
 printf '%s\n' 'other=1' >"$GITHUB_OUTPUT"
 When call expect_output flag ""
 The status should be failure
-The stderr should include "last flag= line is not 'flag='"
+The stderr should include "flag was never written"
 End
 End
 
