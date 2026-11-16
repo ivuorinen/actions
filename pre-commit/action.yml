@@ -84,8 +84,9 @@ runs:
         PRE_COMMIT_VERSION: '4.7.0'
       run: |
         set -eu
-        python3 -m pip install "pre-commit==$PRE_COMMIT_VERSION"
-        python3 -m pip freeze --local
+        # -P keeps the checkout off sys.path, so a pip directory in it cannot replace pip.
+        python3 -P -m pip install "pre-commit==$PRE_COMMIT_VERSION"
+        python3 -P -m pip freeze --local
 
     - name: Cache pre-commit environments
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

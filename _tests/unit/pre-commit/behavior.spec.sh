@@ -38,9 +38,10 @@ renovate_pin() {
 }
 
 Context "when installing pre-commit"
-It "installs an exact version and lists what was installed"
-mock_command python3 "-m pip install pre-commit==[0-9]*.[0-9]*.[0-9]*" "installed"
-mock_command python3 "-m pip freeze --local" "pre-commit==0.0.0"
+# -P keeps the checkout off sys.path; an argv without it matches no mock and exits 127.
+It "installs an exact version and lists what was installed, with the checkout off sys.path"
+mock_command python3 "-P -m pip install pre-commit==[0-9]*.[0-9]*.[0-9]*" "installed"
+mock_command python3 "-P -m pip freeze --local" "pre-commit==0.0.0"
 
 When call run_step "${ACTION_DIR}" "install-pre-commit"
 The status should be success
@@ -49,7 +50,7 @@ The stdout should include "pre-commit==0.0.0"
 End
 
 It "fails the step when the install fails"
-mock_command python3 "-m pip install *" "no matching distribution" 1
+mock_command python3 "-P -m pip install *" "no matching distribution" 1
 
 When call run_step "${ACTION_DIR}" "install-pre-commit"
 The status should be failure
