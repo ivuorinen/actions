@@ -18,7 +18,7 @@ branding:
 
 inputs:
   gitleaks-license:
-    description: 'Gitleaks license key. Required for Gitleaks scanning unless the repository owner is a personal account. Gitleaks is skipped on merge_group events'
+    description: 'Gitleaks license key. Required for Gitleaks scanning unless the repository owner is a personal account. Gitleaks runs only on push, pull_request, workflow_dispatch and schedule events, the ones gitleaks-action supports'
     required: false
     default: ''
   gitleaks-config:
@@ -115,14 +115,20 @@ runs:
         command -v jq >/dev/null 2>&1 || { echo "jq required" >&2; exit 1; }
         owner_type=$(jq -r '.repository.owner.type // empty' "$GITHUB_EVENT_PATH" 2>/dev/null || true)
 
+        # gitleaks-action exits with an error on any other event, before it checks
+        # a license. A merge group's commits were already scanned on their pull
+        # request.
+        case "$GITHUB_EVENT_NAME" in
+          push | pull_request | workflow_dispatch | schedule) gitleaks_event="supported" ;;
+          *) gitleaks_event="unsupported" ;;
+        esac
+
         # A config file is optional. With no GITLEAKS_CONFIG, gitleaks reads
         # .gitleaks.toml at the repository root, then its default rules. A path
         # that does not exist would make it exit before scanning, so it is not
         # passed on.
-        if [ "$GITHUB_EVENT_NAME" = "merge_group" ]; then
-          # gitleaks-action exits with an error on this event. The commits in a
-          # merge group were already scanned on their pull request.
-          printf '::notice::Skipping Gitleaks scan - gitleaks-action does not support the merge_group event\n'
+        if [ "$gitleaks_event" = "unsupported" ]; then
+          printf '::notice::Skipping Gitleaks scan - gitleaks-action does not support the %s event\n' "$GITHUB_EVENT_NAME"
         elif [ -n "$GITLEAKS_LICENSE" ] || [ "$owner_type" = "User" ]; then
           printf 'run_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
           if [ -f "$GITLEAKS_CONFIG" ]; then

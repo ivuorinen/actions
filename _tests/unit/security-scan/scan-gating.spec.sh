@@ -60,32 +60,51 @@ PY
 }
 
 Describe "events gitleaks-action does not support"
-It "skips Gitleaks on merge_group with a notice, even with a license"
-export GITHUB_EVENT_NAME="merge_group"
+Parameters
+merge_group
+pull_request_target
+release
+End
+
+It "skips Gitleaks on $1 with a notice, even with a license"
+export GITHUB_EVENT_NAME="$1"
 export INPUT_GITLEAKS_LICENSE="license-key-123"
 write_event "Organization"
 
 When call run_check_configs
 The status should be success
-The stdout should include "::notice::"
-The stdout should include "merge_group"
+The stdout should include "::notice::Skipping Gitleaks scan - gitleaks-action does not support the $1 event"
 Assert expect_output run_gitleaks "false"
 End
 
-It "still runs Trivy on merge_group"
-export GITHUB_EVENT_NAME="merge_group"
+It "skips Gitleaks on $1 for a personal account, which needs no license"
+export GITHUB_EVENT_NAME="$1"
 write_event "User"
 
 When call run_check_configs
 The status should be success
-The stdout should include "merge_group"
-Assert expect_output run_trivy "true"
+The stdout should include "does not support the $1 event"
+Assert expect_output run_gitleaks "false"
 End
 
+It "still runs Trivy and actionlint on $1"
+export GITHUB_EVENT_NAME="$1"
+write_event "User"
+
+When call run_check_configs
+The status should be success
+The stdout should include "does not support the $1 event"
+Assert expect_output run_trivy "true"
+Assert expect_output run_actionlint "true"
+End
+End
+
+Describe "events gitleaks-action supports"
 Parameters
 push
 pull_request
 workflow_dispatch
+schedule
 End
 
 It "runs Gitleaks on $1 for a licensed owner"
@@ -95,7 +114,7 @@ write_event "Organization"
 
 When call run_check_configs
 The status should be success
-The stdout should not include "merge_group"
+The stdout should not include "::notice::"
 Assert expect_output run_gitleaks "true"
 End
 End
