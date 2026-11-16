@@ -59,8 +59,8 @@ installed_formatter() {
 }
 
 formatter_install_args() {
-  printf 'install --prefix %s %s@%s' "${RUNNER_TEMP}/eslint-formatter-sarif" "$FORMATTER" \
-    "$(pinned_version eslint-lint ESLINT_FORMATTER_SARIF_VERSION)"
+  printf 'install --prefix %s --no-package-lock --no-audit --no-fund --ignore-scripts %s@%s' \
+    "${RUNNER_TEMP}/eslint-formatter-sarif" "$FORMATTER" "$(pinned_version eslint-lint ESLINT_FORMATTER_SARIF_VERSION)"
 }
 
 Describe "when the repository has its own copy and formatter"

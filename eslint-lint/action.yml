@@ -83,8 +83,9 @@ outputs:
     description: 'Path to SARIF report file (check mode only)'
     value: ${{ steps.check.outputs.sarif_file }}
   files-checked:
-    description: 'Number of files checked (check mode only)'
-    value: ${{ steps.check.outputs.files_checked }}
+    description: 'Number of files ESLint linted (check mode with the sarif report only; 0 otherwise)'
+    # The check step does not run in fix mode, and a skipped step's output is empty.
+    value: ${{ steps.check.outputs.files_checked || '0' }}
   files-changed:
     description: 'Number of files changed (fix mode only)'
     value: ${{ steps.fix.outputs.files_changed }}
@@ -324,7 +325,10 @@ runs:
         formatter="@microsoft/eslint-formatter-sarif"
         if [ "$REPORT_FORMAT" = "sarif" ] && ! owns "$formatter"; then
           prefix="$RUNNER_TEMP/eslint-formatter-sarif"
-          npm install --prefix "$prefix" "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
+          # The formatter pins itself but not all of its dependencies (jschardet is "latest"),
+          # so their lifecycle scripts stay off. The prefix is throwaway: no lockfile or audit.
+          npm install --prefix "$prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
+            "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
           dir="$prefix/node_modules/$formatter"
           formatter="$dir/$(jq -r '.main // "index.js"' "$dir/package.json")"
         fi
@@ -348,6 +352,13 @@ runs:
         set -eu
 
         echo "Running ESLint check mode..."
+
+        # A report already in the checkout is not this run's result. For a SARIF run, remove it so
+        # the counts and the upload below see only a report this run wrote, or none. Other
+        # formats never read the file, so it stays. A directory by that name fails the step.
+        if [ "$REPORT_FORMAT" = "sarif" ]; then
+          rm -f eslint-results.sarif
+        fi
 
         # ESLINT_COMMAND is several words, so it is split on purpose
         set -f
@@ -381,7 +392,9 @@ runs:
         if [ "$REPORT_FORMAT" = "sarif" ] && [ -f eslint-results.sarif ]; then
           error_count=$(jq '[.runs[]?.results[]? | select(.level == "error")] | length' eslint-results.sarif 2>/dev/null || echo "0")
           warning_count=$(jq '[.runs[]?.results[]? | select(.level == "warning")] | length' eslint-results.sarif 2>/dev/null || echo "0")
-          files_checked=$(jq '[.runs[]?.results[]?.locations[]?.physicalLocation?.artifactLocation?.uri] | unique | length' eslint-results.sarif 2>/dev/null || echo "0")
+          # The SARIF formatter lists every linted file under artifacts, with or without findings;
+          # results name only the files that have one.
+          files_checked=$(jq '[.runs[]?.artifacts[]?] | length' eslint-results.sarif 2>/dev/null || echo "0")
           sarif_file="eslint-results.sarif"
         else
           error_count="0"
@@ -409,8 +422,10 @@ runs:
           exit "$eslint_exit_code"
         fi
 
+    # Only a report the check step wrote: when an earlier step fails, the check step is skipped,
+    # so a report already in the checkout was never removed.
     - name: Upload SARIF Report
-      if: inputs.mode == 'check' && inputs.report-format == 'sarif' && always()
+      if: always() && inputs.mode == 'check' && inputs.report-format == 'sarif' && steps.check.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
         sarif_file: ${{ inputs.working-directory }}/eslint-results.sarif

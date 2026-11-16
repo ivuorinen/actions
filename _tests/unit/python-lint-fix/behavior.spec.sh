@@ -123,7 +123,8 @@ The status should be success
 The contents of file "$TOOL_LOG" should include "pip install --require-hashes --only-binary=:all: --retries 3 -r ${ACTION_DIR}/requirements.lock.txt"
 The contents of file "$TOOL_LOG" should not include "flake8=="
 The contents of file "$TOOL_LOG" should not include "autopep8=="
-The contents of file "$TOOL_LOG" should not include "sarif"
+# The plugin by name: the logged pip line holds the action's path, which may contain "sarif".
+The contents of file "$TOOL_LOG" should not include "flake8-sarif"
 End
 End
 
