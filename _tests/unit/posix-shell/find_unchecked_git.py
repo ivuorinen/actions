@@ -1,42 +1,32 @@
-"""Report run: blocks in the given files that call git before checking that it exists.
+"""Report run: steps in the given files that call git before checking that it exists.
 
 .claude/rules/posix-shell.md lists git among the external tools and requires
 `command -v <tool>` before any of them is used. Without the check a missing git does not
 always stop the step: `count=$(git diff --name-only | wc -l)` takes its status from wc,
 so the count is 0, and `if git rev-parse ...` takes the else branch.
 
-Files are read as text, not parsed as YAML, the same way find_gnu_regex.py reads them. A
-run: block is a block scalar after `run:`, made of the lines indented deeper than the key,
-or the rest of the line after `run:`. In each block, the first git call must come after a
-`command -v git` check, in the order the shell runs them, a call and a check on one line
-included. Each line is read quote-aware: a comment starts at a `#` that begins a word
-outside quotes, quoted text is neither a call nor a check, and a `$(...)` inside double
-quotes still runs. A word that only contains git, such as gitleaks or .git, is not a call.
-Quotes that span lines are not followed.
+Files are parsed as YAML, so each run: value is the script GitHub runs, with YAML quoting,
+escapes and line folding already decoded. Steps whose shell: is not sh or bash are skipped.
+In each script the first git call must come after a `command -v git` check, in the order
+the shell runs them, a call and a check on one line included. Each line is read
+quote-aware: a comment starts at a `#` that begins a word outside quotes, quoted text is
+neither a call nor a check, and a `$(...)` inside double quotes still runs. `"git"` and
+`'git'` are the word git. A word that only contains git, such as gitleaks or .git, is not a
+call. Shell quotes that span lines are not followed.
 """
 
 from pathlib import Path
 import re
 import sys
 
-RUN_KEY = re.compile(r"^(?P<lead>\s*(?:-\s+)?)run:\s*(?P<rest>.*)$")
-BLOCK_INDICATOR = re.compile(r"^[|>][-+0-9]*\s*(#.*)?$")
+import yaml
+
 GIT_CALL = re.compile(r"(?<![\w./:$-])git(?=\s)")
 GIT_CHECK = re.compile(r"\bcommand\s+-v\s+git\b")
 # `"git"` and `'git'` are the word git to the shell, as a command name or as the name
 # `command -v` looks up, so they are unquoted before quoted text is blanked.
 QUOTED_GIT = re.compile(r"""(["'])git\1""")
-YAML_ESCAPE = re.compile(r"\\(.)")
-
-
-def yaml_scalar(value):
-    """Decode a run: value written on the key's line, single- or double-quoted or plain."""
-    value = value.strip()
-    if len(value) >= 2 and value[0] == value[-1] == "'":
-        return value[1:-1].replace("''", "'")
-    if len(value) >= 2 and value[0] == value[-1] == '"':
-        return YAML_ESCAPE.sub(lambda m: "\n" if m.group(1) == "n" else m.group(1), value[1:-1])
-    return value
+SHELLS = {"sh", "bash"}
 
 
 def executable_text(line):
@@ -84,36 +74,38 @@ def executable_text(line):
     return "".join(out)
 
 
-def run_blocks(lines):
-    """Yield the (line number, text) pairs of each run: block in the file's lines."""
-    index = 0
-    while index < len(lines):
-        match = RUN_KEY.match(lines[index])
-        if not match:
-            index += 1
+def shell_scripts(text):
+    """Yield the (line number, text) pairs of each sh or bash run: value in the YAML text.
+
+    A literal block keeps its lines, so each maps to its own source line. Other styles fold
+    or decode their lines, so those all carry the line where the value starts.
+    """
+    stack = [yaml.compose(text)]
+    while stack:
+        node = stack.pop()
+        if isinstance(node, yaml.SequenceNode):
+            stack.extend(node.value)
             continue
-        rest = match.group("rest")
-        if not BLOCK_INDICATOR.match(rest):
-            yield [(index + 1, line) for line in yaml_scalar(rest).split("\n")]
-            index += 1
+        if not isinstance(node, yaml.MappingNode):
             continue
-        key_column = len(match.group("lead"))
-        block = []
-        index += 1
-        while index < len(lines):
-            line = lines[index]
-            if line.strip() and len(line) - len(line.lstrip()) <= key_column:
-                break
-            block.append((index + 1, line))
-            index += 1
-        yield block
+        fields = {key.value: value for key, value in node.value if isinstance(key, yaml.ScalarNode)}
+        run, shell = fields.get("run"), fields.get("shell")
+        shell_words = shell.value.split() if isinstance(shell, yaml.ScalarNode) else []
+        if isinstance(run, yaml.ScalarNode) and (not shell_words or shell_words[0] in SHELLS):
+            lines = run.value.split("\n")
+            if run.style == "|":
+                first = run.start_mark.line + 2
+                yield [(first + offset, line) for offset, line in enumerate(lines)]
+            else:
+                yield [(run.start_mark.line + 1, line) for line in lines]
+        stack.extend(value for _, value in node.value)
 
 
 def unchecked_calls(text):
-    """Return the line numbers of the first unchecked git call in each run: block."""
+    """Return the line numbers of the first unchecked git call in each run: script."""
     found = []
-    for block in run_blocks(text.splitlines()):
-        for number, line in block:
+    for script in shell_scripts(text):
+        for number, line in script:
             code = executable_text(QUOTED_GIT.sub("git", line))
             check = GIT_CHECK.search(code)
             call = GIT_CALL.search(code)
@@ -124,7 +116,7 @@ def unchecked_calls(text):
                 break
             if check:
                 break
-    return found
+    return sorted(found)
 
 
 def main(paths):

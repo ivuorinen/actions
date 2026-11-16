@@ -8,17 +8,23 @@
 Describe "git availability checks"
 SCANNER="${PROJECT_ROOT}/_tests/unit/posix-shell/find_unchecked_git.py"
 
-# Scans one action whose single step runs the given lines.
+# Scans one action whose single sh step runs the given lines as a literal block.
 scan_step() {
   printf '%s\n' 'runs:' '  steps:' '    - shell: sh' '      run: |' >"${SHELLSPEC_TMPBASE}/action.yml"
   for line in "$@"; do
     printf '        %s\n' "$line" >>"${SHELLSPEC_TMPBASE}/action.yml"
   done
-  python3 "$SCANNER" "${SHELLSPEC_TMPBASE}/action.yml"
+  _harness_python "$SCANNER" "${SHELLSPEC_TMPBASE}/action.yml"
+}
+
+# Scans an action file made of the given lines.
+scan_file() {
+  printf '%s\n' "$@" >"${SHELLSPEC_TMPBASE}/file.yml"
+  _harness_python "$SCANNER" "${SHELLSPEC_TMPBASE}/file.yml"
 }
 
 It "precede every git call in every action.yml"
-When run python3 "$SCANNER" "$PROJECT_ROOT"/*/action.yml "$PROJECT_ROOT"/.github/actions/*/action.yml
+When call _harness_python "$SCANNER" "$PROJECT_ROOT"/*/action.yml "$PROJECT_ROOT"/.github/actions/*/action.yml
 The status should be success
 The output should equal ""
 End
@@ -90,26 +96,41 @@ The status should be failure
 The output should include "action.yml:5:"
 End
 
+It "skips a step whose shell is not sh or bash"
+When call scan_file 'runs:' '  steps:' '    - shell: node {0}' '      run: |' '        execSync(`git status`)'
+The status should be success
+The output should equal ""
+End
+
+It "checks each run: step on its own"
+When call scan_file 'runs:' '  steps:' '    - run: |' '        command -v git >/dev/null 2>&1 || exit 1' '        git diff' \
+  '    - run: |' '        git status'
+The status should be failure
+The output should include "file.yml:7:"
+The output should not include "file.yml:5:"
+End
+
+# A run: value is the decoded YAML scalar: a plain scalar folded over two lines, quotes, and
+# escapes such as \t and \x67 (g) all give `git status`.
+It "reports a plain run: value folded over two lines"
+When call scan_file 'runs:' '  steps:' '    - run: git' '        status'
+The status should be failure
+The output should include "file.yml:3:"
+End
+
+# Parameters applies to every later example in this block, so this one comes last.
 Parameters
-"git fetch"
-"'git fetch'"
-'"git fetch"'
+"git status"
+"'git status'"
+'"git status"'
+'"git\tstatus"'
+'"\x67it status"'
 End
 
-It "reports a single-line run: value: $1"
-printf '%s\n' 'runs:' '  steps:' "    - run: $1" >"${SHELLSPEC_TMPBASE}/inline.yml"
-When run python3 "$SCANNER" "${SHELLSPEC_TMPBASE}/inline.yml"
+It "reports a single-line run: value written as $1"
+When call scan_file 'runs:' '  steps:' "    - run: $1"
 The status should be failure
-The output should include "inline.yml:3:"
-End
-
-It "checks each run: block on its own"
-printf '%s\n' 'runs:' '  steps:' '    - run: |' '        command -v git >/dev/null 2>&1 || exit 1' '        git diff' \
-  '    - run: |' '        git status' >"${SHELLSPEC_TMPBASE}/two.yml"
-When run python3 "$SCANNER" "${SHELLSPEC_TMPBASE}/two.yml"
-The status should be failure
-The output should include "two.yml:7:"
-The output should not include "two.yml:5:"
+The output should include "file.yml:3:"
 End
 End
 End
