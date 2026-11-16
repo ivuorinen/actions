@@ -33,14 +33,12 @@ ascending() {
   [ "$1" -lt "$2" ] && [ "$2" -lt "$3" ]
 }
 
-renovate_pin() {
-  grep -A1 -F '# renovate: datasource=pypi depName=pre-commit' "$ACTION_FILE"
-}
-
 Context "when installing pre-commit"
-It "installs an exact version and lists what was installed"
-mock_command python3 "-m pip install pre-commit==[0-9]*.[0-9]*.[0-9]*" "installed"
-mock_command python3 "-m pip freeze --local" "pre-commit==0.0.0"
+# The whole argv is the mock's glob: an install that is not hash-locked, binary-only, read
+# from the action's own lock, or run with the checkout on sys.path (no -P) exits 127.
+It "installs from the action's hash-locked requirements and lists what was installed"
+mock_command python3 "-P -m pip install --require-hashes --only-binary=:all: -r ${ACTION_DIR}/requirements.lock.txt" "installed"
+mock_command python3 "-P -m pip freeze --local" "pre-commit==0.0.0"
 
 When call run_step "${ACTION_DIR}" "install-pre-commit"
 The status should be success
@@ -49,17 +47,11 @@ The stdout should include "pre-commit==0.0.0"
 End
 
 It "fails the step when the install fails"
-mock_command python3 "-m pip install *" "no matching distribution" 1
+mock_command python3 "-P -m pip install *" "no matching distribution" 1
 
 When call run_step "${ACTION_DIR}" "install-pre-commit"
 The status should be failure
 The stdout should include "no matching distribution"
-End
-
-It "declares the version where Renovate's GitHub Actions preset finds it"
-When call renovate_pin
-The status should be success
-The line 2 of stdout should match pattern "*PRE_COMMIT_VERSION: '[0-9]*.[0-9]*.[0-9]*'"
 End
 End
 
