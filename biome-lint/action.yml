@@ -195,6 +195,8 @@ runs:
 
         echo "Running Biome fix mode..."
 
+        command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files Biome changes"; exit 1; }
+
         # Run Biome fix and capture exit code
         biome_exit_code=0
         biome check --write . || biome_exit_code=$?

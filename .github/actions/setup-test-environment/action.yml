@@ -68,6 +68,7 @@ runs:
 
         echo "Building kcov from source..."
         cd /tmp
+        command -v git >/dev/null 2>&1 || { echo "::error::git is required to fetch the kcov source"; exit 1; }
         git clone --depth 1 --branch v42 https://github.com/SimonKagstrom/kcov.git
         git -C kcov checkout 3a8c5464be2dd781988dca7ec30db679493ed9a8
         cd kcov

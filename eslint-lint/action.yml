@@ -443,6 +443,8 @@ runs:
 
         echo "Running ESLint fix mode..."
 
+        command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files ESLint changes"; exit 1; }
+
         # ESLINT_COMMAND is several words, so it is split on purpose
         set -f
         $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS" --fix || true
