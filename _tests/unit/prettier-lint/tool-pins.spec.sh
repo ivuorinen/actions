@@ -139,14 +139,25 @@ mkdir -p node_modules/prettier src
 export GITHUB_WORKSPACE="$PWD/src"
 cd src || return 1
 mock_command npm "install -g prettier@$(pinned_version prettier-lint DEFAULT_PRETTIER_VERSION)" ""
+mock_command prettier "*" ""
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be success
 Assert expect_output command "prettier"
 End
 
+It "fails when the global install leaves no prettier on PATH"
+use_package_manager npm
+mock_command npm "install -g prettier@$(pinned_version prettier-lint DEFAULT_PRETTIER_VERSION)" ""
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be failure
+The stdout should include "::error::prettier is not on PATH after its global install"
+End
+
 Describe "when the repository has no copy"
+# The prettier stub stands for the binary the global install puts on PATH.
 before_missing() {
   use_package_manager npm
+  mock_command prettier "*" ""
 }
 BeforeEach 'before_missing'
 

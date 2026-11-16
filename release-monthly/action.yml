@@ -114,6 +114,8 @@ runs:
           esac
         }
 
+        command -v gh >/dev/null 2>&1 || { echo "::error::gh is required to read and create releases"; exit 1; }
+
         # Function to get previous release tag with error handling.
         # Filters by prefix so unrelated releases are ignored.
         # Uses gh's structured JSON output so release titles with spaces
@@ -238,6 +240,7 @@ runs:
         set -eu
 
         # Verify the release was created
+        command -v gh >/dev/null 2>&1 || { echo "::error::gh is required to verify the release"; exit 1; }
         if ! gh release view "$RELEASE_TAG" >/dev/null 2>&1; then
           echo "::error::Failed to verify release creation"
           exit 1

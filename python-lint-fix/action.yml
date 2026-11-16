@@ -233,11 +233,13 @@ runs:
         # Keep the virtual environment and the reports outside the workspace, where
         # flake8 would lint the installed packages and the commit step's '*.py'
         # pathspec would stage them. The runner empties RUNNER_TEMP after the job.
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the work directory"; exit 1; }
         work_dir=$(mktemp -d "$RUNNER_TEMP/python-lint-fix.XXXXXX")
         printf 'work_dir=%s\n' "$work_dir" >> "$GITHUB_OUTPUT"
 
         # -I keeps the checked-out repository off sys.path: plain `python -m` would
         # import a venv module from it, as this step runs in the workspace.
+        command -v python >/dev/null 2>&1 || { echo "::error::python is required to create the virtual environment"; exit 1; }
         python -I -m venv "$work_dir/venv"
         . "$work_dir/venv/bin/activate"
 
@@ -277,6 +279,7 @@ runs:
         flake8 --no-show-source --output-file="$results_file" \
           --format='(%(row)d, %(col)d, %(code)a, %(path)a, %(text)a)' . || flake8_status=$?
 
+        command -v python >/dev/null 2>&1 || { echo "::error::python is required to convert the flake8 results"; exit 1; }
         error_count=$(python "$ACTION_PATH/flake8_to_sarif.py" "$results_file" "$sarif_file" "$GITHUB_WORKSPACE")
         printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
@@ -316,6 +319,7 @@ runs:
         cd -- "$WORKING_DIRECTORY"
 
         # Create temporary file for tracking changes
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to track the changed files"; exit 1; }
         _changed_files=$(mktemp)
 
         # Run autopep8 with change detection

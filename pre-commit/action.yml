@@ -92,6 +92,7 @@ runs:
         # requirements.lock.txt is generated from requirements.in by the command in its header.
         # --only-binary keeps a package's setup.py from running, which hash checking alone does not.
         # -P keeps the checkout off sys.path, so a pip directory in it cannot replace pip.
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to install pre-commit"; exit 1; }
         python3 -P -m pip install --require-hashes --only-binary=:all: -r "$ACTION_PATH/requirements.lock.txt"
         python3 -P -m pip freeze --local
 
@@ -111,6 +112,7 @@ runs:
         set -eu
 
         command -v git >/dev/null 2>&1 || { echo "::error::git is required to run pre-commit"; exit 1; }
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to run pre-commit"; exit 1; }
 
         if [ -n "$BASE_BRANCH" ]; then
           # The checkout holds the base branch as origin/<base>, not as a local branch.

@@ -209,9 +209,11 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           "pnpm")
+            command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to install dependencies"; exit 1; }
             pnpm install --frozen-lockfile
             ;;
           "yarn")
+            command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
             if [ -f ".yarnrc.yml" ]; then
               yarn install --immutable
             else
@@ -219,9 +221,11 @@ runs:
             fi
             ;;
           "bun")
+            command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
             bun install --frozen-lockfile
             ;;
           "npm"|*)
+            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
             npm ci
             ;;
         esac
@@ -254,6 +258,7 @@ runs:
         # every tracked file that changed. npm and bun have --no-save; pnpm and
         # yarn have no equivalent, so their manifests are restored on exit, also
         # when the install fails partway.
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to back up the manifests"; exit 1; }
         backup=$(mktemp -d)
         restore_manifests() {
           for f in package.json pnpm-lock.yaml yarn.lock; do
@@ -268,9 +273,11 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           "pnpm")
+            command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to install the plugins"; exit 1; }
             pnpm add -D --ignore-scripts "$@"
             ;;
           "yarn")
+            command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install the plugins"; exit 1; }
             # The running Yarn decides the flags: a Yarn 2+ project needs no .yarnrc.yml.
             # Yarn 2+ has no --ignore-scripts; enableScripts off stops lifecycle scripts,
             # and --mode=skip-build (Yarn 3+) also skips builds a repository's
@@ -282,9 +289,11 @@ runs:
             esac
             ;;
           "bun")
+            command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install the plugins"; exit 1; }
             bun add --no-save --ignore-scripts "$@"
             ;;
           "npm"|*)
+            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install the plugins"; exit 1; }
             npm install --no-save --ignore-scripts "$@"
             ;;
         esac
@@ -346,11 +355,16 @@ runs:
           # the script: a node_modules install runs through npx --no-install instead, and a
           # Plug'n'Play one, which that cannot load, through Yarn as before.
           case "$PACKAGE_MANAGER" in
-            "pnpm") set -- pnpm exec prettier ;;
+            "pnpm")
+              command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to run Prettier"; exit 1; }
+              set -- pnpm exec prettier
+              ;;
             "yarn")
+              command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to run Prettier"; exit 1; }
               case "$(yarn --version)" in
                 1.*)
                   if [ "$found_in" = node_modules ]; then
+                    command -v npx >/dev/null 2>&1 || { echo "::error::npx is required to run Prettier"; exit 1; }
                     set -- npx --no-install prettier
                   else
                     set -- yarn prettier
@@ -365,11 +379,19 @@ runs:
                   ;;
               esac
               ;;
-            "bun") set -- bunx --no-install prettier ;;
-            "npm"|*) set -- npx --no-install prettier ;;
+            "bun")
+              command -v bunx >/dev/null 2>&1 || { echo "::error::bunx is required to run Prettier"; exit 1; }
+              set -- bunx --no-install prettier
+              ;;
+            "npm"|*)
+              command -v npx >/dev/null 2>&1 || { echo "::error::npx is required to run Prettier"; exit 1; }
+              set -- npx --no-install prettier
+              ;;
           esac
         else
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Prettier"; exit 1; }
           npm install -g "prettier@${REQUESTED_VERSION:-$DEFAULT_PRETTIER_VERSION}"
+          command -v prettier >/dev/null 2>&1 || { echo "::error::prettier is not on PATH after its global install"; exit 1; }
           set -- prettier
         fi
         printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"

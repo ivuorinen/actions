@@ -1,12 +1,14 @@
 #!/usr/bin/env shellspec
-# Static guard: every run: step that calls git first checks that git exists.
+# Static guard: every run: step that calls an external tool first checks that it exists.
 #
-# The harness runs steps with the system bin directories on PATH, where git is installed,
-# so a step cannot be run with git missing; this reads the steps instead. The _tools
-# scripts are not scanned: they check through require_git in _tools/shared.sh.
+# The tools are the ones .claude/rules/posix-shell.md lists as needing a command -v check;
+# the scanner reads them from the rule. The harness runs steps with the system bin
+# directories on PATH, where most of them are installed, so a step cannot be run with a tool
+# missing; this reads the steps instead. The _tools scripts are not scanned: they check git
+# through require_git in _tools/shared.sh.
 
-Describe "git availability checks"
-SCANNER="${PROJECT_ROOT}/_tests/unit/posix-shell/find_unchecked_git.py"
+Describe "tool availability checks"
+SCANNER="${PROJECT_ROOT}/_tests/unit/posix-shell/find_unchecked_tools.py"
 
 # Scans one action whose single sh step runs the given lines as a literal block.
 scan_step() {
@@ -23,7 +25,7 @@ scan_file() {
   _harness_python "$SCANNER" "${SHELLSPEC_TMPBASE}/file.yml"
 }
 
-It "precede every git call in every action.yml"
+It "precede every tool call in every action.yml"
 When call _harness_python "$SCANNER" "$PROJECT_ROOT"/*/action.yml "$PROJECT_ROOT"/.github/actions/*/action.yml
 The status should be success
 The output should equal ""
@@ -34,6 +36,25 @@ It "reports a git call with no check before it"
 When call scan_step 'set -eu' 'count=$(git diff --name-only | wc -l)'
 The status should be failure
 The output should include "action.yml:6: git is called before"
+End
+
+It "checks every tool the rule lists, not only git"
+When call scan_step "error_count=\$(jq '.runs | length' report.sarif)"
+The status should be failure
+The output should include "action.yml:5: jq is called before \`command -v jq\`"
+End
+
+It "reports the first unchecked call of each tool"
+When call scan_step 'npm ci' 'docker build .'
+The status should be failure
+The output should include "action.yml:5: npm is called"
+The output should include "action.yml:6: docker is called"
+End
+
+It "does not check a POSIX utility or a tool the rule does not list"
+When call scan_step 'make' 'find . -name x' 'eslint .'
+The status should be success
+The output should equal ""
 End
 
 It "reports a check that comes after the call"
@@ -56,6 +77,44 @@ End
 
 It "ignores git in comments and inside other words"
 When call scan_step '# git diff counts the files' 'gitleaks detect' 'ls .git' 'echo "::notice::git fetch skipped"'
+The status should be success
+The output should equal ""
+End
+
+It "does not take a value for a call"
+When call scan_step 'manager="npm"' 'tool=docker'
+The status should be success
+The output should equal ""
+End
+
+It "does not take a case pattern for a call"
+When call scan_step 'case "$pm" in' '  "pnpm") echo p ;;' '  bun|npm)' '    echo n' '    ;;' 'esac'
+The status should be success
+The output should equal ""
+End
+
+It "reads the command that set -- builds for \"\$@\" to run"
+When call scan_step 'set -- npx --no-install eslint' '"$@"'
+The status should be failure
+The output should include "action.yml:5: npx is called"
+End
+
+It "reports the command a wrapper runs"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'sudo apt-get update'
+The status should be failure
+The output should include "action.yml:6: apt-get is called"
+The output should not include "sudo is called"
+End
+
+It "does not take an argument on a continuation line for a call"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'command -v apt-get >/dev/null 2>&1 || exit 1' \
+  'sudo apt-get install -y \' '  cmake \' '  zlib1g-dev'
+The status should be success
+The output should equal ""
+End
+
+It "skips a here-document body"
+When call scan_step 'command -v python3 >/dev/null 2>&1 || exit 1' "python3 - <<'PY'" 'docker = 1' 'PY'
 The status should be success
 The output should equal ""
 End

@@ -187,9 +187,11 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           "pnpm")
+            command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to install dependencies"; exit 1; }
             pnpm install --frozen-lockfile
             ;;
           "yarn")
+            command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
             if [ -f ".yarnrc.yml" ]; then
               yarn install --immutable
             else
@@ -197,9 +199,11 @@ runs:
             fi
             ;;
           "bun")
+            command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
             bun install --frozen-lockfile
             ;;
           "npm"|*)
+            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
             npm ci
             ;;
         esac

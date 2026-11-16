@@ -30,6 +30,7 @@ runs:
       shell: sh
       run: |
         set -eu
+        command -v uv >/dev/null 2>&1 || { echo "::error::uv is required to install the Python dependencies"; exit 1; }
         uv sync --frozen
 
     - name: Setup Node.js
@@ -42,12 +43,15 @@ runs:
       shell: sh
       run: |
         set -eu
+        command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install the Node dependencies"; exit 1; }
         npm ci
 
     - name: Install system tools
       shell: sh
       run: |
         set -eu
+        command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to install system tools"; exit 1; }
+        command -v apt-get >/dev/null 2>&1 || { echo "::error::apt-get is required to install system tools"; exit 1; }
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends jq shellcheck
 
@@ -56,6 +60,8 @@ runs:
       shell: sh
       run: |
         set -eu
+        command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to install the kcov build dependencies"; exit 1; }
+        command -v apt-get >/dev/null 2>&1 || { echo "::error::apt-get is required to install the kcov build dependencies"; exit 1; }
         echo "Installing kcov build dependencies..."
         sudo apt-get install -y --no-install-recommends \
           cmake \
@@ -74,6 +80,7 @@ runs:
         cd kcov
         mkdir build
         cd build
+        command -v cmake >/dev/null 2>&1 || { echo "::error::cmake is required to build kcov"; exit 1; }
         cmake ..
         make
         sudo make install
@@ -81,6 +88,7 @@ runs:
         rm -rf /tmp/kcov
 
         echo "Verifying kcov installation..."
+        command -v kcov >/dev/null 2>&1 || { echo "::error::kcov is not on PATH after its install"; exit 1; }
         kcov --version
 
     - name: Install ShellSpec
@@ -94,6 +102,11 @@ runs:
         # Pinned SHA-256 checksum for ShellSpec 0.28.1
         # Source: https://github.com/shellspec/shellspec/archive/refs/tags/0.28.1.tar.gz
         EXPECTED_CHECKSUM="400d835466429a5fe6c77a62775a9173729d61dd43e05dfa893e8cf6cb511783"
+
+        command -v curl >/dev/null 2>&1 || { echo "::error::curl is required to download ShellSpec"; exit 1; }
+        command -v sha256sum >/dev/null 2>&1 || { echo "::error::sha256sum is required to verify ShellSpec"; exit 1; }
+        command -v tar >/dev/null 2>&1 || { echo "::error::tar is required to unpack ShellSpec"; exit 1; }
+        command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to link ShellSpec into /usr/local/bin"; exit 1; }
 
         echo "Downloading ShellSpec ${SHELLSPEC_VERSION}..."
         curl -fsSL "${SHELLSPEC_URL}" -o "/tmp/shellspec.tar.gz"
@@ -130,6 +143,11 @@ runs:
         ACT_URL="https://github.com/nektos/act/releases/download/v${ACT_VERSION}/${ACT_TARBALL}"
         ACT_CHECKSUM_URL="https://github.com/nektos/act/releases/download/v${ACT_VERSION}/checksums.txt"
 
+        command -v curl >/dev/null 2>&1 || { echo "::error::curl is required to download act"; exit 1; }
+        command -v sha256sum >/dev/null 2>&1 || { echo "::error::sha256sum is required to verify act"; exit 1; }
+        command -v tar >/dev/null 2>&1 || { echo "::error::tar is required to unpack act"; exit 1; }
+        command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to install act into /usr/local/bin"; exit 1; }
+
         echo "Downloading act v${ACT_VERSION}..."
         curl -fsSL "${ACT_URL}" -o "/tmp/${ACT_TARBALL}"
 
@@ -153,6 +171,7 @@ runs:
         rm -f "${ACT_TARBALL}" /tmp/act act-checksums.txt
 
         echo "Verifying act installation..."
+        command -v act >/dev/null 2>&1 || { echo "::error::act is not on PATH after its install"; exit 1; }
         act --version
 
     - name: Setup Docker and act configuration
@@ -160,6 +179,7 @@ runs:
       shell: sh
       run: |
         set -eu
+        command -v docker >/dev/null 2>&1 || { echo "::error::docker is required to run act"; exit 1; }
         # Ensure Docker is running
         docker ps > /dev/null 2>&1 || (echo "Docker is not running" && exit 1)
 
@@ -172,10 +192,15 @@ runs:
         INSTALL_ACT: ${{ inputs.install-act }}
       run: |
         set -eu
+        command -v shellspec >/dev/null 2>&1 || { echo "::error::shellspec is not on PATH"; exit 1; }
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is not on PATH"; exit 1; }
+        command -v uv >/dev/null 2>&1 || { echo "::error::uv is not on PATH"; exit 1; }
         shellspec --version
         jq --version
         uv --version
         if [ "$INSTALL_ACT" = "true" ]; then
+          command -v act >/dev/null 2>&1 || { echo "::error::act is not on PATH"; exit 1; }
+          command -v docker >/dev/null 2>&1 || { echo "::error::docker is not on PATH"; exit 1; }
           act --version
           docker --version
         fi

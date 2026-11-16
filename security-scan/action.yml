@@ -199,6 +199,7 @@ runs:
 
         # Check Trivy results
         if [ -f "trivy-results.sarif" ]; then
+          command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the Trivy report"; exit 1; }
           if jq -e . <"trivy-results.sarif" >/dev/null 2>&1; then
             printf 'has_trivy=%s\n' "true" >> "$GITHUB_OUTPUT"
           else

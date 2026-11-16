@@ -254,6 +254,7 @@ runs:
         # `dotnet nuget push --configfile` needs .NET 9+, so the config is found by
         # running the push from that directory instead.
         _work=$PWD
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the NuGet config directory"; exit 1; }
         _cfgdir=$(mktemp -d)
         trap 'rm -rf "$_cfgdir"' EXIT
         printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration>\n  <packageSources>\n    <clear />\n    <add key="github" value="%s" />\n  </packageSources>\n</configuration>\n' \

@@ -210,6 +210,7 @@ runs:
 
         build_success=true
         # Temp file to propagate failure flag out of the pipeline subshell
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to record a failed build"; exit 1; }
         _build_failed=$(mktemp)
         trap 'rm -f "$_build_failed"' EXIT
         # Check if there are any main packages

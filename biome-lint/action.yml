@@ -114,6 +114,7 @@ runs:
 
           # npm whatever the repository uses: this is a global tool, the repository's own
           # package manager is not involved, and pnpm and Yarn cannot do this on a runner.
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Biome"; exit 1; }
           if npm install -g "@biomejs/biome@$BIOME_VERSION"; then
             # Another Biome can sit earlier on PATH than npm's global bin directory, and check and
             # fix run bare `biome`, so that directory goes first for the steps after this one.
@@ -156,6 +157,7 @@ runs:
 
         # Parse SARIF output for error counts
         if [ -f biome-report.sarif ]; then
+          command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the SARIF report"; exit 1; }
           errors=$(jq '[.runs[]?.results[]? | select(.level == "error" or .level == "warning")] | length' biome-report.sarif 2>/dev/null || echo "0")
           warnings="0"  # Biome doesn't separate warnings in SARIF output
         else

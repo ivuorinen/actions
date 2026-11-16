@@ -235,6 +235,7 @@ runs:
 
         # When auto-detect is enabled, try to detect available platforms
         if [ "$AUTO_DETECT" = "true" ]; then
+          command -v docker >/dev/null 2>&1 || { echo "::error::docker is required to detect the platforms"; exit 1; }
           available_platforms=$(docker buildx ls | grep -o 'linux/[^ ]*' | sort -u | tr '\n' ',' | sed -E 's/,$//' || true)
 
           if [ -n "$available_platforms" ]; then
@@ -282,6 +283,7 @@ runs:
         set -eu
         # Buildx reads through a symlink that leaves the workspace. validate.py sees only the
         # text of each path, so such a link can only be caught once the files exist.
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to check the build paths"; exit 1; }
         python3 -I -B - <<'PY'
         import os
         import sys
@@ -372,6 +374,7 @@ runs:
           echo "::error::jq is required to read the digest of a pushed image"
           exit 1
         fi
+        command -v docker >/dev/null 2>&1 || { echo "::error::docker is required to build the image"; exit 1; }
 
         attempt=1
         max_attempts="$MAX_RETRIES"
@@ -586,6 +589,7 @@ runs:
         set -eu
 
         # Read and format scan results for output
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the scan results"; exit 1; }
         scan_results=$(cat trivy-results.json | jq -c '.')
         printf 'results=%s\n' "$scan_results" >> "$GITHUB_OUTPUT"
 
@@ -632,6 +636,7 @@ runs:
             echo "::error::jq is required to read the platforms of a pushed image"
             exit 1
           fi
+          command -v docker >/dev/null 2>&1 || { echo "::error::docker is required to inspect the pushed image"; exit 1; }
 
           if ! manifest=$(docker buildx imagetools inspect "$IMAGE_REF" --raw); then
             echo "::error::Built image not found"

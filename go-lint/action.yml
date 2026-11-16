@@ -266,6 +266,7 @@ runs:
 
         # Keep the reports outside the workspace: a repository can commit
         # 'reports' as a symlink, which would redirect the writes and the cleanup.
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the reports directory"; exit 1; }
         reports_dir=$(mktemp -d "$RUNNER_TEMP/go-lint.XXXXXX")
         printf 'reports_dir=%s\n' "$reports_dir" >> "$GITHUB_OUTPUT"
 
