@@ -7,7 +7,7 @@
 #   run_retry_step <action-dir> <step-name> -- execute a nick-fields/retry step's command once
 #   list_unguarded_retry_commands <root>    -- name multi-line retry commands lacking set -eu
 #   mock_command <cmd> <argv-glob> <stdout> [exit-code]
-#   expect_output <key> <value>        -- whole-line grep on $GITHUB_OUTPUT
+#   expect_output <key> <value>        -- the value GitHub stores for <key> in $GITHUB_OUTPUT is <value>
 #   expect_argv <cmd> <arg>...         -- exact, consecutive argv entries of a mocked call
 #
 # $GITHUB_OUTPUT and $GITHUB_ENV must be set by the spec (shellspec_setup_test_env).
@@ -100,12 +100,13 @@ list_unguarded_retry_commands() {
   _harness_python "$(_harness_py)" list-unguarded-retry-commands "$1"
 }
 
+# Compares the value GitHub stores for the key, read by the parser the harness uses for
+# step outputs: the last value written wins, and heredoc bodies are values, not keys.
+# The comparison runs in the harness, so the value never passes through $(...). The `--`
+# keeps a value such as `--help` from being read as an option.
 expect_output() {
-  local key="$1"
-  local value="$2"
   local file="${3:-$GITHUB_OUTPUT}"
-  if ! grep -Fxq "${key}=${value}" "$file"; then
-    printf 'expect_output: missing '"'"'%s=%s'"'"' in %s\n' "$key" "$value" "$file" >&2
+  if ! _harness_python "$(_harness_py)" expect-output -- "$file" "$1" "$2"; then
     printf '%s\n' '--- actual ---' >&2
     cat "$file" >&2
     printf '%s\n' '--- end ---' >&2

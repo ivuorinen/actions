@@ -26,6 +26,75 @@ Assert expect_output echoed hello
 End
 End
 
+Describe "expect_output"
+It "checks the last value written for a key, as GitHub keeps it"
+printf '%s\n' 'flag=false' 'other=1' 'flag=true' >"$GITHUB_OUTPUT"
+When call expect_output flag false
+The status should be failure
+The stderr should include "flag is 'true', expected 'false'"
+End
+
+It "reads a heredoc body as the value, not as keys"
+printf '%s\n' 'flag=true' 'details<<EOF' 'flag=false' 'EOF' >"$GITHUB_OUTPUT"
+When call expect_output flag true
+The status should be success
+End
+
+# A value ending in a newline: $(...) would strip it, so the harness compares instead.
+It "keeps a heredoc value's trailing newline"
+printf '%s\n' 'details<<EOF' 'value' '' 'EOF' >"$GITHUB_OUTPUT"
+expected=$(printf 'value\n.')
+When call expect_output details "${expected%.}"
+The status should be success
+End
+
+It "does not match a heredoc value without its trailing newline"
+printf '%s\n' 'details<<EOF' 'value' '' 'EOF' >"$GITHUB_OUTPUT"
+When call expect_output details value
+The status should be failure
+The stderr should include "details is 'value\\n', expected 'value'"
+End
+
+It "passes when the last value written matches"
+printf '%s\n' 'flag=false' 'flag=true' >"$GITHUB_OUTPUT"
+When call expect_output flag true
+The status should be success
+End
+
+It "does not take a longer key for the one asked"
+printf '%s\n' 'flag=true' 'flag_extra=false' >"$GITHUB_OUTPUT"
+When call expect_output flag true
+The status should be success
+End
+
+# Values that look like options are data, not arguments to the harness.
+It "fails on a mismatched value that looks like --help"
+printf '%s\n' 'flag=wrong' >"$GITHUB_OUTPUT"
+When call expect_output flag --help
+The status should be failure
+The stderr should include "flag is 'wrong', expected '--help'"
+End
+
+It "passes on a matching value that looks like an option"
+printf '%s\n' 'flag=--verbose' 'count=-1' >"$GITHUB_OUTPUT"
+When call expect_output flag --verbose
+The status should be success
+End
+
+It "passes on a matching negative number"
+printf '%s\n' 'count=-1' >"$GITHUB_OUTPUT"
+When call expect_output count -1
+The status should be success
+End
+
+It "fails when the key was never written"
+printf '%s\n' 'other=1' >"$GITHUB_OUTPUT"
+When call expect_output flag ""
+The status should be failure
+The stderr should include "flag was never written"
+End
+End
+
 Describe "uses-gh fixture"
 It "fails not-found when gh is not mocked"
 # The harness shadows unmocked external commands with a not-found stub, so an

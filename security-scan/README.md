@@ -3,7 +3,7 @@
 ![shield](https://img.shields.io/badge/icon-shield-red) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
 > Comprehensive security scanning for GitHub Actions including actionlint, Gitleaks (optional), and Trivy vulnerability scanning. Requires 'security-events: write' and 'contents: read' permissions in
-> the workflow.
+> the workflow, and 'pull-requests: read' for Gitleaks on pull requests in private repositories. On a pull request, gitleaks-action scans only the first 30 commits.
 
 ## 🚀 Quick Start
 
@@ -16,6 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
       security-events: write
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -33,15 +34,15 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter            | Description                                                                                        | Required | Default              |
-| -------------------- | -------------------------------------------------------------------------------------------------- | -------- | -------------------- |
-| `actionlint-enabled` | Enable actionlint scanning (lowercase true or false)                                               | ❌       | `true`               |
-| `gitleaks-config`    | Path to Gitleaks config file. If missing, Gitleaks uses a root .gitleaks.toml or its default rules | ❌       | `.gitleaks.toml`     |
-| `gitleaks-license`   | Gitleaks license key (required for Gitleaks scanning)                                              | ❌       | -                    |
-| `token`              | GitHub token for authentication                                                                    | ❌       | -                    |
-| `trivy-scanners`     | Types of scanners to run (comma-separated)                                                         | ❌       | `vuln,config,secret` |
-| `trivy-severity`     | Severity levels to scan for (comma-separated)                                                      | ❌       | `CRITICAL,HIGH`      |
-| `trivy-timeout`      | Timeout for Trivy scan                                                                             | ❌       | `10m`                |
+| Parameter            | Description                                                                                                                                                                                                                                                                                                       | Required | Default              |
+| -------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | -------------------- |
+| `actionlint-enabled` | Enable actionlint scanning (lowercase true or false)                                                                                                                                                                                                                                                              | ❌       | `true`               |
+| `gitleaks-config`    | Path to Gitleaks config file. If missing, Gitleaks uses a root .gitleaks.toml or its default rules                                                                                                                                                                                                                | ❌       | `.gitleaks.toml`     |
+| `gitleaks-license`   | Gitleaks license key. Required for Gitleaks scanning unless the event payload names a personal account as the repository owner. A schedule payload names no owner, so scheduled scans need it. Gitleaks runs only on push, pull_request, workflow_dispatch and schedule events, the ones gitleaks-action supports | ❌       | -                    |
+| `token`              | GitHub token for authentication                                                                                                                                                                                                                                                                                   | ❌       | -                    |
+| `trivy-scanners`     | Types of scanners to run (comma-separated)                                                                                                                                                                                                                                                                        | ❌       | `vuln,config,secret` |
+| `trivy-severity`     | Severity levels to scan for (comma-separated). Also limits the SARIF report                                                                                                                                                                                                                                       | ❌       | `CRITICAL,HIGH`      |
+| `trivy-timeout`      | Timeout for Trivy scan                                                                                                                                                                                                                                                                                            | ❌       | `10m`                |
 
 ## 📤 Outputs
 
@@ -59,6 +60,7 @@ This action requires the following permissions:
 | Permission        | Access Level |
 | ----------------- | ------------ |
 | `contents`        | `read`       |
+| `pull-requests`   | `read`       |
 | `security-events` | `write`      |
 
 **Usage in workflow:**
@@ -66,6 +68,7 @@ This action requires the following permissions:
 ```yaml
 permissions:
   contents: read
+  pull-requests: read
   security-events: write
 ```
 

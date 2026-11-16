@@ -21,12 +21,17 @@ before() {
   export RUN_GITLEAKS="true"
   export HAS_TRIVY="false"
   export HAS_GITLEAKS="false"
+  # The runner always sets these; check-configs reads the owner type from the payload.
+  export GITHUB_EVENT_NAME="push"
+  export GITHUB_EVENT_PATH="${PWD}/event.json"
+  printf '%s\n' '{}' >event.json
 }
 BeforeEach 'before'
 
 after() {
   unset INPUT_ACTIONLINT_ENABLED INPUT_GITLEAKS_CONFIG INPUT_GITLEAKS_LICENSE
   unset RUN_ACTIONLINT RUN_TRIVY RUN_GITLEAKS HAS_TRIVY HAS_GITLEAKS
+  unset GITHUB_EVENT_NAME GITHUB_EVENT_PATH
   shellspec_cleanup_test_env "security-scan-behavior-$$"
   harness_reset
 }
