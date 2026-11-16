@@ -54,6 +54,30 @@ The status should be success
 The output should equal ""
 End
 
+It "reads a quoted hash as text, not as the start of a comment"
+When call scan_step "printf '%s\n' 'see # note'; git status"
+The status should be failure
+The output should include "action.yml:5:"
+End
+
+It "does not take a quoted check for a check"
+When call scan_step "printf '%s\n' 'command -v git'" 'git status'
+The status should be failure
+The output should include "action.yml:6:"
+End
+
+It "reports a call before a check on the same line"
+When call scan_step 'git status; command -v git >/dev/null 2>&1'
+The status should be failure
+The output should include "action.yml:5:"
+End
+
+It "reports a call in a command substitution inside double quotes"
+When call scan_step 'files="$(git diff --name-only)"'
+The status should be failure
+The output should include "action.yml:5:"
+End
+
 It "reports a single-line run: value"
 printf '%s\n' 'runs:' '  steps:' '    - run: git fetch' >"${SHELLSPEC_TMPBASE}/inline.yml"
 When run python3 "$SCANNER" "${SHELLSPEC_TMPBASE}/inline.yml"
