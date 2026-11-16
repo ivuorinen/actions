@@ -95,6 +95,13 @@ The stderr should include "eslint-results.sarif"
 The path "eslint-results.sarif/keep" should be file
 End
 
+# The harness does not evaluate step conditions, so this reads the upload's.
+It "uploads only a report the check step wrote"
+When call yq -r '.runs.steps[] | select(.name == "Upload SARIF Report") | .if' "${ACTION_DIR}/action.yml"
+The output should include "always()"
+The output should include "steps.check.outputs.sarif_file != ''"
+End
+
 # The harness does not evaluate action outputs, so this reads the mapping.
 It "reports 0 when the check step did not run, as in fix mode"
 When call yq -r '.outputs."files-checked".value' "${ACTION_DIR}/action.yml"

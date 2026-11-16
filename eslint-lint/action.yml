@@ -422,8 +422,10 @@ runs:
           exit "$eslint_exit_code"
         fi
 
+    # Only a report the check step wrote: when an earlier step fails, the check step is skipped,
+    # so a report already in the checkout was never removed.
     - name: Upload SARIF Report
-      if: inputs.mode == 'check' && inputs.report-format == 'sarif' && always()
+      if: always() && inputs.mode == 'check' && inputs.report-format == 'sarif' && steps.check.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
         sarif_file: ${{ inputs.working-directory }}/eslint-results.sarif
