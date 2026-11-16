@@ -48,10 +48,12 @@ jobs:
       statuses: write # MegaLinter GitHub status reporter (commit statuses)
 
     steps:
+      # FIXIMUS_TOKEN, when set, gives MegaLinter's comments and statuses the bot's identity
+      # (a deliberate choice); the permissions above limit only the github.token fallback.
       - name: Checkout Code
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.FIXIMUS_TOKEN || github.token }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -59,7 +61,7 @@ jobs:
         id: pr-lint
         uses: ./pr-lint
         with:
-          token: ${{ secrets.FIXIMUS_TOKEN || secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.FIXIMUS_TOKEN || github.token }}
 
       - name: Upload SARIF Report
         if: always() && hashFiles('megalinter-reports/sarif/*.sarif')
