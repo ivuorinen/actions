@@ -353,6 +353,10 @@ runs:
 
         echo "Running ESLint check mode..."
 
+        # A report already in the checkout is not this run's result. Remove it, so the counts
+        # and the upload below see only a report this run wrote, or none.
+        rm -rf eslint-results.sarif
+
         # ESLINT_COMMAND is several words, so it is split on purpose
         set -f
         set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS"
