@@ -73,6 +73,12 @@ runs:
         # true or the "Commit Fixes" step cannot authenticate its push.
         persist-credentials: true # zizmor: ignore[artipacked]
 
+    # The lock holds the wheels for this Python; the cache key below reads its location.
+    - name: Set up Python
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: '3.14'
+
     # The next three steps inline pre-commit/action v3.0.1 instead of using it: its
     # action.yml runs a floating actions/cache tag and an unpinned pip install, so
     # pinning it by SHA would not pin what runs.
@@ -80,12 +86,13 @@ runs:
       id: install-pre-commit
       shell: sh
       env:
-        # renovate: datasource=pypi depName=pre-commit
-        PRE_COMMIT_VERSION: '4.7.0'
+        ACTION_PATH: ${{ github.action_path }}
       run: |
         set -eu
+        # requirements.lock.txt is generated from requirements.in by the command in its header.
+        # --only-binary keeps a package's setup.py from running, which hash checking alone does not.
         # -P keeps the checkout off sys.path, so a pip directory in it cannot replace pip.
-        python3 -P -m pip install "pre-commit==$PRE_COMMIT_VERSION"
+        python3 -P -m pip install --require-hashes --only-binary=:all: -r "$ACTION_PATH/requirements.lock.txt"
         python3 -P -m pip freeze --local
 
     - name: Cache pre-commit environments
