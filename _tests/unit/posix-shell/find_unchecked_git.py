@@ -23,6 +23,20 @@ RUN_KEY = re.compile(r"^(?P<lead>\s*(?:-\s+)?)run:\s*(?P<rest>.*)$")
 BLOCK_INDICATOR = re.compile(r"^[|>][-+0-9]*\s*(#.*)?$")
 GIT_CALL = re.compile(r"(?<![\w./:$-])git(?=\s)")
 GIT_CHECK = re.compile(r"\bcommand\s+-v\s+git\b")
+# `"git"` and `'git'` are the word git to the shell, as a command name or as the name
+# `command -v` looks up, so they are unquoted before quoted text is blanked.
+QUOTED_GIT = re.compile(r"""(["'])git\1""")
+YAML_ESCAPE = re.compile(r"\\(.)")
+
+
+def yaml_scalar(value):
+    """Decode a run: value written on the key's line, single- or double-quoted or plain."""
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] == "'":
+        return value[1:-1].replace("''", "'")
+    if len(value) >= 2 and value[0] == value[-1] == '"':
+        return YAML_ESCAPE.sub(lambda m: "\n" if m.group(1) == "n" else m.group(1), value[1:-1])
+    return value
 
 
 def executable_text(line):
@@ -80,7 +94,7 @@ def run_blocks(lines):
             continue
         rest = match.group("rest")
         if not BLOCK_INDICATOR.match(rest):
-            yield [(index + 1, rest)]
+            yield [(index + 1, line) for line in yaml_scalar(rest).split("\n")]
             index += 1
             continue
         key_column = len(match.group("lead"))
@@ -100,7 +114,7 @@ def unchecked_calls(text):
     found = []
     for block in run_blocks(text.splitlines()):
         for number, line in block:
-            code = executable_text(line)
+            code = executable_text(QUOTED_GIT.sub("git", line))
             check = GIT_CHECK.search(code)
             call = GIT_CALL.search(code)
             # The git in `command -v git` matches GIT_CALL too, so a check counts only when it

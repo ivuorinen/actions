@@ -78,8 +78,26 @@ The status should be failure
 The output should include "action.yml:5:"
 End
 
-It "reports a single-line run: value"
-printf '%s\n' 'runs:' '  steps:' '    - run: git fetch' >"${SHELLSPEC_TMPBASE}/inline.yml"
+It "accepts a check that quotes the tool name"
+When call scan_step 'command -v "git" >/dev/null 2>&1 || exit 1' 'git status'
+The status should be success
+The output should equal ""
+End
+
+It "reports a quoted command name"
+When call scan_step '"git" status'
+The status should be failure
+The output should include "action.yml:5:"
+End
+
+Parameters
+"git fetch"
+"'git fetch'"
+'"git fetch"'
+End
+
+It "reports a single-line run: value: $1"
+printf '%s\n' 'runs:' '  steps:' "    - run: $1" >"${SHELLSPEC_TMPBASE}/inline.yml"
 When run python3 "$SCANNER" "${SHELLSPEC_TMPBASE}/inline.yml"
 The status should be failure
 The output should include "inline.yml:3:"
