@@ -11,14 +11,12 @@ on:
       - '**/*.md'
       - '.github/*.md'
       - 'LICENSE.md'
+  # No paths filter: the branch ruleset requires this workflow's MegaLinter check, and a
+  # pull request that a filter skips gets no check and can never merge.
   pull_request:
     branches:
       - main
       - master
-    paths-ignore:
-      - '**/*.md'
-      - '.github/*.md'
-      - 'LICENSE.md'
   merge_group:
 
 env:

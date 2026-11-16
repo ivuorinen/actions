@@ -126,6 +126,21 @@ print(" ".join(sorted(scopes)))
 PY
 }
 
+# Prints the paths filters on a workflow's pull_request trigger, pr-lint.yml when no file
+# is given, as a sorted list. PyYAML reads the `on:` key as True.
+pull_request_path_filters() {
+  _harness_python - "${1:-.github/workflows/pr-lint.yml}" <<'PY'
+import sys
+
+import yaml
+
+with open(sys.argv[1], encoding="utf-8") as handle:
+    doc = yaml.safe_load(handle)
+trigger = (doc.get("on", doc.get(True)) or {}).get("pull_request") or {}
+print(sorted(key for key in trigger if key.startswith("paths")))
+PY
+}
+
 Describe "GitHub workflows and actions"
 It "contain no \${{ }} expression inside a run: block"
 When call workflow_scan expressions
@@ -143,6 +158,14 @@ It "give the pr-lint job read on contents and write only where MegaLinter report
 When call pr_lint_permissions
 The status should be success
 The output should equal "contents=read pull-requests=write security-events=write statuses=write"
+End
+
+# The branch ruleset requires the MegaLinter check. A workflow that a paths filter skips
+# reports no check, so a pull request it skips can never merge.
+It "run MegaLinter on every pull request, since the ruleset requires its check"
+When call pull_request_path_filters
+The status should be success
+The output should equal "[]"
 End
 End
 
