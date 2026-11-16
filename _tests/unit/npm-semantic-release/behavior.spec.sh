@@ -33,7 +33,9 @@ Describe "package-manager detection"
 # whichever `[ -f ]` happens to run last.
 Parameters
 # lockfiles to create              expected manager   what it pins
-"bun.lockb" "bun" "bun branch"
+"bun.lockb" "bun" "bun branch (binary lockfile)"
+"bun.lock" "bun" "bun branch (text lockfile, Bun 1.2+)"
+"bun.lock pnpm-lock.yaml" "bun" "bun text lockfile outranks pnpm"
 "pnpm-lock.yaml" "pnpm" "pnpm branch"
 "yarn.lock" "yarn" "yarn branch"
 "" "npm" "default when no lockfile"

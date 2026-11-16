@@ -23,15 +23,6 @@ def _skip(value: str) -> bool:
     return value.strip() == ""
 
 
-def check_email(value: str) -> str | None:
-    """Email address."""
-    if _skip(value):
-        return None
-    if re.fullmatch(r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}", value):
-        return None
-    return "must be a valid email address (e.g. user@example.com)"
-
-
 def check_github_token(value: str) -> str | None:
     """GitHub/registry token in a known token format.
 
@@ -58,17 +49,6 @@ def check_github_token(value: str) -> str | None:
     return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
-def check_username(value: str) -> str | None:
-    """Username/handle — alphanumeric with internal ``-``/``_``, at most 39 characters."""
-    if _skip(value):
-        return None
-    if len(value) > 39:
-        return "must be at most 39 characters"
-    if re.fullmatch(r"[a-zA-Z0-9](?:[a-zA-Z0-9_-]*[a-zA-Z0-9])?", value):
-        return None
-    return "may only contain letters, digits, and internal - or _"
-
-
 def is_detected_version(value: str) -> bool:
     """Dotted version with an optional suffix: 8.4, 1.22.3, 1.25.x, 1.23rc1, 3.13-dev, 1.0.0+b."""
     pattern = r"[0-9]+\.[0-9][0-9A-Za-z]*(\.[0-9A-Za-z]+)*([-+][0-9A-Za-z.+-]+)?"
@@ -78,9 +58,7 @@ def is_detected_version(value: str) -> bool:
 ACTION = "pr-lint"
 
 CHECKS = {
-    "email": check_email,
     "token": check_github_token,
-    "username": check_username,
 }
 
 

@@ -1098,11 +1098,6 @@ def check_numeric_range_1_10(value: str) -> str | None:
     return _int_in_range(value, 1, 10)
 
 
-def check_numeric_range_0_16(value: str) -> str | None:
-    """Integer in [0, 16] (e.g. parallel build workers)."""
-    return _int_in_range(value, 0, 16)
-
-
 def check_numeric_range_0_100(value: str) -> str | None:
     """Integer in [0, 100] (e.g. image quality percentage)."""
     return _int_in_range(value, 0, 100)
@@ -1320,7 +1315,6 @@ EXAMPLES = {
     "npm_spec_list": "@semantic-release/git@10.0.1",
     "numeric_range_0_10000": "0",
     "numeric_range_0_100": "80",
-    "numeric_range_0_16": "4",
     "numeric_range_1_10": "3",
     "numeric_range_1_128": "2",
     "numeric_range_256_32768": "4096",

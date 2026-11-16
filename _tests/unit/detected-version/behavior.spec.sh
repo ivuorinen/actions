@@ -49,7 +49,6 @@ Parameters
 "go-build detect-go-version golang"
 "php-tests detect-php-version php"
 "pr-lint php-version php"
-"pr-lint go-version golang"
 "python-lint-fix python-version python"
 "language-version-detect parse-version php php"
 "language-version-detect parse-version python python"
