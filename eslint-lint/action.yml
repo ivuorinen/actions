@@ -353,9 +353,12 @@ runs:
 
         echo "Running ESLint check mode..."
 
-        # A report already in the checkout is not this run's result. Remove it, so the counts
-        # and the upload below see only a report this run wrote, or none.
-        rm -rf eslint-results.sarif
+        # A report already in the checkout is not this run's result. For a SARIF run, remove it so
+        # the counts and the upload below see only a report this run wrote, or none. Other
+        # formats never read the file, so it stays. A directory by that name fails the step.
+        if [ "$REPORT_FORMAT" = "sarif" ]; then
+          rm -f eslint-results.sarif
+        fi
 
         # ESLINT_COMMAND is several words, so it is split on purpose
         set -f

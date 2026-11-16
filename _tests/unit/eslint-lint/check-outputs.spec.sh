@@ -75,6 +75,26 @@ Assert expect_output sarif_file ""
 Assert expect_output status failure
 End
 
+It "leaves eslint-results.sarif alone for another report format"
+printf '%s\n' "$REPORT" >eslint-results.sarif
+export INPUT_REPORT_FORMAT="stylish"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "ESLint check completed"
+The path "eslint-results.sarif" should be file
+Assert expect_output files_checked 0
+End
+
+It "fails instead of deleting a directory named like the report"
+mkdir eslint-results.sarif
+: >eslint-results.sarif/keep
+When call run_step "${ACTION_DIR}" "check"
+The status should be failure
+The stdout should include "Running ESLint check mode"
+The stderr should include "eslint-results.sarif"
+The path "eslint-results.sarif/keep" should be file
+End
+
 # The harness does not evaluate action outputs, so this reads the mapping.
 It "reports 0 when the check step did not run, as in fix mode"
 When call yq -r '.outputs."files-checked".value' "${ACTION_DIR}/action.yml"
