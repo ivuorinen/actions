@@ -220,6 +220,7 @@ runs:
                 *ERR_PNPM_LOCKFILE_CONFIG_MISMATCH*) ;;
                 *) exit "$pnpm_status" ;;
               esac
+              command -v git >/dev/null 2>&1 || { echo "::error::git is required to restore pnpm-lock.yaml after the unfrozen install"; exit 1; }
               pnpm install --no-frozen-lockfile --ignore-scripts --ignore-pnpmfile
               git checkout -- pnpm-lock.yaml
             fi

@@ -102,6 +102,8 @@ runs:
       run: |
         set -eu
 
+        command -v git >/dev/null 2>&1 || { echo "::error::git is required to run pre-commit"; exit 1; }
+
         if [ -n "$BASE_BRANCH" ]; then
           # The checkout holds the base branch as origin/<base>, not as a local branch.
           # A value that already names a remote ref, such as origin/main, is used as given,

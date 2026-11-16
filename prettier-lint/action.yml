@@ -461,6 +461,8 @@ runs:
 
         echo "Running Prettier fix mode..."
 
+        command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files Prettier changes"; exit 1; }
+
         # Count files before fix
         files_before=$(git status --porcelain | wc -l | tr -d ' ')
 
