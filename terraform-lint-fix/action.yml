@@ -137,6 +137,7 @@ runs:
         terraform_wrapper: false
 
     - name: Validate Terraform Syntax
+      id: syntax
       if: steps.check-files.outputs.found == 'true'
       shell: sh
       env:
@@ -148,7 +149,10 @@ runs:
         find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
           file="$1"
           if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
-            echo "::warning::Invalid Terraform syntax in $file"
+            # A repository filename is untrusted: control characters (a newline in
+            # particular) could start a new workflow command in the log, so drop them.
+            safe_name=$(printf "%s" "$file" | tr -d "\000-\037\177")
+            printf "::warning::Invalid Terraform syntax in %s\n" "$safe_name"
           fi
         ' _ {} \;
 
@@ -161,6 +165,19 @@ runs:
       with:
         tflint_version: ${{ inputs.tflint-version || env.DEFAULT_TFLINT_VERSION }}
 
+    # Without a TFLINT_PLUGIN_DIR, TFLint installs plugins under the runner user's home, which
+    # self-hosted runners share between jobs. The Initialize and Run steps get a directory of the
+    # action's own that Cleanup can delete safely; a step output keeps it out of the caller's later
+    # steps. A plugin_dir set in the TFLint config still takes precedence, as TFLint documents, and
+    # those plugins stay where the config put them.
+    - name: Isolate TFLint Plugins
+      id: plugin-dir
+      if: steps.check-files.outputs.found == 'true'
+      shell: sh
+      run: |
+        set -eu
+        printf 'dir=%s\n' "$RUNNER_TEMP/tflint-plugins" >> "$GITHUB_OUTPUT"
+
     - name: Initialize TFLint
       if: steps.check-files.outputs.found == 'true'
       id: init
@@ -168,6 +185,7 @@ runs:
       env:
         VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
         VALIDATED_CONFIG: ${{ inputs.config-file }}
+        TFLINT_PLUGIN_DIR: ${{ steps.plugin-dir.outputs.dir }}
       run: |
         set -eu
 
@@ -189,6 +207,7 @@ runs:
         VALIDATED_CONFIG: ${{ inputs.config-file }}
         VALIDATED_FORMAT: ${{ inputs.format }}
         VALIDATED_FAIL: ${{ inputs.fail-on-error }}
+        TFLINT_PLUGIN_DIR: ${{ steps.plugin-dir.outputs.dir }}
       run: |
         set -eu
         # Use validated environment variables
@@ -284,6 +303,7 @@ runs:
         category: terraform-lint
 
     - name: Cleanup
+      id: cleanup
       if: always()
       shell: sh
       env:
@@ -297,5 +317,5 @@ runs:
           rm -rf "$REPORTS_DIR"
         fi
 
-        # Clean up TFLint cache
-        rm -rf ~/.tflint.d/
+        # The path Isolate TFLint Plugins exports, never TFLINT_PLUGIN_DIR: a caller may have set that
+        rm -rf "$RUNNER_TEMP/tflint-plugins"
