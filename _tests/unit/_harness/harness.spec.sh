@@ -26,6 +26,34 @@ Assert expect_output echoed hello
 End
 End
 
+Describe "expect_output"
+It "checks the last value written for a key, as GitHub keeps it"
+printf '%s\n' 'flag=false' 'other=1' 'flag=true' >"$GITHUB_OUTPUT"
+When call expect_output flag false
+The status should be failure
+The stderr should include "last flag= line is not 'flag=false'"
+End
+
+It "passes when the last value written matches"
+printf '%s\n' 'flag=false' 'flag=true' >"$GITHUB_OUTPUT"
+When call expect_output flag true
+The status should be success
+End
+
+It "does not take a longer key for the one asked"
+printf '%s\n' 'flag=true' 'flag_extra=false' >"$GITHUB_OUTPUT"
+When call expect_output flag true
+The status should be success
+End
+
+It "fails when the key was never written"
+printf '%s\n' 'other=1' >"$GITHUB_OUTPUT"
+When call expect_output flag ""
+The status should be failure
+The stderr should include "last flag= line is not 'flag='"
+End
+End
+
 Describe "uses-gh fixture"
 It "fails not-found when gh is not mocked"
 # The harness shadows unmocked external commands with a not-found stub, so an
