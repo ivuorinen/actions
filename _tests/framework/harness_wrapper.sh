@@ -102,10 +102,11 @@ list_unguarded_retry_commands() {
 
 # Compares the value GitHub stores for the key, read by the parser the harness uses for
 # step outputs: the last value written wins, and heredoc bodies are values, not keys.
-# The comparison runs in the harness, so the value never passes through $(...).
+# The comparison runs in the harness, so the value never passes through $(...). The `--`
+# keeps a value such as `--help` from being read as an option.
 expect_output() {
   local file="${3:-$GITHUB_OUTPUT}"
-  if ! _harness_python "$(_harness_py)" expect-output "$file" "$1" "$2"; then
+  if ! _harness_python "$(_harness_py)" expect-output -- "$file" "$1" "$2"; then
     printf '%s\n' '--- actual ---' >&2
     cat "$file" >&2
     printf '%s\n' '--- end ---' >&2

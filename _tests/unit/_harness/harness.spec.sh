@@ -67,6 +67,26 @@ When call expect_output flag true
 The status should be success
 End
 
+# Values that look like options are data, not arguments to the harness.
+It "fails on a mismatched value that looks like --help"
+printf '%s\n' 'flag=wrong' >"$GITHUB_OUTPUT"
+When call expect_output flag --help
+The status should be failure
+The stderr should include "flag is 'wrong', expected '--help'"
+End
+
+It "passes on a matching value that looks like an option"
+printf '%s\n' 'flag=--verbose' 'count=-1' >"$GITHUB_OUTPUT"
+When call expect_output flag --verbose
+The status should be success
+End
+
+It "passes on a matching negative number"
+printf '%s\n' 'count=-1' >"$GITHUB_OUTPUT"
+When call expect_output count -1
+The status should be success
+End
+
 It "fails when the key was never written"
 printf '%s\n' 'other=1' >"$GITHUB_OUTPUT"
 When call expect_output flag ""
