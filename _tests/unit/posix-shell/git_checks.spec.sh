@@ -102,6 +102,12 @@ The status should be success
 The output should equal ""
 End
 
+It "reads run: only as a step's script, not as an env variable"
+When call scan_file 'runs:' '  steps:' '    - shell: sh' '      env:' '        run: git status' '      run: echo ok'
+The status should be success
+The output should equal ""
+End
+
 It "checks each run: step on its own"
 When call scan_file 'runs:' '  steps:' '    - run: |' '        command -v git >/dev/null 2>&1 || exit 1' '        git diff' \
   '    - run: |' '        git status'

@@ -74,31 +74,34 @@ def executable_text(line):
     return "".join(out)
 
 
-def shell_scripts(text):
-    """Yield the (line number, text) pairs of each sh or bash run: value in the YAML text.
+def fields(node):
+    """Return a mapping node's scalar keys and their value nodes; any other node has none."""
+    if not isinstance(node, yaml.MappingNode):
+        return {}
+    return {key.value: value for key, value in node.value if isinstance(key, yaml.ScalarNode)}
 
+
+def shell_scripts(text):
+    """Yield the (line number, text) pairs of each sh or bash run: in the action's runs.steps.
+
+    Only steps run scripts, so a key named run anywhere else, such as in env:, is not one.
     A literal block keeps its lines, so each maps to its own source line. Other styles fold
     or decode their lines, so those all carry the line where the value starts.
     """
-    stack = [yaml.compose(text)]
-    while stack:
-        node = stack.pop()
-        if isinstance(node, yaml.SequenceNode):
-            stack.extend(node.value)
-            continue
-        if not isinstance(node, yaml.MappingNode):
-            continue
-        fields = {key.value: value for key, value in node.value if isinstance(key, yaml.ScalarNode)}
-        run, shell = fields.get("run"), fields.get("shell")
+    steps = fields(fields(yaml.compose(text)).get("runs")).get("steps")
+    if not isinstance(steps, yaml.SequenceNode):
+        return
+    for step in steps.value:
+        run, shell = fields(step).get("run"), fields(step).get("shell")
         shell_words = shell.value.split() if isinstance(shell, yaml.ScalarNode) else []
-        if isinstance(run, yaml.ScalarNode) and (not shell_words or shell_words[0] in SHELLS):
-            lines = run.value.split("\n")
-            if run.style == "|":
-                first = run.start_mark.line + 2
-                yield [(first + offset, line) for offset, line in enumerate(lines)]
-            else:
-                yield [(run.start_mark.line + 1, line) for line in lines]
-        stack.extend(value for _, value in node.value)
+        if not isinstance(run, yaml.ScalarNode) or (shell_words and shell_words[0] not in SHELLS):
+            continue
+        lines = run.value.split("\n")
+        if run.style == "|":
+            first = run.start_mark.line + 2
+            yield [(first + offset, line) for offset, line in enumerate(lines)]
+        else:
+            yield [(run.start_mark.line + 1, line) for line in lines]
 
 
 def unchecked_calls(text):
