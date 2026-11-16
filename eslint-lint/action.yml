@@ -84,7 +84,8 @@ outputs:
     value: ${{ steps.check.outputs.sarif_file }}
   files-checked:
     description: 'Number of files ESLint linted (check mode with the sarif report only; 0 otherwise)'
-    value: ${{ steps.check.outputs.files_checked }}
+    # The check step does not run in fix mode, and a skipped step's output is empty.
+    value: ${{ steps.check.outputs.files_checked || '0' }}
   files-changed:
     description: 'Number of files changed (fix mode only)'
     value: ${{ steps.fix.outputs.files_changed }}

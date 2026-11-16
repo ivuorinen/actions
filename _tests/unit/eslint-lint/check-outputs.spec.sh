@@ -45,4 +45,10 @@ The status should be success
 The stdout should include "ESLint check completed"
 Assert expect_output files_checked 0
 End
+
+# The harness does not evaluate action outputs, so this reads the mapping.
+It "reports 0 when the check step did not run, as in fix mode"
+When call yq -r '.outputs."files-checked".value' "${ACTION_DIR}/action.yml"
+The output should equal "\${{ steps.check.outputs.files_checked || '0' }}"
+End
 End
