@@ -27,7 +27,7 @@ jobs:
 | **GitHub CLI** | repo stable¹    | GitHub API interactions                       |
 | **shellcheck** | repo stable¹    | Shell script linting                          |
 | **jq**         | repo stable¹    | JSON processing                               |
-| **kcov**       | v42 (source)²   | Code coverage for shell scripts               |
+| **kcov**       | v43 (source)²   | Code coverage for shell scripts               |
 | **Node.js**    | LTS             | JavaScript runtime                            |
 | **Python**     | 3.x             | Python runtime + PyYAML³                      |
 

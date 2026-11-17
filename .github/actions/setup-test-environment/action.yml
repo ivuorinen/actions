@@ -9,7 +9,7 @@ inputs:
     required: false
     default: 'false'
   install-kcov:
-    description: Whether to build and install kcov from source for coverage (v42)
+    description: Whether to build and install kcov v43 for coverage, compiled from its repository
     required: false
     default: 'false'
 
@@ -105,14 +105,17 @@ runs:
           libdw-dev \
           libelf-dev \
           libiberty-dev \
+          libssl-dev \
           pkg-config \
           zlib1g-dev
 
+        # v43, as the docker-testing-tools image builds: v42 asks for CMake below 3.5, which
+        # CMake 4 on the runner image no longer accepts.
         echo "Building kcov from source..."
         cd /tmp
         command -v git >/dev/null 2>&1 || { echo "::error::git is required to fetch the kcov source"; exit 1; }
-        git clone --depth 1 --branch v42 https://github.com/SimonKagstrom/kcov.git
-        git -C kcov checkout 3a8c5464be2dd781988dca7ec30db679493ed9a8
+        git clone --depth 1 --branch v43 https://github.com/SimonKagstrom/kcov.git
+        git -C kcov checkout a39874f938ce13f7a65f253120d1ec946b349ffe
         cd kcov
         mkdir build
         cd build
