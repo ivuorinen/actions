@@ -1139,6 +1139,15 @@ def test_blank_value_is_refused(check):
     assert kit.CHECKS[check]("   ") is not None
 
 
+def test_only_ascii_whitespace_is_blank():
+    # The steps test blank with tr -d '[:space:]' in the C locale. A value of only Unicode
+    # spaces is not blank there, so it has to be checked here instead of skipped.
+    assert kit._skip(" \t\n\v\f\r")
+    assert not kit._skip("\N{NO-BREAK SPACE}")
+    assert not kit._skip("\x1c")
+    assert kit.CHECKS["docker_image_name"]("\N{NO-BREAK SPACE}") is not None
+
+
 @pytest.mark.parametrize("check", ["boolean", "numeric_range_1_10", "positive_integer"])
 def test_version_shaped_values_are_refused(check):
     # These are compared or counted in shell, so neither SemVer form means anything to them.

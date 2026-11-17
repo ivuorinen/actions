@@ -19,8 +19,13 @@ import sys
 
 
 def _skip(value: str) -> bool:
-    """Empty values bypass format checks (see the module contract)."""
-    return value.strip() == ""
+    """Empty values bypass format checks (see the module contract).
+
+    Blank means ASCII whitespace only, what a step's `tr -d '[:space:]'` removes in the C
+    locale. str.strip() alone also removes U+00A0 and other Unicode spaces, so a value of only
+    those would skip its check while the step went on to use it.
+    """
+    return value.strip(" \t\n\v\f\r") == ""
 
 
 def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> list[str]:

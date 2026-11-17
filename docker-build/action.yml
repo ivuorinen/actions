@@ -14,7 +14,7 @@ branding:
 
 inputs:
   image-name:
-    description: 'The name of the Docker image to build. Defaults to ghcr.io/OWNER/REPO, lower-cased, the registry the action logs in to.'
+    description: 'The name of the Docker image to build. Defaults to ghcr.io/OWNER/REPO, lower-cased, the registry the action logs in to; set it when the repository name is not a valid image name (for example .github).'
     required: false
   tag:
     description: 'Docker image tag: letters, digits, _ . and -, up to 128 characters, not starting with . or -'
@@ -38,7 +38,7 @@ inputs:
     description: 'External cache source, one spec on one line (e.g., type=registry,ref=user/app:cache)'
     required: false
   push:
-    description: 'Whether to push the image after building (lowercase true or false). Also enables the per-image, per-ref registry build cache at ghcr.io/OWNER/REPO/cache/IMAGE. The first push of each image creates its cache package, so an organization should limit who can create packages in its namespace.'
+    description: "Whether to push the image after building (lowercase true or false). Also enables the per-image registry build cache at ghcr.io/OWNER/REPO/cache/IMAGE: every build reads the default branch's tag, and only push, schedule and workflow_dispatch runs write their ref's tag. The first push of each image creates its cache package, so an organization should limit who can create packages in its namespace."
     required: false
     default: 'true'
   max-retries:
@@ -259,8 +259,8 @@ runs:
         set -eu
 
         # validate.py does not check a blank image-name, as it does not check one left out, so a
-        # blank one is not used either.
-        if [ -z "$(printf '%s' "$IMAGE_NAME" | tr -d '[:space:]')" ]; then
+        # blank one is not used either. Blank is ASCII whitespace only, as validate.py reads it.
+        if [ -z "$(printf '%s' "$IMAGE_NAME" | LC_ALL=C tr -d '[:space:]')" ]; then
           # The login step signs in to ghcr.io, so the default image lives there; a bare name
           # would mean docker.io/library. Docker accepts only a lowercase repository name.
           repo_name=$(printf '%s' "${GITHUB_REPOSITORY}" | LC_ALL=C tr '[:upper:]' '[:lower:]')
@@ -394,9 +394,11 @@ runs:
 
         # Registry cache, only when the login step above has run. Each image has its own cache
         # repository, so two images built on one ref do not replace each other's cache. Every
-        # ref reads the default branch's tag for a warm start, and writes only its own, so
-        # another ref's build does not change what the default branch restores. Tags of other
-        # refs start with "refs-", so no ref name can reduce to the reserved "default-branch" tag.
+        # build reads the default branch's tag for a warm start. Only push, schedule and
+        # workflow_dispatch write: other events, such as pull_request_target, workflow_run and
+        # issue_comment, run with a branch's ref but can build code from elsewhere, so they
+        # write no tag a later build reads. The default branch writes the reserved tag; any
+        # other ref writes its own, which starts with "refs-" and so is never "default-branch".
         # The repository and image names are lower-cased, and each character outside
         # [a-z0-9._/-] becomes "-", so neither can add attributes to the comma-separated spec.
         # LC_ALL=C: POSIX leaves a range such as a-z unspecified in other locales.
@@ -406,22 +408,25 @@ runs:
         default_cache_ref=""
         registry_cache_ref=""
         if [ "$PUSH" = "true" ] && [ -n "${GITHUB_REF:-}" ]; then
-          cache_image="ghcr.io/$(cache_path "$GITHUB_REPOSITORY")/cache/$(cache_path "$IMAGE_NAME")"
+          # An image in the repository owner's ghcr.io namespace, such as the default one, is
+          # cached under its name in that namespace, which keeps the reference short.
+          owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+          image_path="${IMAGE_NAME#"ghcr.io/$owner/"}"
+          cache_image="ghcr.io/$(cache_path "$GITHUB_REPOSITORY")/cache/$(cache_path "$image_path")"
           default_cache_ref="$cache_image:default-branch"
-          registry_cache_ref="$default_cache_ref"
-          # pull_request_target, workflow_run and issue_comment also run with the default
-          # branch's ref, but can build code from elsewhere, so only these events write its tag.
           case "${GITHUB_EVENT_NAME:-}" in
-            push | schedule | workflow_dispatch) default_branch_event=true ;;
-            *) default_branch_event=false ;;
+            push | schedule | workflow_dispatch)
+              if [ "$GITHUB_REF" = "refs/heads/$DEFAULT_BRANCH" ]; then
+                registry_cache_ref="$default_cache_ref"
+              else
+                # The checksum of the whole ref keeps refs that reduce to the same characters,
+                # such as a/b and a-b, or that share their first 117, on separate tags of at most 128.
+                ref_sum=$(printf '%s' "$GITHUB_REF" | cksum | cut -d ' ' -f 1)
+                ref_tag=$(printf '%s' "$GITHUB_REF" | LC_ALL=C tr -c 'A-Za-z0-9._-' '-' | cut -c1-117)
+                registry_cache_ref="$cache_image:$ref_tag-$ref_sum"
+              fi
+              ;;
           esac
-          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ] || [ "$default_branch_event" != "true" ]; then
-            # The checksum of the whole ref keeps refs that reduce to the same characters, such
-            # as a/b and a-b, or that share their first 117, on separate tags of at most 128.
-            ref_sum=$(printf '%s' "$GITHUB_REF" | cksum | cut -d ' ' -f 1)
-            ref_tag=$(printf '%s' "$GITHUB_REF" | LC_ALL=C tr -c 'A-Za-z0-9._-' '-' | cut -c1-117)
-            registry_cache_ref="$cache_image:$ref_tag-$ref_sum"
-          fi
         fi
 
         while [ "$attempt" -le "$max_attempts" ]; do
@@ -460,7 +465,9 @@ runs:
 
           [ -z "$cache_source" ] || set -- "$@" --cache-from "$cache_source"
           [ -z "$default_cache_ref" ] || set -- "$@" --cache-from "type=registry,ref=$default_cache_ref"
-          [ "$registry_cache_ref" = "$default_cache_ref" ] || set -- "$@" --cache-from "type=registry,ref=$registry_cache_ref"
+          if [ -n "$registry_cache_ref" ] && [ "$registry_cache_ref" != "$default_cache_ref" ]; then
+            set -- "$@" --cache-from "type=registry,ref=$registry_cache_ref"
+          fi
 
           if [ -n "$cache_export" ]; then
             set -- "$@" --cache-to "$cache_export"
