@@ -54,30 +54,78 @@ MAJOR_MINOR = re.compile(r"^\d+\.\d+$")
 FLOATING_LINE = re.compile(r"@(latest|stable|main|master)\b|\bbun-version:\s*latest\b")
 
 
+# For each package runner, the global options before its subcommand that take an argument.
+GLOBAL_OPTIONS = {
+    "npm": {"--prefix", "--workspace", "-w", "--registry", "--userconfig", "--cache"},
+    "pnpm": {"-C", "--dir", "--filter", "-F"},
+    "yarn": {"--cwd"},
+    "bun": {"--cwd", "--config", "-c"},
+    "uv": {"--directory", "--project", "--cache-dir", "--python", "-p", "--config-file"},
+    "pipx": set(),
+}
+
+
+def subcommand(name: str, args: list[str]) -> tuple[str, list[str]]:
+    """Return a runner's subcommand and the words after it, past its global options."""
+    options = GLOBAL_OPTIONS.get(name, set())
+    index = 0
+    while index < len(args):
+        is_option, needs_next = sh.takes_argument(args[index], options)
+        if not is_option:
+            break
+        index += 2 if needs_next else 1
+    return (args[index], args[index + 1 :]) if index < len(args) else ("", [])
+
+
+def leading_options(args: list[str]) -> set[str]:
+    """Return the options before the first operand: npx and bunx pass the rest to the package."""
+    options = set()
+    for arg in args:
+        if not arg.startswith("-"):
+            break
+        options.add(arg)
+    return options
+
+
 def fetches_floating(name: str, args: list[str]) -> bool:
     """Whether a command fetches and runs a package at whatever version upstream published last.
 
-    npx and bunx fetch a package they do not find unless --no-install (npx: --no) says not to,
-    whatever comes before its name. pnpm dlx, yarn dlx, pnpx, uvx and pipx run always fetch,
-    as does npm init or create with an initializer.
+    npx and bunx (bun x) fetch a package they do not find unless --no-install (npx: --no) comes
+    before its name; npm exec reads its own options up to --. pnpm dlx, yarn dlx, pnpx, uvx,
+    pipx run and uv tool run always fetch, as do create with a template and npm init with an
+    initializer, and uv run --with fetches what it names.
     """
-    first = args[0] if args else ""
-    if name == "npx" or (name == "npm" and first in ("exec", "x")):
-        return not {"--no-install", "--no"} & set(args)
-    if name == "bunx" or (name == "bun" and first == "x"):
-        return "--no-install" not in args
-    if name in ("pnpm", "yarn") and first == "dlx":
+    if name == "npx":
+        return not leading_options(args) & {"--no-install", "--no"}
+    if name == "bunx":
+        return "--no-install" not in leading_options(args)
+    command, rest = subcommand(name, args)
+    operand = any(not arg.startswith("-") for arg in rest)
+    if name == "npm" and command in ("exec", "x"):
+        own = set(rest[: rest.index("--")]) if "--" in rest else leading_options(rest)
+        return not own & {"--no-install", "--no"}
+    if name == "bun" and command == "x":
+        return "--no-install" not in leading_options(rest)
+    if (name in ("pnpm", "yarn") and command == "dlx") or (name == "pipx" and command == "run"):
         return True
-    if name == "npm" and first in ("init", "create"):
-        return any(not arg.startswith("-") for arg in args[1:])
-    return name in ("pnpx", "uvx") or (name == "pipx" and first == "run")
+    if (name in ("npm", "pnpm", "yarn", "bun") and command == "create") or (
+        name == "npm" and command == "init"
+    ):
+        return operand
+    if name == "uv":
+        return (command == "tool" and rest[:1] == ["run"]) or (
+            command == "run" and any(arg.split("=", 1)[0] == "--with" for arg in rest)
+        )
+    return name in ("pnpx", "uvx")
 
 
 def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str]]:
-    """Return (line, command) for each command in a script, and in the scripts it runs, that
-    fetches a package at a floating version."""
+    """Return (line, command) for each command in a script, and in the scripts it runs (with
+    -c, eval, trap, env -S, or a here-document fed to a shell), that fetches at a floating
+    version."""
     found = []
-    for cmd in sh.simple_commands(sh.parse(script, language)):
+    tree = sh.parse(script, language)
+    for cmd in sh.simple_commands(tree):
         words = [sh.shape(word) for word in cmd.get("Args") or []]
         calls, scripts = sh.command_names(words)
         line = line_of(cmd["Pos"]["Line"])
@@ -87,6 +135,9 @@ def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str
         ]
         for inner, inner_language in scripts:
             found += floating_fetches(inner, inner_language, lambda _line, at=line: at)
+    for body, language_read, line in sh.heredoc_scripts(tree, script.encode("utf-8")):
+        outer = line_of(line)
+        found += floating_fetches(body, language_read, lambda _line, at=outer: at)
     return found
 
 

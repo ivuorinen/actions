@@ -411,7 +411,11 @@ runs:
 
         # Parse results
         if [ "$REPORT_FORMAT" = "sarif" ] && [ -f eslint-results.sarif ]; then
-          command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the SARIF report"; exit 1; }
+          command -v jq >/dev/null 2>&1 || {
+            echo "::error::jq is required to read the SARIF report"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          }
           error_count=$(jq '[.runs[]?.results[]? | select(.level == "error")] | length' eslint-results.sarif 2>/dev/null || echo "0")
           warning_count=$(jq '[.runs[]?.results[]? | select(.level == "warning")] | length' eslint-results.sarif 2>/dev/null || echo "0")
           # The SARIF formatter lists every linted file under artifacts, with or without findings;
@@ -465,7 +469,11 @@ runs:
 
         echo "Running ESLint fix mode..."
 
-        command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files ESLint changes"; exit 1; }
+        command -v git >/dev/null 2>&1 || {
+          echo "::error::git is required to count the files ESLint changes"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
 
         # ESLINT_COMMAND is several words, so it is split on purpose
         set -f

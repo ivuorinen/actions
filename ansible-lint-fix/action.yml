@@ -115,6 +115,8 @@ runs:
       with:
         timeout_minutes: 5
         max_attempts: ${{ inputs.max-retries }}
+        # nick-fields/retry runs PowerShell on Windows unless told otherwise.
+        shell: bash
         # requirements.lock.txt is generated from requirements.in by the command in its header.
         # --only-binary keeps a package's setup.py from running, which hash checking alone does not.
         command: |
@@ -129,10 +131,18 @@ runs:
       run: |
         set -eu
 
-        command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files ansible-lint changes"; exit 1; }
+        command -v git >/dev/null 2>&1 || {
+          echo "::error::git is required to count the files ansible-lint changes"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
 
         # Run ansible-lint and capture exit code
-        command -v ansible-lint >/dev/null 2>&1 || { echo "::error::ansible-lint is required to lint the playbooks"; exit 1; }
+        command -v ansible-lint >/dev/null 2>&1 || {
+          echo "::error::ansible-lint is required to lint the playbooks"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
         if ansible-lint --write --format sarif > ansible-lint.sarif; then
           lint_exit_code=0
         else

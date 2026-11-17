@@ -1,18 +1,26 @@
 """The shell scripts an action.yml runs, parsed by shfmt, for the static checks under _tests/unit.
 
-A step runs a script through its run: key, or through nick-fields/retry's with: command:. Files
-are parsed as YAML, so each value is the script GitHub runs, with YAML quoting, escapes and line
-folding already decoded. shfmt (`shfmt --to-json`) parses each script into its syntax tree, so
-quoting, comments, here-documents, redirections and arithmetic are read the way the shell reads
-them, not matched as text.
+A step runs a script through its run: key, or through nick-fields/retry's with: command:,
+new_command_on_retry: and on_retry_command:. Files are parsed as YAML, so each value is the
+script GitHub runs, with YAML quoting, escapes and line folding already decoded. shfmt
+(`shfmt --to-json`) parses each script into its syntax tree, so quoting, comments,
+here-documents, redirections and arithmetic are read the way the shell reads them, not matched
+as text.
 
 command_names() reads the commands one simple command runs: its first word, past assignments and
-redirections; the command a wrapper such as sudo, env, timeout, xargs, exec, nice, stdbuf, flock
-or chroot runs, past the wrapper's options and their arguments; the commands after find's -exec;
-and the word after `set --`, which builds a command that "$@" runs later. A command named by a
-path is read by its last component. It also returns the scripts the command runs as code: the
-script given to `sh -c` (or `-ec` and the like), eval's operands, trap's action and the string
-`env -S` splits. A word with an expansion, such as "$@", names no command and is no script.
+redirections; the command a wrapper such as sudo, env, timeout, xargs, exec, nice, stdbuf, flock,
+chroot or corepack runs, past the wrapper's options and their arguments (read as getopt does, so
+-uroot and -u root both name a user); the commands after find's -exec; and the word after
+`set --`, which builds a command that "$@" runs later. A command named by a path is read by its
+last component. It also returns the scripts the command runs as code: the script a shell is given
+with -c (or -ec, or after -o pipefail), eval's operands, trap's action and the string `env -S`
+splits. In those scripts each expansion is read as a placeholder word. heredoc_scripts() returns
+the here-documents a shell reads as its script, given to it directly or through a pipe.
+
+Not read: a command named through a variable, an alias or a function the script defines; a script
+a shell reads from a pipe other than a here-document (`printf ... | sh`), from a here-string or
+from a file; `su -c`, `flock ... -c` and coproc; and steps whose shell: is not sh or bash, such as
+node. The checks that use this module describe what they make of each command.
 """
 
 from __future__ import annotations
@@ -27,13 +35,18 @@ import yaml
 # shfmt's language for each shell a step or a command can name.
 SHELLS = {"sh": "posix", "dash": "posix", "bash": "bash"}
 RETRY = "nick-fields/retry"
+# The nick-fields/retry inputs that hold a script.
+RETRY_SCRIPTS = ("command", "new_command_on_retry", "on_retry_command")
 SHFMT = shutil.which("shfmt")
 # Stands for an expansion in a word's text, so the word matches no command name.
 EXPANSION = "\x00"
+# What an expansion reads as in a script a command runs, so the script still parses.
+PLACEHOLDER = "_expansion_"
 # For each wrapper that runs the command after its options: the options that take an argument.
 WRAPPERS = {
     "chroot": {"--userspec", "--groups"},
     "command": set(),
+    "corepack": set(),
     "doas": {"-u", "-C"},
     "env": {"-u", "-C", "--unset", "--chdir"},
     "exec": {"-a"},
@@ -122,6 +135,11 @@ def shape(word: dict | None) -> str:
     return "".join(text)
 
 
+def as_script(text: str) -> str:
+    """Return a word's text as a script a command runs, each expansion read as a placeholder."""
+    return text.replace(EXPANSION, PLACEHOLDER)
+
+
 def fields(node) -> dict:
     """Return a mapping node's scalar keys and their value nodes; any other node has none."""
     if not isinstance(node, yaml.MappingNode):
@@ -143,32 +161,61 @@ def step_scripts(text: str):
     for step in steps.value:
         step_fields = fields(step)
         uses = step_fields.get("uses")
-        if isinstance(uses, yaml.ScalarNode) and uses.value.split("@", 1)[0] == RETRY:
-            # nick-fields/retry runs its command with bash unless with: shell: names another.
+        if isinstance(uses, yaml.ScalarNode) and uses.value.split("@", 1)[0].lower() == RETRY:
+            # nick-fields/retry runs its scripts with bash unless with: shell: names another.
             options = fields(step_fields.get("with"))
-            script, shell, default = options.get("command"), options.get("shell"), "bash"
+            scripts = [options.get(name) for name in RETRY_SCRIPTS]
+            shell, default = options.get("shell"), "bash"
         else:
-            script, shell, default = step_fields.get("run"), step_fields.get("shell"), "sh"
+            scripts = [step_fields.get("run")]
+            shell, default = step_fields.get("shell"), "sh"
         words = shell.value.split() if isinstance(shell, yaml.ScalarNode) else [default]
         name = words[0].rsplit("/", 1)[-1] if words else default
-        if not isinstance(script, yaml.ScalarNode) or name not in SHELLS:
+        if name not in SHELLS:
             continue
-        start = script.start_mark.line
-        if script.style == "|":
-            yield script.value, SHELLS[name], lambda line, first=start + 1: first + line
-        else:
-            yield script.value, SHELLS[name], lambda _line, first=start + 1: first
+        for script in scripts:
+            if not isinstance(script, yaml.ScalarNode):
+                continue
+            start = script.start_mark.line
+            if script.style == "|":
+                yield script.value, SHELLS[name], lambda line, first=start + 1: first + line
+            else:
+                yield script.value, SHELLS[name], lambda _line, first=start + 1: first
+
+
+def takes_argument(word: str, options: set[str]) -> tuple[bool, bool]:
+    """Read one option word as getopt does: return (is_option, the next word is its argument).
+
+    A long option takes the next word when it is listed without `=value`. A cluster of short
+    options ends at the first letter that takes an argument: the rest of the word is that
+    argument, or the next word when nothing is left, so -uroot needs no next word and -Eu does.
+    """
+    if word == "-" or not word.startswith("-"):
+        return False, False
+    if word.startswith("--"):
+        return True, "=" not in word and word in options
+    for at, letter in enumerate(word[1:], 1):
+        if "-" + letter in options:
+            return True, at == len(word) - 1
+    return True, False
 
 
 def shell_c_script(words: list[str], at: int) -> str | None:
-    """Return the script a shell at words[at] runs with -c (or a cluster such as -ec), if any."""
-    for index in range(at + 1, len(words)):
+    """Return the script a shell at words[at] runs with -c (or a cluster such as -ec), if any.
+
+    -o NAME and +o NAME take a word; any other option starting with - or + is a cluster.
+    """
+    index = at + 1
+    while index < len(words):
         word = words[index]
-        if word == "--" or not word.startswith("-"):
+        if word in ("-o", "+o"):
+            index += 2
+            continue
+        if word == "--" or word[:1] not in ("-", "+") or word.startswith("--"):
             return None
-        if not word.startswith("--") and "c" in word[1:]:
-            script = words[index + 1] if index + 1 < len(words) else EXPANSION
-            return None if EXPANSION in script else script
+        if "c" in word[1:]:
+            return as_script(words[index + 1]) if index + 1 < len(words) else None
+        index += 1
     return None
 
 
@@ -180,15 +227,12 @@ def _skip_options(words: list[str], index: int, wrapper: str, scripts: list) -> 
         if word == "--":
             return index + 1
         if word in SCRIPT_OPTIONS.get(wrapper, ()):
-            if index + 1 < len(words) and EXPANSION not in words[index + 1]:
-                scripts.append((words[index + 1], "posix"))
+            if index + 1 < len(words):
+                scripts.append((as_script(words[index + 1]), "posix"))
             return None
-        if word.startswith("-") and len(word) > 1:
-            # -u USER, --user USER, or a cluster such as -Eu USER, whose last letter takes one.
-            takes = word in options or (
-                not word.startswith("--") and "=" not in word and "-" + word[-1] in options
-            )
-            index += 2 if takes else 1
+        is_option, needs_next = takes_argument(word, options)
+        if is_option:
+            index += 2 if needs_next else 1
         elif wrapper in TAKE_ASSIGNMENTS and ASSIGNMENT.match(word):
             index += 1
         else:
@@ -209,34 +253,99 @@ def command_names(words: list[str]) -> tuple[list[tuple[int, str]], list[tuple[s
         word = words[index]
         name = word.rsplit("/", 1)[-1]
         calls.append((index, name))
-        if EXPANSION in word:
+        if EXPANSION in word or name in SHELLS:
             break
-        if name in SHELLS:
-            script = shell_c_script(words, index)
-            if script is not None:
-                scripts.append((script, SHELLS[name]))
-            break
-        if name == "find":
-            for at in range(index, len(words) - 1):
-                if words[at] in FIND_EXEC:
-                    end = next(
-                        (k for k in range(at + 1, len(words)) if words[k] in (";", "+")), len(words)
-                    )
-                    inner_calls, inner_scripts = command_names(words[at + 1 : end])
-                    calls.extend((at + 1 + offset, inner) for offset, inner in inner_calls)
-                    scripts.extend(inner_scripts)
-            break
-        if name in ("eval", "trap"):
-            operands = words[index + 1 :] if name == "eval" else words[index + 1 : index + 2]
-            if operands and operands != ["-"] and all(EXPANSION not in w for w in operands):
-                scripts.append((" ".join(operands), "posix"))
+        if name in ("find", "eval", "trap"):
+            _runs_code(name, words, index, calls, scripts)
             break
         if name not in WRAPPERS or (
             name == "command" and index + 1 < len(words) and words[index + 1] in ("-v", "-V")
         ):
             break
         index = _skip_options(words, index + 1, name, scripts)
+    scripts += [script for script in _shell_c_scripts(words) if script not in scripts]
     return calls, scripts
+
+
+def _runs_code(name: str, words: list[str], index: int, calls: list, scripts: list) -> None:
+    """Add the commands find runs after -exec, and the code eval and trap run."""
+    if name == "find":
+        for at in range(index, len(words) - 1):
+            if words[at] in FIND_EXEC:
+                end = next(
+                    (k for k in range(at + 1, len(words)) if words[k] in (";", "+")), len(words)
+                )
+                inner_calls, inner_scripts = command_names(words[at + 1 : end])
+                calls.extend((at + 1 + offset, inner) for offset, inner in inner_calls)
+                scripts.extend(inner_scripts)
+    elif name == "eval":
+        if index + 1 < len(words):
+            scripts.append((as_script(" ".join(words[index + 1 :])), "posix"))
+    else:
+        operands = words[index + 1 :]
+        operands = operands[1:] if operands[:1] == ["--"] else operands
+        if operands and not operands[0].startswith("-"):
+            scripts.append((as_script(operands[0]), "posix"))
+
+
+def _shell_c_scripts(words: list[str]) -> list[tuple[str, str]]:
+    """Return the scripts each shell named anywhere in a command runs with -c: whatever runs the
+    shell, as in `ionice -c3 sh -c '...'` or `watch sh -c '...'`."""
+    found = []
+    for at, word in enumerate(words):
+        shell = word.rsplit("/", 1)[-1]
+        if shell in SHELLS:
+            script = shell_c_script(words, at)
+            if script is not None:
+                found.append((script, SHELLS[shell]))
+    return found
+
+
+def stdin_shell(stmt: dict) -> str | None:
+    """Return the shfmt language of a shell a statement runs that reads its script from stdin."""
+    cmd = stmt.get("Cmd") or {}
+    if cmd.get("Type") != "CallExpr":
+        return None
+    words = [shape(word) for word in cmd.get("Args") or []]
+    calls, _ = command_names(words)
+    if not calls or calls[-1][1] not in SHELLS:
+        return None
+    if shell_c_script(words, calls[-1][0]) is not None:
+        return None
+    return SHELLS[calls[-1][1]]
+
+
+def heredoc_bodies(stmt: dict, source: bytes) -> list[tuple[str, int]]:
+    """Return (body, line) for each here-document on a statement."""
+    bodies = []
+    for redirect in stmt.get("Redirs") or []:
+        hdoc = redirect.get("Hdoc")
+        if hdoc:
+            body = source[hdoc["Pos"]["Offset"] : hdoc["End"]["Offset"]].decode("utf-8")
+            # The byte range ends with the closing delimiter's line.
+            bodies.append((body.rsplit("\n", 1)[0] if "\n" in body else "", hdoc["Pos"]["Line"]))
+    return bodies
+
+
+def heredoc_scripts(node, source: bytes):
+    """Yield (script, language, line) for each here-document a shell in a tree reads as its
+    script: given to it directly (`sh <<EOF`), or piped to it (`cat <<EOF | sh`)."""
+    if isinstance(node, dict):
+        language = stdin_shell(node) if "Cmd" in node else None
+        if language:
+            for body, line in heredoc_bodies(node, source):
+                yield body, language, line
+        cmd = node.get("Cmd") or {}
+        if cmd.get("Type") == "BinaryCmd" and cmd.get("Op") in ("|", "|&"):
+            language = stdin_shell(cmd["Y"])
+            if language:
+                for body, line in heredoc_bodies(cmd["X"], source):
+                    yield body, language, line
+        for value in node.values():
+            yield from heredoc_scripts(value, source)
+    elif isinstance(node, list):
+        for value in node:
+            yield from heredoc_scripts(value, source)
 
 
 def simple_commands(node):

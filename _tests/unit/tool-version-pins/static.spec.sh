@@ -69,6 +69,18 @@ Parameters
 "pipx run ruff check ."
 "pnpm dlx prettier --check ."
 "yarn dlx prettier --check ."
+"npx prettier --no --check ."
+"bunx prettier --no-install --check ."
+"corepack pnpm dlx prettier --check ."
+"sh -c \"npx prettier \$files\""
+"npm --prefix . exec prettier -- --check ."
+"pnpm -C . dlx prettier --check ."
+"yarn --cwd . dlx prettier --check ."
+"pnpm create vite"
+"bun create vite"
+"uv tool run ruff check ."
+"uv run --with ruff ruff check ."
+"sudo -uroot npx prettier --check ."
 "git clone https://example.com/repo@main"
 "bun-version: latest"
 End
@@ -92,6 +104,8 @@ Parameters
 'echo "npx is required"'
 "npm exec --no -- prettier --check ."
 "npm init -y"
+"pnpm init"
+"uv run ruff check ."
 End
 
 It "accepts: $1"
@@ -100,6 +114,15 @@ When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be success
 The stdout should match pattern "checked * renovate comments"
 End
+End
+
+It "reads a here-document fed to a shell"
+printf '%s\n' "runs:" "  steps:" "    - name: Pin" "      env:" \
+  "        # renovate: datasource=npm depName=sample" "        SAMPLE_VERSION: '1.2.3'" \
+  "      run: |" "        sh <<'EOF'" "        npx prettier --check ." "        EOF" >"${TREE}/sample/action.yml"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
+The status should be failure
+The stdout should include "sample:9: floating tool reference: npx prettier --check ."
 End
 
 Describe "on a version input defaulting to a floating keyword"

@@ -305,6 +305,54 @@ When call scan_step 'cat <<EOF' '$(git rev-parse HEAD)' 'EOF'
 The status should be failure
 The output should include "git is called"
 End
+
+It "reads an option argument attached to its option"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'sudo -uroot docker ps'
+The status should be failure
+The output should include "action.yml:6: docker is called"
+End
+
+It "reads past timeout's attached option argument and its duration"
+When call scan_step 'timeout -k10s 60 docker ps'
+The status should be failure
+The output should include "action.yml:5: docker is called"
+End
+
+It "reads the script sh -c runs behind a command it does not know"
+When call scan_step "ionice -c3 sh -c 'docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads a script sh -c runs that holds an expansion"
+When call scan_step 'sh -c "docker ps $flags"'
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads eval's code when an operand is an expansion"
+When call scan_step 'eval git "$args"'
+The status should be failure
+The output should include "git is called"
+End
+
+It "reads the script a shell runs with -c after -o"
+When call scan_step "bash -o pipefail -c 'docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads trap's action after --"
+When call scan_step "trap -- 'docker rm -f build' EXIT"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reports a parse error in a script a command runs at that command's line"
+When call scan_step 'set -eu' 'eval "if then fi"'
+The status should be failure
+The output should include "action.yml:6: shfmt cannot parse a script this step runs"
+End
 End
 
 Describe "which checks count"
@@ -312,6 +360,19 @@ It "does not count a check that lets the step go on"
 When call scan_step 'command -v git >/dev/null 2>&1 || true' 'git status'
 The status should be failure
 The output should include "action.yml:6: git is called"
+End
+
+# exit 0 ends the step without failing it, which skips its work silently.
+It "does not count a check that exits 0"
+When call scan_step 'command -v git >/dev/null 2>&1 || { echo "no git"; exit 0; }' 'git status'
+The status should be failure
+The output should include "action.yml:6: git is called"
+End
+
+It "does not count if ! command -v whose branch exits without a status"
+When call scan_step 'if ! command -v git >/dev/null 2>&1; then' '  echo "no git"' '  exit' 'fi' 'git status'
+The status should be failure
+The output should include "action.yml:9: git is called"
 End
 
 It "does not count if ! command -v when its branch goes on"
@@ -390,6 +451,19 @@ When call scan_file 'runs:' '  steps:' '    - uses: nick-fields/retry@0000000000
   '      with:' '        command: |' '          git status'
 The status should be failure
 The output should include "file.yml:6: git is called"
+End
+
+It "reads the other scripts a nick-fields/retry step runs, whatever the action's case"
+When call scan_file 'runs:' '  steps:' '    - uses: Nick-Fields/Retry@0000000000000000000000000000000000000000' \
+  '      with:' '        command: echo ok' '        new_command_on_retry: |' '          git status'
+The status should be failure
+The output should include "file.yml:7: git is called"
+End
+
+It "reports a file that is not YAML"
+When call scan_file 'runs: [' '  steps'
+The status should be failure
+The output should include "cannot be read as YAML"
 End
 
 It "reads a step whose shell is named by its path"

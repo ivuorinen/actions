@@ -411,7 +411,11 @@ runs:
         phpunit_exit_code=0
         if [ "$IS_LARAVEL" = "true" ] && [ -f "composer.json" ] && grep -q '"test"' composer.json; then
           echo "Running Laravel tests via composer test..."
-          command -v composer >/dev/null 2>&1 || { echo "::error::composer is required to run the Laravel tests"; exit 1; }
+          command -v composer >/dev/null 2>&1 || {
+            echo "::error::composer is required to run the Laravel tests"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          }
           phpunit_output=$(composer test 2>&1) || phpunit_exit_code=$?
         elif [ -f "vendor/bin/phpunit" ]; then
           echo "Running PHPUnit directly..."

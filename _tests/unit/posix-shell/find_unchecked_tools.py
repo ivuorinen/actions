@@ -6,15 +6,16 @@ the check a missing tool does not always stop the step: `count=$(git diff --name
 takes its status from wc, so the count is 0, and `if git rev-parse ...` takes the else branch.
 The tools are read from that rule, so the list exists once.
 
-_tests/shared/shell_scripts.py finds the scripts (each run:, and nick-fields/retry's with:
-command:), parses them with shfmt, and reads which commands each simple command runs. The script
-given to `sh -c`, eval's operands, trap's action, and a here-document fed or piped to sh or bash
-are read as scripts too; any other here-document is data, though a command substitution in it
-still runs. A call through a function or alias the script defines is not followed.
+_tests/shared/shell_scripts.py finds the scripts each step runs, parses them with shfmt, and reads
+which commands each simple command runs; its docstring lists what it reads and what it does not.
+The script given to `sh -c`, eval's operands, trap's action, and a here-document fed or piped to
+sh or bash are walked as scripts; any other here-document is data, though a command substitution
+in it still runs.
 
-A check is `command -v <tool>` in a form that stops the step when the tool is missing:
-`command -v <tool> ... || { ...; exit 1; }`, or `if ! command -v <tool> ...; then ... exit; fi`.
-It covers what runs after it in the same block. `if command -v <tool> ...; then` and
+A check is `command -v <tool>` in a form that fails the step when the tool is missing:
+`command -v <tool> ... || { ...; exit 1; }`, or `if ! command -v <tool> ...; then ... exit 1; fi`,
+with a literal non-zero status, since `exit 0` would skip the step's work without failing it. It
+covers what runs after it in the same block. `if command -v <tool> ...; then` and
 `command -v <tool> ... && ...` cover only the code they guard. A check in one branch of an if
 or case covers code after the if or case only when every branch that goes on checks too; a
 check in a subshell, a pipeline, a loop, a background command, a function body or a command
@@ -26,6 +27,8 @@ import importlib.util
 from pathlib import Path
 import re
 import sys
+
+import yaml
 
 RULE = Path(__file__).resolve().parents[3] / ".claude" / "rules" / "posix-shell.md"
 SHARED = Path(__file__).resolve().parents[2] / "shared" / "shell_scripts.py"
@@ -81,50 +84,40 @@ def and_chain(stmt):
     return [stmt]
 
 
-def terminates(stmts):
-    """Whether a statement list always ends with exit or return."""
+def terminates(stmts, *, failing=False):
+    """Whether a statement list always ends with exit or return; with failing, a non-zero one."""
     for stmt in stmts:
         cmd = stmt.get("Cmd") or {}
         kind = cmd.get("Type")
         if stmt.get("Background"):
             continue
-        if kind == "CallExpr" and cmd.get("Args") and sh.shape(cmd["Args"][0]) in TERMINATORS:
+        words = [sh.shape(word) for word in cmd.get("Args") or []] if kind == "CallExpr" else []
+        if words and words[0] in TERMINATORS:
+            if not failing:
+                return True
+            # A literal status other than 0; `exit` alone repeats the last command's status.
+            return len(words) > 1 and words[1].isdigit() and int(words[1]) != 0
+        if kind == "Block" and terminates(cmd.get("Stmts") or [], failing=failing):
             return True
-        if kind == "Block" and terminates(cmd.get("Stmts") or []):
-            return True
-        if kind == "IfClause" and if_terminates(cmd):
+        if kind == "IfClause" and if_terminates(cmd, failing=failing):
             return True
     return False
 
 
-def if_terminates(node):
+def if_terminates(node, *, failing=False):
     """Whether every branch of an if, an else included, ends with exit or return."""
     otherwise = node.get("Else")
-    if not terminates(node.get("Then") or []) or not otherwise:
+    if not terminates(node.get("Then") or [], failing=failing) or not otherwise:
         return False
     if otherwise.get("Cond"):
-        return if_terminates(otherwise)
-    return terminates(otherwise.get("Then") or [])
+        return if_terminates(otherwise, failing=failing)
+    return terminates(otherwise.get("Then") or [], failing=failing)
 
 
 def default_pattern(word):
     """Whether a case pattern is an unquoted *, which matches anything."""
     parts = (word or {}).get("Parts") or []
     return len(parts) == 1 and parts[0].get("Type") == "Lit" and parts[0].get("Value") == "*"
-
-
-def stdin_shell(stmt):
-    """Return the shfmt language of a shell that reads its script from stdin, or None."""
-    cmd = stmt.get("Cmd") or {}
-    if cmd.get("Type") != "CallExpr":
-        return None
-    words = [sh.shape(word) for word in cmd.get("Args") or []]
-    calls, _ = sh.command_names(words)
-    if not calls or calls[-1][1] not in sh.SHELLS:
-        return None
-    if sh.shell_c_script(words, calls[-1][0]) is not None or "-c" in words:
-        return None
-    return sh.SHELLS[calls[-1][1]]
 
 
 class Scan:
@@ -141,21 +134,20 @@ class Scan:
 
     def script(self, text, language, line, settled):
         """Walk a script that a command in this one runs: a child shell, so nothing it checks
-        covers this script."""
-        tree = sh.parse(text, language)
+        covers this script. A parse error is reported at the line of the command running it."""
+        try:
+            tree = sh.parse(text, language)
+        except sh.ParseError as error:
+            message = f"{self.line_of(line)}: shfmt cannot parse a script this step runs: {error}"
+            raise sh.ParseError(message) from error
         Scan(text, lambda _line: self.line_of(line), self.found).stmts(
             tree.get("Stmts") or [], settled
         )
 
     def heredoc_scripts(self, stmt, language, settled):
         """Walk the here-documents of a statement as scripts a shell reads."""
-        for redirect in stmt.get("Redirs") or []:
-            hdoc = redirect.get("Hdoc")
-            if hdoc:
-                body = self.source[hdoc["Pos"]["Offset"] : hdoc["End"]["Offset"]].decode("utf-8")
-                # The byte range ends with the closing delimiter's line.
-                body = body.rsplit("\n", 1)[0] if "\n" in body else ""
-                self.script(body, language, hdoc["Pos"]["Line"], settled)
+        for body, line in sh.heredoc_bodies(stmt, self.source):
+            self.script(body, language, line, settled)
 
     def substitutions(self, node, settled):
         """Walk the command substitutions anywhere inside a node."""
@@ -214,7 +206,7 @@ class Scan:
             self.call(name, cmd["Pos"], settled)
         for text, language in scripts:
             self.script(text, language, cmd["Pos"]["Line"], settled)
-        language = stdin_shell(stmt)
+        language = sh.stdin_shell(stmt)
         if language:
             self.heredoc_scripts(stmt, language, settled)
         return settled
@@ -226,12 +218,12 @@ class Scan:
             self.stmt(first, settled)
             self.stmt(second, settled)
             # `cat <<EOF | sh` runs the here-document as a script.
-            language = stdin_shell(second)
+            language = sh.stdin_shell(second)
             if language:
                 self.heredoc_scripts(first, language, settled)
             return settled
         after_first = self.stmt(first, settled)
-        if op == "||" and tool and terminates([second]):
+        if op == "||" and tool and terminates([second], failing=True):
             self.stmt(second, after_first)
             return after_first | {tool}
         self.stmt(second, after_first | ({tool} if tool and op == "&&" else set()))
@@ -243,14 +235,14 @@ class Scan:
         chain = and_chain(cond[-1]) if cond else []
         guarded = {checked_tool(s) for s in chain if not s.get("Negated")} - {None}
         # `if ! command -v t` goes on to the else branch only when t is there.
-        missing = (
-            {checked_tool(chain[0])} - {None}
-            if len(chain) == 1 and chain[0].get("Negated")
-            else set()
-        )
+        negated_check = len(chain) == 1 and chain[0].get("Negated")
+        missing = ({checked_tool(chain[0])} - {None}) if negated_check else set()
         ends = []
         then = cmd.get("Then") or []
         then_end = self.stmts(then, after_cond | guarded)
+        if missing and not terminates(then, failing=True):
+            # A branch for the missing tool that goes on, or ends with exit 0, checks nothing.
+            missing = set()
         if not terminates(then):
             ends.append(then_end)
         otherwise = cmd.get("Else")
@@ -330,6 +322,10 @@ def main(paths):
             calls = unchecked_calls(text)
         except sh.ParseError as error:
             print(f"{path}:{error}")
+            status = 1
+            continue
+        except yaml.YAMLError as error:
+            print(f"{path}: cannot be read as YAML: {error}")
             status = 1
             continue
         for number, tool in calls:
