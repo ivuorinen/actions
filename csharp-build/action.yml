@@ -192,6 +192,7 @@ runs:
       run: |
         set -eu
         echo "Building .NET solution..."
+        command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to build the solution"; exit 1; }
         if dotnet build ${PROJECT:+"$PROJECT"} --configuration Release --no-restore --verbosity normal; then
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
           echo "Build completed successfully"
@@ -210,6 +211,7 @@ runs:
         set -eu
         echo "Running .NET tests..."
         if find . -name "*.csproj" -exec grep -lE "(Microsoft\.NET\.Test\.Sdk|xunit|nunit)" {} + | head -1 | grep -q .; then
+          command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to run the tests"; exit 1; }
           if dotnet test ${PROJECT:+"$PROJECT"} --configuration Release --no-build \
             --collect:"XPlat Code Coverage" \
             --logger "trx;LogFileName=test-results.trx" \

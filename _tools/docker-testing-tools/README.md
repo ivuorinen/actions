@@ -16,19 +16,20 @@ jobs:
 
 ## 📦 Pre-installed Tools
 
-| Tool           | Version         | Purpose                         |
-| -------------- | --------------- | ------------------------------- |
-| **ShellSpec**  | 0.28.1 (pinned) | Shell script testing framework  |
-| **nektos/act** | 0.2.71 (pinned) | Local GitHub Actions testing    |
-| **TruffleHog** | 3.86.0 (pinned) | Secrets detection               |
-| **actionlint** | 1.7.7 (pinned)  | GitHub Actions linting          |
-| **Trivy**      | repo stable¹    | Container security scanning     |
-| **GitHub CLI** | repo stable¹    | GitHub API interactions         |
-| **shellcheck** | repo stable¹    | Shell script linting            |
-| **jq**         | repo stable¹    | JSON processing                 |
-| **kcov**       | v42 (source)²   | Code coverage for shell scripts |
-| **Node.js**    | LTS             | JavaScript runtime              |
-| **Python**     | 3.x             | Python runtime + PyYAML³        |
+| Tool           | Version         | Purpose                                       |
+| -------------- | --------------- | --------------------------------------------- |
+| **ShellSpec**  | 0.28.1 (pinned) | Shell script testing framework                |
+| **shfmt**      | 3.14.1 (pinned) | Parses run: scripts for the posix-shell tests |
+| **nektos/act** | 0.2.71 (pinned) | Local GitHub Actions testing                  |
+| **TruffleHog** | 3.86.0 (pinned) | Secrets detection                             |
+| **actionlint** | 1.7.7 (pinned)  | GitHub Actions linting                        |
+| **Trivy**      | repo stable¹    | Container security scanning                   |
+| **GitHub CLI** | repo stable¹    | GitHub API interactions                       |
+| **shellcheck** | repo stable¹    | Shell script linting                          |
+| **jq**         | repo stable¹    | JSON processing                               |
+| **kcov**       | v42 (source)²   | Code coverage for shell scripts               |
+| **Node.js**    | LTS             | JavaScript runtime                            |
+| **Python**     | 3.x             | Python runtime + PyYAML³                      |
 
 ¹ _Installed via Ubuntu 22.04 LTS repositories for stability and security_
 ² _Built from source (not available in Ubuntu 22.04 repositories)_

@@ -129,6 +129,7 @@ runs:
         command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files ansible-lint changes"; exit 1; }
 
         # Run ansible-lint and capture exit code
+        command -v ansible-lint >/dev/null 2>&1 || { echo "::error::ansible-lint is required to lint the playbooks"; exit 1; }
         if ansible-lint --write --format sarif > ansible-lint.sarif; then
           lint_exit_code=0
         else

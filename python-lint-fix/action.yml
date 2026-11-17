@@ -245,11 +245,14 @@ runs:
 
         # requirements.lock.txt is generated from requirements.in by the command in its header.
         # --only-binary keeps a package's setup.py from running, which hash checking alone does not.
+        command -v pip >/dev/null 2>&1 || { echo "::error::pip is required to install flake8 and autopep8"; exit 1; }
         pip install --require-hashes --only-binary=:all: --retries "$MAX_RETRIES" -r "$ACTION_PATH/requirements.lock.txt"
 
         # Verify installations
-        flake8 --version || exit 1
-        autopep8 --version || exit 1
+        command -v flake8 >/dev/null 2>&1 || { echo "::error::flake8 is not on PATH after its install"; exit 1; }
+        command -v autopep8 >/dev/null 2>&1 || { echo "::error::autopep8 is not on PATH after its install"; exit 1; }
+        flake8 --version
+        autopep8 --version
 
     - name: Run flake8
       if: steps.check-files.outputs.result == 'found'
@@ -275,6 +278,7 @@ runs:
         results_file="$WORK_DIR/flake8-results.txt"
         sarif_file="$WORK_DIR/flake8.sarif"
         : > "$results_file"
+        command -v flake8 >/dev/null 2>&1 || { echo "::error::flake8 is required to lint the code"; exit 1; }
         flake8_status=0
         flake8 --no-show-source --output-file="$results_file" \
           --format='(%(row)d, %(col)d, %(code)a, %(path)a, %(text)a)' . || flake8_status=$?
@@ -323,6 +327,7 @@ runs:
         _changed_files=$(mktemp)
 
         # Run autopep8 with change detection
+        command -v autopep8 >/dev/null 2>&1 || { echo "::error::autopep8 is required to fix the code"; exit 1; }
         find . -name "*.py" -type f -not -path "*/\.*" | while read -r file; do
           # autopep8 prints nothing when it has no fix. Its failure has to stop this step.
           file_diff=$(autopep8 --diff "$file")

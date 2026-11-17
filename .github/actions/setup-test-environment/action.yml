@@ -55,6 +55,39 @@ runs:
         sudo apt-get update
         sudo apt-get install -y --no-install-recommends jq shellcheck
 
+    - name: Install shfmt
+      shell: sh
+      run: |
+        set -eu
+
+        # The posix-shell tests parse each run: script with shfmt (_tests/unit/posix-shell/find_unchecked_tools.py).
+        # The release publishes no checksum file, so each binary's SHA-256 is pinned here.
+        SHFMT_VERSION="3.14.1"
+        case "$(uname -m)" in
+          x86_64) SHFMT_ARCH="amd64"; EXPECTED_CHECKSUM="76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf" ;;
+          aarch64 | arm64) SHFMT_ARCH="arm64"; EXPECTED_CHECKSUM="5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489" ;;
+          *) echo "::error::shfmt has no pinned binary for $(uname -m)"; exit 1 ;;
+        esac
+        SHFMT_URL="https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_${SHFMT_ARCH}"
+
+        command -v curl >/dev/null 2>&1 || { echo "::error::curl is required to download shfmt"; exit 1; }
+        command -v sha256sum >/dev/null 2>&1 || { echo "::error::sha256sum is required to verify shfmt"; exit 1; }
+        command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to install shfmt into /usr/local/bin"; exit 1; }
+        command -v install >/dev/null 2>&1 || { echo "::error::install is required to install shfmt into /usr/local/bin"; exit 1; }
+
+        curl -fsSL "$SHFMT_URL" -o /tmp/shfmt
+        ACTUAL_CHECKSUM="$(sha256sum /tmp/shfmt | awk '{print $1}')"
+        if [ "$ACTUAL_CHECKSUM" != "$EXPECTED_CHECKSUM" ]; then
+          echo "::error::Checksum mismatch for shfmt ${SHFMT_VERSION}: expected ${EXPECTED_CHECKSUM}, got ${ACTUAL_CHECKSUM}"
+          rm -f /tmp/shfmt
+          exit 1
+        fi
+        sudo install -m 755 /tmp/shfmt /usr/local/bin/shfmt
+        rm -f /tmp/shfmt
+
+        command -v shfmt >/dev/null 2>&1 || { echo "::error::shfmt is not on PATH after its install"; exit 1; }
+        shfmt --version
+
     - name: Install kcov from source
       if: inputs.install-kcov == 'true'
       shell: sh
@@ -167,6 +200,7 @@ runs:
 
         echo "Installing act..."
         tar -xzf "${ACT_TARBALL}" -C /tmp
+        command -v install >/dev/null 2>&1 || { echo "::error::install is required to install act into /usr/local/bin"; exit 1; }
         sudo install -m 755 /tmp/act /usr/local/bin/act
         rm -f "${ACT_TARBALL}" /tmp/act act-checksums.txt
 
@@ -181,7 +215,7 @@ runs:
         set -eu
         command -v docker >/dev/null 2>&1 || { echo "::error::docker is required to run act"; exit 1; }
         # Ensure Docker is running
-        docker ps > /dev/null 2>&1 || (echo "Docker is not running" && exit 1)
+        docker ps > /dev/null 2>&1 || { echo "::error::Docker is not running"; exit 1; }
 
         # Pre-pull the act Docker image to avoid interactive prompts
         docker pull catthehacker/ubuntu:act-latest
@@ -195,9 +229,11 @@ runs:
         command -v shellspec >/dev/null 2>&1 || { echo "::error::shellspec is not on PATH"; exit 1; }
         command -v jq >/dev/null 2>&1 || { echo "::error::jq is not on PATH"; exit 1; }
         command -v uv >/dev/null 2>&1 || { echo "::error::uv is not on PATH"; exit 1; }
+        command -v shfmt >/dev/null 2>&1 || { echo "::error::shfmt is not on PATH"; exit 1; }
         shellspec --version
         jq --version
         uv --version
+        shfmt --version
         if [ "$INSTALL_ACT" = "true" ]; then
           command -v act >/dev/null 2>&1 || { echo "::error::act is not on PATH"; exit 1; }
           command -v docker >/dev/null 2>&1 || { echo "::error::docker is not on PATH"; exit 1; }

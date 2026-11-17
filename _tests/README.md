@@ -25,6 +25,10 @@ make test-coverage
 curl -fsSL https://github.com/shellspec/shellspec/releases/latest/download/shellspec-dist.tar.gz | tar -xz
 sudo make -C shellspec-* install
 
+# Install shfmt: the posix-shell tests parse each action's run: scripts with it
+brew install shfmt  # macOS
+# or: go install mvdan.cc/sh/v3/cmd/shfmt@v3.14.1
+
 # Install nektos/act (optional, for integration tests)
 brew install act  # macOS
 # or: curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash

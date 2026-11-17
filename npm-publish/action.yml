@@ -110,6 +110,7 @@ runs:
       shell: sh
       run: |
         set -eu
+        command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to enable the package manager"; exit 1; }
         corepack enable
 
     - name: Install Package Manager
@@ -126,9 +127,11 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           pnpm)
+            command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to install pnpm"; exit 1; }
             corepack prepare "pnpm@$PNPM_VERSION" --activate
             ;;
           yarn)
+            command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to install Yarn"; exit 1; }
             corepack prepare "yarn@$YARN_VERSION" --activate
             ;;
           bun|npm)

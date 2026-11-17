@@ -204,6 +204,7 @@ runs:
       run: |
         set -eu
         echo "Building Go project..."
+        command -v go >/dev/null 2>&1 || { echo "::error::go is required to build the project"; exit 1; }
 
         # Create destination directory
         mkdir -p -- "$DESTINATION"
@@ -254,6 +255,7 @@ runs:
           # The race detector is only supported on specific GOOS/GOARCH combinations:
           # linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64,
           # freebsd/amd64, netbsd/amd64
+          command -v go >/dev/null 2>&1 || { echo "::error::go is required to run the tests"; exit 1; }
           RACE_FLAG=""
           GOOS=$(go env GOOS)
           GOARCH=$(go env GOARCH)

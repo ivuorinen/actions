@@ -177,6 +177,7 @@ runs:
         trap 'rm -rf "$report_dir"' EXIT
 
         # --verify-no-changes exits 0 when clean and 2 when files would be reformatted.
+        command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to check the formatting"; exit 1; }
         status=0
         dotnet format ${PROJECT:+"$PROJECT"} --verify-no-changes --report "$report_dir" || status=$?
 

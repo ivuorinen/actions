@@ -164,9 +164,19 @@ mkdir -p node_modules/eslint "node_modules/${FORMATTER}" src
 export GITHUB_WORKSPACE="$PWD/src" INPUT_REPORT_FORMAT="stylish"
 cd src || return 1
 mock_command npm "install -g eslint@$(pinned_version eslint-lint DEFAULT_ESLINT_VERSION)" ""
+mock_command eslint "*" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
 Assert expect_output command "eslint"
+End
+
+It "fails when the global install leaves no eslint on PATH"
+use_package_manager npm
+export INPUT_REPORT_FORMAT="stylish"
+mock_command npm "install -g eslint@$(pinned_version eslint-lint DEFAULT_ESLINT_VERSION)" ""
+When call run_step "${ACTION_DIR}" "ensure-eslint"
+The status should be failure
+The stdout should include "::error::eslint is not on PATH after its global install"
 End
 
 It "installs the SARIF formatter apart when the repository's own ESLint has none"
@@ -190,9 +200,11 @@ Assert expect_output command "npx --no-install eslint"
 End
 
 Describe "when the repository has no copy"
+# The eslint stub stands for the binary the global install puts on PATH.
 before_missing() {
   use_package_manager npm
   export INPUT_REPORT_FORMAT="stylish"
+  mock_command eslint "*" ""
 }
 BeforeEach 'before_missing'
 

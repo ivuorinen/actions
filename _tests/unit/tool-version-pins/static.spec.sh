@@ -50,6 +50,14 @@ Parameters
 "npx --yes prettier --check ."
 "npx -y prettier --check ."
 "npx prettier --check ."
+"npx >out.txt prettier --check ."
+"npx>out.txt prettier --check ."
+"npx -p prettier prettier --check ."
+"npx --package=prettier prettier --check ."
+"npx -- prettier --check ."
+"bunx prettier --check ."
+"pnpm dlx prettier --check ."
+"yarn dlx prettier --check ."
 "bun-version: latest"
 End
 
@@ -61,19 +69,22 @@ The stdout should include "floating tool reference"
 End
 End
 
-It "accepts npx --no-install"
-write_action "npx --no-install prettier --check ."
+Describe "on an action.yml that fetches nothing"
+Parameters
+"npx --no-install prettier --check ."
+"npx --no prettier --check ."
+"bunx --no-install prettier --check ."
+"command -v npx >/dev/null 2>&1 || exit 1"
+"command -v bunx >/dev/null 2>&1 || exit 1"
+'echo "::error::running Prettier requires npx"'
+End
+
+It "accepts: $1"
+write_action "$1"
 When run python3 "${CHECK_PINS}" "${TREE}"
 The status should be success
 The stdout should match pattern "checked * renovate comments"
 End
-
-# An npx followed by a redirection or an operator runs no package.
-It "accepts a command -v check for npx"
-write_action 'command -v npx >/dev/null 2>&1 || exit 1'
-When run python3 "${CHECK_PINS}" "${TREE}"
-The status should be success
-The stdout should match pattern "checked * renovate comments"
 End
 
 Describe "on a version input defaulting to a floating keyword"

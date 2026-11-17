@@ -31,13 +31,16 @@ before its first use in a script:
 `python`, `python3`, `uv`, `ruff`, `pyright`, `mypy`, `pytest`,
 `prettier`, `markdownlint-cli2`, `yaml-lint`,
 `pre-commit`, `tar`, `gzip`, `unzip`, `curl`, `wget`, `rsync`, `mktemp`, `sha256sum`,
-`sudo`, `apt-get`, `cmake`, `act`, `kcov`.
-The POSIX utilities it uses, which need no check:
-`bc`, `find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`, `cksum`,
-`touch`, `chmod`, `chown`, `make`.
-The lists are not "tools like these" — they are the explicit set.
-`_tests/unit/posix-shell/find_unchecked_tools.py` reads the first list and fails the tests
-when an action calls one of those tools before checking for it.
+`sudo`, `apt-get`, `cmake`, `act`, `kcov`, `install`, `pip`, `corepack`, `eslint`,
+`biome`, `flake8`, `autopep8`, `ansible-lint`, `go`, `golangci-lint`, `dotnet`, `php`,
+`composer`, `cosign`.
+POSIX utilities need no check; those the repo uses include
+`bc`, `find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`, `od`,
+`cksum`, `touch`, `chmod`, `chown`, `make`.
+The first list is not "tools like these" — it is the explicit set.
+`_tests/unit/posix-shell/find_unchecked_tools.py` reads the first list, parses each run:
+script with `shfmt`, and fails the tests when an action calls one of those tools before
+checking for it.
 Add a new entry to this rule before introducing a new external tool.
 Replacing an existing tool with a different external tool counts as introducing —
 ask the user before swapping.

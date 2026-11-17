@@ -173,6 +173,7 @@ runs:
 
         # Function to install golangci-lint with retries
         install_golangci_lint() {
+          command -v go >/dev/null 2>&1 || { echo "::error::go is required to install golangci-lint"; exit 1; }
           _attempt=1
           _max_attempts="$MAX_RETRIES"
 
@@ -314,6 +315,7 @@ runs:
         error_count=0
         exit_code=0
 
+        command -v golangci-lint >/dev/null 2>&1 || { echo "::error::golangci-lint is required to lint the code"; exit 1; }
         GOLANGCI_LINT_CACHE="$HOME/.cache/golangci-lint" \
         golangci-lint run "$@" || exit_code=$?
 

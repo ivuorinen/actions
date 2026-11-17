@@ -145,6 +145,7 @@ runs:
         echo "Running Biome check mode..."
 
         # Run Biome check with SARIF reporter
+        command -v biome >/dev/null 2>&1 || { echo "::error::biome is required to check the code"; exit 1; }
         biome_exit_code=0
         biome check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
 
@@ -200,6 +201,7 @@ runs:
         command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files Biome changes"; exit 1; }
 
         # Run Biome fix and capture exit code
+        command -v biome >/dev/null 2>&1 || { echo "::error::biome is required to fix the code"; exit 1; }
         biome_exit_code=0
         biome check --write . || biome_exit_code=$?
 

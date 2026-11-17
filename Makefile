@@ -408,6 +408,14 @@ install-tools: ## Install/update required tools
 	else \
 		echo "  shellcheck already installed"; \
 	fi
+	@echo "$(YELLOW)Checking shfmt...$(RESET)"
+	@if ! command -v shfmt >/dev/null 2>&1; then \
+		echo "$(RED)⚠️ shfmt not found; the posix-shell tests need it. Please install:$(RESET)"; \
+		echo "  macOS: brew install shfmt"; \
+		echo "  Linux: go install mvdan.cc/sh/v3/cmd/shfmt@v3.14.1"; \
+	else \
+		echo "  shfmt already installed"; \
+	fi
 	@echo "$(YELLOW)Checking yamlfmt...$(RESET)"
 	@if ! command -v yamlfmt >/dev/null 2>&1; then \
 		echo "$(RED)⚠️ yamlfmt not found. Please install:$(RESET)"; \

@@ -32,10 +32,15 @@ EXACT_VERSION = re.compile(r"^(qemu-)?v?\d+\.\d+\.\d+$")
 MAJOR_MINOR_DEPS = {"php/php-src"}
 MAJOR_MINOR = re.compile(r"^\d+\.\d+$")
 
-# Fetching a tool at whatever upstream published last. An npx followed by an option, a
-# redirection or an operator, as in `command -v npx >/dev/null`, names no package to fetch.
+# Fetching a tool at whatever upstream published last. npx and bunx fetch a package they do
+# not find, whatever comes before its name (-p, --package=, --, a redirection), unless
+# --no-install (npx: --no) says not to; `command -v npx` only looks npx up. pnpm dlx and
+# yarn dlx always fetch.
 FLOATING_LINE = re.compile(
-    r"@(latest|stable)\b|\bnpx\s+(--yes|-y)\b|\bnpx\s+[^-\s<>|&;)]|\bbun-version:\s*latest\b"
+    r"@(latest|stable)\b"
+    r"|(?<!command -v )\b(npx|bunx)\b(?!\s+--no(-install)?\b)(?=[\s<>|&;)]|$)"
+    r"|\b(pnpm|yarn)\s+dlx\b"
+    r"|\bbun-version:\s*latest\b"
 )
 
 VERSION_INPUT_DEFAULT = re.compile(

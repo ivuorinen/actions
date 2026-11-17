@@ -2,15 +2,16 @@
 # Static guard: every run: step that calls an external tool first checks that it exists.
 #
 # The tools are the ones .claude/rules/posix-shell.md lists as needing a command -v check;
-# the scanner reads them from the rule. The harness runs steps with the system bin
-# directories on PATH, where most of them are installed, so a step cannot be run with a tool
-# missing; this reads the steps instead. The _tools scripts are not scanned: they check git
-# through require_git in _tools/shared.sh.
+# the scanner reads them from the rule and parses each run: script with shfmt. The harness
+# runs steps with the system bin directories on PATH, where most of them are installed, so a
+# step cannot be run with a tool missing; this reads the steps instead. The _tools scripts are
+# not scanned: they check git through require_git in _tools/shared.sh.
 
 Describe "tool availability checks"
 SCANNER="${PROJECT_ROOT}/_tests/unit/posix-shell/find_unchecked_tools.py"
 
-# Scans one action whose single sh step runs the given lines as a literal block.
+# Scans one action whose single sh step runs the given lines as a literal block; the first
+# line is line 5 of the file.
 scan_step() {
   printf '%s\n' 'runs:' '  steps:' '    - shell: sh' '      run: |' >"${SHELLSPEC_TMPBASE}/action.yml"
   for line in "$@"; do
@@ -52,7 +53,7 @@ The output should include "action.yml:6: docker is called"
 End
 
 It "does not check a POSIX utility or a tool the rule does not list"
-When call scan_step 'make' 'find . -name x' 'eslint .'
+When call scan_step 'make' 'find . -name x' 'unlisted-tool .'
 The status should be success
 The output should equal ""
 End
@@ -106,15 +107,75 @@ The output should include "action.yml:6: apt-get is called"
 The output should not include "sudo is called"
 End
 
-It "does not take an argument on a continuation line for a call"
-When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'command -v apt-get >/dev/null 2>&1 || exit 1' \
-  'sudo apt-get install -y \' '  cmake \' '  zlib1g-dev'
+It "reads past a wrapper's options and their arguments"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'sudo -u runner docker ps'
+The status should be failure
+The output should include "action.yml:6: docker is called"
+End
+
+It "reads the command timeout runs, past its duration"
+When call scan_step 'timeout 10 docker ps'
+The status should be failure
+The output should include "action.yml:5: docker is called"
+End
+
+It "reads the command xargs runs, past its options"
+When call scan_step 'printf "%s\n" a | xargs -n 1 git log'
+The status should be failure
+The output should include "action.yml:5: git is called"
+End
+
+It "reads the first word of the code eval runs"
+When call scan_step 'eval "gh release view"'
+The status should be failure
+The output should include "action.yml:5: gh is called"
+End
+
+It "reads the command after find -exec"
+When call scan_step 'find . -name "*.tf" -exec terraform fmt {} \;'
+The status should be failure
+The output should include "action.yml:5: terraform is called"
+End
+
+It "reads the script sh -c runs"
+When call scan_step "sh -c 'docker ps'"
+The status should be failure
+The output should include "action.yml:5: docker is called"
+End
+
+It "reads a here-document fed to sh as a script"
+When call scan_step "sh -s <<'EOF'" 'gh release list' 'EOF'
+The status should be failure
+The output should include "gh is called"
+End
+
+It "skips a here-document fed to anything else"
+When call scan_step 'command -v python3 >/dev/null 2>&1 || exit 1' "python3 - <<'PY'" 'docker = 1' 'PY'
 The status should be success
 The output should equal ""
 End
 
-It "skips a here-document body"
-When call scan_step 'command -v python3 >/dev/null 2>&1 || exit 1' "python3 - <<'PY'" 'docker = 1' 'PY'
+It "reads past a redirection before the command"
+When call scan_step '>out.txt git status'
+The status should be failure
+The output should include "action.yml:5: git is called"
+End
+
+It "does not take a left shift in arithmetic for a here-document"
+When call scan_step 'n=$((x << y))' 'git status'
+The status should be failure
+The output should include "action.yml:6: git is called"
+End
+
+It "reports a call in a command substitution closed on a later line"
+When call scan_step 'files=$(' '  git diff --name-only)'
+The status should be failure
+The output should include "git is called"
+End
+
+It "does not take an argument on a continuation line for a call"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'command -v apt-get >/dev/null 2>&1 || exit 1' \
+  'sudo apt-get install -y \' '  cmake \' '  zlib1g-dev'
 The status should be success
 The output should equal ""
 End
@@ -132,7 +193,7 @@ The output should include "action.yml:6:"
 End
 
 It "reports a call before a check on the same line"
-When call scan_step 'git status; command -v git >/dev/null 2>&1'
+When call scan_step 'git status; command -v git >/dev/null 2>&1 || exit 1'
 The status should be failure
 The output should include "action.yml:5:"
 End
@@ -153,6 +214,65 @@ It "reports a quoted command name"
 When call scan_step '"git" status'
 The status should be failure
 The output should include "action.yml:5:"
+End
+End
+
+Describe "which checks count"
+It "does not count a check that lets the step go on"
+When call scan_step 'command -v git >/dev/null 2>&1 || true' 'git status'
+The status should be failure
+The output should include "action.yml:6: git is called"
+End
+
+It "does not count if ! command -v when its branch goes on"
+When call scan_step 'if ! command -v pnpm >/dev/null 2>&1; then' '  echo "pnpm is missing"' 'fi' 'pnpm install'
+The status should be failure
+The output should include "action.yml:8: pnpm is called"
+End
+
+It "lets if command -v cover its then branch only"
+When call scan_step 'if command -v jq >/dev/null 2>&1; then' '  jq . a.json' 'fi' 'jq . b.json'
+The status should be failure
+The output should include "action.yml:8: jq is called"
+End
+
+It "lets command -v ... && cover the command it guards"
+When call scan_step 'command -v npm >/dev/null 2>&1 && npm ci'
+The status should be success
+The output should equal ""
+End
+
+It "does not let a check in one case branch cover another"
+When call scan_step 'case "$pm" in' '  npm) command -v npm >/dev/null 2>&1 || exit 1; npm ci ;;' '  *) npm ci ;;' 'esac'
+The status should be failure
+The output should include "action.yml:7: npm is called"
+End
+
+It "lets checks in every branch cover what follows"
+When call scan_step 'if [ -n "$x" ]; then' '  command -v git >/dev/null 2>&1 || exit 1' 'else' \
+  '  command -v git >/dev/null 2>&1 || exit 1' 'fi' 'git status'
+The status should be success
+The output should equal ""
+End
+
+It "does not let a check in a subshell cover what follows"
+When call scan_step '(command -v git >/dev/null 2>&1 || exit 1)' 'git status'
+The status should be failure
+The output should include "action.yml:6: git is called"
+End
+
+It "does not let a check in a function body cover what follows"
+When call scan_step 'f() { command -v git >/dev/null 2>&1 || exit 1; }' 'git status'
+The status should be failure
+The output should include "action.yml:6: git is called"
+End
+End
+
+Describe "the action file"
+It "fails on a run: script shfmt cannot parse"
+When call scan_step 'if then fi'
+The status should be failure
+The output should include "shfmt cannot parse this run: script"
 End
 
 It "skips a step whose shell is not sh or bash"
