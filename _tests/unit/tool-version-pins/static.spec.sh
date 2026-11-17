@@ -43,6 +43,8 @@ write_action() {
     "      run: ${1}" >"${TREE}/sample/action.yml"
 }
 
+# A run-time fetch floats with an exact version on the package too: no lockfile pins its
+# dependencies, so prettier@3.6.2 through dlx or npx is reported like bare prettier.
 Describe "on an action.yml with a floating reference"
 Parameters
 "corepack prepare pnpm@latest --activate"
@@ -68,6 +70,8 @@ Parameters
 "uvx ruff check ."
 "pipx run ruff check ."
 "pnpm dlx prettier --check ."
+"pnpm dlx prettier@3.6.2 --check ."
+"npx prettier@3.6.2 --check ."
 "yarn dlx prettier --check ."
 "npx prettier --no --check ."
 "bunx prettier --no-install --check ."

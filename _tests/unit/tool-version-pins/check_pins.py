@@ -99,7 +99,11 @@ def leading_options(args: list[str]) -> set[str]:
 
 
 def fetches_floating(name: str, args: list[str]) -> bool:
-    """Whether a command fetches and runs a package at whatever version upstream published last.
+    """Whether a command fetches a package from the registry at run time and runs it.
+
+    Such a fetch floats with or without an exact version on the package (prettier@3.6.2): no
+    lockfile holds its dependencies, so they resolve to whatever their ranges allow on the day,
+    with no integrity hash to check them against. A tool comes from a lockfile instead.
 
     npx and bunx (bun x) fetch a package they do not find unless --no-install (npx: --no) comes
     before its name; npm exec reads its own options up to --. pnpm dlx, yarn dlx, pnpx, uvx,
