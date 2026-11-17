@@ -161,6 +161,18 @@ The status should be failure
 The output should include "action.yml:5: git is called"
 End
 
+It "reads the command line env --split-string= carries in the same word"
+When call scan_step "env --split-string='docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads the command line env -S carries in the same word"
+When call scan_step "env -S'docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
 It "does not take a left shift in arithmetic for a here-document"
 When call scan_step 'n=$((x << y))' 'git status'
 The status should be failure
@@ -318,10 +330,22 @@ The status should be failure
 The output should include "action.yml:5: docker is called"
 End
 
-It "reads the script sh -c runs behind a command it does not know"
+It "reads the script sh -c runs behind ionice"
 When call scan_step "ionice -c3 sh -c 'docker ps'"
 The status should be failure
 The output should include "docker is called"
+End
+
+It "reads the script sh -c runs behind watch"
+When call scan_step "watch -n 5 sh -c 'docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "does not read sh -c in the words of a command that only prints them"
+When call scan_step "printf '%s\n' sh -c 'git status'"
+The status should be success
+The output should equal ""
 End
 
 It "reads a script sh -c runs that holds an expansion"
@@ -387,10 +411,30 @@ The status should be failure
 The output should include "action.yml:8: jq is called"
 End
 
+# A background condition succeeds at once, without waiting for the check.
+It "does not let a background command -v guard its then branch"
+When call scan_step 'if command -v git >/dev/null 2>&1 & then' '  git status' 'fi'
+The status should be failure
+The output should include "action.yml:6: git is called"
+End
+
 It "lets command -v ... && cover the command it guards"
 When call scan_step 'command -v npm >/dev/null 2>&1 && npm ci'
 The status should be success
 The output should equal ""
+End
+
+# a && b && c groups as (a && b) && c, so the check reaches c through the inner list.
+It "lets command -v ... && cover every later command of the chain"
+When call scan_step 'command -v git >/dev/null 2>&1 && printf ready && git status'
+The status should be success
+The output should equal ""
+End
+
+It "does not let a check in a chain cover the command after the chain"
+When call scan_step 'command -v git >/dev/null 2>&1 && printf ready' 'git status'
+The status should be failure
+The output should include "action.yml:6: git is called"
 End
 
 It "does not let a check in one case branch cover another"

@@ -8,13 +8,14 @@ here-documents, redirections and arithmetic are read the way the shell reads the
 as text.
 
 command_names() reads the commands one simple command runs: its first word, past assignments and
-redirections; the command a wrapper such as sudo, env, timeout, xargs, exec, nice, stdbuf, flock,
-chroot or corepack runs, past the wrapper's options and their arguments (read as getopt does, so
--uroot and -u root both name a user); the commands after find's -exec; and the word after
-`set --`, which builds a command that "$@" runs later. A command named by a path is read by its
-last component. It also returns the scripts the command runs as code: the script a shell is given
-with -c (or -ec, or after -o pipefail), eval's operands, trap's action and the string `env -S`
-splits. In those scripts each expansion is read as a placeholder word. heredoc_scripts() returns
+redirections; the command a wrapper such as sudo, env, timeout, xargs, exec, nice, ionice, watch,
+stdbuf, flock, chroot or corepack runs, past the wrapper's options and their arguments (read as
+getopt does, so -uroot and -u root both name a user); the commands after find's -exec; and the
+word after `set --`, which builds a command that "$@" runs later. A command named by a path is
+read by its last component. It also returns the scripts the command runs as code: the script a
+shell it runs is given with -c (or -ec, or after -o pipefail), eval's operands, trap's action and
+the string `env -S` splits. A shell that is only an argument, as in `printf '%s' sh -c x`, runs
+nothing. In those scripts each expansion is read as a placeholder word. heredoc_scripts() returns
 the here-documents a shell reads as its script, given to it directly or through a pipe.
 
 Not read: a command named through a variable, an alias or a function the script defines; a script
@@ -51,7 +52,9 @@ WRAPPERS = {
     "env": {"-u", "-C", "--unset", "--chdir"},
     "exec": {"-a"},
     "flock": {"-w", "-E", "--timeout", "--conflict-exit-code"},
+    "ionice": {"-c", "-n", "-p", "-P", "-u", "--class", "--classdata", "--pid", "--pgid", "--uid"},
     "nice": {"-n", "--adjustment"},
+    "watch": {"-n", "--interval"},
     "nohup": set(),
     "setsid": set(),
     "stdbuf": {"-i", "-o", "-e", "--input", "--output", "--error"},
@@ -219,6 +222,17 @@ def shell_c_script(words: list[str], at: int) -> str | None:
     return None
 
 
+def _attached_script(word: str, options: set[str]) -> str | None:
+    """Return the command line a script option carries in the same word: --split-string=... or
+    -S..., or None."""
+    for option in options:
+        if option.startswith("--") and word.startswith(option + "="):
+            return word[len(option) + 1 :]
+        if not option.startswith("--") and word.startswith(option) and len(word) > len(option):
+            return word[len(option) :]
+    return None
+
+
 def _skip_options(words: list[str], index: int, wrapper: str, scripts: list) -> int | None:
     """Return the index of the command after a wrapper's options, or None when there is none."""
     options = WRAPPERS[wrapper]
@@ -229,6 +243,10 @@ def _skip_options(words: list[str], index: int, wrapper: str, scripts: list) -> 
         if word in SCRIPT_OPTIONS.get(wrapper, ()):
             if index + 1 < len(words):
                 scripts.append((as_script(words[index + 1]), "posix"))
+            return None
+        attached = _attached_script(word, SCRIPT_OPTIONS.get(wrapper, set()))
+        if attached is not None:
+            scripts.append((as_script(attached), "posix"))
             return None
         is_option, needs_next = takes_argument(word, options)
         if is_option:
@@ -253,7 +271,13 @@ def command_names(words: list[str]) -> tuple[list[tuple[int, str]], list[tuple[s
         word = words[index]
         name = word.rsplit("/", 1)[-1]
         calls.append((index, name))
-        if EXPANSION in word or name in SHELLS:
+        if EXPANSION in word:
+            break
+        if name in SHELLS:
+            # Only a shell this command runs: `printf '%s' sh -c '...'` prints its words.
+            script = shell_c_script(words, index)
+            if script is not None:
+                scripts.append((script, SHELLS[name]))
             break
         if name in ("find", "eval", "trap"):
             _runs_code(name, words, index, calls, scripts)
@@ -263,7 +287,6 @@ def command_names(words: list[str]) -> tuple[list[tuple[int, str]], list[tuple[s
         ):
             break
         index = _skip_options(words, index + 1, name, scripts)
-    scripts += [script for script in _shell_c_scripts(words) if script not in scripts]
     return calls, scripts
 
 
@@ -286,19 +309,6 @@ def _runs_code(name: str, words: list[str], index: int, calls: list, scripts: li
         operands = operands[1:] if operands[:1] == ["--"] else operands
         if operands and not operands[0].startswith("-"):
             scripts.append((as_script(operands[0]), "posix"))
-
-
-def _shell_c_scripts(words: list[str]) -> list[tuple[str, str]]:
-    """Return the scripts each shell named anywhere in a command runs with -c: whatever runs the
-    shell, as in `ionice -c3 sh -c '...'` or `watch sh -c '...'`."""
-    found = []
-    for at, word in enumerate(words):
-        shell = word.rsplit("/", 1)[-1]
-        if shell in SHELLS:
-            script = shell_c_script(words, at)
-            if script is not None:
-                found.append((script, SHELLS[shell]))
-    return found
 
 
 def stdin_shell(stmt: dict) -> str | None:

@@ -84,6 +84,16 @@ def and_chain(stmt):
     return [stmt]
 
 
+def success_facts(stmt):
+    """Return the tools a statement proves are there when it succeeds: the tool of a
+    `command -v` check, and of each check in a chain of && that a later command runs after.
+    A background statement succeeds at once, without waiting for the check, so it proves none."""
+    chain = [] if stmt.get("Background") else and_chain(stmt)
+    return {checked_tool(s) for s in chain if not s.get("Negated") and not s.get("Background")} - {
+        None
+    }
+
+
 def terminates(stmts, *, failing=False):
     """Whether a statement list always ends with exit or return; with failing, a non-zero one."""
     for stmt in stmts:
@@ -226,16 +236,21 @@ class Scan:
         if op == "||" and tool and terminates([second], failing=True):
             self.stmt(second, after_first)
             return after_first | {tool}
-        self.stmt(second, after_first | ({tool} if tool and op == "&&" else set()))
+        # `a && b` runs b only when a succeeded, so b gets what a proves; what follows the
+        # list does not, since a may have failed.
+        self.stmt(second, after_first | (success_facts(first) if op == "&&" else set()))
         return after_first
 
     def if_clause(self, cmd, settled):
         cond = cmd.get("Cond") or []
         after_cond = self.stmts(cond, settled)
         chain = and_chain(cond[-1]) if cond else []
-        guarded = {checked_tool(s) for s in chain if not s.get("Negated")} - {None}
-        # `if ! command -v t` goes on to the else branch only when t is there.
-        negated_check = len(chain) == 1 and chain[0].get("Negated")
+        guarded = success_facts(cond[-1]) if cond else set()
+        # `if ! command -v t` goes on to the else branch only when t is there; a background
+        # one succeeds at once and so checks nothing.
+        negated_check = (
+            len(chain) == 1 and chain[0].get("Negated") and not chain[0].get("Background")
+        )
         missing = ({checked_tool(chain[0])} - {None}) if negated_check else set()
         ends = []
         then = cmd.get("Then") or []

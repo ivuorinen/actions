@@ -56,7 +56,18 @@ FLOATING_LINE = re.compile(r"@(latest|stable|main|master)\b|\bbun-version:\s*lat
 
 # For each package runner, the global options before its subcommand that take an argument.
 GLOBAL_OPTIONS = {
-    "npm": {"--prefix", "--workspace", "-w", "--registry", "--userconfig", "--cache"},
+    "npm": {
+        "--prefix",
+        "--workspace",
+        "-w",
+        "--registry",
+        "--userconfig",
+        "--globalconfig",
+        "--cache",
+        "--loglevel",
+        "--include",
+        "--omit",
+    },
     "pnpm": {"-C", "--dir", "--filter", "-F"},
     "yarn": {"--cwd"},
     "bun": {"--cwd", "--config", "-c"},

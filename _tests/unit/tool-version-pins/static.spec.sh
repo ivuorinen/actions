@@ -74,6 +74,8 @@ Parameters
 "corepack pnpm dlx prettier --check ."
 "sh -c \"npx prettier \$files\""
 "npm --prefix . exec prettier -- --check ."
+"npm --loglevel error --yes exec -- prettier --check ."
+"npm --loglevel=error exec prettier -- --check ."
 "pnpm -C . dlx prettier --check ."
 "yarn --cwd . dlx prettier --check ."
 "pnpm create vite"
