@@ -99,7 +99,7 @@ def main() -> None:
     errors = []
     for input_name, check in CHECKS.items():
         value = _input(input_name)
-        if input_name in REQUIRED and value.strip() == "":
+        if input_name in REQUIRED and _skip(value):
             errors.append(f"{input_name}: required input is missing")
             continue
         # action.yml forwards every input, so only a standalone run leaves a variable unset.
@@ -157,7 +157,8 @@ def render(action: str) -> str:
 
     used_types = sorted(set(checks.values()))
     check_sources = [inspect.getsource(getattr(kit, _check_name(t))).strip() for t in used_types]
-    helper_names = _needed_helpers(check_sources)
+    # The runner tests a required input with _skip, so blank means the same there as in a check.
+    helper_names = _needed_helpers([*check_sources, _RUNNER])
     helper_sources = [_HELPER_SOURCES[name] for name in helper_names]
 
     blocks: list[str] = [_HEADER.format(action=action).rstrip()]

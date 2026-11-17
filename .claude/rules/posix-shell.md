@@ -30,7 +30,7 @@ The full external-tool list this repo uses is:
 `python`, `python3`, `uv`, `ruff`, `pyright`, `mypy`, `pytest`,
 `prettier`, `markdownlint-cli2`, `yaml-lint`,
 `pre-commit`, `tar`, `gzip`, `unzip`, `curl`, `wget`, `rsync`,
-`find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`,
+`find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`, `cksum`,
 `mktemp`, `touch`, `chmod`, `chown`.
 The list is not "tools like these" — it is the explicit set.
 Add a new entry to this rule before introducing a new external tool.

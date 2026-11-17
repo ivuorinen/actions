@@ -12,7 +12,7 @@
         "/(^|/)action\\.ya?ml$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+_IMAGE_TAG:\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+[A-Z0-9_]+_IMAGE_TAG:\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'"
       ]
     }
   ],
@@ -47,6 +47,14 @@
       "description": "CI never runs the lint tools these locks install, so a bump needs a person to try them.",
       "matchManagers": [
         "pip-compile"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "docker-build runs these images privileged: setup-qemu-action starts binfmt with --privileged, and BuildKit is the builder, so a bump needs a person to look at it.",
+      "matchDepNames": [
+        "tonistiigi/binfmt",
+        "moby/buildkit"
       ],
       "automerge": false
     }

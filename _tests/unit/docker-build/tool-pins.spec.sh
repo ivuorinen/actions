@@ -10,6 +10,11 @@ The contents of file "${ACTION_FILE}" should include 'version: ${{ inputs.buildx
 End
 
 It "sets up the pinned QEMU image"
-The contents of file "${ACTION_FILE}" should include 'image: docker.io/tonistiigi/binfmt:${{ env.BINFMT_VERSION }}'
+The contents of file "${ACTION_FILE}" should include 'image: docker.io/tonistiigi/binfmt:${{ env.BINFMT_IMAGE_TAG }}'
+End
+
+# setup-qemu-action runs the image privileged, and a tag can be pushed again.
+It "pins the QEMU image by digest"
+The contents of file "${ACTION_FILE}" should match pattern "*BINFMT_IMAGE_TAG: 'qemu-v*@sha256:????????????????????????????????????????????????????????????????'*"
 End
 End

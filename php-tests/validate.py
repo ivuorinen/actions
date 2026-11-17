@@ -19,8 +19,13 @@ import sys
 
 
 def _skip(value: str) -> bool:
-    """Empty values bypass format checks (see the module contract)."""
-    return value.strip() == ""
+    """Empty values bypass format checks (see the module contract).
+
+    Blank means ASCII whitespace only, what a step's `tr -d '[:space:]'` removes in the C
+    locale. str.strip() alone also removes U+00A0 and other Unicode spaces, so a value of only
+    those would skip its check while the step went on to use it.
+    """
+    return value.strip(" \t\n\v\f\r") == ""
 
 
 def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> list[str]:
@@ -266,7 +271,7 @@ def main() -> None:
     errors = []
     for input_name, check in CHECKS.items():
         value = _input(input_name)
-        if input_name in REQUIRED and value.strip() == "":
+        if input_name in REQUIRED and _skip(value):
             errors.append(f"{input_name}: required input is missing")
             continue
         # action.yml forwards every input, so only a standalone run leaves a variable unset.
