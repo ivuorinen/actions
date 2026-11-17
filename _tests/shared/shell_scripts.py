@@ -14,9 +14,10 @@ getopt does, so -uroot and -u root both name a user); the commands after find's 
 word after `set --`, which builds a command that "$@" runs later. A command named by a path is
 read by its last component. It also returns the scripts the command runs as code: the script a
 shell it runs is given with -c (or -ec, or after -o pipefail), eval's operands, trap's action and
-the string `env -S` splits. A shell that is only an argument, as in `printf '%s' sh -c x`, runs
-nothing. In those scripts each expansion is read as a placeholder word. heredoc_scripts() returns
-the here-documents a shell reads as its script, given to it directly or through a pipe.
+the command line `env -S` runs: the words it splits its string into, then the operands after the
+string. A shell that is only an argument, as in `printf '%s' sh -c x`, runs nothing. In those
+scripts each expansion is read as a placeholder word. heredoc_scripts() returns the
+here-documents a shell reads as its script, given to it directly or through a pipe.
 
 Not read: a command named through a variable, an alias or a function the script defines; a script
 a shell reads from a pipe other than a here-document (`printf ... | sh`), from a here-string or
@@ -28,6 +29,7 @@ from __future__ import annotations
 
 import json
 import re
+import shlex
 import shutil
 import subprocess
 
@@ -233,6 +235,13 @@ def _attached_script(word: str, options: set[str]) -> str | None:
     return None
 
 
+def _split_string(text: str, operands: list[str]) -> str:
+    """Return the command line env -S runs, as a script: the words it splits its string into,
+    then the operands after the string, each kept as one word (`env -S'sh -c' 'git status'` runs
+    sh -c 'git status')."""
+    return " ".join([as_script(text), *(shlex.quote(as_script(word)) for word in operands)])
+
+
 def _skip_options(words: list[str], index: int, wrapper: str, scripts: list) -> int | None:
     """Return the index of the command after a wrapper's options, or None when there is none."""
     options = WRAPPERS[wrapper]
@@ -242,11 +251,11 @@ def _skip_options(words: list[str], index: int, wrapper: str, scripts: list) -> 
             return index + 1
         if word in SCRIPT_OPTIONS.get(wrapper, ()):
             if index + 1 < len(words):
-                scripts.append((as_script(words[index + 1]), "posix"))
+                scripts.append((_split_string(words[index + 1], words[index + 2 :]), "posix"))
             return None
         attached = _attached_script(word, SCRIPT_OPTIONS.get(wrapper, set()))
         if attached is not None:
-            scripts.append((as_script(attached), "posix"))
+            scripts.append((_split_string(attached, words[index + 1 :]), "posix"))
             return None
         is_option, needs_next = takes_argument(word, options)
         if is_option:

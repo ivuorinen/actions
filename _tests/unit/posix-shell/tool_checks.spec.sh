@@ -173,6 +173,19 @@ The status should be failure
 The output should include "docker is called"
 End
 
+# env runs the words it splits the string into, then the operands after the string.
+It "reads the operands after an attached env split string"
+When call scan_step "env --split-string='sh -c' 'git status'"
+The status should be failure
+The output should include "git is called"
+End
+
+It "reads the operands after a separate env split string"
+When call scan_step "env -S 'sh -c' 'git status'"
+The status should be failure
+The output should include "git is called"
+End
+
 It "does not take a left shift in arithmetic for a here-document"
 When call scan_step 'n=$((x << y))' 'git status'
 The status should be failure
