@@ -251,8 +251,7 @@ steps:
   - name: Publish npm Package
     uses: ivuorinen/actions/npm-publish@v2025.04.05
     with:
-      node-version: '20'
-      npm-token: ${{ secrets.NPM_TOKEN }}
+      npm_token: ${{ secrets.NPM_TOKEN }}
 ```
 
 ## Development
@@ -286,7 +285,7 @@ make test-python-coverage  # Run tests with coverage reporting
 
 # Individual Python operations
 make format-python      # Format Python files with ruff
-make lint-python        # Lint Python files with ruff
+make lint-python        # Lint Python files with ruff and pyright
 ```
 
 The validation system (`_validation/`) generates a self-contained `validate.py` for each action:

@@ -17,7 +17,11 @@ Thank you for your interest in contributing to this GitHub Actions monorepo.
    cd actions
    ```
 
-2. Install dependencies (Node.js, Python 3, ShellSpec, shellcheck, actionlint, ruff, prettier, markdownlint, yamllint).
+2. Install Node.js, Python 3, [uv](https://docs.astral.sh/uv/), ShellSpec, shellcheck and
+   [action-validator](https://github.com/mpalmer/action-validator#installation), then run `make install-tools`.
+   It fetches markdownlint-cli2, prettier, yaml-lint and gh-action-readme, installs pre-commit (which runs actionlint)
+   and the Python dependencies, and checks for shellcheck, yamlfmt and uv. `make lint` runs action-validator through a
+   pre-commit hook that uses the binary on your `PATH`; nothing installs it for you.
 3. Run formatting, linting, and pre-commit checks:
 
    ```bash
