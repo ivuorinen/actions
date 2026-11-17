@@ -159,6 +159,7 @@ runs:
       shell: sh
       run: |
         set -eu
+        command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to enable the package manager"; exit 1; }
         corepack enable
 
     - name: Install Package Manager
@@ -175,9 +176,11 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           pnpm)
+            command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to install pnpm"; exit 1; }
             corepack prepare "pnpm@$PNPM_VERSION" --activate
             ;;
           yarn)
+            command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to install Yarn"; exit 1; }
             corepack prepare "yarn@$YARN_VERSION" --activate
             ;;
           bun|npm)
@@ -216,9 +219,11 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           "pnpm")
+            command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to install dependencies"; exit 1; }
             pnpm install --frozen-lockfile
             ;;
           "yarn")
+            command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
             if [ -f ".yarnrc.yml" ]; then
               yarn install --immutable
             else
@@ -226,9 +231,11 @@ runs:
             fi
             ;;
           "bun")
+            command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
             bun install --frozen-lockfile
             ;;
           "npm"|*)
+            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
             npm ci
             ;;
         esac
@@ -291,11 +298,16 @@ runs:
           # skip the script: a node_modules install runs through npx --no-install instead, and a
           # Plug'n'Play one, which that cannot load, through Yarn as before.
           case "$PACKAGE_MANAGER" in
-            "pnpm") set -- pnpm exec eslint ;;
+            "pnpm")
+              command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to run ESLint"; exit 1; }
+              set -- pnpm exec eslint
+              ;;
             "yarn")
+              command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to run ESLint"; exit 1; }
               case "$(yarn --version)" in
                 1.*)
                   if [ "$found_in" = node_modules ]; then
+                    command -v npx >/dev/null 2>&1 || { echo "::error::running ESLint requires npx"; exit 1; }
                     set -- npx --no-install eslint
                   else
                     set -- yarn eslint
@@ -310,11 +322,19 @@ runs:
                   ;;
               esac
               ;;
-            "bun") set -- bunx --no-install eslint ;;
-            "npm"|*) set -- npx --no-install eslint ;;
+            "bun")
+              command -v bunx >/dev/null 2>&1 || { echo "::error::running ESLint requires bunx"; exit 1; }
+              set -- bunx --no-install eslint
+              ;;
+            "npm"|*)
+              command -v npx >/dev/null 2>&1 || { echo "::error::running ESLint requires npx"; exit 1; }
+              set -- npx --no-install eslint
+              ;;
           esac
         else
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install ESLint"; exit 1; }
           npm install -g "eslint@${REQUESTED_VERSION:-$DEFAULT_ESLINT_VERSION}"
+          command -v eslint >/dev/null 2>&1 || { echo "::error::eslint is not on PATH after its global install"; exit 1; }
           set -- eslint
         fi
         printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
@@ -327,6 +347,7 @@ runs:
           prefix="$RUNNER_TEMP/eslint-formatter-sarif"
           # The formatter pins itself but not all of its dependencies (jschardet is "latest"),
           # so their lifecycle scripts stay off. The prefix is throwaway: no lockfile or audit.
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install the SARIF formatter"; exit 1; }
           npm install --prefix "$prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
             "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
           dir="$prefix/node_modules/$formatter"
@@ -390,6 +411,11 @@ runs:
 
         # Parse results
         if [ "$REPORT_FORMAT" = "sarif" ] && [ -f eslint-results.sarif ]; then
+          command -v jq >/dev/null 2>&1 || {
+            echo "::error::jq is required to read the SARIF report"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          }
           error_count=$(jq '[.runs[]?.results[]? | select(.level == "error")] | length' eslint-results.sarif 2>/dev/null || echo "0")
           warning_count=$(jq '[.runs[]?.results[]? | select(.level == "warning")] | length' eslint-results.sarif 2>/dev/null || echo "0")
           # The SARIF formatter lists every linted file under artifacts, with or without findings;
@@ -443,7 +469,11 @@ runs:
 
         echo "Running ESLint fix mode..."
 
-        command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files ESLint changes"; exit 1; }
+        command -v git >/dev/null 2>&1 || {
+          echo "::error::git is required to count the files ESLint changes"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
 
         # ESLINT_COMMAND is several words, so it is split on purpose
         set -f

@@ -146,6 +146,7 @@ runs:
         set -eu
         cd "$VALIDATED_WORKING_DIR"
         echo "Validating Terraform file syntax..."
+        command -v terraform >/dev/null 2>&1 || { echo "::error::terraform is required to check the formatting"; exit 1; }
         find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
           file="$1"
           if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
@@ -192,6 +193,7 @@ runs:
         cd "$VALIDATED_WORKING_DIR"
 
         # Install the plugins of the config that Run TFLint reads
+        command -v tflint >/dev/null 2>&1 || { echo "::error::tflint is required to install its plugins"; exit 1; }
         if [ -f "$VALIDATED_CONFIG" ]; then
           tflint --init --config "$VALIDATED_CONFIG"
         else
@@ -220,6 +222,8 @@ runs:
 
         # Keep the reports outside the workspace: a repository can commit
         # 'reports' as a symlink, which would redirect the writes and the cleanup.
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the reports directory"; exit 1; }
+        command -v tflint >/dev/null 2>&1 || { echo "::error::tflint is required to lint"; exit 1; }
         reports_dir=$(mktemp -d "$RUNNER_TEMP/terraform-lint-fix.XXXXXX")
         printf 'reports_dir=%s\n' "$reports_dir" >> "$GITHUB_OUTPUT"
 
@@ -268,10 +272,12 @@ runs:
 
         # Track fixed files
         fixed_count=0
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to track the fixed files"; exit 1; }
         _fixed_list=$(mktemp)
         trap 'rm -f "$_fixed_list"' EXIT
 
         # Format Terraform files
+        command -v terraform >/dev/null 2>&1 || { echo "::error::terraform is required to format the files"; exit 1; }
         find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
           file="$1"
           fixed_list="$2"

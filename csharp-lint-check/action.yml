@@ -172,10 +172,12 @@ runs:
 
         # dotnet format --report takes a directory and writes format-report.json (a JSON
         # array of files with FileChanges); it does not produce SARIF.
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the report directory"; exit 1; }
         report_dir=$(mktemp -d)
         trap 'rm -rf "$report_dir"' EXIT
 
         # --verify-no-changes exits 0 when clean and 2 when files would be reformatted.
+        command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to check the formatting"; exit 1; }
         status=0
         dotnet format ${PROJECT:+"$PROJECT"} --verify-no-changes --report "$report_dir" || status=$?
 

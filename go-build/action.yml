@@ -185,7 +185,12 @@ runs:
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
-        command: go mod download
+        # nick-fields/retry runs PowerShell on Windows unless told otherwise.
+        shell: bash
+        command: |
+          set -eu
+          command -v go >/dev/null 2>&1 || { echo "::error::go is required to download the modules"; exit 1; }
+          go mod download
 
     # Its own retry step: go mod verify can pass after a failed download, so the two must not
     # share one command's exit status. It can fetch go.mod files, so it is retried as well.
@@ -194,7 +199,11 @@ runs:
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
-        command: go mod verify
+        shell: bash
+        command: |
+          set -eu
+          command -v go >/dev/null 2>&1 || { echo "::error::go is required to verify the modules"; exit 1; }
+          go mod verify
 
     - name: Build Go Project
       id: build
@@ -204,12 +213,22 @@ runs:
       run: |
         set -eu
         echo "Building Go project..."
+        command -v go >/dev/null 2>&1 || {
+          echo "::error::go is required to build the project"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
 
         # Create destination directory
         mkdir -p -- "$DESTINATION"
 
         build_success=true
         # Temp file to propagate failure flag out of the pipeline subshell
+        command -v mktemp >/dev/null 2>&1 || {
+          echo "::error::mktemp is required to record a failed build"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
         _build_failed=$(mktemp)
         trap 'rm -f "$_build_failed"' EXIT
         # Check if there are any main packages
@@ -253,6 +272,11 @@ runs:
           # The race detector is only supported on specific GOOS/GOARCH combinations:
           # linux/amd64, linux/arm64, darwin/amd64, darwin/arm64, windows/amd64,
           # freebsd/amd64, netbsd/amd64
+          command -v go >/dev/null 2>&1 || {
+            echo "::error::go is required to run the tests"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          }
           RACE_FLAG=""
           GOOS=$(go env GOOS)
           GOARCH=$(go env GOARCH)

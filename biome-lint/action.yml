@@ -114,6 +114,7 @@ runs:
 
           # npm whatever the repository uses: this is a global tool, the repository's own
           # package manager is not involved, and pnpm and Yarn cannot do this on a runner.
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Biome"; exit 1; }
           if npm install -g "@biomejs/biome@$BIOME_VERSION"; then
             # Another Biome can sit earlier on PATH than npm's global bin directory, and check and
             # fix run bare `biome`, so that directory goes first for the steps after this one.
@@ -144,6 +145,11 @@ runs:
         echo "Running Biome check mode..."
 
         # Run Biome check with SARIF reporter
+        command -v biome >/dev/null 2>&1 || {
+          echo "::error::biome is required to check the code"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
         biome_exit_code=0
         biome check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
 
@@ -156,6 +162,11 @@ runs:
 
         # Parse SARIF output for error counts
         if [ -f biome-report.sarif ]; then
+          command -v jq >/dev/null 2>&1 || {
+            echo "::error::jq is required to read the SARIF report"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          }
           errors=$(jq '[.runs[]?.results[]? | select(.level == "error" or .level == "warning")] | length' biome-report.sarif 2>/dev/null || echo "0")
           warnings="0"  # Biome doesn't separate warnings in SARIF output
         else
@@ -195,9 +206,18 @@ runs:
 
         echo "Running Biome fix mode..."
 
-        command -v git >/dev/null 2>&1 || { echo "::error::git is required to count the files Biome changes"; exit 1; }
+        command -v git >/dev/null 2>&1 || {
+          echo "::error::git is required to count the files Biome changes"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
 
         # Run Biome fix and capture exit code
+        command -v biome >/dev/null 2>&1 || {
+          echo "::error::biome is required to fix the code"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
         biome_exit_code=0
         biome check --write . || biome_exit_code=$?
 

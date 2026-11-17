@@ -127,6 +127,7 @@ runs:
         set -eu
         # docker-build's step of this name does the same and adds its secrets and build contexts.
         # Buildx reads through a symlink that leaves the workspace, which validate.py cannot see.
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to check the build paths"; exit 1; }
         python3 -I -B - <<'PY'
         import os
         import sys
@@ -207,8 +208,9 @@ runs:
         # Output results
         printf 'image-name=%s\n' "$base_name" >> "$GITHUB_OUTPUT"
         # Random delimiter so a value line cannot close the block early
-        # (same pattern as docker-build "Parse metadata").
-        _delim="$(head -c 16 /dev/urandom | base64 | tr -d '=+/\n')"
+        # (same pattern as docker-build "Parse metadata"): 16 random bytes as 32 hex digits.
+        _delim="$(od -A n -N 16 -t x1 /dev/urandom | tr -d ' \n')"
+        [ "${#_delim}" -eq 32 ] || { echo "::error::could not make a random output delimiter"; exit 1; }
         {
           printf 'tags<<%s\n' "$_delim"
           printf '%s\n' "$tags"

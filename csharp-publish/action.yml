@@ -180,7 +180,10 @@ runs:
         shell: bash
         # --locked-mode fails on a stale lock file instead of rewriting it. A project with
         # no lock file restores as before.
-        command: dotnet restore ${PROJECT:+"$PROJECT"} --locked-mode --verbosity normal
+        command: |
+          set -eu
+          command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to restore the dependencies"; exit 1; }
+          dotnet restore ${PROJECT:+"$PROJECT"} --locked-mode --verbosity normal
 
     - name: Build Solution
       id: build
@@ -190,6 +193,7 @@ runs:
       run: |
         set -eu
 
+        command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to build the solution"; exit 1; }
         dotnet build ${PROJECT:+"$PROJECT"} --configuration Release --no-restore
 
     - name: Pack Solution
@@ -200,6 +204,7 @@ runs:
       run: |
         set -eu
 
+        command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to pack the solution"; exit 1; }
         dotnet pack ${PROJECT:+"$PROJECT"} --configuration Release --no-build --no-restore --output ./artifacts
 
     - name: Extract Package Version
@@ -254,6 +259,8 @@ runs:
         # `dotnet nuget push --configfile` needs .NET 9+, so the config is found by
         # running the push from that directory instead.
         _work=$PWD
+        command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to push the packages"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the NuGet config directory"; exit 1; }
         _cfgdir=$(mktemp -d)
         trap 'rm -rf "$_cfgdir"' EXIT
         printf '<?xml version="1.0" encoding="utf-8"?>\n<configuration>\n  <packageSources>\n    <clear />\n    <add key="github" value="%s" />\n  </packageSources>\n</configuration>\n' \

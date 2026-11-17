@@ -8,6 +8,8 @@ ARG TRUFFLEHOG_VERSION=3.86.0
 ARG ACTIONLINT_VERSION=1.7.7
 ARG ACT_VERSION=0.2.71
 ARG SHELLSPEC_VERSION=0.28.1
+# The shfmt checksums in the tools stage are for this version.
+ARG SHFMT_VERSION=3.14.1
 
 # Stage 1: Build kcov separately to keep final image slim
 FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS kcov-builder
@@ -96,6 +98,7 @@ ARG TRUFFLEHOG_VERSION
 ARG ACTIONLINT_VERSION
 ARG ACT_VERSION
 ARG SHELLSPEC_VERSION
+ARG SHFMT_VERSION
 
 # Install all APT-based and standalone tools in a single optimized layer
 # 1. Configure APT repositories (Trivy, GitHub CLI)
@@ -107,8 +110,8 @@ RUN set -eux \
   # Detect architecture once
   && arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
-    amd64) trufflehog_arch="amd64"; actionlint_arch="amd64"; act_arch="Linux_x86_64" ;; \
-    arm64) trufflehog_arch="arm64"; actionlint_arch="arm64"; act_arch="Linux_arm64" ;; \
+    amd64) trufflehog_arch="amd64"; actionlint_arch="amd64"; act_arch="Linux_x86_64"; shfmt_sha256="76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf" ;; \
+    arm64) trufflehog_arch="arm64"; actionlint_arch="arm64"; act_arch="Linux_arm64"; shfmt_sha256="5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489" ;; \
     *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
   # Configure APT repositories for Trivy and GitHub CLI
@@ -160,6 +163,12 @@ RUN set -eux \
   && tar -xzf "/tmp/${act_tarball}" -C /tmp \
   && chmod +x /tmp/act \
   && mv /tmp/act /usr/local/bin/act \
+  # Install shfmt, which the posix-shell tests parse run: scripts with. Its release publishes no
+  # checksum file, so the SHA-256 of each binary of SHFMT_VERSION is pinned in the case above.
+  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_${arch}" -o /tmp/shfmt \
+  && echo "${shfmt_sha256}  /tmp/shfmt" | sha256sum -c - \
+  && install -m 0755 /tmp/shfmt /usr/local/bin/shfmt \
+  && rm -f /tmp/shfmt \
   # Clean up all temporary files
   && rm -f /tmp/*.tar.gz /tmp/*_checksums.txt \
   # Verify all installations
@@ -169,6 +178,7 @@ RUN set -eux \
   && trufflehog --version \
   && actionlint --version \
   && act --version \
+  && shfmt --version \
   && test -f /bin/sh && test -f /bin/bash && echo "✓ Shell binaries intact" \
   && echo "=== All tools installed successfully ==="
 

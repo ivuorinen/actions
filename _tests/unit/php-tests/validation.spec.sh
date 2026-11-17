@@ -607,7 +607,9 @@ Context "when scoping the Composer token"
 # step structure, where a token can reach, rather than on line positions.
 composer_token_fact() {
   uv run python - "$ACTION_FILE" "$@" <<'PY'
+import importlib.util
 import json
+from pathlib import Path
 import re
 import sys
 
@@ -617,14 +619,37 @@ action_file, fact, *args = sys.argv[1:]
 with open(action_file, encoding="utf-8") as handle:
     steps = yaml.safe_load(handle)["runs"]["steps"]
 
+# The shared shell reader finds the commands a script runs, in sh -c, eval and here-documents too.
+shared_path = Path(action_file).resolve().parents[1] / "_tests" / "shared" / "shell_scripts.py"
+shared_spec = importlib.util.spec_from_file_location("shell_scripts", shared_path)
+sh = importlib.util.module_from_spec(shared_spec)
+shared_spec.loader.exec_module(sh)
+
 
 def find(name):
     return next(step for step in steps if step.get("name") == name)
 
 
+def composer_commands(text, language):
+    """Return each Composer command a script runs, as its words; `command -v composer` only
+    looks Composer up and runs nothing."""
+    found = []
+    tree = sh.parse(text, language)
+    for cmd in sh.simple_commands(tree):
+        words = [sh.shape(word) for word in cmd.get("Args") or []]
+        calls, scripts = sh.command_names(words)
+        found += [" ".join(words[i:]).replace(sh.EXPANSION, "$...") for i, name in calls if name == "composer"]
+        for inner, inner_language in scripts:
+            found += composer_commands(inner, inner_language)
+    for body, body_language, _ in sh.heredoc_scripts(tree, text.encode("utf-8")):
+        found += composer_commands(body, body_language)
+    return found
+
+
 def invocations(step):
     source = step.get("run") or step.get("with", {}).get("command") or ""
-    return [line.strip() for line in source.splitlines() if re.search(r"(?<![\w./-])composer\s", line)]
+    shell = step.get("shell") or step.get("with", {}).get("shell") or ("bash" if "uses" in step else "sh")
+    return composer_commands(source, sh.SHELLS.get(shell.split()[0], "posix")) if source else []
 
 
 if fact == "composer-commands":

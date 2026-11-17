@@ -137,6 +137,7 @@ runs:
       shell: sh
       run: |
         set -eu
+        command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to enable the package manager"; exit 1; }
         corepack enable
         printf '%s\n' "Corepack enabled - package manager will be installed automatically from package.json"
 
@@ -159,10 +160,12 @@ runs:
 
         case "$PACKAGE_MANAGER" in
           pnpm)
+            command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to install pnpm"; exit 1; }
             corepack enable
             corepack prepare "pnpm@$PNPM_VERSION" --activate
             ;;
           yarn)
+            command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to install Yarn"; exit 1; }
             corepack enable
             corepack prepare "yarn@$YARN_VERSION" --activate
             ;;
@@ -212,6 +215,7 @@ runs:
             # a lockfile recording one fails a frozen install. Only for that error, install
             # without the frozen check; that drops the checksum, so put the lockfile back
             # for the steps that lint or commit the tree.
+            command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to install dependencies"; exit 1; }
             pnpm_status=0
             pnpm_output=$(pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile 2>&1) || pnpm_status=$?
             printf '%s\n' "$pnpm_output"
@@ -226,6 +230,7 @@ runs:
             fi
             ;;
           "yarn")
+            command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
             # Detect Yarn version by checking actual version output: each generation
             # names its lockfile and script-skipping flags differently.
             yarn_version=$(yarn --version 2>/dev/null || printf '1.0.0')
@@ -242,9 +247,11 @@ runs:
             esac
             ;;
           "bun")
+            command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
             bun install --frozen-lockfile --ignore-scripts
             ;;
           "npm"|*)
+            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
             npm ci --ignore-scripts
             ;;
         esac
@@ -415,6 +422,7 @@ runs:
       run: |
         set -eu
 
+        command -v composer >/dev/null 2>&1 || { echo "::error::composer is required to install the PHP dependencies"; exit 1; }
         composer install --no-progress --prefer-dist --no-interaction --no-scripts --no-plugins
 
     # Python dependencies are deliberately not installed here. MegaLinter's Python
@@ -432,6 +440,7 @@ runs:
       run: |
         set -eu
 
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the repository's visibility"; exit 1; }
         is_private=$(jq -r '.repository.private' "$GITHUB_EVENT_PATH")
 
         if [ "$is_private" = "false" ]; then

@@ -22,17 +22,25 @@ Legitimate unquoted contexts are limited to deliberate word-splitting patterns
 expansion first.
 
 Always check tool availability with `command -v <tool> >/dev/null 2>&1` before using
-any tool not in POSIX base.
-The full external-tool list this repo uses is:
-`jq`, `bc`, `yq`, `terraform`, `tflint`, `actionlint`, `action-validator`,
+any tool not in POSIX base, even when an earlier step installs it.
+The external tools this repo uses that are not POSIX utilities, each needing that check
+before its first use in a script:
+`jq`, `yq`, `terraform`, `tflint`, `actionlint`, `action-validator`,
 `shellcheck`, `shfmt`, `shellspec`, `git`, `gh`, `docker`, `kubectl`,
 `node`, `npm`, `npx`, `pnpm`, `yarn`, `bun`, `bunx`,
 `python`, `python3`, `uv`, `ruff`, `pyright`, `mypy`, `pytest`,
 `prettier`, `markdownlint-cli2`, `yaml-lint`,
-`pre-commit`, `tar`, `gzip`, `unzip`, `curl`, `wget`, `rsync`,
-`find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`, `cksum`,
-`mktemp`, `touch`, `chmod`, `chown`.
-The list is not "tools like these" — it is the explicit set.
+`pre-commit`, `tar`, `gzip`, `unzip`, `curl`, `wget`, `rsync`, `mktemp`, `sha256sum`,
+`sudo`, `apt-get`, `cmake`, `act`, `kcov`, `install`, `pip`, `corepack`, `eslint`,
+`biome`, `flake8`, `autopep8`, `ansible-lint`, `go`, `golangci-lint`, `dotnet`, `php`,
+`composer`, `cosign`.
+POSIX utilities need no check; those the repo uses include
+`bc`, `find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`, `od`,
+`cksum`, `touch`, `chmod`, `chown`, `make`.
+The first list is not "tools like these" — it is the explicit set.
+`_tests/unit/posix-shell/find_unchecked_tools.py` reads the first list, parses each script a
+step runs (`run:`, or nick-fields/retry's `command:`) with `shfmt`, and fails the tests when an
+action calls one of those tools before checking for it.
 Add a new entry to this rule before introducing a new external tool.
 Replacing an existing tool with a different external tool counts as introducing —
 ask the user before swapping.

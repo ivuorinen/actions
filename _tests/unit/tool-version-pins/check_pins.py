@@ -6,10 +6,28 @@ it checked, and a tree with none of them fails, so the check cannot pass by find
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import re
 import sys
+
+import yaml
+
+SHARED = Path(__file__).resolve().parents[2] / "shared" / "shell_scripts.py"
+
+
+def load_shared():
+    """Import _tests/shared/shell_scripts.py, which is not on sys.path."""
+    spec = importlib.util.spec_from_file_location("shell_scripts", SHARED)
+    if spec is None or spec.loader is None:
+        sys.exit(f"{SHARED}: cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+sh = load_shared()
 
 # customManagers:githubActionsVersions, from renovatebot/renovate's
 # lib/config/presets/internal/custom-managers.preset.ts. A comment outside this shape is never
@@ -32,10 +50,111 @@ EXACT_VERSION = re.compile(r"^(qemu-)?v?\d+\.\d+\.\d+$")
 MAJOR_MINOR_DEPS = {"php/php-src"}
 MAJOR_MINOR = re.compile(r"^\d+\.\d+$")
 
-# Fetching a tool at whatever upstream published last.
-FLOATING_LINE = re.compile(
-    r"@(latest|stable)\b|\bnpx\s+(--yes|-y)\b|\bnpx\s+[^-\s]|\bbun-version:\s*latest\b"
-)
+# A reference to whatever upstream published last, anywhere in the file.
+FLOATING_LINE = re.compile(r"@(latest|stable|main|master)\b|\bbun-version:\s*latest\b")
+
+
+# For each package runner, the global options before its subcommand that take an argument.
+GLOBAL_OPTIONS = {
+    "npm": {
+        "--prefix",
+        "--workspace",
+        "-w",
+        "--registry",
+        "--userconfig",
+        "--globalconfig",
+        "--cache",
+        "--loglevel",
+        "--include",
+        "--omit",
+    },
+    "pnpm": {"-C", "--dir", "--filter", "-F"},
+    "yarn": {"--cwd"},
+    "bun": {"--cwd", "--config", "-c"},
+    "uv": {"--directory", "--project", "--cache-dir", "--python", "-p", "--config-file"},
+    "pipx": set(),
+}
+
+
+def subcommand(name: str, args: list[str]) -> tuple[str, list[str]]:
+    """Return a runner's subcommand and the words after it, past its global options."""
+    options = GLOBAL_OPTIONS.get(name, set())
+    index = 0
+    while index < len(args):
+        is_option, needs_next = sh.takes_argument(args[index], options)
+        if not is_option:
+            break
+        index += 2 if needs_next else 1
+    return (args[index], args[index + 1 :]) if index < len(args) else ("", [])
+
+
+def leading_options(args: list[str]) -> set[str]:
+    """Return the options before the first operand: npx and bunx pass the rest to the package."""
+    options = set()
+    for arg in args:
+        if not arg.startswith("-"):
+            break
+        options.add(arg)
+    return options
+
+
+def fetches_floating(name: str, args: list[str]) -> bool:
+    """Whether a command fetches a package from the registry at run time and runs it.
+
+    Such a fetch floats with or without an exact version on the package (prettier@3.6.2): no
+    lockfile holds its dependencies, so they resolve to whatever their ranges allow on the day,
+    with no integrity hash to check them against. A tool comes from a lockfile instead.
+
+    npx and bunx (bun x) fetch a package they do not find unless --no-install (npx: --no) comes
+    before its name; npm exec reads its own options up to --. pnpm dlx, yarn dlx, pnpx, uvx,
+    pipx run and uv tool run always fetch, as do create with a template and npm init with an
+    initializer, and uv run --with fetches what it names.
+    """
+    if name == "npx":
+        return not leading_options(args) & {"--no-install", "--no"}
+    if name == "bunx":
+        return "--no-install" not in leading_options(args)
+    command, rest = subcommand(name, args)
+    operand = any(not arg.startswith("-") for arg in rest)
+    if name == "npm" and command in ("exec", "x"):
+        own = set(rest[: rest.index("--")]) if "--" in rest else leading_options(rest)
+        return not own & {"--no-install", "--no"}
+    if name == "bun" and command == "x":
+        return "--no-install" not in leading_options(rest)
+    if (name in ("pnpm", "yarn") and command == "dlx") or (name == "pipx" and command == "run"):
+        return True
+    if (name in ("npm", "pnpm", "yarn", "bun") and command == "create") or (
+        name == "npm" and command == "init"
+    ):
+        return operand
+    if name == "uv":
+        return (command == "tool" and rest[:1] == ["run"]) or (
+            command == "run" and any(arg.split("=", 1)[0] == "--with" for arg in rest)
+        )
+    return name in ("pnpx", "uvx")
+
+
+def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str]]:
+    """Return (line, command) for each command in a script, and in the scripts it runs (with
+    -c, eval, trap, env -S, or a here-document fed to a shell), that fetches at a floating
+    version."""
+    found = []
+    tree = sh.parse(script, language)
+    for cmd in sh.simple_commands(tree):
+        words = [sh.shape(word) for word in cmd.get("Args") or []]
+        calls, scripts = sh.command_names(words)
+        line = line_of(cmd["Pos"]["Line"])
+        text = " ".join(words).replace(sh.EXPANSION, "$...")
+        found += [
+            (line, text) for index, name in calls if fetches_floating(name, words[index + 1 :])
+        ]
+        for inner, inner_language in scripts:
+            found += floating_fetches(inner, inner_language, lambda _line, at=line: at)
+    for body, language_read, line in sh.heredoc_scripts(tree, script.encode("utf-8")):
+        outer = line_of(line)
+        found += floating_fetches(body, language_read, lambda _line, at=outer: at)
+    return found
+
 
 VERSION_INPUT_DEFAULT = re.compile(
     r"^  ([\w-]*version):\n(?:    .*\n)*?    default: ['\"]?(latest|stable)['\"]?$", re.MULTILINE
@@ -88,6 +207,15 @@ def check_action(action: Path, managers: list[re.Pattern[str]]) -> tuple[list[st
         for number, line in enumerate(text.splitlines(), 1)
         if FLOATING_LINE.search(line)
     ]
+
+    try:
+        for script, language, line_of in sh.step_scripts(text):
+            problems += [
+                f"{label}:{number}: floating tool reference: {command}"
+                for number, command in floating_fetches(script, language, line_of)
+            ]
+    except (yaml.YAMLError, sh.ParseError) as error:
+        problems.append(f"{label}: cannot read its scripts: {error}")
 
     problems += [
         f"{label}: input {match.group(1)} defaults to {match.group(2)}"

@@ -199,6 +199,7 @@ runs:
 
         # Check Trivy results
         if [ -f "trivy-results.sarif" ]; then
+          command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the Trivy report"; exit 1; }
           if jq -e . <"trivy-results.sarif" >/dev/null 2>&1; then
             printf 'has_trivy=%s\n' "true" >> "$GITHUB_OUTPUT"
           else
@@ -209,6 +210,7 @@ runs:
         # Check Gitleaks results if it ran
         if [ "$RUN_GITLEAKS" = "true" ]; then
           if [ -f "results.sarif" ]; then
+            command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the Gitleaks report"; exit 1; }
             if jq -e . <"results.sarif" >/dev/null 2>&1; then
               printf 'has_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
             else
