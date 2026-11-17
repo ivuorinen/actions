@@ -409,7 +409,9 @@ runs:
         registry_cache_ref=""
         if [ "$PUSH" = "true" ] && [ -n "${GITHUB_REF:-}" ]; then
           # An image in the repository owner's ghcr.io namespace, such as the default one, is
-          # cached under its name in that namespace, which keeps the reference short.
+          # cached under its name in that namespace, which keeps the reference short. So app and
+          # ghcr.io/<owner>/app share a cache path; both are names this repository's workflows
+          # choose, and who writes is decided by the event, so sharing costs cache hits, not trust.
           owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | LC_ALL=C tr '[:upper:]' '[:lower:]')
           image_path="${IMAGE_NAME#"ghcr.io/$owner/"}"
           cache_image="ghcr.io/$(cache_path "$GITHUB_REPOSITORY")/cache/$(cache_path "$image_path")"

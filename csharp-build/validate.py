@@ -162,7 +162,7 @@ def main() -> None:
     errors = []
     for input_name, check in CHECKS.items():
         value = _input(input_name)
-        if input_name in REQUIRED and value.strip() == "":
+        if input_name in REQUIRED and _skip(value):
             errors.append(f"{input_name}: required input is missing")
             continue
         # action.yml forwards every input, so only a standalone run leaves a variable unset.

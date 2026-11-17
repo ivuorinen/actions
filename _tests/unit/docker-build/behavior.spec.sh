@@ -509,12 +509,14 @@ End
 Describe "registry cache per image"
 # Each image has its own cache repository, so two images built on one ref keep their caches
 # apart. The image name is normalized the same way as the repository. An image in the
-# repository owner's ghcr.io namespace, such as the default one, is cached under its name there.
+# repository owner's ghcr.io namespace, such as the default one, is cached under its name there,
+# so it shares a path with the bare name; the action comments on why that is accepted.
 Parameters
 "worker" "worker"
 "registry.example.com/ns/app" "registry.example.com/ns/app"
 "App,mode=min" "app-mode-min"
 "ghcr.io/acme/app" "app"
+"app" "app"
 "ghcr.io/acme/tools/lint" "tools/lint"
 "ghcr.io/other/app" "ghcr.io/other/app"
 End

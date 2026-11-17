@@ -180,6 +180,15 @@ def test_blank_required_token_is_reported_as_missing(action):
     assert "npm_token: required input is missing" in result.stdout
 
 
+# The runner and the checks share _skip, so a value of only Unicode spaces is not blank in
+# either: a required input holding one is checked, not reported missing.
+def test_required_input_of_unicode_spaces_is_checked_not_missing():
+    result = _run("npm-publish", {"INPUT_NPM_TOKEN": "\N{NO-BREAK SPACE}"})
+    assert result.returncode == 1
+    assert "npm_token: required input is missing" not in result.stdout
+    assert "npm_token: " in result.stdout
+
+
 def test_invalid_input_is_rejected_with_annotation():
     result = _run("docker-build", {"INPUT_TAG": "bad tag", "INPUT_MAX_RETRIES": "999"})
     assert result.returncode == 1
