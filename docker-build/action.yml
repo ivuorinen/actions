@@ -77,7 +77,7 @@ inputs:
     description: 'Platform-specific build args in JSON format'
     required: false
   cache-export:
-    description: 'Export cache destination, one spec on one line (e.g., type=gha,mode=max). Replaces the per-ref registry cache export.'
+    description: 'Export cache destination, one spec on one line (e.g., type=gha,mode=max). Replaces the per-image, per-ref registry cache export.'
     required: false
   cache-import:
     description: 'Import cache source, one spec on one line (e.g., type=gha)'
@@ -258,7 +258,8 @@ runs:
         set -eu
 
         if [ -z "$IMAGE_NAME" ]; then
-          repo_name=$(basename "${GITHUB_REPOSITORY}")
+          # Docker accepts only a lowercase repository name, so the default is lower-cased.
+          repo_name=$(basename -- "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
           printf 'name=%s\n' "$repo_name" >> "$GITHUB_OUTPUT"
         else
           printf 'name=%s\n' "$IMAGE_NAME" >> "$GITHUB_OUTPUT"
@@ -387,15 +388,20 @@ runs:
         cache_export=$(trim "$CACHE_EXPORT")
         cache_mode="${CACHE_MODE:-min}"
 
-        # Registry cache, only when the login step above has run. Every ref reads the default
-        # branch's tag for a warm start, and writes only its own, so another ref's build does
-        # not change what the default branch restores. Tags of other refs start with "refs-",
-        # so no ref name can reduce to the reserved "default-branch" tag.
+        # Registry cache, only when the login step above has run. Each image has its own cache
+        # repository, so two images built on one ref do not replace each other's cache. Every
+        # ref reads the default branch's tag for a warm start, and writes only its own, so
+        # another ref's build does not change what the default branch restores. Tags of other
+        # refs start with "refs-", so no ref name can reduce to the reserved "default-branch" tag.
+        # The repository and image names are lower-cased, and each character outside
+        # [a-z0-9._/-] becomes "-", so neither can add attributes to the comma-separated spec.
+        cache_path() {
+          printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9._/-' '-'
+        }
         default_cache_ref=""
         registry_cache_ref=""
         if [ "$PUSH" = "true" ] && [ -n "${GITHUB_REF:-}" ]; then
-          normalized_repo=$(echo "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]' | sed -E 's/[^a-z0-9._\/-]/-/g')
-          cache_image="ghcr.io/${normalized_repo}/cache"
+          cache_image="ghcr.io/$(cache_path "$GITHUB_REPOSITORY")/cache/$(cache_path "$IMAGE_NAME")"
           default_cache_ref="$cache_image:default-branch"
           registry_cache_ref="$default_cache_ref"
           if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then

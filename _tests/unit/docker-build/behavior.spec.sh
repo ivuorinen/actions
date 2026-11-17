@@ -8,7 +8,12 @@
 
 Describe "docker-build build step (behavior)"
 ACTION_DIR="${PROJECT_ROOT}/docker-build"
-CACHE_IMAGE="type=registry,ref=ghcr.io/acme/app/cache"
+CACHE_IMAGE="type=registry,ref=ghcr.io/acme/app/cache/app"
+
+# The name the Determine Image Name step gives the build step.
+image_name() {
+  export HARNESS_STEP_OUTPUTS="{\"image-name\":{\"outputs\":{\"name\":\"$1\"}}}"
+}
 
 before() {
   shellspec_setup_test_env "docker-build-behavior-$$"
@@ -27,6 +32,7 @@ before() {
   printf '%s' '{"repository":{"default_branch":"main"}}' >event.json
   export GITHUB_EVENT_PATH="${PWD}/event.json"
   unset GITHUB_TOKEN
+  image_name app
   mock_command docker "buildx build *" ""
   mock_command docker "inspect *" "sha256:fixture"
 }
@@ -412,7 +418,29 @@ export GITHUB_REPOSITORY="$1"
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/$2/cache:default-branch"
+Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/$2/cache/app:default-branch"
+End
+End
+
+Describe "registry cache per image"
+# Each image has its own cache repository, so two images built on one ref keep their caches
+# apart. The image name is normalized the same way as the repository.
+Parameters
+"worker" "worker"
+"registry.example.com/ns/app" "registry.example.com/ns/app"
+"App,mode=min" "app-mode-min"
+End
+
+It "reads and writes the cache of image $1 at cache/$2"
+export INPUT_PUSH="true"
+write_docker_build_metadata
+image_name "$1"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/acme/app/cache/$2:default-branch" \
+  --cache-to "type=registry,ref=ghcr.io/acme/app/cache/$2:default-branch,mode=max"
 End
 End
 
