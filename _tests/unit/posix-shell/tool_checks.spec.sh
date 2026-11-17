@@ -418,6 +418,12 @@ The status should be failure
 The output should include "action.yml:6: git is called"
 End
 
+It "does not count a background if ! command -v as a check"
+When call scan_step 'if ! command -v git >/dev/null 2>&1 & then' '  exit 1' 'fi' 'git status'
+The status should be failure
+The output should include "action.yml:8: git is called"
+End
+
 It "lets command -v ... && cover the command it guards"
 When call scan_step 'command -v npm >/dev/null 2>&1 && npm ci'
 The status should be success
