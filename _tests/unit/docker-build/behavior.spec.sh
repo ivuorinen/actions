@@ -534,6 +534,37 @@ Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/acme/app/cache
 End
 End
 
+Describe "registry cache reference length"
+# A reference name is at most 255 characters. ghcr.io/acme/app/cache/ is 23 of them, so an
+# image path of 232 characters still fits and one of 233 is replaced by its cksum.
+long_path() { printf 'a%.0s' $(seq 1 "$1"); }
+push_build() {
+  export INPUT_PUSH="true"
+  write_docker_build_metadata
+}
+Before 'push_build'
+
+It "keeps an image path that fits in 255 characters"
+image_name "ghcr.io/acme/$(long_path 232)"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/acme/app/cache/$(long_path 232):default-branch" \
+  --cache-to "type=registry,ref=ghcr.io/acme/app/cache/$(long_path 232):default-branch,mode=max"
+End
+
+It "reads and writes a longer image's cache under its checksum"
+image_name "ghcr.io/acme/$(long_path 233)"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-from "type=registry,ref=ghcr.io/acme/app/cache/2363063642:default-branch" \
+  --cache-to "type=registry,ref=ghcr.io/acme/app/cache/2363063642:default-branch,mode=max"
+End
+End
+
 Describe "other arguments"
 It "keeps a dash-leading context from being read as a flag"
 export INPUT_CONTEXT="--no-cache"

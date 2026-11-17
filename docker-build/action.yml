@@ -415,6 +415,13 @@ runs:
           owner=$(printf '%s' "${GITHUB_REPOSITORY%%/*}" | LC_ALL=C tr '[:upper:]' '[:lower:]')
           image_path="${IMAGE_NAME#"ghcr.io/$owner/"}"
           cache_image="ghcr.io/$(cache_path "$GITHUB_REPOSITORY")/cache/$(cache_path "$image_path")"
+          # A reference name is at most 255 characters, and a valid image name can be long enough
+          # to pass that here. The image's checksum stands in for it then, which keeps the path
+          # the same on every build.
+          if [ "${#cache_image}" -gt 255 ]; then
+            image_sum=$(printf '%s' "$image_path" | cksum | cut -d ' ' -f 1)
+            cache_image="ghcr.io/$(cache_path "$GITHUB_REPOSITORY")/cache/$image_sum"
+          fi
           default_cache_ref="$cache_image:default-branch"
           case "${GITHUB_EVENT_NAME:-}" in
             push | schedule | workflow_dispatch)
