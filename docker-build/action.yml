@@ -14,7 +14,7 @@ branding:
 
 inputs:
   image-name:
-    description: 'The name of the Docker image to build. Defaults to the repository name.'
+    description: 'The name of the Docker image to build. Defaults to ghcr.io/OWNER/REPO, lower-cased, the registry the action logs in to.'
     required: false
   tag:
     description: 'Docker image tag: letters, digits, _ . and -, up to 128 characters, not starting with . or -'
@@ -261,9 +261,10 @@ runs:
         # validate.py does not check a blank image-name, as it does not check one left out, so a
         # blank one is not used either.
         if [ -z "$(printf '%s' "$IMAGE_NAME" | tr -d '[:space:]')" ]; then
-          # Docker accepts only a lowercase repository name, so the default is lower-cased.
-          repo_name=$(basename -- "${GITHUB_REPOSITORY}" | LC_ALL=C tr '[:upper:]' '[:lower:]')
-          printf 'name=%s\n' "$repo_name" >> "$GITHUB_OUTPUT"
+          # The login step signs in to ghcr.io, so the default image lives there; a bare name
+          # would mean docker.io/library. Docker accepts only a lowercase repository name.
+          repo_name=$(printf '%s' "${GITHUB_REPOSITORY}" | LC_ALL=C tr '[:upper:]' '[:lower:]')
+          printf 'name=%s\n' "ghcr.io/$repo_name" >> "$GITHUB_OUTPUT"
         else
           printf 'name=%s\n' "$IMAGE_NAME" >> "$GITHUB_OUTPUT"
         fi
