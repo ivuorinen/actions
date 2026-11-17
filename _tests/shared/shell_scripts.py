@@ -21,8 +21,9 @@ here-documents a shell reads as its script, given to it directly or through a pi
 
 Not read: a command named through a variable, an alias or a function the script defines; a script
 a shell reads from a pipe other than a here-document (`printf ... | sh`), from a here-string or
-from a file; `su -c`, `flock ... -c` and coproc; and steps whose shell: is not sh or bash, such as
-node. The checks that use this module describe what they make of each command.
+from a file; `su -c`, `flock ... -c` and coproc; the escapes and comments of env -S's own string
+syntax (`\\_`, `\\c`, `#`), as its string is read as shell words; and steps whose shell: is not sh
+or bash, such as node. The checks that use this module describe what they make of each command.
 """
 
 from __future__ import annotations
@@ -236,10 +237,12 @@ def _attached_script(word: str, options: set[str]) -> str | None:
 
 
 def _split_string(text: str, operands: list[str]) -> str:
-    """Return the command line env -S runs, as a script: the words it splits its string into,
-    then the operands after the string, each kept as one word (`env -S'sh -c' 'git status'` runs
-    sh -c 'git status')."""
-    return " ".join([as_script(text), *(shlex.quote(as_script(word)) for word in operands)])
+    """Return the command line env -S runs, as a script: env again, then the words it splits its
+    string into, then the operands after the string, each kept as one word. env reads the split
+    words as its own arguments, so `env -S'-i sh -c' 'git status'` runs sh -c 'git status' with
+    -i taken as env's option."""
+    split = [as_script(text), *(shlex.quote(as_script(word)) for word in operands)]
+    return " ".join(["env", *split])
 
 
 def _skip_options(words: list[str], index: int, wrapper: str, scripts: list) -> int | None:

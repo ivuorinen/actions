@@ -186,6 +186,13 @@ The status should be failure
 The output should include "git is called"
 End
 
+# env reads the split words as its own arguments, so an option there is env's.
+It "reads env options inside a split string"
+When call scan_step "env -S '-i sh -c' 'git status'"
+The status should be failure
+The output should include "git is called"
+End
+
 It "does not take a left shift in arithmetic for a here-document"
 When call scan_step 'n=$((x << y))' 'git status'
 The status should be failure

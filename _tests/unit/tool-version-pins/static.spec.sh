@@ -63,6 +63,7 @@ Parameters
 "CI=1 'npx' prettier --check ."
 "sh -c 'npx prettier --check .'"
 "env --split-string='sh -c' 'npx prettier --check .'"
+"env -S'-i npx prettier --check .'"
 "bun x prettier --check ."
 "npm exec prettier -- --check ."
 "npm x prettier -- --check ."
