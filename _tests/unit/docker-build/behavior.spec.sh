@@ -27,8 +27,9 @@ before() {
   export INPUT_CONTEXT="."
   export INPUT_CACHE_MODE="max"
   export GITHUB_REPOSITORY="Acme/App"
-  # A CI runner sets both; the registry cache tag depends on them.
+  # A CI runner sets these; the registry cache tag depends on them.
   export GITHUB_REF="refs/heads/main"
+  export GITHUB_EVENT_NAME="push"
   printf '%s' '{"repository":{"default_branch":"main"}}' >event.json
   export GITHUB_EVENT_PATH="${PWD}/event.json"
   unset GITHUB_TOKEN
@@ -318,16 +319,17 @@ When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
 Assert expect_argv docker --cache-from "${CACHE_IMAGE}:default-branch" \
-  --cache-from "${CACHE_IMAGE}:refs-heads-feature-x" --cache-to "${CACHE_IMAGE}:refs-heads-feature-x,mode=max"
+  --cache-from "${CACHE_IMAGE}:refs-heads-feature-x-2816295230" --cache-to "${CACHE_IMAGE}:refs-heads-feature-x-2816295230,mode=max"
 End
 
+# The number after the ref is the ref's POSIX cksum.
 It "keeps a pull request build on its own tag"
 export GITHUB_REF="refs/pull/7/merge"
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-pull-7-merge,mode=max"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-pull-7-merge-3713745093,mode=max"
 End
 
 It "does not let a branch named after the reserved tag write it"
@@ -336,7 +338,7 @@ export GITHUB_REF="refs/heads/default-branch"
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-default-branch,mode=max"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-default-branch-4053517042,mode=max"
 End
 
 It "never writes the reserved tag when the event does not name the default branch"
@@ -345,7 +347,36 @@ printf '%s' '{}' >event.json
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-main,mode=max"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-main-4103533966,mode=max"
+End
+
+# These events run with the default branch's ref but can build code from elsewhere.
+It "does not let pull_request_target on the default branch write the reserved tag"
+export GITHUB_EVENT_NAME="pull_request_target"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-from "${CACHE_IMAGE}:default-branch" \
+  --cache-from "${CACHE_IMAGE}:refs-heads-main-4103533966" --cache-to "${CACHE_IMAGE}:refs-heads-main-4103533966,mode=max"
+End
+
+It "does not let workflow_run on the default branch write the reserved tag"
+export GITHUB_EVENT_NAME="workflow_run"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-main-4103533966,mode=max"
+End
+
+It "lets a scheduled run on the default branch write the reserved tag"
+export GITHUB_EVENT_NAME="schedule"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:default-branch,mode=max"
 End
 
 It "reduces a ref to tag characters, so it cannot add cache attributes"
@@ -354,13 +385,32 @@ export GITHUB_REF="refs/heads/fix,mode=min/#1"
 When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The output should include "Build attempt 1 of 1"
-Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-fix-mode-min--1,mode=max"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-fix-mode-min--1-4287747635,mode=max"
+End
+
+# a/b and a-b reduce to the same characters; the checksum keeps their tags apart.
+It "gives refs/heads/a/b its own tag"
+export GITHUB_REF="refs/heads/a/b"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-a-b-3830432123,mode=max"
+End
+
+It "gives refs/heads/a-b its own tag"
+export GITHUB_REF="refs/heads/a-b"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The output should include "Build attempt 1 of 1"
+Assert expect_argv docker --cache-to "${CACHE_IMAGE}:refs-heads-a-b-3892222069,mode=max"
 End
 
 It "keeps a long ref within the registry's 128-character tag limit"
 long_name=$(printf 'a%.0s' $(seq 1 200))
 export GITHUB_REF="refs/heads/${long_name}"
-tag="refs-heads-$(printf 'a%.0s' $(seq 1 117))"
+tag="refs-heads-$(printf 'a%.0s' $(seq 1 106))-105774959"
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be success

@@ -12,7 +12,7 @@
         "/(^|/)action\\.ya?ml$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\s+[A-Z0-9_]+_IMAGE_TAG:\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+[A-Z0-9_]+_IMAGE_TAG:\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'"
       ]
     }
   ],

@@ -390,8 +390,9 @@ default_buildx_is_pinned() {
 }
 
 # customManagers:githubActionsVersions has no digest group, so this repo's own
-# manager has to read the BuildKit pin. A renamed key would silently stop updates.
-renovate_manager_reads_buildkit_pin() {
+# manager has to read the digest-pinned BuildKit and binfmt images. A renamed key would
+# silently stop updates, and binfmt's qemu-v tags need the comment's regex versioning.
+renovate_manager_reads_image_pins() {
   python3 - "${PROJECT_ROOT}/.github/renovate.json" "${PROJECT_ROOT}/${ACTION_FILE}" <<'PY'
 import json
 import re
@@ -407,10 +408,15 @@ found = [
     for pattern in manager["matchStrings"]
     for match in re.finditer(pattern.replace("(?<", "(?P<"), action)
 ]
-assert [dep["depName"] for dep in found] == ["moby/buildkit"], found
-assert found[0]["datasource"] == "docker", found
-assert found[0]["currentValue"].startswith("v"), found
-assert found[0]["currentDigest"].startswith("sha256:"), found
+deps = {dep["depName"]: dep for dep in found}
+assert sorted(deps) == ["moby/buildkit", "tonistiigi/binfmt"], found
+assert all(dep["datasource"] == "docker" for dep in found), found
+assert all(re.fullmatch(r"sha256:[0-9a-f]{64}", dep["currentDigest"]) for dep in found), found
+assert deps["moby/buildkit"]["currentValue"].startswith("v"), found
+binfmt = deps["tonistiigi/binfmt"]
+assert binfmt["versioning"].startswith("regex:"), found
+versioning = re.compile(binfmt["versioning"][len("regex:") :].replace("(?<", "(?P<"))
+assert versioning.fullmatch(binfmt["currentValue"]), found
 PY
 }
 
@@ -419,8 +425,8 @@ When call default_buildkit_is_pinned_and_patched
 The status should be success
 End
 
-It "keeps the BuildKit pin readable by Renovate"
-When call renovate_manager_reads_buildkit_pin
+It "keeps the BuildKit and binfmt pins readable by Renovate"
+When call renovate_manager_reads_image_pins
 The status should be success
 End
 

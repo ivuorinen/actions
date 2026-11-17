@@ -38,7 +38,7 @@ inputs:
     description: 'External cache source, one spec on one line (e.g., type=registry,ref=user/app:cache)'
     required: false
   push:
-    description: 'Whether to push the image after building (lowercase true or false). Also enables the per-ref registry build cache on ghcr.io.'
+    description: 'Whether to push the image after building (lowercase true or false). Also enables the per-image, per-ref registry build cache at ghcr.io/OWNER/REPO/cache/IMAGE. The first push of each image creates its cache package, so an organization should limit who can create packages in its namespace.'
     required: false
     default: 'true'
   max-retries:
@@ -56,7 +56,7 @@ inputs:
     description: 'BuildKit image tag (e.g., v0.34.2), optionally with @sha256:<digest>. Empty uses the digest this action pins.'
     required: false
   cache-mode:
-    description: 'Cache mode for build layers (min, max, or inline)'
+    description: 'Cache mode for build layers (min, max, or inline). max also exports the layers of every intermediate stage, and the cache package of a public repository is public, so pass credentials with secrets, never in a stage.'
     required: false
     default: 'max'
   build-contexts:
@@ -196,10 +196,11 @@ runs:
     - name: Set up QEMU
       uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       env:
+        # setup-qemu-action runs this image with --privileged, so it is pinned by digest: a tag can be pushed again.
         # renovate: datasource=docker depName=tonistiigi/binfmt versioning=regex:^qemu-v(?<major>\d+)\.(?<minor>\d+)\.(?<patch>\d+)$
-        BINFMT_VERSION: 'qemu-v10.2.3'
+        BINFMT_IMAGE_TAG: 'qemu-v10.2.3@sha256:400a4873b838d1b89194d982c45e5fb3cda4593fbfd7e08a02e76b03b21166f0'
       with:
-        image: docker.io/tonistiigi/binfmt:${{ env.BINFMT_VERSION }}
+        image: docker.io/tonistiigi/binfmt:${{ env.BINFMT_IMAGE_TAG }}
         platforms: ${{ inputs.architectures }}
 
     - name: Set up Docker Buildx
@@ -257,9 +258,11 @@ runs:
       run: |
         set -eu
 
-        if [ -z "$IMAGE_NAME" ]; then
+        # validate.py does not check a blank image-name, as it does not check one left out, so a
+        # blank one is not used either.
+        if [ -z "$(printf '%s' "$IMAGE_NAME" | tr -d '[:space:]')" ]; then
           # Docker accepts only a lowercase repository name, so the default is lower-cased.
-          repo_name=$(basename -- "${GITHUB_REPOSITORY}" | tr '[:upper:]' '[:lower:]')
+          repo_name=$(basename -- "${GITHUB_REPOSITORY}" | LC_ALL=C tr '[:upper:]' '[:lower:]')
           printf 'name=%s\n' "$repo_name" >> "$GITHUB_OUTPUT"
         else
           printf 'name=%s\n' "$IMAGE_NAME" >> "$GITHUB_OUTPUT"
@@ -395,8 +398,9 @@ runs:
         # refs start with "refs-", so no ref name can reduce to the reserved "default-branch" tag.
         # The repository and image names are lower-cased, and each character outside
         # [a-z0-9._/-] becomes "-", so neither can add attributes to the comma-separated spec.
+        # LC_ALL=C: POSIX leaves a range such as a-z unspecified in other locales.
         cache_path() {
-          printf '%s' "$1" | tr '[:upper:]' '[:lower:]' | tr -c 'a-z0-9._/-' '-'
+          printf '%s' "$1" | LC_ALL=C tr '[:upper:]' '[:lower:]' | LC_ALL=C tr -c 'a-z0-9._/-' '-'
         }
         default_cache_ref=""
         registry_cache_ref=""
@@ -404,9 +408,18 @@ runs:
           cache_image="ghcr.io/$(cache_path "$GITHUB_REPOSITORY")/cache/$(cache_path "$IMAGE_NAME")"
           default_cache_ref="$cache_image:default-branch"
           registry_cache_ref="$default_cache_ref"
-          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ]; then
-            ref_tag=$(printf '%s' "$GITHUB_REF" | tr -c 'A-Za-z0-9._-' '-' | cut -c1-128)
-            registry_cache_ref="$cache_image:$ref_tag"
+          # pull_request_target, workflow_run and issue_comment also run with the default
+          # branch's ref, but can build code from elsewhere, so only these events write its tag.
+          case "${GITHUB_EVENT_NAME:-}" in
+            push | schedule | workflow_dispatch) default_branch_event=true ;;
+            *) default_branch_event=false ;;
+          esac
+          if [ "$GITHUB_REF" != "refs/heads/$DEFAULT_BRANCH" ] || [ "$default_branch_event" != "true" ]; then
+            # The checksum of the whole ref keeps refs that reduce to the same characters, such
+            # as a/b and a-b, or that share their first 117, on separate tags of at most 128.
+            ref_sum=$(printf '%s' "$GITHUB_REF" | cksum | cut -d ' ' -f 1)
+            ref_tag=$(printf '%s' "$GITHUB_REF" | LC_ALL=C tr -c 'A-Za-z0-9._-' '-' | cut -c1-117)
+            registry_cache_ref="$cache_image:$ref_tag-$ref_sum"
           fi
         fi
 
