@@ -327,6 +327,7 @@ runs:
           set -eu
           set -f
           set -- $COMPOSER_ARGS
+          command -v composer >/dev/null 2>&1 || { echo "::error::composer is required to download the dependencies"; exit 1; }
           composer install --no-plugins --no-scripts "$@"
 
     # An installer plugin can move a package here, which reinstalls it. With no token, that
@@ -345,6 +346,7 @@ runs:
           set -eu
           set -f
           set -- $COMPOSER_ARGS
+          command -v composer >/dev/null 2>&1 || { echo "::error::composer is required to install the dependencies"; exit 1; }
           composer install "$@"
 
     - name: Verify Composer Installation

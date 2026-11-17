@@ -180,7 +180,10 @@ runs:
         shell: bash
         # --locked-mode fails on a stale lock file instead of rewriting it. A project with
         # no lock file restores as before.
-        command: dotnet restore ${PROJECT:+"$PROJECT"} --locked-mode --verbosity normal
+        command: |
+          set -eu
+          command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to restore the dependencies"; exit 1; }
+          dotnet restore ${PROJECT:+"$PROJECT"} --locked-mode --verbosity normal
 
     - name: Build Solution
       id: build

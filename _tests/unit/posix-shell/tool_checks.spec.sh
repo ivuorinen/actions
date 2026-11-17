@@ -215,6 +215,96 @@ When call scan_step '"git" status'
 The status should be failure
 The output should include "action.yml:5:"
 End
+
+It "reads past env's assignments, an expansion in one included"
+When call scan_step 'env FOO="$x" docker ps'
+The status should be failure
+The output should include "action.yml:5: docker is called"
+End
+
+It "reads past sudo's assignments"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'sudo FOO=1 docker ps'
+The status should be failure
+The output should include "action.yml:6: docker is called"
+End
+
+It "reads past a long option and its argument"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'sudo --user runner docker ps'
+The status should be failure
+The output should include "action.yml:6: docker is called"
+End
+
+It "reads past a cluster of short options whose last takes an argument"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'sudo -Eu runner docker ps'
+The status should be failure
+The output should include "action.yml:6: docker is called"
+End
+
+It "reads the command time runs"
+When call scan_step 'time docker ps'
+The status should be failure
+The output should include "action.yml:5: docker is called"
+End
+
+It "reads the command stdbuf runs"
+When call scan_step 'stdbuf -oL docker ps'
+The status should be failure
+The output should include "action.yml:5: docker is called"
+End
+
+It "reads a command named by its path"
+When call scan_step '/usr/bin/docker ps'
+The status should be failure
+The output should include "action.yml:5: docker is called"
+End
+
+It "reads the command line env -S splits"
+When call scan_step "env -S 'docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads the command a wrapper after find -exec runs"
+When call scan_step 'command -v sudo >/dev/null 2>&1 || exit 1' 'find . -exec sudo terraform fmt {} \;'
+The status should be failure
+The output should include "action.yml:6: terraform is called"
+End
+
+It "reads every statement of the code eval runs"
+When call scan_step 'eval "true; gh release view"'
+The status should be failure
+The output should include "gh is called"
+End
+
+It "reads the action trap runs"
+When call scan_step "trap 'docker rm -f build' EXIT"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads the script sh runs with a cluster of options"
+When call scan_step "sh -ec 'docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads the script a shell named by its path runs"
+When call scan_step "/bin/sh -c 'docker ps'"
+The status should be failure
+The output should include "docker is called"
+End
+
+It "reads a here-document piped to sh as a script"
+When call scan_step "cat <<'EOF' | sh" 'gh release list' 'EOF'
+The status should be failure
+The output should include "gh is called"
+End
+
+It "reads a command substitution in a data here-document"
+When call scan_step 'cat <<EOF' '$(git rev-parse HEAD)' 'EOF'
+The status should be failure
+The output should include "git is called"
+End
 End
 
 Describe "which checks count"
@@ -266,13 +356,46 @@ When call scan_step 'f() { command -v git >/dev/null 2>&1 || exit 1; }' 'git sta
 The status should be failure
 The output should include "action.yml:6: git is called"
 End
+
+It "does not let a check run in the background cover what follows"
+When call scan_step 'command -v git >/dev/null 2>&1 || exit 1 &' 'git status'
+The status should be failure
+The output should include "action.yml:6: git is called"
+End
+
+It "does not take a quoted * pattern for the default case"
+When call scan_step 'case "$x" in' '  a) command -v git >/dev/null 2>&1 || exit 1 ;;' \
+  '  "*") command -v git >/dev/null 2>&1 || exit 1 ;;' 'esac' 'git status'
+The status should be failure
+The output should include "action.yml:9: git is called"
+End
+
+It "lets checks in every case branch, the default one included, cover what follows"
+When call scan_step 'case "$x" in' '  a) command -v git >/dev/null 2>&1 || exit 1 ;;' \
+  '  *) command -v git >/dev/null 2>&1 || exit 1 ;;' 'esac' 'git status'
+The status should be success
+The output should equal ""
+End
 End
 
 Describe "the action file"
-It "fails on a run: script shfmt cannot parse"
+It "fails on a script shfmt cannot parse"
 When call scan_step 'if then fi'
 The status should be failure
-The output should include "shfmt cannot parse this run: script"
+The output should include "shfmt cannot parse this script"
+End
+
+It "reads the command a nick-fields/retry step runs"
+When call scan_file 'runs:' '  steps:' '    - uses: nick-fields/retry@0000000000000000000000000000000000000000' \
+  '      with:' '        command: |' '          git status'
+The status should be failure
+The output should include "file.yml:6: git is called"
+End
+
+It "reads a step whose shell is named by its path"
+When call scan_file 'runs:' '  steps:' '    - shell: /bin/sh' '      run: |' '        git status'
+The status should be failure
+The output should include "file.yml:5: git is called"
 End
 
 It "skips a step whose shell is not sh or bash"

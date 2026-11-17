@@ -9,7 +9,7 @@ CHECK_PINS="${PROJECT_ROOT}/_tests/unit/tool-version-pins/check_pins.py"
 
 Describe "every action in this repository"
 It "fetches nothing at a floating version and keeps its pins trackable"
-When run python3 "${CHECK_PINS}" "${PROJECT_ROOT}"
+When call _harness_python "${CHECK_PINS}" "${PROJECT_ROOT}"
 The status should be success
 The stdout should match pattern "checked * renovate comments"
 End
@@ -56,14 +56,26 @@ Parameters
 "npx --package=prettier prettier --check ."
 "npx -- prettier --check ."
 "bunx prettier --check ."
+"bunx --no prettier --check ."
+"npx --no-audit prettier --check ."
+"CI=1 'npx' prettier --check ."
+"sh -c 'npx prettier --check .'"
+"bun x prettier --check ."
+"npm exec prettier -- --check ."
+"npm x prettier -- --check ."
+"npm init vite"
+"pnpx prettier --check ."
+"uvx ruff check ."
+"pipx run ruff check ."
 "pnpm dlx prettier --check ."
 "yarn dlx prettier --check ."
+"git clone https://example.com/repo@main"
 "bun-version: latest"
 End
 
 It "fails on: $1"
 write_action "$1"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "floating tool reference"
 End
@@ -77,11 +89,14 @@ Parameters
 "command -v npx >/dev/null 2>&1 || exit 1"
 "command -v bunx >/dev/null 2>&1 || exit 1"
 'echo "::error::running Prettier requires npx"'
+'echo "npx is required"'
+"npm exec --no -- prettier --check ."
+"npm init -y"
 End
 
 It "accepts: $1"
 write_action "$1"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be success
 The stdout should match pattern "checked * renovate comments"
 End
@@ -95,7 +110,7 @@ End
 
 It "fails on: $1"
 write_action "true" "$1"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "defaults to $1"
 End
@@ -111,7 +126,7 @@ End
 It "fails on the variable line: $1"
 printf '%s\n' "runs:" "  steps:" "    - run: true" "      env:" \
   "        # renovate: datasource=npm depName=sample" "$1" >"${TREE}/sample/action.yml"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "outside the preset's shape"
 End
@@ -129,7 +144,7 @@ End
 It "fails on the value: $1"
 printf '%s\n' "runs:" "  steps:" "    - run: true" "      env:" \
   "        # renovate: datasource=npm depName=sample" "        SAMPLE_VERSION: '$1'" >"${TREE}/sample/action.yml"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "not an exact version: $1"
 End
@@ -139,7 +154,7 @@ End
 It "accepts major.minor for the PHP pin only"
 printf '%s\n' "runs:" "  steps:" "    - run: true" "      env:" \
   "        # renovate: datasource=github-tags depName=php/php-src" "        DEFAULT_VERSION: '8.5'" >"${TREE}/sample/action.yml"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be success
 The stdout should match pattern "checked * renovate comments"
 End
@@ -148,7 +163,7 @@ It "fails on an env reference its own step does not define"
 printf '%s\n' "runs:" "  steps:" "    - uses: a/b@1" "      env:" \
   "        # renovate: datasource=npm depName=sample" "        SAMPLE_VERSION: '1.2.3'" \
   "      with:" "        version: \${{ env.SAMPL_VERSION }}" >"${TREE}/sample/action.yml"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "env.SAMPL_VERSION is not defined"
 End
@@ -170,7 +185,7 @@ write_image_pin() {
 It "accepts an exact version the manager matches"
 write_manager
 write_image_pin "v0.34.2"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be success
 The stdout should match pattern "checked * renovate comments"
 End
@@ -178,14 +193,14 @@ End
 It "still fails on a range the manager matches"
 write_manager
 write_image_pin "^0.34.2"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "not an exact version: ^0.34.2"
 End
 
 It "fails on it when the repository has no such manager"
 write_image_pin "v0.34.2"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "outside the preset's shape"
 End
@@ -193,7 +208,7 @@ End
 
 It "fails on a tree with no renovate comments"
 printf '%s\n' "runs:" "  steps:" "    - run: true" >"${TREE}/sample/action.yml"
-When run python3 "${CHECK_PINS}" "${TREE}"
+When call _harness_python "${CHECK_PINS}" "${TREE}"
 The status should be failure
 The stdout should include "no renovate comments found"
 End

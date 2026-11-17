@@ -117,7 +117,10 @@ runs:
         max_attempts: ${{ inputs.max-retries }}
         # requirements.lock.txt is generated from requirements.in by the command in its header.
         # --only-binary keeps a package's setup.py from running, which hash checking alone does not.
-        command: 'pip install --require-hashes --only-binary=:all: -r "$ACTION_PATH/requirements.lock.txt"'
+        command: |
+          set -eu
+          command -v pip >/dev/null 2>&1 || { echo "::error::pip is required to install ansible-lint"; exit 1; }
+          pip install --require-hashes --only-binary=:all: -r "$ACTION_PATH/requirements.lock.txt"
 
     - name: Run ansible-lint
       if: steps.check-files.outputs.files_found == 'true'

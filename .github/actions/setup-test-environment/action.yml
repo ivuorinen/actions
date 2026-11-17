@@ -75,15 +75,18 @@ runs:
         command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to install shfmt into /usr/local/bin"; exit 1; }
         command -v install >/dev/null 2>&1 || { echo "::error::install is required to install shfmt into /usr/local/bin"; exit 1; }
 
-        curl -fsSL "$SHFMT_URL" -o /tmp/shfmt
-        ACTUAL_CHECKSUM="$(sha256sum /tmp/shfmt | awk '{print $1}')"
+        # RUNNER_TEMP belongs to this job, so no other user of the machine can swap the file
+        # between the checksum and the install, as it could at a fixed path in /tmp.
+        shfmt_file="${RUNNER_TEMP:?}/shfmt"
+        curl --proto '=https' --tlsv1.2 -fsSL "$SHFMT_URL" -o "$shfmt_file"
+        ACTUAL_CHECKSUM="$(sha256sum "$shfmt_file" | awk '{print $1}')"
         if [ "$ACTUAL_CHECKSUM" != "$EXPECTED_CHECKSUM" ]; then
           echo "::error::Checksum mismatch for shfmt ${SHFMT_VERSION}: expected ${EXPECTED_CHECKSUM}, got ${ACTUAL_CHECKSUM}"
-          rm -f /tmp/shfmt
+          rm -f "$shfmt_file"
           exit 1
         fi
-        sudo install -m 755 /tmp/shfmt /usr/local/bin/shfmt
-        rm -f /tmp/shfmt
+        sudo install -m 755 "$shfmt_file" /usr/local/bin/shfmt
+        rm -f "$shfmt_file"
 
         command -v shfmt >/dev/null 2>&1 || { echo "::error::shfmt is not on PATH after its install"; exit 1; }
         shfmt --version

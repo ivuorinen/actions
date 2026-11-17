@@ -6,10 +6,28 @@ it checked, and a tree with none of them fails, so the check cannot pass by find
 
 from __future__ import annotations
 
+import importlib.util
 import json
 from pathlib import Path
 import re
 import sys
+
+import yaml
+
+SHARED = Path(__file__).resolve().parents[2] / "shared" / "shell_scripts.py"
+
+
+def load_shared():
+    """Import _tests/shared/shell_scripts.py, which is not on sys.path."""
+    spec = importlib.util.spec_from_file_location("shell_scripts", SHARED)
+    if spec is None or spec.loader is None:
+        sys.exit(f"{SHARED}: cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+sh = load_shared()
 
 # customManagers:githubActionsVersions, from renovatebot/renovate's
 # lib/config/presets/internal/custom-managers.preset.ts. A comment outside this shape is never
@@ -32,16 +50,45 @@ EXACT_VERSION = re.compile(r"^(qemu-)?v?\d+\.\d+\.\d+$")
 MAJOR_MINOR_DEPS = {"php/php-src"}
 MAJOR_MINOR = re.compile(r"^\d+\.\d+$")
 
-# Fetching a tool at whatever upstream published last. npx and bunx fetch a package they do
-# not find, whatever comes before its name (-p, --package=, --, a redirection), unless
-# --no-install (npx: --no) says not to; `command -v npx` only looks npx up. pnpm dlx and
-# yarn dlx always fetch.
-FLOATING_LINE = re.compile(
-    r"@(latest|stable)\b"
-    r"|(?<!command -v )\b(npx|bunx)\b(?!\s+--no(-install)?\b)(?=[\s<>|&;)]|$)"
-    r"|\b(pnpm|yarn)\s+dlx\b"
-    r"|\bbun-version:\s*latest\b"
-)
+# A reference to whatever upstream published last, anywhere in the file.
+FLOATING_LINE = re.compile(r"@(latest|stable|main|master)\b|\bbun-version:\s*latest\b")
+
+
+def fetches_floating(name: str, args: list[str]) -> bool:
+    """Whether a command fetches and runs a package at whatever version upstream published last.
+
+    npx and bunx fetch a package they do not find unless --no-install (npx: --no) says not to,
+    whatever comes before its name. pnpm dlx, yarn dlx, pnpx, uvx and pipx run always fetch,
+    as does npm init or create with an initializer.
+    """
+    first = args[0] if args else ""
+    if name == "npx" or (name == "npm" and first in ("exec", "x")):
+        return not {"--no-install", "--no"} & set(args)
+    if name == "bunx" or (name == "bun" and first == "x"):
+        return "--no-install" not in args
+    if name in ("pnpm", "yarn") and first == "dlx":
+        return True
+    if name == "npm" and first in ("init", "create"):
+        return any(not arg.startswith("-") for arg in args[1:])
+    return name in ("pnpx", "uvx") or (name == "pipx" and first == "run")
+
+
+def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str]]:
+    """Return (line, command) for each command in a script, and in the scripts it runs, that
+    fetches a package at a floating version."""
+    found = []
+    for cmd in sh.simple_commands(sh.parse(script, language)):
+        words = [sh.shape(word) for word in cmd.get("Args") or []]
+        calls, scripts = sh.command_names(words)
+        line = line_of(cmd["Pos"]["Line"])
+        text = " ".join(words).replace(sh.EXPANSION, "$...")
+        found += [
+            (line, text) for index, name in calls if fetches_floating(name, words[index + 1 :])
+        ]
+        for inner, inner_language in scripts:
+            found += floating_fetches(inner, inner_language, lambda _line, at=line: at)
+    return found
+
 
 VERSION_INPUT_DEFAULT = re.compile(
     r"^  ([\w-]*version):\n(?:    .*\n)*?    default: ['\"]?(latest|stable)['\"]?$", re.MULTILINE
@@ -94,6 +141,15 @@ def check_action(action: Path, managers: list[re.Pattern[str]]) -> tuple[list[st
         for number, line in enumerate(text.splitlines(), 1)
         if FLOATING_LINE.search(line)
     ]
+
+    try:
+        for script, language, line_of in sh.step_scripts(text):
+            problems += [
+                f"{label}:{number}: floating tool reference: {command}"
+                for number, command in floating_fetches(script, language, line_of)
+            ]
+    except (yaml.YAMLError, sh.ParseError) as error:
+        problems.append(f"{label}: cannot read its scripts: {error}")
 
     problems += [
         f"{label}: input {match.group(1)} defaults to {match.group(2)}"

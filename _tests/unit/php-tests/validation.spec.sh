@@ -624,12 +624,12 @@ def find(name):
 
 def invocations(step):
     source = step.get("run") or step.get("with", {}).get("command") or ""
-    # `command -v composer` only looks Composer up; it runs no plugin.
-    return [
-        line.strip()
-        for line in source.splitlines()
-        if re.search(r"(?<![\w./-])composer\s", line) and not re.search(r"\bcommand -v composer\b", line)
-    ]
+    # `command -v composer` only looks Composer up and runs no plugin, and a quoted message runs
+    # nothing, so both are taken out of the line; a Composer command beside them still counts.
+    def code(line):
+        return re.sub(r"\bcommand -v composer\b|\"[^\"]*\"|'[^']*'", "", line)
+
+    return [line.strip() for line in source.splitlines() if re.search(r"(?<![\w./-])composer\s", code(line))]
 
 
 if fact == "composer-commands":

@@ -38,9 +38,9 @@ POSIX utilities need no check; those the repo uses include
 `bc`, `find`, `xargs`, `tr`, `sort`, `uniq`, `head`, `tail`, `cut`, `tee`, `wc`, `od`,
 `cksum`, `touch`, `chmod`, `chown`, `make`.
 The first list is not "tools like these" — it is the explicit set.
-`_tests/unit/posix-shell/find_unchecked_tools.py` reads the first list, parses each run:
-script with `shfmt`, and fails the tests when an action calls one of those tools before
-checking for it.
+`_tests/unit/posix-shell/find_unchecked_tools.py` reads the first list, parses each script a
+step runs (`run:`, or nick-fields/retry's `command:`) with `shfmt`, and fails the tests when an
+action calls one of those tools before checking for it.
 Add a new entry to this rule before introducing a new external tool.
 Replacing an existing tool with a different external tool counts as introducing —
 ask the user before swapping.
