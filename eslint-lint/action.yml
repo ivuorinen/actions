@@ -304,7 +304,7 @@ runs:
               case "$(yarn --version)" in
                 1.*)
                   if [ "$found_in" = node_modules ]; then
-                    command -v npx >/dev/null 2>&1 || { echo "::error::npx is required to run ESLint"; exit 1; }
+                    command -v npx >/dev/null 2>&1 || { echo "::error::running ESLint requires npx"; exit 1; }
                     set -- npx --no-install eslint
                   else
                     set -- yarn eslint
@@ -324,7 +324,7 @@ runs:
               set -- bunx --no-install eslint
               ;;
             "npm"|*)
-              command -v npx >/dev/null 2>&1 || { echo "::error::npx is required to run ESLint"; exit 1; }
+              command -v npx >/dev/null 2>&1 || { echo "::error::running ESLint requires npx"; exit 1; }
               set -- npx --no-install eslint
               ;;
           esac

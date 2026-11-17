@@ -364,7 +364,7 @@ runs:
               case "$(yarn --version)" in
                 1.*)
                   if [ "$found_in" = node_modules ]; then
-                    command -v npx >/dev/null 2>&1 || { echo "::error::npx is required to run Prettier"; exit 1; }
+                    command -v npx >/dev/null 2>&1 || { echo "::error::running Prettier requires npx"; exit 1; }
                     set -- npx --no-install prettier
                   else
                     set -- yarn prettier
@@ -384,7 +384,7 @@ runs:
               set -- bunx --no-install prettier
               ;;
             "npm"|*)
-              command -v npx >/dev/null 2>&1 || { echo "::error::npx is required to run Prettier"; exit 1; }
+              command -v npx >/dev/null 2>&1 || { echo "::error::running Prettier requires npx"; exit 1; }
               set -- npx --no-install prettier
               ;;
           esac

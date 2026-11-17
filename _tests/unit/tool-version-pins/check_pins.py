@@ -32,9 +32,10 @@ EXACT_VERSION = re.compile(r"^(qemu-)?v?\d+\.\d+\.\d+$")
 MAJOR_MINOR_DEPS = {"php/php-src"}
 MAJOR_MINOR = re.compile(r"^\d+\.\d+$")
 
-# Fetching a tool at whatever upstream published last.
+# Fetching a tool at whatever upstream published last. An npx followed by an option, a
+# redirection or an operator, as in `command -v npx >/dev/null`, names no package to fetch.
 FLOATING_LINE = re.compile(
-    r"@(latest|stable)\b|\bnpx\s+(--yes|-y)\b|\bnpx\s+[^-\s]|\bbun-version:\s*latest\b"
+    r"@(latest|stable)\b|\bnpx\s+(--yes|-y)\b|\bnpx\s+[^-\s<>|&;)]|\bbun-version:\s*latest\b"
 )
 
 VERSION_INPUT_DEFAULT = re.compile(

@@ -68,6 +68,14 @@ The status should be success
 The stdout should match pattern "checked * renovate comments"
 End
 
+# An npx followed by a redirection or an operator runs no package.
+It "accepts a command -v check for npx"
+write_action 'command -v npx >/dev/null 2>&1 || exit 1'
+When run python3 "${CHECK_PINS}" "${TREE}"
+The status should be success
+The stdout should match pattern "checked * renovate comments"
+End
+
 Describe "on a version input defaulting to a floating keyword"
 Parameters
 "latest"
