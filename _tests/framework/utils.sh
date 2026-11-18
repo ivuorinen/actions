@@ -403,7 +403,10 @@ PY
 # Print each problem with the npm lock an action ships for npm ci: a dependency in
 # package.json that is not an exact version or that the lock's root entry does not
 # hold, a package in the lock without an integrity hash or resolved from anywhere but
-# registry.npmjs.org, or one with an install script. Prints nothing for a complete lock.
+# registry.npmjs.org, one with an install script, or a dependency or optional
+# dependency of any package (such as Biome's platform binaries) that the lock does not
+# hold where Node would look for it, or holds at another version than an exact pin
+# names. Prints nothing for a complete lock.
 package_lock_problems() {
   python3 - "$1" <<'PY'
 import json
@@ -435,6 +438,28 @@ for path, entry in packages.items():
         print(f"not from registry.npmjs.org: {path}")
     if entry.get("hasInstallScript"):
         print(f"has an install script: {path}")
+
+
+def resolve(path, name):
+    """Return the lock entry Node finds for name from path: its own node_modules, then each
+    parent's, as require() walks up."""
+    base = path
+    while True:
+        entry = packages.get(f"{base}/node_modules/{name}" if base else f"node_modules/{name}")
+        if entry is not None or not base:
+            return entry
+        cut = base.rfind("/node_modules/")
+        base = base[:cut] if cut >= 0 else ""
+
+
+for path, entry in packages.items():
+    for kind in ("dependencies", "optionalDependencies"):
+        for name, spec in entry.get(kind, {}).items():
+            found = resolve(path, name)
+            if found is None:
+                print(f"{path or 'the root'} needs {name}, which the lock does not hold")
+            elif re.fullmatch(r"\d+\.\d+\.\d+", spec) and found.get("version") != spec:
+                print(f"{path or 'the root'} needs {name}@{spec}, the lock holds {found.get('version')}")
 PY
 }
 

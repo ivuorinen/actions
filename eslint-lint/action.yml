@@ -71,7 +71,7 @@ inputs:
 outputs:
   status:
     description: 'Overall status (success/failure)'
-    value: ${{ steps.check.outputs.status || steps.fix.outputs.status }}
+    value: ${{ steps.check.outputs.status || steps.fix.outputs.status || steps.ensure-eslint.outputs.status }}
   error-count:
     description: 'Number of errors found (check mode only)'
     value: ${{ steps.check.outputs.error_count }}
@@ -264,6 +264,7 @@ runs:
         # rather than ESLint linting with whatever configuration it finds instead.
         if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".eslintrc" ] && [ ! -f "$CONFIG_FILE" ]; then
           echo "::error::config-file $CONFIG_FILE does not exist"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         fi
 
@@ -386,7 +387,8 @@ runs:
             bin="$tools/node_modules/.bin/eslint"
           fi
           [ -x "$bin" ] || { echo "::error::eslint is not at $bin after its install"; exit 1; }
-          printf 'Running ESLint %s from %s\n' "$("$bin" --version)" "$bin"
+          version=$("$bin" --version) || { echo "::error::eslint at $bin does not run"; exit 1; }
+          printf 'Running ESLint %s from %s\n' "$version" "$bin"
         fi
         printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
 

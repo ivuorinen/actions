@@ -144,7 +144,9 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 - Node tools an action installs itself come from its own `package-lock.json`, with `npm ci --ignore-scripts` into a
   `mktemp -d` prefix under `RUNNER_TEMP`, and run by path. Edit the action's `package.json`, then run
   `npm install --package-lock-only --ignore-scripts` in its directory. Renovate bumps the `package.json` pins and their
-  lock entries; the rest of the lock moves only with them. A third-party action's own installs are its own
+  lock entries; the rest of the lock moves only with them. A third-party action's own installs are its own. A
+  version the caller names in an input such as `eslint-version` is not in the lock: it installs unlocked, with
+  `--ignore-scripts`, into a prefix of its own, and the input's description says so
 - Required error handling, POSIX-compliant scripts
 
 ### Action References

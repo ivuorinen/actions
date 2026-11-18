@@ -227,6 +227,19 @@ The stdout should include "Running ESLint v10.14.0 from $bin"
 Assert expect_output command ""
 Assert expect_output bin "$bin"
 The path "${RUNNER_TEMP}/eslint-lint-tools/package-lock.json" should be file
+Assert expect_argv npm ci --prefix "${RUNNER_TEMP}/eslint-lint-tools" --ignore-scripts --no-audit --no-fund
+End
+
+It "fails when the installed ESLint does not run"
+_dir="${RUNNER_TEMP}/eslint-lint-tools/node_modules/.bin"
+mkdir -p "$_dir"
+printf '%s\n' '#!/bin/sh' 'exit 1' >"$_dir/eslint"
+chmod +x "$_dir/eslint"
+mock_prefix eslint-lint-tools
+mock_command npm "$(locked_install_args)" ""
+When call run_step "${ACTION_DIR}" "ensure-eslint"
+The status should be failure
+The stdout should include "::error::eslint at $_dir/eslint does not run"
 End
 
 It "installs the lockfile the action ships"
@@ -326,7 +339,7 @@ BeforeEach 'before_run'
 It "runs the copy the action installed by its path"
 dir="${SHELLSPEC_TEST_TEMP_DIR}/runner temp/eslint-lint-tools/node_modules/.bin"
 mkdir -p "$dir"
-printf '%s\n' '#!/bin/sh' 'printf "%s\n" "$*" >"$(dirname "$0")/argv"' >"$dir/eslint"
+printf '%s\n' '#!/bin/sh' 'printf "%s\n" "$@" >"$(dirname "$0")/argv"' >"$dir/eslint"
 chmod +x "$dir/eslint"
 export HARNESS_STEP_OUTPUTS="{\"ensure-eslint\":{\"outputs\":{\"command\":\"\",\"bin\":\"$dir/eslint\",\"formatter\":\"\"}}}"
 export INPUT_CONFIG_FILE=".eslintrc" INPUT_CACHE="false" INPUT_MAX_WARNINGS="0"
@@ -334,7 +347,8 @@ export INPUT_REPORT_FORMAT="stylish" INPUT_FAIL_ON_ERROR="true"
 run_check() { run_step "${ACTION_DIR}" "check" >/dev/null && cat "$dir/argv"; }
 When call run_check
 The status should be success
-The output should equal ". --ext .js --max-warnings 0 --format stylish"
+# One argument per line, so an argument that swallowed the next would show.
+The output should equal "$(printf '%s\n' . --ext .js --max-warnings 0 --format stylish)"
 End
 
 It "passes a config file other than the default on"
@@ -353,6 +367,7 @@ export INPUT_CONFIG_FILE="missing.config.mjs"
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be failure
 The stdout should include "::error::config-file missing.config.mjs does not exist"
+Assert expect_output status failure
 End
 
 It "writes SARIF through the formatter the ensure step chose"

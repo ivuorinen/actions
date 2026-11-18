@@ -182,6 +182,19 @@ The status should be success
 The stdout should include "Running Prettier 3.9.10 from $bin"
 Assert expect_output command ""
 Assert expect_output bin "$bin"
+Assert expect_argv npm ci --prefix "${RUNNER_TEMP}/prettier-lint-tools" --ignore-scripts --no-audit --no-fund
+End
+
+It "fails when the installed Prettier does not run"
+_dir="${RUNNER_TEMP}/prettier-lint-tools/node_modules/.bin"
+mkdir -p "$_dir"
+printf '%s\n' '#!/bin/sh' 'exit 1' >"$_dir/prettier"
+chmod +x "$_dir/prettier"
+mock_prefix prettier-lint-tools
+mock_command npm "$(locked_install_args)" ""
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be failure
+The stdout should include "::error::prettier at $_dir/prettier does not run"
 End
 
 It "installs the lockfile the action ships"
@@ -278,13 +291,39 @@ End
 It "runs the copy the action installed by its path"
 dir="${SHELLSPEC_TEST_TEMP_DIR}/runner temp/prettier-lint-tools/node_modules/.bin"
 mkdir -p "$dir"
-printf '%s\n' '#!/bin/sh' 'printf "%s\n" "$*" >"$(dirname "$0")/argv"' >"$dir/prettier"
+printf '%s\n' '#!/bin/sh' 'printf "%s\n" "$@" >"$(dirname "$0")/argv"' >"$dir/prettier"
 chmod +x "$dir/prettier"
 export HARNESS_STEP_OUTPUTS="{\"ensure-prettier\":{\"outputs\":{\"command\":\"\",\"bin\":\"$dir/prettier\"}}}"
 run_check() { run_step "${ACTION_DIR}" "check" >/dev/null && cat "$dir/argv"; }
 When call run_check
 The status should be success
-The output should equal "--check -- **/*.js"
+# One argument per line, so an argument that swallowed the next would show.
+The line 1 of output should equal "--check"
+The line 2 of output should equal "--"
+The line 3 of output should equal "**/*.js"
+The lines of output should equal 3
+End
+
+# The summary line is matched whole: a file whose name starts like it is still a file.
+It "counts a file named like Prettier's summary line"
+export INPUT_FAIL_ON_ERROR="false"
+mock_command yarn "prettier --check -- **/*.js" "[warn] Code style issues.js
+[warn] Code style issues found in the above file. Run Prettier with --write to fix." 1
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "[warn] Code style issues.js"
+Assert expect_output unformatted_files 1
+End
+
+# Prettier exits 1 for a plugin it cannot load, as for a formatting difference, but prints an
+# [error] line; with fail-on-error off that still fails the step.
+It "fails when Prettier cannot load a plugin, even with fail-on-error off"
+export INPUT_FAIL_ON_ERROR="false"
+mock_command yarn "prettier --check -- **/*.js" "[error] Cannot find package 'prettier-plugin-missing'" 1
+When call run_step "${ACTION_DIR}" "check"
+The status should equal 1
+The stdout should include "::error::Prettier could not check the files (exit status 1; see its [error] lines above)"
+Assert expect_output status failure
 End
 
 # Prettier names each unformatted file on a [warn] line and adds a summary [warn] line.
@@ -305,7 +344,7 @@ export INPUT_FAIL_ON_ERROR="false"
 mock_command yarn "prettier --check -- **/*.js" "[error] No parser could be inferred" 2
 When call run_step "${ACTION_DIR}" "check"
 The status should equal 2
-The stdout should include "::error::Prettier failed with exit status 2"
+The stdout should include "::error::Prettier could not check the files (exit status 2; see its [error] lines above)"
 Assert expect_output status failure
 End
 
@@ -315,6 +354,7 @@ export INPUT_CONFIG_FILE="missing.prettierrc"
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be failure
 The stdout should include "::error::config-file missing.prettierrc does not exist"
+Assert expect_output status failure
 End
 
 It "fails before either mode when an ignore file other than the default does not exist"
@@ -322,6 +362,7 @@ export INPUT_IGNORE_FILE="missing.prettierignore"
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be failure
 The stdout should include "::error::ignore-file missing.prettierignore does not exist"
+Assert expect_output status failure
 End
 
 Parameters

@@ -102,20 +102,28 @@ runs:
         # job left there, such as an .npmrc npm reads from the prefix, takes part. Check and fix
         # run the binary by its path, so no other Biome on PATH can stand in for it.
         # The same locked install as eslint-lint's and prettier-lint's: each action is self-contained.
+        # The binary is an optional dependency, so --include=optional keeps a caller's
+        # NPM_CONFIG_OMIT=optional from leaving it out. The launcher runs whatever BIOME_BINARY
+        # names instead of the locked binary, so it is cleared here and in check and fix.
+        unset BIOME_BINARY
         command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Biome"; exit 1; }
         command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the install prefix"; exit 1; }
         prefix=$(mktemp -d "$RUNNER_TEMP/biome-lint-tools.XXXXXX")
         cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$prefix/"
+        bin="$prefix/node_modules/.bin/biome"
 
+        # An install counts only once its Biome runs: npm can leave the launcher without the
+        # platform binary it starts.
         attempt=1
         while [ "$attempt" -le "$MAX_RETRIES" ]; do
           echo "Attempt $attempt of $MAX_RETRIES"
-          if npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund; then
-            bin="$prefix/node_modules/.bin/biome"
-            [ -x "$bin" ] || { echo "::error::biome is not at $bin after its install"; exit 1; }
-            printf 'Running Biome %s from %s\n' "$("$bin" --version)" "$bin"
-            printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
-            exit 0
+          if npm ci --prefix "$prefix" --include=optional --ignore-scripts --no-audit --no-fund; then
+            if [ -x "$bin" ] && version=$("$bin" --version); then
+              printf 'Running Biome %s from %s\n' "$version" "$bin"
+              printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "npm ci left no Biome that runs at $bin"
           fi
 
           if [ "$attempt" -lt "$MAX_RETRIES" ]; then
@@ -140,7 +148,13 @@ runs:
 
         echo "Running Biome check mode..."
 
-        # Run the Biome the install step put in its prefix, by its path, with the SARIF reporter
+        # A report already in the checkout is not this run's result, so it goes before Biome
+        # runs; the upload takes only a report this step names in sarif_file.
+        rm -f biome-report.sarif
+
+        # Run the Biome the install step put in its prefix, by its path, with the SARIF reporter.
+        # BIOME_BINARY would make the launcher run another binary.
+        unset BIOME_BINARY
         [ -n "$BIOME_BIN" ] || {
           echo "::error::the install step named no Biome to run"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
@@ -148,6 +162,7 @@ runs:
         }
         biome_exit_code=0
         "$BIOME_BIN" check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
+        printf 'sarif_file=%s\n' "biome-report.sarif" >> "$GITHUB_OUTPUT"
 
         # Handle failures gracefully
         if [ "$biome_exit_code" -ne 0 ] && [ ! -s biome-report.sarif ]; then
@@ -188,7 +203,7 @@ runs:
         fi
 
     - name: Upload SARIF Report
-      if: always() && inputs.mode == 'check' && hashFiles('biome-report.sarif') != ''
+      if: always() && inputs.mode == 'check' && steps.check.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
         sarif_file: biome-report.sarif
@@ -210,7 +225,9 @@ runs:
           exit 1
         }
 
-        # Run the Biome the install step put in its prefix, by its path, and capture its exit code
+        # Run the Biome the install step put in its prefix, by its path, and capture its exit code.
+        # BIOME_BINARY would make the launcher run another binary.
+        unset BIOME_BINARY
         [ -n "$BIOME_BIN" ] || {
           echo "::error::the install step named no Biome to run"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"

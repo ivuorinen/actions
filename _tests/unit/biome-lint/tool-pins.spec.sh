@@ -27,24 +27,37 @@ before_install() {
 }
 BeforeEach 'before_install'
 
+# The stand-in reports BIOME_BINARY too, which the step must clear: the real launcher would run
+# whatever binary it names.
 installed_biome() {
   _bin="${RUNNER_TEMP}/biome-lint-tools/node_modules/.bin/biome"
-  printf '%s\n' '#!/bin/sh' 'echo "Version: 2.6.6"' >"$_bin"
+  printf '%s\n' '#!/bin/sh' 'echo "Version: 2.6.6 ${BIOME_BINARY:-(no BIOME_BINARY)}"' >"$_bin"
   chmod +x "$_bin"
   printf '%s' "$_bin"
 }
 
 locked_install_args() {
-  printf 'ci --prefix %s --ignore-scripts --no-audit --no-fund' "${RUNNER_TEMP}/biome-lint-tools"
+  printf 'ci --prefix %s --include=optional --ignore-scripts --no-audit --no-fund' "${RUNNER_TEMP}/biome-lint-tools"
 }
 
+# mock_command matches a space-joined argv; expect_argv checks each argument stands alone.
 It "installs the action's lockfile with npm ci and runs that Biome by path"
 bin=$(installed_biome)
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "install-biome"
 The status should be success
-The stdout should include "Running Biome Version: 2.6.6 from $bin"
+The stdout should include "Running Biome Version: 2.6.6 (no BIOME_BINARY) from $bin"
 Assert expect_output bin "$bin"
+Assert expect_argv npm ci --prefix "${RUNNER_TEMP}/biome-lint-tools" --include=optional --ignore-scripts --no-audit --no-fund
+End
+
+It "clears BIOME_BINARY, which would make the launcher run another binary"
+bin=$(installed_biome)
+mock_command npm "$(locked_install_args)" ""
+export BIOME_BINARY="/elsewhere/biome"
+When call run_step "${ACTION_DIR}" "install-biome"
+The status should be success
+The stdout should include "Version: 2.6.6 (no BIOME_BINARY)"
 End
 
 It "installs the lockfile the action ships"
@@ -75,7 +88,21 @@ It "fails when npm ci leaves no biome binary"
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "install-biome"
 The status should be failure
-The stdout should include "::error::biome is not at ${RUNNER_TEMP}/biome-lint-tools/node_modules/.bin/biome after its install"
+The stdout should include "npm ci left no Biome that runs at ${RUNNER_TEMP}/biome-lint-tools/node_modules/.bin/biome"
+The stdout should include "::error::Failed to install Biome after 1 attempts"
+End
+
+# npm can leave the launcher without the platform binary it starts; that is no install.
+It "names no Biome whose version probe fails"
+_bin="${RUNNER_TEMP}/biome-lint-tools/node_modules/.bin/biome"
+printf '%s\n' '#!/bin/sh' 'echo "no platform binary" >&2' 'exit 1' >"$_bin"
+chmod +x "$_bin"
+mock_command npm "$(locked_install_args)" ""
+When call run_step "${ACTION_DIR}" "install-biome"
+The status should be failure
+The stderr should include "no platform binary"
+The stdout should include "::error::Failed to install Biome after 1 attempts"
+The contents of file "$GITHUB_OUTPUT" should not include "bin="
 End
 
 It "fails with an error when npm cannot install it"
@@ -87,31 +114,60 @@ End
 End
 
 Describe "running the installed Biome"
-# A copy the action installed runs by its path, kept whole however many spaces it holds.
+# A copy the action installed runs by its path, kept whole however many spaces it holds. The
+# stand-in records each argument on its own line, and whether BIOME_BINARY reached it.
+before_run() {
+  dir="${SHELLSPEC_TEST_TEMP_DIR}/runner temp/biome-lint-tools/node_modules/.bin"
+  mkdir -p "$dir"
+  printf '%s\n' '#!/bin/sh' \
+    '{ printf "%s\n" "$@"; echo "${BIOME_BINARY:-(no BIOME_BINARY)}"; } >"$(dirname "$0")/argv"' \
+    'printf "%s\n" "{\"runs\":[]}"' >"$dir/biome"
+  chmod +x "$dir/biome"
+  export HARNESS_STEP_OUTPUTS="{\"install-biome\":{\"outputs\":{\"bin\":\"$dir/biome\"}}}"
+  export INPUT_FAIL_ON_ERROR="true" BIOME_BINARY="/elsewhere/biome"
+}
+BeforeEach 'before_run'
+
 It "checks with the Biome the install step named"
-dir="${SHELLSPEC_TEST_TEMP_DIR}/runner temp/biome-lint-tools/node_modules/.bin"
-mkdir -p "$dir"
-printf '%s\n' '#!/bin/sh' 'printf "%s\n" "$*" >"$(dirname "$0")/argv"' 'printf "%s\n" "{\"runs\":[]}"' >"$dir/biome"
-chmod +x "$dir/biome"
-export HARNESS_STEP_OUTPUTS="{\"install-biome\":{\"outputs\":{\"bin\":\"$dir/biome\"}}}"
-export INPUT_FAIL_ON_ERROR="true"
 run_check() { run_step "${ACTION_DIR}" "check" >/dev/null && cat "$dir/argv"; }
 When call run_check
 The status should be success
-The output should equal "check . --reporter=sarif"
+The line 1 of output should equal "check"
+The line 2 of output should equal "."
+The line 3 of output should equal "--reporter=sarif"
+The line 4 of output should equal "(no BIOME_BINARY)"
 End
 
 It "fixes with the Biome the install step named"
-dir="${SHELLSPEC_TEST_TEMP_DIR}/runner temp/biome-lint-tools/node_modules/.bin"
-mkdir -p "$dir"
-printf '%s\n' '#!/bin/sh' 'printf "%s\n" "$*" >"$(dirname "$0")/argv"' >"$dir/biome"
-chmod +x "$dir/biome"
-export HARNESS_STEP_OUTPUTS="{\"install-biome\":{\"outputs\":{\"bin\":\"$dir/biome\"}}}"
 mock_command git "diff --name-only" ""
 run_fix() { run_step "${ACTION_DIR}" "fix" >/dev/null && cat "$dir/argv"; }
 When call run_fix
 The status should be success
-The output should equal "check --write ."
+The line 1 of output should equal "check"
+The line 2 of output should equal "--write"
+The line 3 of output should equal "."
+The line 4 of output should equal "(no BIOME_BINARY)"
+End
+
+# A report already in the checkout is not this run's result; the upload takes only the report
+# the check step names in sarif_file.
+It "replaces a report left in the checkout and names the one it wrote"
+printf '%s\n' "stale" >biome-report.sarif
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "Biome check completed"
+The contents of file "biome-report.sarif" should equal '{"runs":[]}'
+Assert expect_output sarif_file "biome-report.sarif"
+End
+
+It "removes a report left in the checkout when no Biome runs"
+printf '%s\n' "stale" >biome-report.sarif
+export HARNESS_STEP_OUTPUTS='{"install-biome":{"outputs":{"bin":""}}}'
+When call run_step "${ACTION_DIR}" "check"
+The status should be failure
+The stdout should include "::error::the install step named no Biome to run"
+The path "biome-report.sarif" should not be exist
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
 End
 
 Parameters
