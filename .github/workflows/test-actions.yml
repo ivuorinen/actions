@@ -85,16 +85,13 @@ jobs:
             if [ -n "$ACTION_FILTER" ]; then
               make test-action ACTION="$ACTION_FILTER"
             else
-              make test-unit
+              # One run writes the SARIF report too, failures included: a second run only for
+              # the report doubled the job and ran it past its timeout.
+              ./_tests/run-tests.sh --type unit --format sarif
             fi
           else
             echo "Skipping unit tests (test-type: $TEST_TYPE)"
           fi
-
-      - name: Generate SARIF report
-        shell: sh
-        run: ./_tests/run-tests.sh --type unit --format sarif
-        if: always()
 
       - name: Upload SARIF file
         uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
