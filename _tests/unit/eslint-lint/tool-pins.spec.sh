@@ -240,6 +240,8 @@ mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be failure
 The stdout should include "::error::eslint at $_dir/eslint does not run"
+Assert expect_output status failure
+The contents of file "$GITHUB_OUTPUT" should not include "bin="
 End
 
 It "installs the lockfile the action ships"

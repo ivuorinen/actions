@@ -56,6 +56,25 @@ The stdout should include "the lock's root dependencies differ from package.json
 The stdout should include "the lock does not install eslint@1.0.0"
 End
 
+# The SARIF formatter needs ESLint ^8.9.0; without its nested copy, Node would hand it the
+# root ESLint 10, which npm ls reports as outside that range.
+It "reports a locked version outside the range the package that needs it declares"
+mkdir -p nested
+cp "${ACTION_DIR}/package.json" nested/package.json
+python3 - "${ACTION_DIR}/package-lock.json" nested/package-lock.json <<'PY'
+import json
+import sys
+
+lock = json.load(open(sys.argv[1], encoding="utf-8"))
+nested = "node_modules/@microsoft/eslint-formatter-sarif/node_modules/eslint"
+for path in [p for p in lock["packages"] if p == nested or p.startswith(nested + "/")]:
+    del lock["packages"][path]
+json.dump(lock, open(sys.argv[2], "w", encoding="utf-8"), indent=2)
+PY
+When call package_lock_problems nested
+The stdout should include 'invalid: "^8.9.0" from node_modules/@microsoft/eslint-formatter-sarif'
+End
+
 Describe "Install Dependencies"
 before_install() {
   export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"npm"}}}'

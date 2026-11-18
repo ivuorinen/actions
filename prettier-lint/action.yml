@@ -324,16 +324,21 @@ runs:
       run: |
         set -eu
 
+        # However this step fails, it writes status=failure, which the action's status output
+        # falls back to when neither check nor fix mode runs after it.
+        failure_status() {
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+        }
+        trap '[ "$?" -eq 0 ] || failure_status' EXIT
+
         # A config or ignore file other than the default must be there, for check and fix mode
         # alike, rather than Prettier formatting by whatever it finds instead.
         if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".prettierrc" ] && [ ! -f "$CONFIG_FILE" ]; then
           echo "::error::config-file $CONFIG_FILE does not exist"
-          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         fi
         if [ -n "$IGNORE_FILE" ] && [ "$IGNORE_FILE" != ".prettierignore" ] && [ ! -f "$IGNORE_FILE" ]; then
           echo "::error::ignore-file $IGNORE_FILE does not exist"
-          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         fi
 
@@ -513,14 +518,17 @@ runs:
         }
         output=$(mktemp "$RUNNER_TEMP/prettier-lint-output.XXXXXX")
         tool_error=
-        if "$@" -- "$FILE_PATTERN" > "$output" 2>&1; then
+        # GitHub Actions sets CI, which makes Prettier color its [warn] and [error] tags;
+        # NO_COLOR keeps them plain for the parsing below.
+        if NO_COLOR=1 "$@" -- "$FILE_PATTERN" > "$output" 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
           prettier_exit_code=$?
-          # The summary line is matched whole, so a file named "Code style issues.js" counts.
+          # The summary line, Prettier 3's or Prettier 2's, is matched whole, so a file whose name
+          # starts like it still counts.
           unformatted_files=$(grep '^\[warn\] ' "$output" |
-            grep -c -v -E '^\[warn\] Code style issues found in (the above file|[0-9]+ files)\.' || true)
+            grep -c -v -E '^\[warn\] Code style issues (found|fixed) in (the above file|[0-9]+ files)\.( Run Prettier with --write to fix\.| Forgot to run Prettier\?)?$' || true)
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           # Status 2 is Prettier failing to check. So is status 1 with an [error] line, as when it
           # cannot load a plugin or its config, where a formatting difference prints only [warn].

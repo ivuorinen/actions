@@ -403,10 +403,10 @@ PY
 # Print each problem with the npm lock an action ships for npm ci: a dependency in
 # package.json that is not an exact version or that the lock's root entry does not
 # hold, a package in the lock without an integrity hash or resolved from anywhere but
-# registry.npmjs.org, one with an install script, or a dependency or optional
-# dependency of any package (such as Biome's platform binaries) that the lock does not
-# hold where Node would look for it, or holds at another version than an exact pin
-# names. Prints nothing for a complete lock.
+# registry.npmjs.org, one with an install script, a dependency or optional dependency
+# of any package (such as Biome's platform binaries) that the lock does not hold where
+# Node would look for it, or, by npm ls, a locked version outside the range the package
+# that needs it declares. Prints nothing for a complete lock.
 package_lock_problems() {
   python3 - "$1" <<'PY'
 import json
@@ -452,15 +452,19 @@ def resolve(path, name):
         base = base[:cut] if cut >= 0 else ""
 
 
+# npm ls below checks versions against their ranges, but takes a missing optional dependency
+# for one this platform skips, so presence is checked here.
 for path, entry in packages.items():
     for kind in ("dependencies", "optionalDependencies"):
-        for name, spec in entry.get(kind, {}).items():
-            found = resolve(path, name)
-            if found is None:
+        for name in entry.get(kind, {}):
+            if resolve(path, name) is None:
                 print(f"{path or 'the root'} needs {name}, which the lock does not hold")
-            elif re.fullmatch(r"\d+\.\d+\.\d+", spec) and found.get("version") != spec:
-                print(f"{path or 'the root'} needs {name}@{spec}, the lock holds {found.get('version')}")
 PY
+  # npm's own resolver, from the lock alone: a locked version outside the range the package
+  # that needs it declares is "invalid".
+  if ! _npm_ls=$(npm ls --prefix "$1" --package-lock-only --all 2>&1); then
+    printf '%s\n' "$_npm_ls" | grep -E 'invalid|missing|ERR' | sed -E 's/^/npm ls: /'
+  fi
 }
 
 # Print the setup-dotnet cache line of an action.yml, and fail unless it turns the

@@ -195,6 +195,8 @@ mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-prettier"
 The status should be failure
 The stdout should include "::error::prettier at $_dir/prettier does not run"
+Assert expect_output status failure
+The contents of file "$GITHUB_OUTPUT" should not include "bin="
 End
 
 It "installs the lockfile the action ships"
@@ -307,12 +309,58 @@ End
 # The summary line is matched whole: a file whose name starts like it is still a file.
 It "counts a file named like Prettier's summary line"
 export INPUT_FAIL_ON_ERROR="false"
-mock_command yarn "prettier --check -- **/*.js" "[warn] Code style issues.js
+mock_command yarn "prettier --check -- **/*.js" "[warn] Code style issues found in 2 files.js
 [warn] Code style issues found in the above file. Run Prettier with --write to fix." 1
 When call run_step "${ACTION_DIR}" "check"
 The status should be success
-The stdout should include "[warn] Code style issues.js"
+The stdout should include "[warn] Code style issues found in 2 files.js"
 Assert expect_output unformatted_files 1
+End
+
+It "skips Prettier 2's summary line too"
+export INPUT_FAIL_ON_ERROR="false"
+mock_command yarn "prettier --check -- **/*.js" "[warn] a.js
+[warn] b.js
+[warn] Code style issues found in 2 files. Forgot to run Prettier?" 1
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "Forgot to run Prettier?"
+Assert expect_output unformatted_files 2
+End
+
+# GitHub Actions sets CI, which makes Prettier color its tags unless NO_COLOR is set. The
+# stand-in colors them the same way, so a step that left color on would count nothing.
+Describe "under GitHub Actions"
+before_color() {
+  dir="${SHELLSPEC_TEST_TEMP_DIR}/colored/node_modules/.bin"
+  mkdir -p "$dir"
+  export HARNESS_STEP_OUTPUTS="{\"ensure-prettier\":{\"outputs\":{\"command\":\"\",\"bin\":\"$dir/prettier\"}}}"
+  export CI="true" GITHUB_ACTIONS="true" INPUT_FAIL_ON_ERROR="false"
+  unset NO_COLOR
+}
+BeforeEach 'before_color'
+
+colored_prettier() {
+  printf '%s\n' '#!/bin/sh' \
+    'if [ -n "${NO_COLOR:-}" ]; then o="[" c="]"; else o="[$(printf "\033[31m")" c="$(printf "\033[39m")]"; fi' \
+    "printf '%s%s%s %s\n' \"\$o\" \"$1\" \"\$c\" \"$2\"" "exit 1" >"$dir/prettier"
+  chmod +x "$dir/prettier"
+}
+
+It "still fails when Prettier cannot load a plugin"
+colored_prettier error "Cannot find package 'prettier-plugin-missing'"
+When call run_step "${ACTION_DIR}" "check"
+The status should equal 1
+The stdout should include "::error::Prettier could not check the files"
+End
+
+It "still counts an unformatted file"
+colored_prettier warn "a.js"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "[warn] a.js"
+Assert expect_output unformatted_files 1
+End
 End
 
 # Prettier exits 1 for a plugin it cannot load, as for a formatting difference, but prints an

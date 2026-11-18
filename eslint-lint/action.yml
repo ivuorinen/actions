@@ -260,11 +260,17 @@ runs:
       run: |
         set -eu
 
+        # However this step fails, it writes status=failure, which the action's status output
+        # falls back to when neither check nor fix mode runs after it.
+        failure_status() {
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+        }
+        trap '[ "$?" -eq 0 ] || failure_status' EXIT
+
         # A config file other than the default must be there, for check and fix mode alike,
         # rather than ESLint linting with whatever configuration it finds instead.
         if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".eslintrc" ] && [ ! -f "$CONFIG_FILE" ]; then
           echo "::error::config-file $CONFIG_FILE does not exist"
-          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         fi
 

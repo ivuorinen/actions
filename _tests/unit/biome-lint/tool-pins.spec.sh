@@ -92,6 +92,23 @@ The stdout should include "npm ci left no Biome that runs at ${RUNNER_TEMP}/biom
 The stdout should include "::error::Failed to install Biome after 1 attempts"
 End
 
+# A probe that fails sends the step to the next attempt, which can still succeed.
+It "retries an install whose Biome does not run yet"
+export INPUT_MAX_RETRIES="2"
+_bin="${RUNNER_TEMP}/biome-lint-tools/node_modules/.bin/biome"
+printf '%s\n' '#!/bin/sh' \
+  'marker="$(dirname "$0")/probed"' \
+  'if [ -f "$marker" ]; then echo "Version: 2.6.6"; else : >"$marker"; exit 1; fi' >"$_bin"
+chmod +x "$_bin"
+mock_command npm "$(locked_install_args)" ""
+mock_command sleep "5" ""
+When call run_step "${ACTION_DIR}" "install-biome"
+The status should be success
+The stdout should include "Attempt 2 of 2"
+The stdout should include "Running Biome Version: 2.6.6 from $_bin"
+Assert expect_output bin "$_bin"
+End
+
 # npm can leave the launcher without the platform binary it starts; that is no install.
 It "names no Biome whose version probe fails"
 _bin="${RUNNER_TEMP}/biome-lint-tools/node_modules/.bin/biome"
@@ -160,6 +177,32 @@ The contents of file "biome-report.sarif" should equal '{"runs":[]}'
 Assert expect_output sarif_file "biome-report.sarif"
 End
 
+# Biome exits 1 both for findings and for a configuration it rejects; only findings come
+# with a SARIF report.
+It "fails when Biome writes no report, even with fail-on-error off"
+printf '%s\n' '#!/bin/sh' 'echo "biome.json: String values must be double quoted." >&2' 'exit 1' >"$dir/biome"
+export INPUT_FAIL_ON_ERROR="false"
+When call run_step "${ACTION_DIR}" "check"
+The status should equal 1
+The stderr should include "String values must be double quoted"
+The stdout should include "::error::Biome did not scan the code (exit status 1); see its diagnostics above"
+The path "biome-report.sarif" should not be exist
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+Assert expect_output status failure
+End
+
+It "leaves findings to fail-on-error and uploads their report"
+printf '%s\n' '#!/bin/sh' \
+  'printf "%s\n" "{\"runs\":[{\"results\":[{\"level\":\"error\"}]}]}"' 'exit 1' >"$dir/biome"
+export INPUT_FAIL_ON_ERROR="false"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "::error::Biome check found 1 issues"
+Assert expect_output sarif_file "biome-report.sarif"
+Assert expect_output status failure
+Assert expect_output errors 1
+End
+
 It "removes a report left in the checkout when no Biome runs"
 printf '%s\n' "stale" >biome-report.sarif
 export HARNESS_STEP_OUTPUTS='{"install-biome":{"outputs":{"bin":""}}}'
@@ -190,6 +233,23 @@ It "ships a complete npm lock for its Biome"
 When call package_lock_problems "${ACTION_DIR}"
 The status should be success
 The stdout should equal ""
+End
+
+# npm ls takes a missing optional dependency for one this platform skips, so the check looks
+# for every platform binary the launcher names.
+It "reports a lock without one of Biome's platform binaries"
+mkdir -p partial
+cp "${ACTION_DIR}/package.json" partial/package.json
+python3 - "${ACTION_DIR}/package-lock.json" partial/package-lock.json <<'PY'
+import json
+import sys
+
+lock = json.load(open(sys.argv[1], encoding="utf-8"))
+del lock["packages"]["node_modules/@biomejs/cli-linux-x64"]
+json.dump(lock, open(sys.argv[2], "w", encoding="utf-8"), indent=2)
+PY
+When call package_lock_problems partial
+The stdout should include "node_modules/@biomejs/biome needs @biomejs/cli-linux-x64, which the lock does not hold"
 End
 
 # pnpm and Yarn are not involved: npm installs the action's own lockfile, whatever the
