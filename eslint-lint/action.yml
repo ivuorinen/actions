@@ -206,6 +206,7 @@ runs:
           ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-
 
     - name: Install Dependencies
+      id: install-deps
       if: steps.cache.outputs.cache-hit != 'true'
       shell: sh
       env:
@@ -233,6 +234,12 @@ runs:
             bun install --frozen-lockfile
             ;;
           "npm"|*)
+            # A repository with no package.json has nothing to install, and npm ci would fail
+            # for it; ESLint then comes from this action's lockfile.
+            if [ ! -f package.json ]; then
+              echo "No package.json: no dependencies to install"
+              exit 0
+            fi
             command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
             npm ci
             ;;
@@ -334,13 +341,15 @@ runs:
         # What the repository lacks comes from this action's package-lock.json: npm ci installs
         # each package of the tree at its locked version and integrity hash, with no lifecycle
         # scripts. It goes to a prefix of its own, outside the checkout, and runs by path, so no
-        # other copy on PATH can stand in for it.
-        tools="$RUNNER_TEMP/eslint-lint-tools"
+        # other copy on PATH can stand in for it. Each prefix is a new directory: a fixed path in
+        # RUNNER_TEMP could hold what an earlier job on a reused runner left there, such as an
+        # .npmrc, which npm reads from the prefix.
         locked=
         install_locked() {
           if [ -z "$locked" ]; then
             command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install ESLint"; exit 1; }
-            mkdir -p "$tools"
+            command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the install prefix"; exit 1; }
+            tools=$(mktemp -d "$RUNNER_TEMP/eslint-lint-tools.XXXXXX")
             cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$tools/"
             npm ci --prefix "$tools" --ignore-scripts --no-audit --no-fund
             locked=yes
@@ -349,11 +358,15 @@ runs:
 
         bin=
         if [ -z "$*" ]; then
+          # The validator reads a version of only spaces as left out, and so does this step;
+          # npm would read it as any version.
+          case "$REQUESTED_VERSION" in *[![:space:]]*) ;; *) REQUESTED_VERSION= ;; esac
           if [ -n "$REQUESTED_VERSION" ]; then
             # A version the caller names is not in the lockfile: it comes from the registry
             # without lifecycle scripts, and its dependencies resolve to whatever their ranges allow.
-            requested="$RUNNER_TEMP/eslint-lint-requested"
             command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install ESLint"; exit 1; }
+            command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the install prefix"; exit 1; }
+            requested=$(mktemp -d "$RUNNER_TEMP/eslint-lint-requested.XXXXXX")
             npm install --prefix "$requested" --no-package-lock --no-audit --no-fund --ignore-scripts \
               "eslint@$REQUESTED_VERSION"
             bin="$requested/node_modules/.bin/eslint"

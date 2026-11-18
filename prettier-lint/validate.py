@@ -47,6 +47,14 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
+def _npm_tarball(item: str) -> bool:
+    """Whether npm reads a package spec as a tarball on disk rather than a registry package.
+
+    It does for one ending in .tgz, .tar.gz or .tar (npm-package-arg's isFilespec).
+    """
+    return re.search(r"\.(?:tgz|tar\.gz|tar)$", item, re.IGNORECASE) is not None
+
+
 def _strip_v(version: str) -> str:
     """Return version without one leading ``v`` or ``V``."""
     return version[1:] if version[:1] in ("v", "V") else version
@@ -208,7 +216,10 @@ def check_path_list(value: str) -> str | None:
 
 
 def check_plugin_list(value: str) -> str | None:
-    """Comma-separated plugin specs: name, @scope/name, optional @version (e.g. pkg@^9.3.1)."""
+    """Comma-separated plugin specs: name, @scope/name, optional @version (e.g. pkg@^9.3.1).
+
+    A spec npm would read as a tarball on disk (``x.tgz``, ``x@1.tgz``) is not a registry plugin.
+    """
     if _skip(value):
         return None
     for item in _split_items(value):
@@ -216,6 +227,8 @@ def check_plugin_list(value: str) -> str | None:
             return "plugin list must not contain empty entries"
         if not re.fullmatch(r"(@[a-zA-Z0-9][\w.-]*/)?[a-zA-Z0-9][\w.-]*(@[\w.^~*+-]+)?", item):
             return f"invalid plugin spec: {item}"
+        if _npm_tarball(item):
+            return f"plugin spec names a tarball file, not a registry package: {item}"
     return None
 
 

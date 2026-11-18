@@ -28,6 +28,14 @@ def _skip(value: str) -> bool:
     return value.strip(" \t\n\v\f\r") == ""
 
 
+def _npm_tarball(item: str) -> bool:
+    """Whether npm reads a package spec as a tarball on disk rather than a registry package.
+
+    It does for one ending in .tgz, .tar.gz or .tar (npm-package-arg's isFilespec).
+    """
+    return re.search(r"\.(?:tgz|tar\.gz|tar)$", item, re.IGNORECASE) is not None
+
+
 def check_github_token(value: str) -> str | None:
     """GitHub/registry token in a known token format.
 
@@ -74,7 +82,8 @@ def check_npm_spec_list(value: str) -> str | None:
 
     This is how cycjimmy/semantic-release-action splits ``extra_plugins``. Its v6 hands the list
     to a shell, so the pattern is ASCII-only and leaves out ``<`` and ``>``. It stays separate
-    from ``plugin_list`` because that one's accepted values must not change for prettier-lint.
+    from ``plugin_list``, whose pattern prettier-lint relies on. A spec npm would read as a
+    tarball on disk is refused, as there.
     """
     if _skip(value):
         return None
@@ -85,6 +94,8 @@ def check_npm_spec_list(value: str) -> str | None:
             item,
         ):
             return f"invalid npm package spec: {item}"
+        if _npm_tarball(item):
+            return f"npm package spec names a tarball file, not a registry package: {item}"
     return None
 
 

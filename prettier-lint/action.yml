@@ -1,7 +1,6 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
 # permissions:
 #   - contents: write         # Required for fix mode to push changes
-#   - security-events: write  # Required for check mode to upload SARIF
 ---
 name: Prettier Lint
 description: 'Run Prettier in check or fix mode with advanced configuration and reporting'
@@ -24,7 +23,8 @@ inputs:
     description: >-
       Prettier version to run when the repository has no copy of its own. Empty: the version in this action's
       package-lock.json, installed with its whole dependency tree locked. A version or "latest": installed from the
-      registry without lifecycle scripts, with its dependencies unlocked.
+      registry without lifecycle scripts, with its dependencies unlocked. When plugins installs Prettier as their peer
+      dependency, the repository has a copy, unlocked, and that copy runs.
     required: false
     default: ''
   config-file:
@@ -54,7 +54,11 @@ inputs:
     required: false
     default: '3'
   plugins:
-    description: 'Comma-separated list of Prettier plugins to install (name or name@version; separate entries with commas only). Installed without running lifecycle scripts and without changing package.json or the lockfile.'
+    description: >-
+      Comma-separated list of Prettier plugins to install (name or name@version; separate entries with commas only).
+      Installed without running lifecycle scripts and without changing package.json or the lockfile. The package
+      manager may also install Prettier itself as the plugins' peer dependency, at a version no lockfile holds, and
+      the action then runs that copy.
     required: false
     default: ''
   token:
@@ -198,6 +202,7 @@ runs:
           ${{ runner.os }}-prettier-lint-${{ inputs.mode }}-
 
     - name: Install Dependencies
+      id: install-deps
       if: steps.cache.outputs.cache-hit != 'true'
       shell: sh
       env:
@@ -225,6 +230,12 @@ runs:
             bun install --frozen-lockfile
             ;;
           "npm"|*)
+            # A repository with no package.json has nothing to install, and npm ci would fail
+            # for it; Prettier then comes from this action's lockfile.
+            if [ ! -f package.json ]; then
+              echo "No package.json: no dependencies to install"
+              exit 0
+            fi
             command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
             npm ci
             ;;
@@ -397,17 +408,22 @@ runs:
         # lifecycle scripts. It goes to a prefix of its own, outside the checkout, and runs by
         # path, so no other copy on PATH can stand in for it. A version the caller names is not
         # in the lockfile: it comes from the registry without lifecycle scripts, and its
-        # dependencies resolve to whatever their ranges allow.
+        # dependencies resolve to whatever their ranges allow. Each prefix is a new directory: a
+        # fixed path in RUNNER_TEMP could hold what an earlier job on a reused runner left there,
+        # such as an .npmrc, which npm reads from the prefix.
         bin=
         if [ -z "$*" ]; then
           command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Prettier"; exit 1; }
+          command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the install prefix"; exit 1; }
+          # The validator reads a version of only spaces as left out, and so does this step;
+          # npm would read it as any version.
+          case "$REQUESTED_VERSION" in *[![:space:]]*) ;; *) REQUESTED_VERSION= ;; esac
           if [ -n "$REQUESTED_VERSION" ]; then
-            prefix="$RUNNER_TEMP/prettier-lint-requested"
+            prefix=$(mktemp -d "$RUNNER_TEMP/prettier-lint-requested.XXXXXX")
             npm install --prefix "$prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
               "prettier@$REQUESTED_VERSION"
           else
-            prefix="$RUNNER_TEMP/prettier-lint-tools"
-            mkdir -p "$prefix"
+            prefix=$(mktemp -d "$RUNNER_TEMP/prettier-lint-tools.XXXXXX")
             cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$prefix/"
             npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund
           fi
@@ -477,10 +493,16 @@ runs:
         files_checked=0
         unformatted_files=0
 
-        # The output goes outside the checkout, so no later step finds it there, and is shown in
-        # the log. Prettier names each unformatted file on a [warn] line and adds one summary
-        # [warn] line, which is not a file.
-        output="$RUNNER_TEMP/prettier-output.txt"
+        # The output goes to a new file outside the checkout, so no later step finds it there and
+        # nothing left at a fixed path can take the write, and is shown in the log. Prettier names
+        # each unformatted file on a [warn] line and adds one summary [warn] line, which is not a
+        # file.
+        command -v mktemp >/dev/null 2>&1 || {
+          echo "::error::mktemp is required to hold Prettier's output"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
+        output=$(mktemp "$RUNNER_TEMP/prettier-output.XXXXXX")
         if "$@" -- "$FILE_PATTERN" > "$output" 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"

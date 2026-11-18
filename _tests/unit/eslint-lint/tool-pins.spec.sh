@@ -70,6 +70,13 @@ locked_install_args() {
   printf 'ci --prefix %s --ignore-scripts --no-audit --no-fund' "${RUNNER_TEMP}/eslint-lint-tools"
 }
 
+# mktemp names each prefix at random; the mock names it, so the layout above is where npm
+# installed.
+mock_prefix() {
+  mkdir -p "${RUNNER_TEMP}/$1"
+  mock_command mktemp "-d ${RUNNER_TEMP}/$1.XXXXXX" "${RUNNER_TEMP}/$1"
+}
+
 Describe "when the repository has its own copy and formatter"
 Parameters
 # package manager, command, its arguments
@@ -172,6 +179,7 @@ mkdir -p node_modules/eslint "node_modules/${FORMATTER}" src
 export GITHUB_WORKSPACE="$PWD/src" INPUT_REPORT_FORMAT="stylish"
 cd src || return 1
 bin=$(installed_eslint "${RUNNER_TEMP}/eslint-lint-tools")
+mock_prefix eslint-lint-tools
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
@@ -184,6 +192,7 @@ It "takes the SARIF formatter from the action's lockfile when the repository's o
 use_package_manager npm
 mkdir -p node_modules/eslint
 path=$(installed_formatter "${RUNNER_TEMP}/eslint-lint-tools")
+mock_prefix eslint-lint-tools
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
@@ -210,6 +219,7 @@ BeforeEach 'before_missing'
 
 It "installs the action's lockfile with npm ci and runs that copy by path"
 bin=$(installed_eslint "${RUNNER_TEMP}/eslint-lint-tools")
+mock_prefix eslint-lint-tools
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
@@ -221,6 +231,7 @@ End
 
 It "installs the lockfile the action ships"
 installed_eslint "${RUNNER_TEMP}/eslint-lint-tools" >/dev/null
+mock_prefix eslint-lint-tools
 mock_command npm "$(locked_install_args)" ""
 run_ensure() {
   run_step "${ACTION_DIR}" "ensure-eslint" >/dev/null &&
@@ -235,6 +246,7 @@ End
 It "installs the locked copy even when an older global copy runs"
 mock_command npx "--no-install eslint --version" "v8.0.0"
 bin=$(installed_eslint "${RUNNER_TEMP}/eslint-lint-tools")
+mock_prefix eslint-lint-tools
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
@@ -246,6 +258,7 @@ It "takes the SARIF formatter from the same locked install"
 export INPUT_REPORT_FORMAT="sarif"
 bin=$(installed_eslint "${RUNNER_TEMP}/eslint-lint-tools")
 path=$(installed_formatter "${RUNNER_TEMP}/eslint-lint-tools")
+mock_prefix eslint-lint-tools
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success
@@ -255,6 +268,7 @@ Assert expect_output formatter "$path"
 End
 
 It "fails when npm ci leaves no eslint binary"
+mock_prefix eslint-lint-tools
 mock_command npm "$(locked_install_args)" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be failure
@@ -262,9 +276,22 @@ The stdout should include "::error::eslint is not at ${RUNNER_TEMP}/eslint-lint-
 End
 
 It "fails the step when the locked install fails"
+mock_prefix eslint-lint-tools
 mock_command npm "ci *" "" 1
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be failure
+End
+
+# The validator reads a version of only spaces as left out; npm would read it as any version.
+It "reads an eslint-version of only spaces as left out"
+export INPUT_ESLINT_VERSION="   "
+bin=$(installed_eslint "${RUNNER_TEMP}/eslint-lint-tools")
+mock_prefix eslint-lint-tools
+mock_command npm "$(locked_install_args)" ""
+When call run_step "${ACTION_DIR}" "ensure-eslint"
+The status should be success
+The stdout should include "Running ESLint v10.14.0 from $bin"
+Assert expect_output bin "$bin"
 End
 
 Parameters
@@ -277,6 +304,7 @@ End
 It "installs $1 without lifecycle scripts when the caller asks for it"
 export INPUT_ESLINT_VERSION="$1"
 bin=$(installed_eslint "${RUNNER_TEMP}/eslint-lint-requested")
+mock_prefix eslint-lint-requested
 mock_command npm "install --prefix ${RUNNER_TEMP}/eslint-lint-requested --no-package-lock --no-audit --no-fund --ignore-scripts eslint@$1" ""
 When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be success

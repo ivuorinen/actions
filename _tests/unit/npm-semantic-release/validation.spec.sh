@@ -177,6 +177,12 @@ It "rejects a value that is not a package from the registry"
 When call validate_input_python "npm-semantic-release" "extra_plugins" "github:user/repo"
 The status should be failure
 End
+
+# npm reads a spec ending in .tgz, .tar.gz or .tar as a tarball on disk.
+It "rejects a spec npm would read as a tarball file"
+When call validate_input_python "npm-semantic-release" "extra_plugins" "semver evil.tgz"
+The status should be failure
+End
 End
 
 Context "when validating node-version input"

@@ -484,6 +484,12 @@ It "validates against command injection in plugins"
 When call validate_input_python "prettier-lint" "plugins" "plugin1,plugin2; rm -rf /"
 The status should be failure
 End
+
+# npm reads a spec ending in .tgz, .tar.gz or .tar as a tarball on disk.
+It "rejects a plugin spec npm would read as a tarball file"
+When call validate_input_python "prettier-lint" "plugins" "prettier-plugin-x,evil.tgz"
+The status should be failure
+End
 End
 
 Context "when file-pattern starts with a dash"
