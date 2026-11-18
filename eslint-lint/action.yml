@@ -21,17 +21,16 @@ inputs:
     required: false
     default: '.'
   eslint-version:
-    description: 'ESLint version to install when the repository has no copy of its own (empty: the version pinned in this action, "latest": the newest release)'
+    description: >-
+      ESLint version to run when the repository has no copy of its own. Empty: the version in this action's
+      package-lock.json, installed with its whole dependency tree locked. A version or "latest": installed from the
+      registry without lifecycle scripts, with its dependencies unlocked.
     required: false
     default: ''
   config-file:
-    description: 'Path to ESLint config file'
+    description: 'Path to ESLint config file (a path other than the default must exist)'
     required: false
     default: '.eslintrc'
-  ignore-file:
-    description: 'Path to ESLint ignore file'
-    required: false
-    default: '.eslintignore'
   file-extensions:
     description: 'File extensions to lint (comma-separated)'
     required: false
@@ -106,7 +105,6 @@ runs:
         INPUT_ESLINT_VERSION: ${{ inputs.eslint-version }}
         INPUT_FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
         INPUT_FILE_EXTENSIONS: ${{ inputs.file-extensions }}
-        INPUT_IGNORE_FILE: ${{ inputs.ignore-file }}
         INPUT_MAX_RETRIES: ${{ inputs.max-retries }}
         INPUT_MAX_WARNINGS: ${{ inputs.max-warnings }}
         INPUT_MODE: ${{ inputs.mode }}
@@ -247,13 +245,10 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        ACTION_PATH: ${{ github.action_path }}
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         REPORT_FORMAT: ${{ inputs.report-format }}
         REQUESTED_VERSION: ${{ inputs.eslint-version }}
-        # renovate: datasource=npm depName=eslint
-        DEFAULT_ESLINT_VERSION: '10.14.0'
-        # renovate: datasource=npm depName=@microsoft/eslint-formatter-sarif
-        ESLINT_FORMATTER_SARIF_VERSION: '3.1.0'
       run: |
         set -eu
 
@@ -332,25 +327,52 @@ runs:
               ;;
           esac
         else
-          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install ESLint"; exit 1; }
-          npm install -g "eslint@${REQUESTED_VERSION:-$DEFAULT_ESLINT_VERSION}"
-          command -v eslint >/dev/null 2>&1 || { echo "::error::eslint is not on PATH after its global install"; exit 1; }
-          set -- eslint
+          set --
         fi
         printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
 
-        # ESLint loads a formatter named as a package from the working directory, which a global
-        # install is outside of and Plug'n'Play limits to declared dependencies. A path it loads
-        # as is, so a formatter the repository does not have is installed apart and passed by path.
+        # What the repository lacks comes from this action's package-lock.json: npm ci installs
+        # each package of the tree at its locked version and integrity hash, with no lifecycle
+        # scripts. It goes to a prefix of its own, outside the checkout, and runs by path, so no
+        # other copy on PATH can stand in for it.
+        tools="$RUNNER_TEMP/eslint-lint-tools"
+        locked=
+        install_locked() {
+          if [ -z "$locked" ]; then
+            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install ESLint"; exit 1; }
+            mkdir -p "$tools"
+            cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$tools/"
+            npm ci --prefix "$tools" --ignore-scripts --no-audit --no-fund
+            locked=yes
+          fi
+        }
+
+        bin=
+        if [ -z "$*" ]; then
+          if [ -n "$REQUESTED_VERSION" ]; then
+            # A version the caller names is not in the lockfile: it comes from the registry
+            # without lifecycle scripts, and its dependencies resolve to whatever their ranges allow.
+            requested="$RUNNER_TEMP/eslint-lint-requested"
+            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install ESLint"; exit 1; }
+            npm install --prefix "$requested" --no-package-lock --no-audit --no-fund --ignore-scripts \
+              "eslint@$REQUESTED_VERSION"
+            bin="$requested/node_modules/.bin/eslint"
+          else
+            install_locked
+            bin="$tools/node_modules/.bin/eslint"
+          fi
+          [ -x "$bin" ] || { echo "::error::eslint is not at $bin after its install"; exit 1; }
+          printf 'Running ESLint %s from %s\n' "$("$bin" --version)" "$bin"
+        fi
+        printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
+
+        # ESLint loads a formatter named as a package from the working directory, which the
+        # action's prefix is outside of and Plug'n'Play limits to declared dependencies. A path it
+        # loads as is, so a formatter the repository does not have comes from the lockfile too.
         formatter="@microsoft/eslint-formatter-sarif"
         if [ "$REPORT_FORMAT" = "sarif" ] && ! owns "$formatter"; then
-          prefix="$RUNNER_TEMP/eslint-formatter-sarif"
-          # The formatter pins itself but not all of its dependencies (jschardet is "latest"),
-          # so their lifecycle scripts stay off. The prefix is throwaway: no lockfile or audit.
-          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install the SARIF formatter"; exit 1; }
-          npm install --prefix "$prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
-            "$formatter@$ESLINT_FORMATTER_SARIF_VERSION"
-          dir="$prefix/node_modules/$formatter"
+          install_locked
+          dir="$tools/node_modules/$formatter"
           formatter="$dir/$(jq -r '.main // "index.js"' "$dir/package.json")"
         fi
         printf 'formatter=%s\n' "$formatter" >> "$GITHUB_OUTPUT"
@@ -361,6 +383,7 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        ESLINT_BIN: ${{ steps.ensure-eslint.outputs.bin }}
         ESLINT_COMMAND: ${{ steps.ensure-eslint.outputs.command }}
         SARIF_FORMATTER: ${{ steps.ensure-eslint.outputs.formatter }}
         CONFIG_FILE: ${{ inputs.config-file }}
@@ -381,12 +404,24 @@ runs:
           rm -f eslint-results.sarif
         fi
 
-        # ESLINT_COMMAND is several words, so it is split on purpose
+        # The copy this action installed runs by its path, which may hold spaces. ESLINT_COMMAND,
+        # the repository's own copy through its package manager, is several words, so it is split
+        # on purpose.
         set -f
-        set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS"
+        if [ -n "$ESLINT_BIN" ]; then
+          set -- "$ESLINT_BIN" . --ext "$FILE_EXTENSIONS"
+        else
+          set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS"
+        fi
 
-        # Add config file if specified
-        if [ "$CONFIG_FILE" != ".eslintrc" ] && [ -f "$CONFIG_FILE" ]; then
+        # A config file other than the default is passed on, and one that is not there fails the
+        # step rather than linting with whatever configuration ESLint finds instead.
+        if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".eslintrc" ]; then
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "::error::config-file $CONFIG_FILE does not exist"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
           set -- "$@" --config "$CONFIG_FILE"
         fi
 
@@ -443,7 +478,13 @@ runs:
 
         echo "✅ ESLint check completed: $error_count errors, $warning_count warnings"
 
-        # Exit with eslint's exit code if fail-on-error is true
+        # Exit status 1 means lint problems, which fail-on-error decides about. Any other, such as
+        # 2 for a bad configuration or a crash, means ESLint did not lint, so the step fails
+        # either way.
+        if [ "$eslint_exit_code" -gt 1 ]; then
+          echo "::error::ESLint failed with exit status $eslint_exit_code"
+          exit "$eslint_exit_code"
+        fi
         if [ "$FAIL_ON_ERROR" = "true" ]; then
           exit "$eslint_exit_code"
         fi
@@ -462,7 +503,9 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        ESLINT_BIN: ${{ steps.ensure-eslint.outputs.bin }}
         ESLINT_COMMAND: ${{ steps.ensure-eslint.outputs.command }}
+        CONFIG_FILE: ${{ inputs.config-file }}
         FILE_EXTENSIONS: ${{ inputs.file-extensions }}
       run: |
         set -eu
@@ -475,9 +518,33 @@ runs:
           exit 1
         }
 
-        # ESLINT_COMMAND is several words, so it is split on purpose
+        # The same command and config file as check mode: by path for the copy this action
+        # installed, split on purpose for the repository's own.
         set -f
-        $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS" --fix || true
+        if [ -n "$ESLINT_BIN" ]; then
+          set -- "$ESLINT_BIN" . --ext "$FILE_EXTENSIONS" --fix
+        else
+          set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS" --fix
+        fi
+        if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".eslintrc" ]; then
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "::error::config-file $CONFIG_FILE does not exist"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          set -- "$@" --config "$CONFIG_FILE"
+        fi
+
+        # Exit status 1 means problems remain that --fix could not fix; what it fixed is still
+        # committed. Any other failure, such as 2 for a bad configuration or a crash, means
+        # ESLint fixed nothing it can vouch for, so the step fails.
+        eslint_exit_code=0
+        "$@" || eslint_exit_code=$?
+        if [ "$eslint_exit_code" -gt 1 ]; then
+          echo "::error::ESLint failed with exit status $eslint_exit_code"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit "$eslint_exit_code"
+        fi
 
         # Count only files actually modified by ESLint
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')

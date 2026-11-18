@@ -1,0 +1,11 @@
+{
+  "name": "@ivuorinen/actions-eslint-lint-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The ESLint and SARIF formatter eslint-lint installs with npm ci when the repository has no copy of its own",
+  "license": "MIT",
+  "dependencies": {
+    "@microsoft/eslint-formatter-sarif": "3.1.0",
+    "eslint": "10.14.0"
+  }
+}

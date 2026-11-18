@@ -71,7 +71,8 @@ check_pattern() {
   export INPUT_FAIL_ON_ERROR="false"
   export INPUT_CACHE="false"
   export INPUT_CONFIG_FILE=".prettierrc"
-  mock_command npx "prettier --check *" ""
+  export HARNESS_STEP_OUTPUTS='{"ensure-prettier":{"outputs":{"command":"npx --no-install prettier","bin":""}}}'
+  mock_command npx "--no-install prettier --check *" ""
   run_step "${PROJECT_ROOT}/prettier-lint" "check"
 }
 

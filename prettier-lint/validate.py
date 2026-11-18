@@ -219,29 +219,6 @@ def check_plugin_list(value: str) -> str | None:
     return None
 
 
-def check_report_format(value: str) -> str | None:
-    """Lint/report output format. A blank is refused for the reason in the module contract."""
-    if not value.strip():
-        return "must not be blank: leave the input out for its default"
-    return _enum(
-        value,
-        "checkstyle",
-        "colored-line-number",
-        "compact",
-        "github-actions",
-        "html",
-        "json",
-        "junit",
-        "junit-xml",
-        "line-number",
-        "sarif",
-        "stylish",
-        "tab",
-        "teamcity",
-        "xml",
-    )
-
-
 def check_semantic_version(value: str) -> str | None:
     """SemVer with optional v prefix: X.Y.Z[-pre][+build], partial X.Y / X, or latest."""
     if _skip(value) or value.lower() == "latest":
@@ -275,7 +252,6 @@ CHECKS = {
     "mode": check_mode_enum,
     "plugins": check_plugin_list,
     "prettier-version": check_semantic_version,
-    "report-format": check_report_format,
     "token": check_github_token,
     "username": check_username,
     "working-directory": check_file_path,

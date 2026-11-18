@@ -134,33 +134,6 @@ The status should be failure
 End
 End
 
-Context "when validating ignore-file input"
-It "accepts default ignore file"
-When call validate_input_python "eslint-lint" "ignore-file" ".eslintignore"
-The status should be success
-End
-
-It "accepts custom ignore file"
-When call validate_input_python "eslint-lint" "ignore-file" ".eslintignore.custom"
-The status should be success
-End
-
-It "accepts empty ignore-file (uses default)"
-When call validate_input_python "eslint-lint" "ignore-file" ""
-The status should be success
-End
-
-It "rejects ignore file with path traversal"
-When call validate_input_python "eslint-lint" "ignore-file" "../../../.eslintignore"
-The status should be failure
-End
-
-It "rejects ignore file with command injection"
-When call validate_input_python "eslint-lint" "ignore-file" ".eslintignore; echo"
-The status should be failure
-End
-End
-
 Context "when validating file-extensions input"
 It "accepts default extensions"
 When call validate_input_python "eslint-lint" "file-extensions" ".js,.jsx,.ts,.tsx"
@@ -463,7 +436,7 @@ The output should include "mode"
 The output should include "working-directory"
 The output should include "eslint-version"
 The output should include "config-file"
-The output should include "ignore-file"
+The output should not include "ignore-file"
 The output should include "file-extensions"
 The output should include "cache"
 The output should include "max-warnings"

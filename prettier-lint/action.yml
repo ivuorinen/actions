@@ -21,15 +21,20 @@ inputs:
     required: false
     default: '.'
   prettier-version:
-    description: 'Prettier version to install when the repository has no copy of its own (empty: the version pinned in this action, "latest": the newest release)'
+    description: >-
+      Prettier version to run when the repository has no copy of its own. Empty: the version in this action's
+      package-lock.json, installed with its whole dependency tree locked. A version or "latest": installed from the
+      registry without lifecycle scripts, with its dependencies unlocked.
     required: false
     default: ''
   config-file:
-    description: 'Path to Prettier config file'
+    description: 'Path to Prettier config file (a path other than the default must exist)'
     required: false
     default: '.prettierrc'
   ignore-file:
-    description: 'Path to Prettier ignore file'
+    description: >-
+      Path to Prettier ignore file. The default reads .gitignore and .prettierignore, as Prettier does; another
+      path must exist and is read with .gitignore in place of .prettierignore.
     required: false
     default: '.prettierignore'
   file-pattern:
@@ -44,10 +49,6 @@ inputs:
     description: 'Fail workflow if issues are found (check mode only; lowercase true or false)'
     required: false
     default: 'true'
-  report-format:
-    description: 'Output format for check mode (json, sarif)'
-    required: false
-    default: 'sarif'
   max-retries:
     description: 'Maximum number of retry attempts (1-10, must not be empty)'
     required: false
@@ -79,9 +80,6 @@ outputs:
   unformatted-files:
     description: 'Number of files with formatting issues (check mode only)'
     value: ${{ steps.check.outputs.unformatted_files }}
-  sarif-file:
-    description: 'Path to SARIF report file (check mode only)'
-    value: ${{ steps.check.outputs.sarif_file }}
   files-changed:
     description: 'Number of files changed (fix mode only)'
     value: ${{ steps.fix.outputs.files_changed }}
@@ -103,7 +101,6 @@ runs:
         INPUT_MODE: ${{ inputs.mode }}
         INPUT_PLUGINS: ${{ inputs.plugins }}
         INPUT_PRETTIER_VERSION: ${{ inputs.prettier-version }}
-        INPUT_REPORT_FORMAT: ${{ inputs.report-format }}
         INPUT_TOKEN: ${{ inputs.token }}
         INPUT_USERNAME: ${{ inputs.username }}
         INPUT_WORKING_DIRECTORY: ${{ inputs.working-directory }}
@@ -308,10 +305,9 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        ACTION_PATH: ${{ github.action_path }}
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         REQUESTED_VERSION: ${{ inputs.prettier-version }}
-        # renovate: datasource=npm depName=prettier
-        DEFAULT_PRETTIER_VERSION: '3.9.10'
       run: |
         set -eu
 
@@ -392,12 +388,34 @@ runs:
               ;;
           esac
         else
-          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Prettier"; exit 1; }
-          npm install -g "prettier@${REQUESTED_VERSION:-$DEFAULT_PRETTIER_VERSION}"
-          command -v prettier >/dev/null 2>&1 || { echo "::error::prettier is not on PATH after its global install"; exit 1; }
-          set -- prettier
+          set --
         fi
         printf 'command=%s\n' "$*" >> "$GITHUB_OUTPUT"
+
+        # Without a copy of its own, the repository gets this action's package-lock.json: npm ci
+        # installs each package of the tree at its locked version and integrity hash, with no
+        # lifecycle scripts. It goes to a prefix of its own, outside the checkout, and runs by
+        # path, so no other copy on PATH can stand in for it. A version the caller names is not
+        # in the lockfile: it comes from the registry without lifecycle scripts, and its
+        # dependencies resolve to whatever their ranges allow.
+        bin=
+        if [ -z "$*" ]; then
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Prettier"; exit 1; }
+          if [ -n "$REQUESTED_VERSION" ]; then
+            prefix="$RUNNER_TEMP/prettier-lint-requested"
+            npm install --prefix "$prefix" --no-package-lock --no-audit --no-fund --ignore-scripts \
+              "prettier@$REQUESTED_VERSION"
+          else
+            prefix="$RUNNER_TEMP/prettier-lint-tools"
+            mkdir -p "$prefix"
+            cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$prefix/"
+            npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund
+          fi
+          bin="$prefix/node_modules/.bin/prettier"
+          [ -x "$bin" ] || { echo "::error::prettier is not at $bin after its install"; exit 1; }
+          printf 'Running Prettier %s from %s\n' "$("$bin" --version)" "$bin"
+        fi
+        printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
 
     - name: Run Prettier Check
       if: inputs.mode == 'check'
@@ -405,8 +423,10 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        PRETTIER_BIN: ${{ steps.ensure-prettier.outputs.bin }}
         PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
         CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
         CACHE: ${{ inputs.cache }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
@@ -415,14 +435,36 @@ runs:
 
         echo "Running Prettier check mode..."
 
-        # PRETTIER_COMMAND is several words, so it is split on purpose
+        # The copy this action installed runs by its path, which may hold spaces.
+        # PRETTIER_COMMAND, the repository's own copy through its package manager, is several
+        # words, so it is split on purpose.
         set -f
-        set -- $PRETTIER_COMMAND --check
+        if [ -n "$PRETTIER_BIN" ]; then
+          set -- "$PRETTIER_BIN" --check
+        else
+          set -- $PRETTIER_COMMAND --check
+        fi
         set +f
 
-        # Add config file if specified and exists
-        if [ "$CONFIG_FILE" != ".prettierrc" ] && [ -f "$CONFIG_FILE" ]; then
+        # A config or ignore file other than the default is passed on, and one that is not there
+        # fails the step rather than formatting by whatever Prettier finds instead. Prettier reads
+        # .gitignore and .prettierignore by default, and --ignore-path replaces both, so another
+        # ignore file is read with .gitignore.
+        if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".prettierrc" ]; then
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "::error::config-file $CONFIG_FILE does not exist"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
           set -- "$@" --config "$CONFIG_FILE"
+        fi
+        if [ -n "$IGNORE_FILE" ] && [ "$IGNORE_FILE" != ".prettierignore" ]; then
+          if [ ! -f "$IGNORE_FILE" ]; then
+            echo "::error::ignore-file $IGNORE_FILE does not exist"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          set -- "$@" --ignore-path .gitignore --ignore-path "$IGNORE_FILE"
         fi
 
         # Add cache option
@@ -435,13 +477,26 @@ runs:
         files_checked=0
         unformatted_files=0
 
-        if "$@" -- "$FILE_PATTERN" > prettier-output.txt 2>&1; then
+        # The output goes outside the checkout, so no later step finds it there, and is shown in
+        # the log. Prettier names each unformatted file on a [warn] line and adds one summary
+        # [warn] line, which is not a file.
+        output="$RUNNER_TEMP/prettier-output.txt"
+        if "$@" -- "$FILE_PATTERN" > "$output" 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else
           prettier_exit_code=$?
-          unformatted_files=$(grep -c "^\[warn\]" prettier-output.txt || true)
+          unformatted_files=$(grep '^\[warn\] ' "$output" | grep -c -v '^\[warn\] Code style issues' || true)
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+        fi
+        cat "$output"
+
+        # Exit status 1 means unformatted files, which fail-on-error decides about. Any other,
+        # such as 2 for a bad configuration or a crash, means Prettier did not check, so the step
+        # fails either way.
+        if [ "$prettier_exit_code" -gt 1 ]; then
+          echo "::error::Prettier failed with exit status $prettier_exit_code"
+          exit "$prettier_exit_code"
         fi
 
         # Count all files matching the pattern (total checked, not just unformatted).
@@ -464,7 +519,6 @@ runs:
 
         printf 'files_checked=%s\n' "$files_checked" >> "$GITHUB_OUTPUT"
         printf 'unformatted_files=%s\n' "$unformatted_files" >> "$GITHUB_OUTPUT"
-        printf 'sarif_file=%s\n' "prettier-results.sarif" >> "$GITHUB_OUTPUT"
 
         echo "✅ Prettier check completed: $unformatted_files unformatted files out of $files_checked checked"
 
@@ -479,7 +533,10 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        PRETTIER_BIN: ${{ steps.ensure-prettier.outputs.bin }}
         PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
         FILE_PATTERN: ${{ inputs.file-pattern }}
       run: |
         set -eu
@@ -492,13 +549,44 @@ runs:
           exit 1
         }
 
+        # The same command, config file and ignore file as check mode: by path for the copy this
+        # action installed, split on purpose for the repository's own.
+        set -f
+        if [ -n "$PRETTIER_BIN" ]; then
+          set -- "$PRETTIER_BIN" --write
+        else
+          set -- $PRETTIER_COMMAND --write
+        fi
+        set +f
+        if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".prettierrc" ]; then
+          if [ ! -f "$CONFIG_FILE" ]; then
+            echo "::error::config-file $CONFIG_FILE does not exist"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          set -- "$@" --config "$CONFIG_FILE"
+        fi
+        if [ -n "$IGNORE_FILE" ] && [ "$IGNORE_FILE" != ".prettierignore" ]; then
+          if [ ! -f "$IGNORE_FILE" ]; then
+            echo "::error::ignore-file $IGNORE_FILE does not exist"
+            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+            exit 1
+          fi
+          set -- "$@" --ignore-path .gitignore --ignore-path "$IGNORE_FILE"
+        fi
+
         # Count files before fix
         files_before=$(git status --porcelain | wc -l | tr -d ' ')
 
-        # Run Prettier fix. PRETTIER_COMMAND is several words, so it is split on purpose
-        set -f
-        $PRETTIER_COMMAND --write -- "$FILE_PATTERN" || true
-        set +f
+        # A file Prettier cannot parse, a bad configuration or a crash fails the step instead of
+        # committing a partial run as a success.
+        prettier_exit_code=0
+        "$@" -- "$FILE_PATTERN" || prettier_exit_code=$?
+        if [ "$prettier_exit_code" -ne 0 ]; then
+          echo "::error::Prettier failed with exit status $prettier_exit_code"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit "$prettier_exit_code"
+        fi
 
         # Count files after fix
         files_after=$(git status --porcelain | wc -l | tr -d ' ')
