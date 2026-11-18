@@ -240,6 +240,22 @@ The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
 Assert expect_output status failure
 End
 
+# A file Biome skips as too large leaves a warning in the report, but Biome still processed no
+# files: the diagnostic on stderr says so.
+It "fails when Biome processed no files, even with a skipped-file warning in its report"
+report=$(findings_report '{"ruleId":"check","level":"warning","message":{"text":"The size of the file is 1.5 MiB, which exceeds the configured maximum of 1.0 MiB"}}')
+printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' \
+  'echo "No files were processed in the specified paths." >&2' 'exit 1' >"$dir/biome"
+export INPUT_FAIL_ON_ERROR="false"
+When call run_step "${ACTION_DIR}" "check"
+The status should equal 1
+The stderr should include "No files were processed"
+The stdout should include "::error::Biome did not scan the code (exit status 1)"
+The path "biome-report.sarif" should not be exist
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+Assert expect_output status failure
+End
+
 It "counts warnings apart from errors on a run that passes"
 report=$(findings_report '{"ruleId":"lint/b","level":"warning","message":{"text":"b"}}')
 printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' >"$dir/biome"
