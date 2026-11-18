@@ -51,6 +51,17 @@
       "automerge": false
     },
     {
+      "description": "eslint-lint and prettier-lint install these npm locks with npm ci and run them on callers' code, so a bump needs a person to look at it.",
+      "matchManagers": [
+        "npm"
+      ],
+      "matchFileNames": [
+        "eslint-lint/package.json",
+        "prettier-lint/package.json"
+      ],
+      "automerge": false
+    },
+    {
       "description": "docker-build runs these images privileged: setup-qemu-action starts binfmt with --privileged, and BuildKit is the builder, so a bump needs a person to look at it.",
       "matchDepNames": [
         "tonistiigi/binfmt",

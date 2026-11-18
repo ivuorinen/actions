@@ -39,4 +39,33 @@ It "hashes bun.lock into the dependency cache key"
 When call grep -c "hashFiles(.*'bun.lock'" "${ACTION_DIR}/action.yml"
 The output should equal 1
 End
+
+It "ships a complete npm lock for its own Prettier"
+When call package_lock_problems "${ACTION_DIR}"
+The status should be success
+The stdout should equal ""
+End
+
+Describe "Install Dependencies"
+before_install() {
+  export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"npm"}}}'
+}
+BeforeEach 'before_install'
+
+# npm ci fails without a lockfile, and a repository with no package.json has nothing to
+# install: Prettier then comes from the action's own lockfile. npm is not mocked, so a call fails.
+It "installs nothing for a repository with no package.json"
+When call run_step "${ACTION_DIR}" "install-deps"
+The status should be success
+The stdout should include "No package.json: no dependencies to install"
+End
+
+It "installs a repository's npm dependencies with npm ci"
+printf '%s\n' '{"name": "app"}' >package.json
+mock_command npm "ci" ""
+When call run_step "${ACTION_DIR}" "install-deps"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
+End
 End

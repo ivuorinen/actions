@@ -89,38 +89,41 @@ runs:
       id: install-biome
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         MAX_RETRIES: ${{ inputs.max-retries }}
-        # renovate: datasource=npm depName=@biomejs/biome
-        BIOME_VERSION: '2.6.6'
       run: |
         set -eu
 
-        # An earlier step's Biome is reused only at the pinned version: check and fix run it,
-        # and another version can read the same config differently.
-        if command -v biome >/dev/null 2>&1; then
-          installed=$(biome --version | sed -nE 's/^Version: *//p')
-          if [ "$installed" = "$BIOME_VERSION" ]; then
-            echo "✅ Biome $installed already installed"
-            exit 0
-          fi
-          echo "Biome ${installed:-of an unknown version} is on PATH, not the pinned $BIOME_VERSION"
-        fi
+        # Biome comes from this action's package-lock.json: npm ci installs each package of the
+        # tree, the platform binary included, at its locked version and integrity hash, with no
+        # lifecycle scripts. npm whatever the repository uses, since the repository's own package
+        # manager is not involved. The prefix is a new directory under RUNNER_TEMP, which the
+        # runner empties between jobs except for files it cannot delete, so nothing an earlier
+        # job left there, such as an .npmrc npm reads from the prefix, takes part. Check and fix
+        # run the binary by its path, so no other Biome on PATH can stand in for it.
+        # The same locked install as eslint-lint's and prettier-lint's: each action is self-contained.
+        # The binary is an optional dependency, so --include=optional keeps a caller's
+        # NPM_CONFIG_OMIT=optional from leaving it out. The launcher runs whatever BIOME_BINARY
+        # names instead of the locked binary, so it is cleared here and in check and fix.
+        unset BIOME_BINARY
+        command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Biome"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the install prefix"; exit 1; }
+        prefix=$(mktemp -d "$RUNNER_TEMP/biome-lint-tools.XXXXXX")
+        cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$prefix/"
+        bin="$prefix/node_modules/.bin/biome"
 
-        echo "Installing Biome $BIOME_VERSION..."
-
+        # An install counts only once its Biome runs: npm can leave the launcher without the
+        # platform binary it starts.
         attempt=1
         while [ "$attempt" -le "$MAX_RETRIES" ]; do
           echo "Attempt $attempt of $MAX_RETRIES"
-
-          # npm whatever the repository uses: this is a global tool, the repository's own
-          # package manager is not involved, and pnpm and Yarn cannot do this on a runner.
-          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Biome"; exit 1; }
-          if npm install -g "@biomejs/biome@$BIOME_VERSION"; then
-            # Another Biome can sit earlier on PATH than npm's global bin directory, and check and
-            # fix run bare `biome`, so that directory goes first for the steps after this one.
-            printf '%s\n' "$(npm prefix -g)/bin" >> "$GITHUB_PATH"
-            echo "✅ Biome installed successfully"
-            exit 0
+          if npm ci --prefix "$prefix" --include=optional --ignore-scripts --no-audit --no-fund; then
+            if [ -x "$bin" ] && version=$("$bin" --version); then
+              printf 'Running Biome %s from %s\n' "$version" "$bin"
+              printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
+              exit 0
+            fi
+            echo "npm ci left no Biome that runs at $bin"
           fi
 
           if [ "$attempt" -lt "$MAX_RETRIES" ]; then
@@ -138,52 +141,86 @@ runs:
       id: check
       shell: sh
       env:
+        BIOME_BIN: ${{ steps.install-biome.outputs.bin }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         set -eu
 
         echo "Running Biome check mode..."
 
-        # Run Biome check with SARIF reporter
-        command -v biome >/dev/null 2>&1 || {
-          echo "::error::biome is required to check the code"
+        # A report already in the checkout is not this run's result, so it goes before Biome
+        # runs; the upload takes only a report this step names in sarif_file.
+        rm -f biome-report.sarif
+
+        # Run the Biome the install step put in its prefix, by its path, with the SARIF reporter.
+        # BIOME_BINARY would make the launcher run another binary.
+        unset BIOME_BINARY
+        [ -n "$BIOME_BIN" ] || {
+          echo "::error::the install step named no Biome to run"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         }
+        command -v jq >/dev/null 2>&1 || {
+          echo "::error::jq is required to read the SARIF report"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
+        command -v mktemp >/dev/null 2>&1 || {
+          echo "::error::mktemp is required to hold Biome's diagnostics"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit 1
+        }
+        diagnostics=$(mktemp "$RUNNER_TEMP/biome-lint-diagnostics.XXXXXX")
         biome_exit_code=0
-        biome check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
+        "$BIOME_BIN" check . --reporter=sarif > biome-report.sarif 2> "$diagnostics" || biome_exit_code=$?
+        cat "$diagnostics" >&2
 
-        # Handle failures gracefully
-        if [ "$biome_exit_code" -ne 0 ] && [ ! -s biome-report.sarif ]; then
-          echo "::warning::SARIF report generation failed with exit code $biome_exit_code"
-          # Create empty SARIF file to avoid upload errors
-          echo '{"version":"2.1.0","$schema":"https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json","runs":[]}' > biome-report.sarif
+        # Biome exits 1 for findings, and also for a configuration it rejects (with no report) or
+        # for a run that processed no files (with a report of no results, or only of a file it
+        # skipped as too large, and its "No files were processed in the specified paths."
+        # diagnostic). A status above 1, as when Biome is killed, is no completed run either. So
+        # a run counts as a scan only when it exits 0 with a valid report, or exits 1 with
+        # findings in a valid report and without that diagnostic. Any other run did not scan: it
+        # fails the step whatever fail-on-error says, and leaves nothing to upload, since such a
+        # report would close the open alerts. A report is named in sarif_file only once it counts.
+        # A valid report is the one SARIF 2.1.0 document Biome writes, each run naming its tool,
+        # so other output on stdout makes it invalid. The diagnostic is matched as Biome renders
+        # it, on a line of its own, not as words another line can share.
+        results=$(jq -s 'if length == 1 and .[0].version == "2.1.0" and (.[0].runs | type) == "array"
+          and all(.[0].runs[]; .tool.driver.name != null)
+          then [.[0].runs[].results[]?] | length else empty end' biome-report.sarif 2>/dev/null) || results=
+        scanned=
+        case "$biome_exit_code" in
+          0) [ -n "$results" ] && scanned=yes ;;
+          1)
+            if [ -n "$results" ] && [ "$results" -gt 0 ] &&
+              ! grep -qE '^ *× No files were processed in the specified paths\.$' "$diagnostics"; then
+              scanned=yes
+            fi
+            ;;
+        esac
+        if [ -z "$scanned" ]; then
+          rm -f biome-report.sarif
+          echo "::error::Biome did not scan the code (exit status $biome_exit_code); see its diagnostics above"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          [ "$biome_exit_code" -ne 0 ] || biome_exit_code=1
+          exit "$biome_exit_code"
         fi
+        printf 'sarif_file=%s\n' "biome-report.sarif" >> "$GITHUB_OUTPUT"
 
-        # Parse SARIF output for error counts
-        if [ -f biome-report.sarif ]; then
-          command -v jq >/dev/null 2>&1 || {
-            echo "::error::jq is required to read the SARIF report"
-            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-            exit 1
-          }
-          errors=$(jq '[.runs[]?.results[]? | select(.level == "error" or .level == "warning")] | length' biome-report.sarif 2>/dev/null || echo "0")
-          warnings="0"  # Biome doesn't separate warnings in SARIF output
-        else
-          errors="0"
-          warnings="0"
-        fi
+        # Biome reports error-severity diagnostics at SARIF level "error" and warn-severity ones
+        # at "warning".
+        errors=$(jq '[.runs[]?.results[]? | select(.level == "error")] | length' biome-report.sarif)
+        warnings=$(jq '[.runs[]?.results[]? | select(.level == "warning")] | length' biome-report.sarif)
+        printf 'errors=%s\n' "$errors" >> "$GITHUB_OUTPUT"
+        printf 'warnings=%s\n' "$warnings" >> "$GITHUB_OUTPUT"
 
         if [ "$biome_exit_code" -eq 0 ]; then
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
-          printf 'errors=%s\n' "0" >> "$GITHUB_OUTPUT"
-          printf 'warnings=%s\n' "0" >> "$GITHUB_OUTPUT"
-          echo "✅ Biome check completed successfully"
+          echo "✅ Biome check completed: $errors errors, $warnings warnings"
         else
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-          printf 'errors=%s\n' "$errors" >> "$GITHUB_OUTPUT"
-          printf 'warnings=%s\n' "$warnings" >> "$GITHUB_OUTPUT"
-          echo "::error::Biome check found $errors issues"
+          echo "::error::Biome check found $errors errors and $warnings warnings"
         fi
 
         # Exit with biome's exit code if fail-on-error is true
@@ -192,7 +229,7 @@ runs:
         fi
 
     - name: Upload SARIF Report
-      if: always() && inputs.mode == 'check' && hashFiles('biome-report.sarif') != ''
+      if: always() && inputs.mode == 'check' && steps.check.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
       with:
         sarif_file: biome-report.sarif
@@ -201,6 +238,8 @@ runs:
       if: inputs.mode == 'fix'
       id: fix
       shell: sh
+      env:
+        BIOME_BIN: ${{ steps.install-biome.outputs.bin }}
       run: |
         set -eu
 
@@ -212,14 +251,16 @@ runs:
           exit 1
         }
 
-        # Run Biome fix and capture exit code
-        command -v biome >/dev/null 2>&1 || {
-          echo "::error::biome is required to fix the code"
+        # Run the Biome the install step put in its prefix, by its path, and capture its exit code.
+        # BIOME_BINARY would make the launcher run another binary.
+        unset BIOME_BINARY
+        [ -n "$BIOME_BIN" ] || {
+          echo "::error::the install step named no Biome to run"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         }
         biome_exit_code=0
-        biome check --write . || biome_exit_code=$?
+        "$BIOME_BIN" check --write . || biome_exit_code=$?
 
         # Count changed files using git diff
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')

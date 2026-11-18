@@ -860,7 +860,17 @@ CASES: dict[str, dict[str, list[str]]] = {
             "a@1.0.0-rc.1,@scope/b@2.0.0+build",
         ],
         # "|" is not a separator: the install splits on commas only, so "a|b" is one name.
-        "invalid": ["a,,b", "bad plugin", "a|b", "a|b,c"],
+        # npm reads a spec ending in .tgz, .tar.gz or .tar as a tarball on disk.
+        "invalid": [
+            "a,,b",
+            "bad plugin",
+            "a|b",
+            "a|b,c",
+            "evil.tgz",
+            "x@1.tgz",
+            "a,plugin.tar.gz",
+            "@scope/x.TAR",
+        ],
     },
     "npm_spec_list": {
         "valid": [
@@ -896,6 +906,11 @@ CASES: dict[str, dict[str, list[str]]] = {
             "-g",
             "--registry=https://example.invalid",
             "semver --force",
+            # read by npm as a tarball on disk rather than a registry package
+            "evil.tgz",
+            "x@1.tgz",
+            "semver plugin.tar.gz",
+            "@scope/x.TAR",
             # not a package name
             "@scope",
             "@scope/",

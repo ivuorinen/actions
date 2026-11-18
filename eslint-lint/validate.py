@@ -248,7 +248,6 @@ CHECKS = {
     "eslint-version": check_semantic_version,
     "fail-on-error": check_boolean,
     "file-extensions": check_file_extensions,
-    "ignore-file": check_file_path,
     "max-retries": check_numeric_range_1_10,
     "max-warnings": check_numeric_range_0_10000,
     "mode": check_mode_enum,

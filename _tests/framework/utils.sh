@@ -400,6 +400,75 @@ for line in (action_dir / "requirements.in").read_text(encoding="utf-8").splitli
 PY
 }
 
+# Print each problem with the npm lock an action ships for npm ci: a dependency in
+# package.json that is not an exact version or that the lock's root entry does not
+# hold, a package in the lock without an integrity hash or resolved from anywhere but
+# registry.npmjs.org, one with an install script, a dependency or optional dependency
+# of any package (such as Biome's platform binaries) that the lock does not hold where
+# Node would look for it, or, by npm ls, a locked version outside the range the package
+# that needs it declares. Prints nothing for a complete lock.
+package_lock_problems() {
+  python3 - "$1" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+action_dir = pathlib.Path(sys.argv[1])
+manifest = json.loads((action_dir / "package.json").read_text(encoding="utf-8"))
+lock = json.loads((action_dir / "package-lock.json").read_text(encoding="utf-8"))
+wanted = manifest.get("dependencies", {})
+if not wanted:
+    print("package.json declares no dependencies")
+for name, spec in wanted.items():
+    if not re.fullmatch(r"\d+\.\d+\.\d+", spec):
+        print(f"not an exact version in package.json: {name}@{spec}")
+packages = lock.get("packages", {})
+if packages.get("", {}).get("dependencies", {}) != wanted:
+    print("the lock's root dependencies differ from package.json")
+for name, spec in wanted.items():
+    if packages.get(f"node_modules/{name}", {}).get("version") != spec:
+        print(f"the lock does not install {name}@{spec}")
+for path, entry in packages.items():
+    if not path:
+        continue
+    if not entry.get("integrity"):
+        print(f"no integrity hash: {path}")
+    if not entry.get("resolved", "").startswith("https://registry.npmjs.org/"):
+        print(f"not from registry.npmjs.org: {path}")
+    if entry.get("hasInstallScript"):
+        print(f"has an install script: {path}")
+
+
+def resolve(path, name):
+    """Return the lock entry Node finds for name from path: its own node_modules, then each
+    parent's, as require() walks up."""
+    base = path
+    while True:
+        entry = packages.get(f"{base}/node_modules/{name}" if base else f"node_modules/{name}")
+        if entry is not None or not base:
+            return entry
+        cut = base.rfind("/node_modules/")
+        base = base[:cut] if cut >= 0 else ""
+
+
+# npm ls below checks versions against their ranges, but takes a missing optional dependency
+# for one this platform skips, so presence is checked here.
+for path, entry in packages.items():
+    for kind in ("dependencies", "optionalDependencies"):
+        for name in entry.get(kind, {}):
+            if resolve(path, name) is None:
+                print(f"{path or 'the root'} needs {name}, which the lock does not hold")
+PY
+  # npm's own resolver, from the lock alone: a locked version outside the range the package
+  # that needs it declares is "invalid".
+  # The output options are given here, since an npm_config_depth or npm_config_parseable in
+  # the environment would otherwise cut the walk short or change what it prints.
+  if ! _npm_ls=$(npm ls --prefix "$1" --package-lock-only --all --depth=Infinity --no-parseable --no-json 2>&1); then
+    printf '%s\n' "$_npm_ls" | grep -E 'invalid|missing|ERR' | sed -E 's/^/npm ls: /'
+  fi
+}
+
 # Print the setup-dotnet cache line of an action.yml, and fail unless it turns the
 # cache on only when a lock file exists: with `cache: true` and no matching file,
 # setup-dotnet fails the step.
@@ -410,4 +479,4 @@ lock_aware_dotnet_cache() {
 # Export all functions
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name get_action_runs_using is_input_required
 export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests
-export -f requirements_lock_problems lock_aware_dotnet_cache
+export -f requirements_lock_problems package_lock_problems lock_aware_dotnet_cache

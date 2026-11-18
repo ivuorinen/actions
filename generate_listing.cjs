@@ -137,8 +137,8 @@ function getActionDetails(actionPath) {
     // Extract features
     const features = [];
 
-    // Check for caching
-    if (content.includes('actions/cache') || content.includes('cache:')) {
+    // Check for caching: actions/cache, a cache: input, or a Docker build cache (--cache-from)
+    if (content.includes('actions/cache') || content.includes('cache:') || content.includes('cache-from')) {
       features.push('Caching');
     }
 

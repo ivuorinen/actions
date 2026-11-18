@@ -237,34 +237,6 @@ The status should be failure
 End
 End
 
-Context "when validating report-format input"
-It "accepts json format"
-When call validate_input_python "prettier-lint" "report-format" "json"
-The status should be success
-End
-
-It "accepts sarif format"
-When call validate_input_python "prettier-lint" "report-format" "sarif"
-The status should be success
-End
-
-# Left out, the input reaches the validator as its default; empty means a caller passed it.
-It "rejects an empty report-format"
-When call validate_input_python "prettier-lint" "report-format" ""
-The status should be failure
-End
-
-It "rejects invalid format"
-When call validate_input_python "prettier-lint" "report-format" "invalid"
-The status should be failure
-End
-
-It "rejects format with command injection"
-When call validate_input_python "prettier-lint" "report-format" "json; rm -rf /"
-The status should be failure
-End
-End
-
 Context "when validating max-retries input"
 It "accepts default value 3"
 When call validate_input_python "prettier-lint" "max-retries" "3"
@@ -452,7 +424,7 @@ The output should include "ignore-file"
 The output should include "file-pattern"
 The output should include "cache"
 The output should include "fail-on-error"
-The output should include "report-format"
+The output should not include "report-format"
 The output should include "max-retries"
 The output should include "plugins"
 The output should include "token"
@@ -465,7 +437,7 @@ When call get_action_outputs "$ACTION_FILE"
 The output should include "status"
 The output should include "files-checked"
 The output should include "unformatted-files"
-The output should include "sarif-file"
+The output should not include "sarif-file"
 The output should include "files-changed"
 End
 End
@@ -512,6 +484,12 @@ It "validates against command injection in plugins"
 When call validate_input_python "prettier-lint" "plugins" "plugin1,plugin2; rm -rf /"
 The status should be failure
 End
+
+# npm reads a spec ending in .tgz, .tar.gz or .tar as a tarball on disk.
+It "rejects a plugin spec npm would read as a tarball file"
+When call validate_input_python "prettier-lint" "plugins" "prettier-plugin-x,evil.tgz"
+The status should be failure
+End
 End
 
 Context "when file-pattern starts with a dash"
@@ -522,15 +500,15 @@ End
 
 # tool-pins.spec.sh runs both steps and matches the exact argv, `--` included.
 It "ends prettier options before the pattern in check mode"
-When call grep -F 'if "$@" -- "$FILE_PATTERN"' prettier-lint/action.yml
+When call grep -F 'if NO_COLOR=1 FORCE_COLOR=0 "$@" -- "$FILE_PATTERN"' prettier-lint/action.yml
 The status should be success
 The output should include '-- "$FILE_PATTERN"'
 End
 
 It "ends prettier options before the pattern in fix mode"
-When call grep -F '$PRETTIER_COMMAND --write -- "$FILE_PATTERN"' prettier-lint/action.yml
+When call grep -F '"$@" -- "$FILE_PATTERN" || prettier_exit_code=$?' prettier-lint/action.yml
 The status should be success
-The output should include '--write --'
+The output should include '-- "$FILE_PATTERN"'
 End
 End
 End

@@ -1,0 +1,10 @@
+{
+  "name": "@ivuorinen/actions-prettier-lint-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Prettier prettier-lint installs with npm ci when the repository has no copy of its own",
+  "license": "MIT",
+  "dependencies": {
+    "prettier": "3.9.10"
+  }
+}

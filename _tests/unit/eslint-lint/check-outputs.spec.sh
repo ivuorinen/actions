@@ -61,17 +61,26 @@ Assert expect_output files_checked 0
 End
 
 # A report committed to the checkout is not this run's result: when ESLint fails before
-# writing one, the counts and the upload must not read the old file.
+# writing one, the counts and the upload must not read the old file. Exit status 2 is ESLint
+# failing to lint, which fails the step even when fail-on-error is off.
 It "ignores a report left in the checkout when ESLint writes none"
 printf '%s\n' "$REPORT" >eslint-results.sarif
 export FAKE_ESLINT_EXIT=2 INPUT_FAIL_ON_ERROR="false"
 When call run_step "${ACTION_DIR}" "check"
-The status should be success
-The stdout should include "ESLint check completed"
+The status should equal 2
+The stdout should include "::error::ESLint failed with exit status 2"
 The path "eslint-results.sarif" should not be exist
 Assert expect_output files_checked 0
 Assert expect_output error_count 0
 Assert expect_output sarif_file ""
+Assert expect_output status failure
+End
+
+It "lets fail-on-error off pass lint problems, which exit with status 1"
+export FAKE_ESLINT_EXIT=1 INPUT_FAIL_ON_ERROR="false" INPUT_REPORT_FORMAT="stylish"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "ESLint check completed"
 Assert expect_output status failure
 End
 

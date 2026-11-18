@@ -1,0 +1,10 @@
+{
+  "name": "@ivuorinen/actions-biome-lint-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The Biome biome-lint installs with npm ci",
+  "license": "MIT",
+  "dependencies": {
+    "@biomejs/biome": "2.6.6"
+  }
+}
