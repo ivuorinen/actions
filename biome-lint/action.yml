@@ -183,13 +183,18 @@ runs:
         # findings in a valid report and without that diagnostic. Any other run did not scan: it
         # fails the step whatever fail-on-error says, and leaves nothing to upload, since such a
         # report would close the open alerts. A report is named in sarif_file only once it counts.
-        results=$(jq '[.runs[]?.results[]?] | length' biome-report.sarif 2>/dev/null) || results=
+        # A valid report is the one SARIF 2.1.0 document Biome writes, each run naming its tool,
+        # so other output on stdout makes it invalid. The diagnostic is matched as Biome renders
+        # it, on a line of its own, not as words another line can share.
+        results=$(jq -s 'if length == 1 and .[0].version == "2.1.0" and (.[0].runs | type) == "array"
+          and all(.[0].runs[]; .tool.driver.name != null)
+          then [.[0].runs[].results[]?] | length else empty end' biome-report.sarif 2>/dev/null) || results=
         scanned=
         case "$biome_exit_code" in
           0) [ -n "$results" ] && scanned=yes ;;
           1)
             if [ -n "$results" ] && [ "$results" -gt 0 ] &&
-              ! grep -qF 'No files were processed in the specified paths.' "$diagnostics"; then
+              ! grep -qE '^ *× No files were processed in the specified paths\.$' "$diagnostics"; then
               scanned=yes
             fi
             ;;

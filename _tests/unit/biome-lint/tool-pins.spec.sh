@@ -153,7 +153,7 @@ before_run() {
   mkdir -p "$dir"
   printf '%s\n' '#!/bin/sh' \
     '{ printf "%s\n" "$@"; echo "${BIOME_BINARY:-(no BIOME_BINARY)}"; } >"$(dirname "$0")/argv"' \
-    'printf "%s\n" "{\"runs\":[]}"' >"$dir/biome"
+    'printf "%s\n" "{\"version\":\"2.1.0\",\"runs\":[{\"tool\":{\"driver\":{\"name\":\"Biome\"}},\"results\":[]}]}"' >"$dir/biome"
   chmod +x "$dir/biome"
   export HARNESS_STEP_OUTPUTS="{\"install-biome\":{\"outputs\":{\"bin\":\"$dir/biome\"}}}"
   export INPUT_FAIL_ON_ERROR="true" BIOME_BINARY="/elsewhere/biome"
@@ -188,7 +188,7 @@ printf '%s\n' "stale" >biome-report.sarif
 When call run_step "${ACTION_DIR}" "check"
 The status should be success
 The stdout should include "Biome check completed"
-The contents of file "biome-report.sarif" should equal '{"runs":[]}'
+The contents of file "biome-report.sarif" should equal '{"version":"2.1.0","runs":[{"tool":{"driver":{"name":"Biome"}},"results":[]}]}'
 Assert expect_output sarif_file "biome-report.sarif"
 End
 
@@ -229,7 +229,7 @@ End
 # Biome writes a report of no results when it processed no files, and exits 1 as for findings.
 It "fails when Biome processed no files, uploading nothing"
 printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$(findings_report '')" 'EOF' \
-  'echo "No files were processed in the specified paths." >&2' 'exit 1' >"$dir/biome"
+  'echo "  × No files were processed in the specified paths." >&2' 'exit 1' >"$dir/biome"
 export INPUT_FAIL_ON_ERROR="false"
 When call run_step "${ACTION_DIR}" "check"
 The status should equal 1
@@ -245,7 +245,7 @@ End
 It "fails when Biome processed no files, even with a skipped-file warning in its report"
 report=$(findings_report '{"ruleId":"check","level":"warning","message":{"text":"The size of the file is 1.5 MiB, which exceeds the configured maximum of 1.0 MiB"}}')
 printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' \
-  'echo "No files were processed in the specified paths." >&2' 'exit 1' >"$dir/biome"
+  'echo "  × No files were processed in the specified paths." >&2' 'exit 1' >"$dir/biome"
 export INPUT_FAIL_ON_ERROR="false"
 When call run_step "${ACTION_DIR}" "check"
 The status should equal 1
@@ -267,6 +267,41 @@ The stderr should include "Fixture note"
 The stdout should include "Biome check completed: 0 errors, 0 warnings"
 Assert expect_output sarif_file "biome-report.sarif"
 Assert expect_output status success
+End
+
+# The words of the diagnostic in another line do not count either, on a run with findings.
+It "keeps a scan with findings whose stderr has the diagnostic's words in another line"
+report=$(findings_report '{"ruleId":"lint/a","level":"error","message":{"text":"a"}}')
+printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' \
+  'echo "Fixture note: No files were processed in the specified paths. Using cached inputs." >&2' 'exit 1' >"$dir/biome"
+export INPUT_FAIL_ON_ERROR="false"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stderr should include "Fixture note"
+The stdout should include "::error::Biome check found 1 errors and 0 warnings"
+Assert expect_output sarif_file "biome-report.sarif"
+End
+
+# The report must be the one SARIF document Biome writes: other output on stdout, or a JSON
+# document that is not SARIF, is no report the uploader takes.
+Describe "a report that is not one SARIF document"
+Parameters
+"another JSON document before it" '{"log":"preload"}'
+"an empty JSON object instead" ''
+End
+
+It "fails on a report with $1"
+if [ -n "$2" ]; then
+  printf '%s\n' '#!/bin/sh' "echo '$2'" "cat <<'EOF'" "$(findings_report '')" 'EOF' >"$dir/biome"
+else
+  printf '%s\n' '#!/bin/sh' "echo '{}'" >"$dir/biome"
+fi
+export INPUT_FAIL_ON_ERROR="false"
+When call run_step "${ACTION_DIR}" "check"
+The status should be failure
+The stdout should include "::error::Biome did not scan the code (exit status 0)"
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+End
 End
 
 # A status above 1, as for a Biome killed after it wrote its report, is no completed run.
