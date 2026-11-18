@@ -2,7 +2,7 @@
 
 ![check-circle](https://img.shields.io/badge/icon-check-circle-green) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-> Run Prettier in check or fix mode with advanced configuration and reporting
+> Run Prettier in check or fix mode
 
 ## 🚀 Quick Start
 

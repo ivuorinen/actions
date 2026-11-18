@@ -253,11 +253,19 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         ACTION_PATH: ${{ github.action_path }}
+        CONFIG_FILE: ${{ inputs.config-file }}
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         REPORT_FORMAT: ${{ inputs.report-format }}
         REQUESTED_VERSION: ${{ inputs.eslint-version }}
       run: |
         set -eu
+
+        # A config file other than the default must be there, for check and fix mode alike,
+        # rather than ESLint linting with whatever configuration it finds instead.
+        if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".eslintrc" ] && [ ! -f "$CONFIG_FILE" ]; then
+          echo "::error::config-file $CONFIG_FILE does not exist"
+          exit 1
+        fi
 
         command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
 
@@ -341,9 +349,12 @@ runs:
         # What the repository lacks comes from this action's package-lock.json: npm ci installs
         # each package of the tree at its locked version and integrity hash, with no lifecycle
         # scripts. It goes to a prefix of its own, outside the checkout, and runs by path, so no
-        # other copy on PATH can stand in for it. Each prefix is a new directory: a fixed path in
-        # RUNNER_TEMP could hold what an earlier job on a reused runner left there, such as an
-        # .npmrc, which npm reads from the prefix.
+        # other copy on PATH can stand in for it. Each prefix is a new directory under RUNNER_TEMP,
+        # which the runner empties between jobs except for files it cannot delete, so nothing an
+        # earlier job left there, such as an .npmrc npm reads from the prefix, takes part. The
+        # same locked install as prettier-lint's and biome-lint's: each action is self-contained.
+        # Unlike theirs, it is a function: the SARIF formatter below needs it even when the
+        # repository has its own ESLint.
         locked=
         install_locked() {
           if [ -z "$locked" ]; then
@@ -427,14 +438,9 @@ runs:
           set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS"
         fi
 
-        # A config file other than the default is passed on, and one that is not there fails the
-        # step rather than linting with whatever configuration ESLint finds instead.
+        # A config file other than the default is passed on; the ensure step has made sure it is
+        # there.
         if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".eslintrc" ]; then
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "::error::config-file $CONFIG_FILE does not exist"
-            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
           set -- "$@" --config "$CONFIG_FILE"
         fi
 
@@ -540,11 +546,6 @@ runs:
           set -- $ESLINT_COMMAND . --ext "$FILE_EXTENSIONS" --fix
         fi
         if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".eslintrc" ]; then
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "::error::config-file $CONFIG_FILE does not exist"
-            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
           set -- "$@" --config "$CONFIG_FILE"
         fi
 

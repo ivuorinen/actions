@@ -18,6 +18,11 @@
 # findings that prompted this file were fixed in the source instead, by building
 # the GitHub Actions expressions rather than writing them as literals — see
 # `actions_expression()` in _tools/fix-generated-readme.py and kit.py.
+#
+# npm lockfiles are excluded because npm writes them: Lizard's file-length rule
+# reads one as 1700 lines of hand-written code. The Security Scan workflow's Trivy
+# still scans them for vulnerable dependencies.
 exclude_paths:
   - '_tests/**'
   - '_validation/tests/**'
+  - '**/package-lock.json'

@@ -40,6 +40,12 @@ When call grep -c "hashFiles(.*'bun.lock'" "${ACTION_DIR}/action.yml"
 The output should equal 1
 End
 
+It "ships a complete npm lock for its own Prettier"
+When call package_lock_problems "${ACTION_DIR}"
+The status should be success
+The stdout should equal ""
+End
+
 Describe "Install Dependencies"
 before_install() {
   export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"npm"}}}'

@@ -347,19 +347,12 @@ The status should be success
 The stdout should include "ESLint check completed"
 End
 
-Parameters
-"check"
-"fix"
-End
-
-It "fails $1 mode when a config file other than the default does not exist"
-export INPUT_CONFIG_FILE="missing.config.mjs" INPUT_CACHE="false" INPUT_MAX_WARNINGS="0"
-export INPUT_REPORT_FORMAT="stylish" INPUT_FAIL_ON_ERROR="true"
-mock_command git "diff *" ""
-When call run_step "${ACTION_DIR}" "$1"
+# The ensure step runs before check and fix mode alike, so it checks the file once for both.
+It "fails before either mode when a config file other than the default does not exist"
+export INPUT_CONFIG_FILE="missing.config.mjs"
+When call run_step "${ACTION_DIR}" "ensure-eslint"
 The status should be failure
 The stdout should include "::error::config-file missing.config.mjs does not exist"
-Assert expect_output status failure
 End
 
 It "writes SARIF through the formatter the ensure step chose"

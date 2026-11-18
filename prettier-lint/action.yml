@@ -3,7 +3,7 @@
 #   - contents: write         # Required for fix mode to push changes
 ---
 name: Prettier Lint
-description: 'Run Prettier in check or fix mode with advanced configuration and reporting'
+description: 'Run Prettier in check or fix mode'
 author: Ismo Vuorinen
 
 branding:
@@ -270,7 +270,7 @@ runs:
         # yarn have no equivalent, so their manifests are restored on exit, also
         # when the install fails partway.
         command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to back up the manifests"; exit 1; }
-        backup=$(mktemp -d)
+        backup=$(mktemp -d "$RUNNER_TEMP/prettier-lint-manifests.XXXXXX")
         restore_manifests() {
           for f in package.json pnpm-lock.yaml yarn.lock; do
             if [ -f "$backup/$f" ]; then cp -p "$backup/$f" "$f"; fi
@@ -317,10 +317,23 @@ runs:
       working-directory: ${{ inputs.working-directory }}
       env:
         ACTION_PATH: ${{ github.action_path }}
+        CONFIG_FILE: ${{ inputs.config-file }}
+        IGNORE_FILE: ${{ inputs.ignore-file }}
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         REQUESTED_VERSION: ${{ inputs.prettier-version }}
       run: |
         set -eu
+
+        # A config or ignore file other than the default must be there, for check and fix mode
+        # alike, rather than Prettier formatting by whatever it finds instead.
+        if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".prettierrc" ] && [ ! -f "$CONFIG_FILE" ]; then
+          echo "::error::config-file $CONFIG_FILE does not exist"
+          exit 1
+        fi
+        if [ -n "$IGNORE_FILE" ] && [ "$IGNORE_FILE" != ".prettierignore" ] && [ ! -f "$IGNORE_FILE" ]; then
+          echo "::error::ignore-file $IGNORE_FILE does not exist"
+          exit 1
+        fi
 
         command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read package.json"; exit 1; }
 
@@ -408,9 +421,11 @@ runs:
         # lifecycle scripts. It goes to a prefix of its own, outside the checkout, and runs by
         # path, so no other copy on PATH can stand in for it. A version the caller names is not
         # in the lockfile: it comes from the registry without lifecycle scripts, and its
-        # dependencies resolve to whatever their ranges allow. Each prefix is a new directory: a
-        # fixed path in RUNNER_TEMP could hold what an earlier job on a reused runner left there,
-        # such as an .npmrc, which npm reads from the prefix.
+        # dependencies resolve to whatever their ranges allow. Each prefix is a new directory
+        # under RUNNER_TEMP, which the runner empties between jobs except for files it cannot
+        # delete, so nothing an earlier job left there, such as an .npmrc npm reads from the
+        # prefix, takes part. The same locked install as eslint-lint's and biome-lint's: each
+        # action is self-contained.
         bin=
         if [ -z "$*" ]; then
           command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Prettier"; exit 1; }
@@ -462,24 +477,15 @@ runs:
         fi
         set +f
 
-        # A config or ignore file other than the default is passed on, and one that is not there
-        # fails the step rather than formatting by whatever Prettier finds instead. Prettier reads
-        # .gitignore and .prettierignore by default, and --ignore-path replaces both, so another
-        # ignore file is read with .gitignore.
+        # A config or ignore file other than the default is passed on; the ensure step has made
+        # sure it is there. Prettier 3 reads .gitignore and .prettierignore by default, and
+        # --ignore-path replaces both, so another ignore file is read with .gitignore. Prettier 2
+        # reads only the last --ignore-path, which is the file named here, as it never read
+        # .gitignore.
         if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".prettierrc" ]; then
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "::error::config-file $CONFIG_FILE does not exist"
-            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
           set -- "$@" --config "$CONFIG_FILE"
         fi
         if [ -n "$IGNORE_FILE" ] && [ "$IGNORE_FILE" != ".prettierignore" ]; then
-          if [ ! -f "$IGNORE_FILE" ]; then
-            echo "::error::ignore-file $IGNORE_FILE does not exist"
-            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
           set -- "$@" --ignore-path .gitignore --ignore-path "$IGNORE_FILE"
         fi
 
@@ -502,7 +508,7 @@ runs:
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         }
-        output=$(mktemp "$RUNNER_TEMP/prettier-output.XXXXXX")
+        output=$(mktemp "$RUNNER_TEMP/prettier-lint-output.XXXXXX")
         if "$@" -- "$FILE_PATTERN" > "$output" 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
@@ -512,14 +518,6 @@ runs:
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
         fi
         cat "$output"
-
-        # Exit status 1 means unformatted files, which fail-on-error decides about. Any other,
-        # such as 2 for a bad configuration or a crash, means Prettier did not check, so the step
-        # fails either way.
-        if [ "$prettier_exit_code" -gt 1 ]; then
-          echo "::error::Prettier failed with exit status $prettier_exit_code"
-          exit "$prettier_exit_code"
-        fi
 
         # Count all files matching the pattern (total checked, not just unformatted).
         # Handles both brace globs (**/*.{js,ts}) and plain globs (**/*.js).
@@ -544,7 +542,13 @@ runs:
 
         echo "✅ Prettier check completed: $unformatted_files unformatted files out of $files_checked checked"
 
-        # Exit with prettier's exit code if fail-on-error is true
+        # Exit status 1 means unformatted files, which fail-on-error decides about. Any other,
+        # such as 2 for a bad configuration or a crash, means Prettier did not check, so the step
+        # fails either way. The counts above are written first, as eslint-lint writes its own.
+        if [ "$prettier_exit_code" -gt 1 ]; then
+          echo "::error::Prettier failed with exit status $prettier_exit_code"
+          exit "$prettier_exit_code"
+        fi
         if [ "$FAIL_ON_ERROR" = "true" ]; then
           exit "$prettier_exit_code"
         fi
@@ -581,27 +585,18 @@ runs:
         fi
         set +f
         if [ -n "$CONFIG_FILE" ] && [ "$CONFIG_FILE" != ".prettierrc" ]; then
-          if [ ! -f "$CONFIG_FILE" ]; then
-            echo "::error::config-file $CONFIG_FILE does not exist"
-            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
           set -- "$@" --config "$CONFIG_FILE"
         fi
         if [ -n "$IGNORE_FILE" ] && [ "$IGNORE_FILE" != ".prettierignore" ]; then
-          if [ ! -f "$IGNORE_FILE" ]; then
-            echo "::error::ignore-file $IGNORE_FILE does not exist"
-            printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-            exit 1
-          fi
           set -- "$@" --ignore-path .gitignore --ignore-path "$IGNORE_FILE"
         fi
 
         # Count files before fix
         files_before=$(git status --porcelain | wc -l | tr -d ' ')
 
-        # A file Prettier cannot parse, a bad configuration or a crash fails the step instead of
-        # committing a partial run as a success.
+        # prettier --write leaves no findings to report: it exits non-zero (2) only when it could
+        # not format, as for a file it cannot parse, a bad configuration or a crash. So any
+        # failure fails the step instead of committing a partial run as a success.
         prettier_exit_code=0
         "$@" -- "$FILE_PATTERN" || prettier_exit_code=$?
         if [ "$prettier_exit_code" -ne 0 ]; then

@@ -400,6 +400,44 @@ for line in (action_dir / "requirements.in").read_text(encoding="utf-8").splitli
 PY
 }
 
+# Print each problem with the npm lock an action ships for npm ci: a dependency in
+# package.json that is not an exact version or that the lock's root entry does not
+# hold, a package in the lock without an integrity hash or resolved from anywhere but
+# registry.npmjs.org, or one with an install script. Prints nothing for a complete lock.
+package_lock_problems() {
+  python3 - "$1" <<'PY'
+import json
+import pathlib
+import re
+import sys
+
+action_dir = pathlib.Path(sys.argv[1])
+manifest = json.loads((action_dir / "package.json").read_text(encoding="utf-8"))
+lock = json.loads((action_dir / "package-lock.json").read_text(encoding="utf-8"))
+wanted = manifest.get("dependencies", {})
+if not wanted:
+    print("package.json declares no dependencies")
+for name, spec in wanted.items():
+    if not re.fullmatch(r"\d+\.\d+\.\d+", spec):
+        print(f"not an exact version in package.json: {name}@{spec}")
+packages = lock.get("packages", {})
+if packages.get("", {}).get("dependencies", {}) != wanted:
+    print("the lock's root dependencies differ from package.json")
+for name, spec in wanted.items():
+    if packages.get(f"node_modules/{name}", {}).get("version") != spec:
+        print(f"the lock does not install {name}@{spec}")
+for path, entry in packages.items():
+    if not path:
+        continue
+    if not entry.get("integrity"):
+        print(f"no integrity hash: {path}")
+    if not entry.get("resolved", "").startswith("https://registry.npmjs.org/"):
+        print(f"not from registry.npmjs.org: {path}")
+    if entry.get("hasInstallScript"):
+        print(f"has an install script: {path}")
+PY
+}
+
 # Print the setup-dotnet cache line of an action.yml, and fail unless it turns the
 # cache on only when a lock file exists: with `cache: true` and no matching file,
 # setup-dotnet fails the step.
@@ -410,4 +448,4 @@ lock_aware_dotnet_cache() {
 # Export all functions
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name get_action_runs_using is_input_required
 export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests
-export -f requirements_lock_problems lock_aware_dotnet_cache
+export -f requirements_lock_problems package_lock_problems lock_aware_dotnet_cache

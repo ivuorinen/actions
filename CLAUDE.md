@@ -141,9 +141,10 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 - Auto-gen README via `gh-action-readme` (Go binary, pinned + checksum-verified by `make docs`; not an npm dependency)
 - Python tools an action chooses install from its hash-locked `requirements.lock.txt`. Edit `requirements.in`, then run
   the `uv pip compile` command in the lock's header from the repo root
-- Node tools an action chooses install from its own `package-lock.json` with `npm ci --ignore-scripts --prefix` into
-  `RUNNER_TEMP`, run by path. Edit the action's `package.json`, then run
-  `npm install --package-lock-only --ignore-scripts` in its directory; Renovate keeps both current
+- Node tools an action installs itself come from its own `package-lock.json`, with `npm ci --ignore-scripts` into a
+  `mktemp -d` prefix under `RUNNER_TEMP`, and run by path. Edit the action's `package.json`, then run
+  `npm install --package-lock-only --ignore-scripts` in its directory. Renovate bumps the `package.json` pins and their
+  lock entries; the rest of the lock moves only with them. A third-party action's own installs are its own
 - Required error handling, POSIX-compliant scripts
 
 ### Action References

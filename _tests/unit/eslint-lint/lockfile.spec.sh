@@ -40,6 +40,22 @@ When call grep -c "hashFiles(.*'bun.lock'" "${ACTION_DIR}/action.yml"
 The output should equal 1
 End
 
+It "ships a complete npm lock for its own ESLint"
+When call package_lock_problems "${ACTION_DIR}"
+The status should be success
+The stdout should equal ""
+End
+
+# The check itself: a package.json the lock was not made from is reported.
+It "reports a lock that does not match package.json"
+mkdir -p stale
+sed -E 's/"eslint": "[0-9.]+"/"eslint": "1.0.0"/' "${ACTION_DIR}/package.json" >stale/package.json
+cp "${ACTION_DIR}/package-lock.json" stale/package-lock.json
+When call package_lock_problems stale
+The stdout should include "the lock's root dependencies differ from package.json"
+The stdout should include "the lock does not install eslint@1.0.0"
+End
+
 Describe "Install Dependencies"
 before_install() {
   export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"npm"}}}'

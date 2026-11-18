@@ -309,6 +309,21 @@ The stdout should include "::error::Prettier failed with exit status 2"
 Assert expect_output status failure
 End
 
+# The ensure step runs before check and fix mode alike, so it checks each file once for both.
+It "fails before either mode when a config file other than the default does not exist"
+export INPUT_CONFIG_FILE="missing.prettierrc"
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be failure
+The stdout should include "::error::config-file missing.prettierrc does not exist"
+End
+
+It "fails before either mode when an ignore file other than the default does not exist"
+export INPUT_IGNORE_FILE="missing.prettierignore"
+When call run_step "${ACTION_DIR}" "ensure-prettier"
+The status should be failure
+The stdout should include "::error::ignore-file missing.prettierignore does not exist"
+End
+
 Parameters
 "check" "--check"
 "fix" "--write"
@@ -324,24 +339,6 @@ When call run_step "${ACTION_DIR}" "$1"
 The status should be success
 The stdout should include "Prettier $1 completed"
 Assert expect_output status success
-End
-
-It "fails $1 mode when a config file other than the default does not exist"
-export INPUT_CONFIG_FILE="missing.prettierrc"
-mock_command git "status --porcelain" ""
-When call run_step "${ACTION_DIR}" "$1"
-The status should be failure
-The stdout should include "::error::config-file missing.prettierrc does not exist"
-Assert expect_output status failure
-End
-
-It "fails $1 mode when an ignore file other than the default does not exist"
-export INPUT_IGNORE_FILE="missing.prettierignore"
-mock_command git "status --porcelain" ""
-When call run_step "${ACTION_DIR}" "$1"
-The status should be failure
-The stdout should include "::error::ignore-file missing.prettierignore does not exist"
-Assert expect_output status failure
 End
 
 It "fixes with it"
