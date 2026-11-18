@@ -89,37 +89,32 @@ runs:
       id: install-biome
       shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         MAX_RETRIES: ${{ inputs.max-retries }}
-        # renovate: datasource=npm depName=@biomejs/biome
-        BIOME_VERSION: '2.6.6'
       run: |
         set -eu
 
-        # An earlier step's Biome is reused only at the pinned version: check and fix run it,
-        # and another version can read the same config differently.
-        if command -v biome >/dev/null 2>&1; then
-          installed=$(biome --version | sed -nE 's/^Version: *//p')
-          if [ "$installed" = "$BIOME_VERSION" ]; then
-            echo "✅ Biome $installed already installed"
-            exit 0
-          fi
-          echo "Biome ${installed:-of an unknown version} is on PATH, not the pinned $BIOME_VERSION"
-        fi
-
-        echo "Installing Biome $BIOME_VERSION..."
+        # Biome comes from this action's package-lock.json: npm ci installs each package of the
+        # tree, the platform binary included, at its locked version and integrity hash, with no
+        # lifecycle scripts. npm whatever the repository uses, since the repository's own package
+        # manager is not involved. The prefix is a new directory under RUNNER_TEMP, which the
+        # runner empties between jobs except for files it cannot delete, so nothing an earlier
+        # job left there, such as an .npmrc npm reads from the prefix, takes part. Check and fix
+        # run the binary by its path, so no other Biome on PATH can stand in for it.
+        # The same locked install as eslint-lint's and prettier-lint's: each action is self-contained.
+        command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Biome"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the install prefix"; exit 1; }
+        prefix=$(mktemp -d "$RUNNER_TEMP/biome-lint-tools.XXXXXX")
+        cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$prefix/"
 
         attempt=1
         while [ "$attempt" -le "$MAX_RETRIES" ]; do
           echo "Attempt $attempt of $MAX_RETRIES"
-
-          # npm whatever the repository uses: this is a global tool, the repository's own
-          # package manager is not involved, and pnpm and Yarn cannot do this on a runner.
-          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install Biome"; exit 1; }
-          if npm install -g "@biomejs/biome@$BIOME_VERSION"; then
-            # Another Biome can sit earlier on PATH than npm's global bin directory, and check and
-            # fix run bare `biome`, so that directory goes first for the steps after this one.
-            printf '%s\n' "$(npm prefix -g)/bin" >> "$GITHUB_PATH"
-            echo "✅ Biome installed successfully"
+          if npm ci --prefix "$prefix" --ignore-scripts --no-audit --no-fund; then
+            bin="$prefix/node_modules/.bin/biome"
+            [ -x "$bin" ] || { echo "::error::biome is not at $bin after its install"; exit 1; }
+            printf 'Running Biome %s from %s\n' "$("$bin" --version)" "$bin"
+            printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -138,20 +133,21 @@ runs:
       id: check
       shell: sh
       env:
+        BIOME_BIN: ${{ steps.install-biome.outputs.bin }}
         FAIL_ON_ERROR: ${{ inputs.fail-on-error }}
       run: |
         set -eu
 
         echo "Running Biome check mode..."
 
-        # Run Biome check with SARIF reporter
-        command -v biome >/dev/null 2>&1 || {
-          echo "::error::biome is required to check the code"
+        # Run the Biome the install step put in its prefix, by its path, with the SARIF reporter
+        [ -n "$BIOME_BIN" ] || {
+          echo "::error::the install step named no Biome to run"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         }
         biome_exit_code=0
-        biome check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
+        "$BIOME_BIN" check . --reporter=sarif > biome-report.sarif || biome_exit_code=$?
 
         # Handle failures gracefully
         if [ "$biome_exit_code" -ne 0 ] && [ ! -s biome-report.sarif ]; then
@@ -201,6 +197,8 @@ runs:
       if: inputs.mode == 'fix'
       id: fix
       shell: sh
+      env:
+        BIOME_BIN: ${{ steps.install-biome.outputs.bin }}
       run: |
         set -eu
 
@@ -212,14 +210,14 @@ runs:
           exit 1
         }
 
-        # Run Biome fix and capture exit code
-        command -v biome >/dev/null 2>&1 || {
-          echo "::error::biome is required to fix the code"
+        # Run the Biome the install step put in its prefix, by its path, and capture its exit code
+        [ -n "$BIOME_BIN" ] || {
+          echo "::error::the install step named no Biome to run"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         }
         biome_exit_code=0
-        biome check --write . || biome_exit_code=$?
+        "$BIOME_BIN" check --write . || biome_exit_code=$?
 
         # Count changed files using git diff
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')
