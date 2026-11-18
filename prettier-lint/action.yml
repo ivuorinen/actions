@@ -518,9 +518,10 @@ runs:
         }
         output=$(mktemp "$RUNNER_TEMP/prettier-lint-output.XXXXXX")
         tool_error=
-        # GitHub Actions sets CI, which makes Prettier color its [warn] and [error] tags;
-        # NO_COLOR keeps them plain for the parsing below.
-        if NO_COLOR=1 "$@" -- "$FILE_PATTERN" > "$output" 2>&1; then
+        # GitHub Actions sets CI, which makes Prettier color its [warn] and [error] tags, and a
+        # caller can set FORCE_COLOR. NO_COLOR keeps them plain for Prettier 3, FORCE_COLOR=0 for
+        # Prettier 2, whose bundled Chalk ignores NO_COLOR.
+        if NO_COLOR=1 FORCE_COLOR=0 "$@" -- "$FILE_PATTERN" > "$output" 2>&1; then
           prettier_exit_code=0
           printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
         else

@@ -500,7 +500,7 @@ End
 
 # tool-pins.spec.sh runs both steps and matches the exact argv, `--` included.
 It "ends prettier options before the pattern in check mode"
-When call grep -F 'if NO_COLOR=1 "$@" -- "$FILE_PATTERN"' prettier-lint/action.yml
+When call grep -F 'if NO_COLOR=1 FORCE_COLOR=0 "$@" -- "$FILE_PATTERN"' prettier-lint/action.yml
 The status should be success
 The output should include '-- "$FILE_PATTERN"'
 End

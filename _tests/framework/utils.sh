@@ -462,7 +462,9 @@ for path, entry in packages.items():
 PY
   # npm's own resolver, from the lock alone: a locked version outside the range the package
   # that needs it declares is "invalid".
-  if ! _npm_ls=$(npm ls --prefix "$1" --package-lock-only --all 2>&1); then
+  # The output options are given here, since an npm_config_depth or npm_config_parseable in
+  # the environment would otherwise cut the walk short or change what it prints.
+  if ! _npm_ls=$(npm ls --prefix "$1" --package-lock-only --all --depth=Infinity --no-parseable --no-json 2>&1); then
     printf '%s\n' "$_npm_ls" | grep -E 'invalid|missing|ERR' | sed -E 's/^/npm ls: /'
   fi
 }

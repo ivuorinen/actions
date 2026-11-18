@@ -40,6 +40,19 @@ locked_install_args() {
   printf 'ci --prefix %s --include=optional --ignore-scripts --no-audit --no-fund' "${RUNNER_TEMP}/biome-lint-tools"
 }
 
+# Succeed when the mocked npm ran `npm ci` exactly $1 times.
+npm_ci_calls() {
+  python3 - "${HARNESS_SESSION:?}/calls.jsonl" "$1" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as calls:
+    count = sum(1 for call in map(json.loads, calls) if call[:2] == ["npm", "ci"])
+if count != int(sys.argv[2]):
+    sys.exit(f"npm ci ran {count} times, not {sys.argv[2]}")
+PY
+}
+
 # mock_command matches a space-joined argv; expect_argv checks each argument stands alone.
 It "installs the action's lockfile with npm ci and runs that Biome by path"
 bin=$(installed_biome)
@@ -107,6 +120,8 @@ The status should be success
 The stdout should include "Attempt 2 of 2"
 The stdout should include "Running Biome Version: 2.6.6 from $_bin"
 Assert expect_output bin "$_bin"
+# The retry installs again rather than only probing again.
+Assert npm_ci_calls 2
 End
 
 # npm can leave the launcher without the platform binary it starts; that is no install.
@@ -191,16 +206,49 @@ The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
 Assert expect_output status failure
 End
 
-It "leaves findings to fail-on-error and uploads their report"
-printf '%s\n' '#!/bin/sh' \
-  'printf "%s\n" "{\"runs\":[{\"results\":[{\"level\":\"error\"}]}]}"' 'exit 1' >"$dir/biome"
+# A report shaped like Biome's, with the version and tool metadata the uploader requires.
+findings_report() {
+  printf '%s' '{"$schema":"https://json.schemastore.org/sarif-2.1.0.json","version":"2.1.0","runs":[{"tool":{"driver":{"name":"Biome"}},"results":['
+  printf '%s' "$1"
+  printf '%s\n' ']}]}'
+}
+
+It "leaves findings to fail-on-error and names their report for upload"
+report=$(findings_report '{"ruleId":"lint/a","level":"error","message":{"text":"a"}},{"ruleId":"lint/b","level":"warning","message":{"text":"b"}}')
+printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' 'exit 1' >"$dir/biome"
 export INPUT_FAIL_ON_ERROR="false"
 When call run_step "${ACTION_DIR}" "check"
 The status should be success
-The stdout should include "::error::Biome check found 1 issues"
+The stdout should include "::error::Biome check found 1 errors and 1 warnings"
 Assert expect_output sarif_file "biome-report.sarif"
 Assert expect_output status failure
 Assert expect_output errors 1
+Assert expect_output warnings 1
+End
+
+# Biome writes a report of no results when it processed no files, and exits 1 as for findings.
+It "fails when Biome processed no files, uploading nothing"
+printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$(findings_report '')" 'EOF' \
+  'echo "No files were processed in the specified paths." >&2' 'exit 1' >"$dir/biome"
+export INPUT_FAIL_ON_ERROR="false"
+When call run_step "${ACTION_DIR}" "check"
+The status should equal 1
+The stderr should include "No files were processed"
+The stdout should include "::error::Biome did not scan the code (exit status 1)"
+The path "biome-report.sarif" should not be exist
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+Assert expect_output status failure
+End
+
+It "counts warnings apart from errors on a run that passes"
+report=$(findings_report '{"ruleId":"lint/b","level":"warning","message":{"text":"b"}}')
+printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' >"$dir/biome"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "Biome check completed: 0 errors, 1 warnings"
+Assert expect_output status success
+Assert expect_output errors 0
+Assert expect_output warnings 1
 End
 
 It "removes a report left in the checkout when no Biome runs"

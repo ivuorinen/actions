@@ -328,22 +328,26 @@ The stdout should include "Forgot to run Prettier?"
 Assert expect_output unformatted_files 2
 End
 
-# GitHub Actions sets CI, which makes Prettier color its tags unless NO_COLOR is set. The
-# stand-in colors them the same way, so a step that left color on would count nothing.
+# GitHub Actions sets CI, which makes Prettier color its tags, and a caller can set
+# FORCE_COLOR. The stand-in colors them as both Prettiers do, on stderr as they write them:
+# Prettier 3 unless NO_COLOR is set, Prettier 2's Chalk whenever FORCE_COLOR is not 0. A step
+# that left color on would count nothing.
 Describe "under GitHub Actions"
 before_color() {
   dir="${SHELLSPEC_TEST_TEMP_DIR}/colored/node_modules/.bin"
   mkdir -p "$dir"
   export HARNESS_STEP_OUTPUTS="{\"ensure-prettier\":{\"outputs\":{\"command\":\"\",\"bin\":\"$dir/prettier\"}}}"
   export CI="true" GITHUB_ACTIONS="true" INPUT_FAIL_ON_ERROR="false"
-  unset NO_COLOR
+  unset NO_COLOR FORCE_COLOR
 }
 BeforeEach 'before_color'
 
 colored_prettier() {
   printf '%s\n' '#!/bin/sh' \
-    'if [ -n "${NO_COLOR:-}" ]; then o="[" c="]"; else o="[$(printf "\033[31m")" c="$(printf "\033[39m")]"; fi' \
-    "printf '%s%s%s %s\n' \"\$o\" \"$1\" \"\$c\" \"$2\"" "exit 1" >"$dir/prettier"
+    'o="[$(printf "\033[31m")" c="$(printf "\033[39m")]"' \
+    'if [ -n "${NO_COLOR:-}" ]; then o="[" c="]"; fi' \
+    'case "${FORCE_COLOR:-}" in "" | 0) ;; *) o="[$(printf "\033[31m")" c="$(printf "\033[39m")]" ;; esac' \
+    "printf '%s%s%s %s\n' \"\$o\" \"$1\" \"\$c\" \"$2\" >&2" "exit 1" >"$dir/prettier"
   chmod +x "$dir/prettier"
 }
 
@@ -356,6 +360,15 @@ End
 
 It "still counts an unformatted file"
 colored_prettier warn "a.js"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stdout should include "[warn] a.js"
+Assert expect_output unformatted_files 1
+End
+
+It "still counts an unformatted file when the caller sets FORCE_COLOR"
+colored_prettier warn "a.js"
+export FORCE_COLOR="1"
 When call run_step "${ACTION_DIR}" "check"
 The status should be success
 The stdout should include "[warn] a.js"
