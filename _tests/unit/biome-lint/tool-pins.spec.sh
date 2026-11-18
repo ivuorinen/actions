@@ -256,6 +256,31 @@ The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
 Assert expect_output status failure
 End
 
+# Only Biome's own diagnostic counts: the launcher's stderr can carry other lines that happen to
+# share its words.
+It "keeps a clean scan whose stderr mentions processing in an unrelated line"
+printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$(findings_report '')" 'EOF' \
+  'echo "Fixture note: No files were processed by the fixture generator" >&2' >"$dir/biome"
+When call run_step "${ACTION_DIR}" "check"
+The status should be success
+The stderr should include "Fixture note"
+The stdout should include "Biome check completed: 0 errors, 0 warnings"
+Assert expect_output sarif_file "biome-report.sarif"
+Assert expect_output status success
+End
+
+# A status above 1, as for a Biome killed after it wrote its report, is no completed run.
+It "fails when Biome exits above 1, even with findings in its report"
+report=$(findings_report '{"ruleId":"lint/a","level":"error","message":{"text":"a"}}')
+printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' 'exit 143' >"$dir/biome"
+export INPUT_FAIL_ON_ERROR="false"
+When call run_step "${ACTION_DIR}" "check"
+The status should equal 143
+The stdout should include "::error::Biome did not scan the code (exit status 143)"
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+Assert expect_output status failure
+End
+
 It "counts warnings apart from errors on a run that passes"
 report=$(findings_report '{"ruleId":"lint/b","level":"warning","message":{"text":"b"}}')
 printf '%s\n' '#!/bin/sh' "cat <<'EOF'" "$report" 'EOF' >"$dir/biome"

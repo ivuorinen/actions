@@ -177,17 +177,24 @@ runs:
 
         # Biome exits 1 for findings, and also for a configuration it rejects (with no report) or
         # for a run that processed no files (with a report of no results, or only of a file it
-        # skipped as too large). So a run counts as a scan only when it exits 0, or exits
-        # non-zero with findings in a valid report and without the no-files diagnostic. Any
-        # other run did not scan: it fails the step whatever fail-on-error says, and leaves
-        # nothing to upload, since such a report would close the open alerts. A report is named
-        # in sarif_file only once it counts.
+        # skipped as too large, and its "No files were processed in the specified paths."
+        # diagnostic). A status above 1, as when Biome is killed, is no completed run either. So
+        # a run counts as a scan only when it exits 0 with a valid report, or exits 1 with
+        # findings in a valid report and without that diagnostic. Any other run did not scan: it
+        # fails the step whatever fail-on-error says, and leaves nothing to upload, since such a
+        # report would close the open alerts. A report is named in sarif_file only once it counts.
         results=$(jq '[.runs[]?.results[]?] | length' biome-report.sarif 2>/dev/null) || results=
-        no_files=
-        if grep -q 'No files were processed' "$diagnostics"; then
-          no_files=yes
-        fi
-        if [ -z "$results" ] || [ -n "$no_files" ] || { [ "$biome_exit_code" -ne 0 ] && [ "$results" -eq 0 ]; }; then
+        scanned=
+        case "$biome_exit_code" in
+          0) [ -n "$results" ] && scanned=yes ;;
+          1)
+            if [ -n "$results" ] && [ "$results" -gt 0 ] &&
+              ! grep -qF 'No files were processed in the specified paths.' "$diagnostics"; then
+              scanned=yes
+            fi
+            ;;
+        esac
+        if [ -z "$scanned" ]; then
           rm -f biome-report.sarif
           echo "::error::Biome did not scan the code (exit status $biome_exit_code); see its diagnostics above"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
