@@ -46,16 +46,22 @@ input values and can inject shell commands.
 
 ### 2. Secret masking (HIGH)
 
-All inputs that receive tokens or secrets must be masked immediately:
+Each action's generated `validate.py` masks its credential inputs before it runs any
+check, and it is the action's first real step. An input counts as a credential when its
+check type in `_validation/spec.py` is in `MASKED_CHECKS` in `_validation/kit.py`.
+Flag a token or secret input whose check type is not masked, and an action.yml that
+emits `::add-mask::` for an input itself, which `_validation/tests/test_spec.py` rejects.
+
+A credential an action creates at run time, such as a token it fetches, is masked in the
+step that creates it, before anything prints it:
 
 ```yaml
-# SAFE — passed via env, masked with printf
-- run: printf '::add-mask::%s\n' "$TOKEN"
-  env:
-    TOKEN: ${{ inputs.token }}
+# SAFE — masked before use: one command per line, with % encoded
+- run: |
+    generated="$(fetch-credential)"
+    printf '%s\n' "$generated" | tr '\r' '\n' | sed -E -e '/^[[:space:]]*$/d' -e 's/%/%25/g' -e 's/^/::add-mask::/'
 ```
 
-Check that masking happens before any other step uses the value.
 Never use `echo "::add-mask::${{ inputs.token }}"` — the token is interpolated
 into the shell command before masking occurs.
 
@@ -165,12 +171,9 @@ Report each finding with severity, file, line, and remediation:
   Found: run: echo "${{ github.event.pull_request.title }}"
   Fix: Pass via env variable, not direct interpolation
 
-[HIGH] missing-mask — npm-publish/action.yml:12
-  Found: input 'npm-token' used without masking
-  Fix: Add masking via env + printf:
-    env:
-      NPM_TOKEN: ${{ inputs.npm-token }}
-    run: printf '::add-mask::%s\n' "$NPM_TOKEN"
+[HIGH] missing-mask — _validation/spec.py:236
+  Found: npm-publish input 'npm_token' uses check type 'boolean', which validate.py does not mask
+  Fix: Use a check type in kit.MASKED_CHECKS (opaque_token), then run make update-validators
 
 [MEDIUM] unquoted-var — go-build/action.yml:30
   Found: cd $build_dir

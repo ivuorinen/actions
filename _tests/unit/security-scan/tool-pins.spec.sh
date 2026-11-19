@@ -156,11 +156,11 @@ Assert output_names gitleaks gitleaks
 Assert test -z "$(grep '^actionlint=' "$GITHUB_OUTPUT")"
 End
 
-It "keeps the Trivy database outside the checkout and caches it by day"
+# A new directory: nothing earlier in the job can have put a database there.
+It "keeps the Trivy database in the step's own new directory"
 When call run_install Linux X64
 The status should be success
-Assert grep -Fxq "trivy_cache=${RUNNER_TEMP}/security-scan-trivy-cache" "$GITHUB_OUTPUT"
-Assert grep -Eq '^date=[0-9]{4}-[0-9]{2}-[0-9]{2}$' "$GITHUB_OUTPUT"
+Assert grep -Eq "^trivy_cache=${RUNNER_TEMP}/security-scan-tools\.[^ /]+/trivy-cache\$" "$GITHUB_OUTPUT"
 End
 
 It "installs the other scanners when one fails, names only those installed, and fails"

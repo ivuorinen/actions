@@ -1,4 +1,7 @@
-"""Install one of security-scan's scanner binaries from its pinned release archive.
+"""Install a tool binary an action runs from its pinned release archive.
+
+security-scan and docker-build each ship this same file, since each action is
+self-contained, and docker-build's tests check that the copies stay identical.
 
 Usage:
 
@@ -13,7 +16,7 @@ trusted: a release asset can be replaced under the same name, and a checksums fi
 the same release would be replaced with it. Each failure prints an ``::error::`` line and
 exits 1 before anything is written to DEST_DIR. Standard library only, like validate.py.
 
-This is Python rather than shell because the action runs on macOS and Windows as well, where
+This is Python rather than shell because the actions run on macOS and Windows as well, where
 .claude/rules/posix-shell.md allows no reliance on GNU tools such as sha256sum, and a shell
 step would need a different hashing and unpacking tool on each. python3 is already required
 for validate.py.

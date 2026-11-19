@@ -91,9 +91,13 @@ Every action includes explicit permissions comments documenting required GitHub 
 ### 6. Third-Party Tools
 
 - Third-party actions, such as `oven-sh/setup-bun`, are pinned to a full commit SHA.
-- security-scan runs Gitleaks, Trivy and actionlint from their release archives, installed only when an archive's
-  SHA-256 matches the digest pinned in `security-scan/tools.sha256`, rather than a checksums file from the same
-  release, which would be replaced along with the archive.
+- security-scan runs Gitleaks, Trivy and actionlint, and docker-build's image scan runs Trivy, from their release
+  archives, installed only when an archive's SHA-256 matches the digest pinned in the action's `tools.sha256`, rather
+  than a checksums file from the same release, which would be replaced along with the archive.
+- docker-build and docker-publish use the runner's Docker Buildx and fail when it has none, because setup-buildx would
+  otherwise download a release with no digest or signature check. A Buildx version named in docker-build's
+  `buildx-version` input is downloaded that way, as its description says. Both run BuildKit from an image pinned by
+  digest.
 
 ## Security Best Practices
 
@@ -237,6 +241,9 @@ When security issues are fixed:
 - security-scan replaced gitleaks-action, trivy-action and raven-actions/actionlint with release binaries checked
   against SHA-256 digests pinned in the repository
 - On a pull request or merge group, the scanners read their configuration from the base branch
+- docker-build's image scan replaced trivy-action with the same pinned Trivy release binary
+- docker-build and docker-publish stopped downloading Buildx unverified, and docker-publish pins its BuildKit image by
+  digest
 - Status: ✅ Complete
 
 ## Security Testing

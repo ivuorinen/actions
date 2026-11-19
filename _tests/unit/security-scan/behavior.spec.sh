@@ -609,9 +609,9 @@ The output should include "steps.check-configs.outputs.scan_dir"
 The output should include "steps.install-tools.outputs.trivy_cache"
 End
 
-It "caches the Trivy database in the directory Trivy is given"
-When call step_value "$ACTION_DIR" "Cache the Trivy database" "with.path"
-The output should equal "\${{ steps.install-tools.outputs.trivy_cache }}"
+# Trivy does not verify its database, and a cache entry can be saved by another job.
+It "restores no Trivy database from a cache"
+The contents of file "${ACTION_DIR}/action.yml" should not include "actions/cache@"
 End
 
 It "passes actionlint the config check-configs chose"

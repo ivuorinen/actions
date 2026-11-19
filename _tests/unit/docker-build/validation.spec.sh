@@ -378,14 +378,6 @@ default_buildkit_is_pinned_and_patched() {
   [ "$(printf '%s\n' 0.12.5 "${version#v}" | sort -V | head -n 1)" = "0.12.5" ]
 }
 
-default_buildx_is_pinned() {
-  version=$(step_value "$ACTION_DIR" buildx env.DEFAULT_BUILDX_VERSION)
-  case "$version" in
-  "" | latest) return 1 ;;
-  esac
-  validate_input_python "docker-build" "buildx-version" "$version" >/dev/null 2>&1
-}
-
 # customManagers:githubActionsVersions has no digest group, so this repo's own
 # manager has to read the digest-pinned BuildKit and binfmt images. A renamed key would
 # silently stop updates, and binfmt's qemu-v tags need the comment's regex versioning.
@@ -427,12 +419,7 @@ When call renovate_manager_reads_image_pins
 The status should be success
 End
 
-It "pins the default Buildx version"
-When call default_buildx_is_pinned
-The status should be success
-End
-
-It "leaves buildx-version without a default, so the pin applies"
+It "leaves buildx-version without a default, so the runner's Buildx is used"
 When call action_field inputs.buildx-version.default
 The output should equal ""
 End
@@ -442,9 +429,15 @@ When call action_field inputs.buildkit-version.default
 The output should equal ""
 End
 
-It "lets a caller's explicit Buildx version win over the pin"
+# The Actions cache would restore a download by a key another job can save first.
+It "restores no named Buildx download from the Actions cache"
+When call step_value "$ACTION_DIR" buildx with.cache-binary
+The output should equal "false"
+End
+
+It "installs only a Buildx version the caller names"
 When call step_value "$ACTION_DIR" buildx with.version
-The output should equal '${{ inputs.buildx-version || env.DEFAULT_BUILDX_VERSION }}'
+The output should equal '${{ inputs.buildx-version }}'
 End
 
 It "lets a caller's explicit BuildKit version win over the pin"

@@ -128,9 +128,10 @@ End
 End
 
 Describe "scan step"
-# trivy-action is a uses: step, which the harness cannot execute.
+# tool-pins.spec.sh runs the step with a stand-in Trivy.
 It "scans the reference the build step resolved"
-The contents of file "$ACTION_FILE" should include 'image-ref: ${{ steps.build.outputs.image-ref }}'
+When call step_value "${ACTION_DIR}" "scan" env.IMAGE_REF
+The output should equal '${{ steps.build.outputs.image-ref }}'
 End
 End
 
