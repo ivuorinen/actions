@@ -101,14 +101,16 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 
 **Testing**:
 
-- `make test-python` — validation kit and generator tests
-- `make test-python-coverage` — the same, with coverage
-- `make test-actions` — ShellSpec unit and integration tests
-- `make test-unit` — unit tests only
-- `make test-integration` — integration tests only
-- `make test-action ACTION=<name>` — one action's tests
-- `make test-update-validators` — `validate.py` freshness check
-- `make test-coverage` — tests with coverage reporting
+| Target                           | Runs                                       |
+| -------------------------------- | ------------------------------------------ |
+| `make test-python`               | validation kit and generator tests         |
+| `make test-python-coverage`      | the same, with coverage                    |
+| `make test-actions`              | ShellSpec unit and integration tests       |
+| `make test-unit`                 | unit tests only                            |
+| `make test-integration`          | integration tests only                     |
+| `make test-action ACTION=<name>` | one action's tests                         |
+| `make test-update-validators`    | the check that each `validate.py` is fresh |
+| `make test-coverage`             | tests with coverage reporting              |
 
 **Validation**: `make update-validators`, `make update-validators-dry`
 
