@@ -47,25 +47,12 @@ const ESCAPES = new Map([
 ]);
 
 // The name git's C-style quoting of QUOTED stands for: the bytes between the quotes, with
-// each \ooo octal escape and each escape above decoded, read as UTF-8.
+// each \ooo octal escape and each escape above decoded, read as UTF-8. Each byte is one
+// latin1 character while the escapes are decoded.
 function unquote(quoted) {
-  const input = Buffer.from(quoted.slice(1, -1), 'utf8');
-  const bytes = [];
-  for (let i = 0; i < input.length; i += 1) {
-    if (input[i] !== 0x5c) {
-      bytes.push(input[i]);
-      continue;
-    }
-    i += 1;
-    const next = String.fromCharCode(input[i]);
-    if (next >= '0' && next <= '7') {
-      bytes.push(Number.parseInt(input.subarray(i, i + 3).toString('latin1'), 8));
-      i += 2;
-    } else {
-      bytes.push(ESCAPES.get(next) ?? input[i]);
-    }
-  }
-  return Buffer.from(bytes).toString('utf8');
+  const bytes = Buffer.from(quoted.slice(1, -1), 'utf8').toString('latin1');
+  const decoded = bytes.replace(/\\([0-7]{3}|[abfnrtv"\\])/g, (_, escape) => String.fromCharCode(escape.length === 3 ? Number.parseInt(escape, 8) : ESCAPES.get(escape)));
+  return Buffer.from(decoded, 'latin1').toString('utf8');
 }
 
 // The path a "+++ b/PATH" header names, or null for "+++ /dev/null". With
