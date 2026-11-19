@@ -42,6 +42,23 @@ The output should equal "deny"
 End
 End
 
+Describe "PreToolUse input that is not exactly one JSON object"
+# jq reads a stream of values; a check must see the one object Claude Code sends.
+Parameters
+'{} {"tool_input":{"command":"git push"}}'
+''
+'[]'
+'"git push"'
+'1'
+End
+
+It "is denied: [$1]"
+When call hook_field ".claude/hooks/route-bash-to-context-mode.sh" "$1" .hookSpecificOutput.permissionDecision
+The status should be success
+The output should equal "deny"
+End
+End
+
 Describe "deny"
 It "keeps quotes, backslashes and line breaks in the reason as text"
 reason=$(printf 'a "quote", a \\backslash and\na line break')

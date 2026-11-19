@@ -18,11 +18,13 @@ read_input() {
 }
 
 # read_tool_call: read_input for a PreToolUse hook, which denies a call whose input is not
-# JSON, since it cannot check fields it cannot read.
+# one JSON object, since it cannot check fields it cannot read. jq reads a stream of values,
+# so the input is slurped and must hold exactly one: empty input, or a second document
+# after the first, is refused.
 read_tool_call() {
   read_input
-  if ! printf '%s' "$INPUT" | jq -e . >/dev/null 2>&1; then
-    deny "The hook input is not JSON, so the hook cannot check this tool call."
+  if ! printf '%s' "$INPUT" | jq -e -s 'length == 1 and (.[0] | type == "object")' >/dev/null 2>&1; then
+    deny "The hook input is not one JSON object, so the hook cannot check this tool call."
     exit 0
   fi
 }
