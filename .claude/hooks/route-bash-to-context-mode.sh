@@ -9,26 +9,75 @@
 # See .claude/rules/context-mode-always.md.
 set -eu
 
-# Fail open if jq is unavailable (matches the other PreToolUse hooks).
-if ! command -v jq >/dev/null 2>&1; then
-  exit 0
-fi
+# shellcheck source=SCRIPTDIR/lib.sh
+. "$(dirname -- "$0")/lib.sh"
 
-INPUT=$(cat)
-CLEAN_INPUT=$(printf '%s' "$INPUT" | LC_ALL=C tr -d '\000-\010\013\014\016-\037')
-CMD=$(printf '%s' "$CLEAN_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+read_tool_call
+CMD=$(input_field '.tool_input.command')
 
-# Nothing to inspect -> allow.
+# Valid input with no command -> nothing to inspect.
 if [ -z "$CMD" ]; then
   exit 0
 fi
 
-# Strip leading whitespace, then permit only `git commit` / `git push` (with args).
-TRIMMED=$(printf '%s' "$CMD" | sed -E 's/^[[:space:]]+//')
-case "$TRIMMED" in
-"git commit" | "git commit "* | "git push" | "git push "*) exit 0 ;;
-esac
+NL='
+'
+TAB=$(printf '\t')
+# Drop the blanks the shell skips before the first word; later lines keep theirs.
+TRIMMED=$CMD
+while :; do
+  case "$TRIMMED" in
+  " "* | "$TAB"* | "$NL"*) TRIMMED=${TRIMMED#?} ;;
+  *) break ;;
+  esac
+done
+FIRST=${TRIMMED%%"$NL"*}
 
-REASON="Bash is restricted to 'git commit' and 'git push' in this repo. Route everything else through context-mode: reads AND mutations (git add, mkdir, rm, mv, make, gh, ...) via ctx_execute or ctx_batch_execute (these persist filesystem and git-index changes to the real repo), and file content via Edit/Write. This keeps terminal output out of the context window. See .claude/rules/context-mode-always.md."
-ENCODED=$(printf '%s' "$REASON" | jq -Rs .)
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$ENCODED"
+# The first line is allowed only when it is one of the forms below, word for word.
+# V is a value: characters sh, bash and zsh treat as text, not starting with = (zsh would
+# replace =name with a command's path). The one quoted form is -m '...', inside which nothing
+# expands. Options are listed rather than refused, since git accepts any unambiguous
+# abbreviation of one (--rec for --receive-pack, which runs a program). This assumes no zsh
+# global alias is defined for a plain word, since one would expand in argument position.
+V='[A-Za-z0-9_./:@+,%-][A-Za-z0-9_./:@+,%=-]*'
+# A commit needs a message source, or git would open an editor.
+CFLAG='--amend|-s|--signoff|-q|--quiet'
+MSG="-F $V|-m $V|-m '[^']*'|--no-edit"
+COMMIT="git commit( ($CFLAG))*( ($MSG))( ($CFLAG|$MSG))*"
+# A push names a remote (no / or :, so not a path or URL) and refs that start with neither
+# + (a force push without a lease) nor : (deleting the remote branch).
+REF='[A-Za-z0-9_@][A-Za-z0-9_./@-]*'
+PFLAG="-u|--set-upstream|--tags|--follow-tags|--dry-run|--force-with-lease(=$REF(:$REF)?)?"
+PUSH="git push( ($PFLAG))*( [A-Za-z0-9_][A-Za-z0-9_.-]*( $REF(:$REF)?)*)?"
+# A quoted heredoc delimiter keeps the shell from expanding anything in the body.
+HEREDOC="git commit( ($CFLAG|--no-edit))* -F - <<'[A-Za-z_][A-Za-z0-9_]*'"
+
+first_line_matches() {
+  printf '%s\n' "$FIRST" | grep -E -x -q -- "$1"
+}
+
+allowed() {
+  if [ "$FIRST" = "$TRIMMED" ]; then
+    first_line_matches "($COMMIT)|($PUSH)"
+    return
+  fi
+  # Further lines are a commit message: the body of the heredoc the first line opens, closed
+  # by its delimiter on the last line and on no line before it.
+  first_line_matches "$HEREDOC" || return 1
+  delim=${FIRST##*<<\'}
+  delim=${delim%\'}
+  [ "${TRIMMED##*"$NL"}" = "$delim" ] || return 1
+  [ "$(printf '%s\n' "$TRIMMED" | grep -c -x -F -- "$delim")" -eq 1 ]
+}
+
+if allowed; then
+  exit 0
+fi
+
+REASON="Bash is restricted to one 'git commit' or 'git push' in this repo, in the forms that"
+REASON="$REASON .claude/rules/context-mode-always.md lists: a commit message goes in -m '...' or a"
+REASON="$REASON -F - <<'EOF' heredoc. Route everything else through context-mode: reads AND mutations"
+REASON="$REASON (git add, mkdir, rm, mv, make, gh, ...) via ctx_execute or ctx_batch_execute (these persist"
+REASON="$REASON filesystem and git-index changes to the real repo), and file content via Edit/Write."
+REASON="$REASON This keeps terminal output out of the context window."
+deny "$REASON"

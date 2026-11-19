@@ -34,7 +34,11 @@ from_tool_versions() {
 }
 
 Parameters:matrix
-"csharp-build detect-dotnet-version|dotnet" "csharp-lint-check detect-dotnet-version|dotnet" "csharp-publish detect-dotnet-version|dotnet" "go-build detect-go-version|golang" "php-tests detect-php-version|php" "pr-lint php-version|php" "python-lint-fix python-version|python" "language-version-detect parse-version php|php" "language-version-detect parse-version python|python" "language-version-detect parse-version go|golang" "language-version-detect parse-version dotnet|dotnet"
+"csharp-build detect-dotnet-version|dotnet" "csharp-lint-check detect-dotnet-version|dotnet" \
+  "csharp-publish detect-dotnet-version|dotnet" "go-build detect-go-version|golang" "php-tests detect-php-version|php" \
+  "pr-lint php-version|php" "python-lint-fix python-version|python" \
+  "language-version-detect parse-version php|php" "language-version-detect parse-version python|python" \
+  "language-version-detect parse-version go|golang" "language-version-detect parse-version dotnet|dotnet"
 "v8.4.1|8.4.1" "V8.4.1-rc.1|8.4.1-rc.1" "8.4.1+build|8.4.1+build"
 End
 

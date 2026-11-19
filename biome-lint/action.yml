@@ -4,7 +4,7 @@
 #   - security-events: write  # Required for check mode to upload SARIF
 ---
 name: Biome Lint
-description: Run Biome linter in check or fix mode
+description: 'Run Biome linter in check or fix mode'
 author: Ismo Vuorinen
 
 branding:

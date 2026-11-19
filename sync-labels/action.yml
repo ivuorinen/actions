@@ -3,7 +3,7 @@
 #   - issues: write # Required for syncing labels (and PAT for cross-repo sync)
 ---
 name: Sync labels
-description: Sync GitHub labels declaratively from a YAML/JSON manifest (no Docker)
+description: 'Sync GitHub labels declaratively from a YAML/JSON manifest (no Docker)'
 author: Ismo Vuorinen
 
 branding:
@@ -12,7 +12,10 @@ branding:
 
 inputs:
   labels:
-    description: "Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when omitted (no longer the action's bundled labels.yml). A missing manifest is a warning + successful no-op, not an error."
+    description: >-
+      Path to the labels manifest (YAML or JSON), relative to the repository root. Defaults to .github/labels.yml when
+      omitted (no longer the action's bundled labels.yml). A missing manifest is a warning + successful no-op, not an
+      error.
     required: false
     default: ''
   repository:

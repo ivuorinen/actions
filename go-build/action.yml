@@ -74,7 +74,7 @@ runs:
       shell: sh
       env:
         ACTION_PATH: ${{ github.action_path }}
-        DEFAULT_VERSION: "${{ inputs.go-version || '1.24' }}"
+        DEFAULT_VERSION: ${{ inputs.go-version || '1.24' }}
       run: |
         set -eu
         command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to validate detected versions"; exit 1; }

@@ -3,12 +3,12 @@
 flake8 has no SARIF output of its own. Its documented route to one is a formatter
 plugin, and neither plugin on PyPI fits this action:
 
-* ``flake8-sarif`` 1.0.15 leaves ``--output-file`` empty because its ``stop()`` never
-  closes the file. Written to stdout instead, its log fails the SARIF schema on E999
-  and E902 (``snippet.text`` is null, ``startLine`` is 0), and ``upload-sarif`` rejects
-  a log that fails the schema.
-* ``flake8-sarif-formatter`` depends on ``requests`` and ``beautifulsoup4``, which
-  this job has no other use for.
+*   ``flake8-sarif`` 1.0.15 leaves ``--output-file`` empty because its ``stop()`` never
+    closes the file. Written to stdout instead, its log fails the SARIF schema on E999
+    and E902 (``snippet.text`` is null, ``startLine`` is 0), and ``upload-sarif`` rejects
+    a log that fails the schema.
+*   ``flake8-sarif-formatter`` depends on ``requests`` and ``beautifulsoup4``, which
+    this job has no other use for.
 
 So action.yml uses flake8's documented custom ``--format`` string to write one Python
 literal per result, and this standard-library script turns those into SARIF.

@@ -135,17 +135,20 @@ RUN set -eux \
   && trufflehog_tarball="trufflehog_${TRUFFLEHOG_VERSION}_linux_${trufflehog_arch}.tar.gz" \
   && actionlint_tarball="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" \
   && act_tarball="act_${act_arch}.tar.gz" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/${trufflehog_tarball}" -o "/tmp/${trufflehog_tarball}" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt" -o /tmp/trufflehog_checksums.txt \
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/${actionlint_tarball}" -o "/tmp/${actionlint_tarball}" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o /tmp/actionlint_checksums.txt \
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/${act_tarball}" -o "/tmp/${act_tarball}" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/checksums.txt" -o /tmp/act_checksums.txt \
+  && trufflehog_release="https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}" \
+  && actionlint_release="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}" \
+  && act_release="https://github.com/nektos/act/releases/download/v${ACT_VERSION}" \
+  && curl -fsSL --proto '=https' --tlsv1.2 "${trufflehog_release}/${trufflehog_tarball}" -o "/tmp/${trufflehog_tarball}" \
+  && curl -fsSL --proto '=https' --tlsv1.2 "${trufflehog_release}/trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt" -o /tmp/trufflehog_checksums.txt \
+  && curl -fsSL --proto '=https' --tlsv1.2 "${actionlint_release}/${actionlint_tarball}" -o "/tmp/${actionlint_tarball}" \
+  && curl -fsSL --proto '=https' --tlsv1.2 "${actionlint_release}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o /tmp/actionlint_checksums.txt \
+  && curl -fsSL --proto '=https' --tlsv1.2 "${act_release}/${act_tarball}" -o "/tmp/${act_tarball}" \
+  && curl -fsSL --proto '=https' --tlsv1.2 "${act_release}/checksums.txt" -o /tmp/act_checksums.txt \
   # Verify checksums and install trufflehog
   && echo "=== Verifying checksums and installing tools ===" \
   && grep "${trufflehog_tarball}" /tmp/trufflehog_checksums.txt \
-   | sed "s|${trufflehog_tarball}|/tmp/${trufflehog_tarball}|" \
-   | sha256sum -c - \
+    | sed "s|${trufflehog_tarball}|/tmp/${trufflehog_tarball}|" \
+    | sha256sum -c - \
   && tar -xzf "/tmp/${trufflehog_tarball}" -C /tmp \
   && chmod +x /tmp/trufflehog \
   && mv /tmp/trufflehog /usr/local/bin/trufflehog \

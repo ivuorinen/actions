@@ -162,12 +162,8 @@ End
 Context "applying autopep8 fixes"
 # autopep8's real output when its only fix adds a blank line: the added line is a bare `+`.
 It "rewrites and counts a file whose only fix adds a blank line"
-export FAKE_AUTOPEP8_DIFF='--- original/./app.py
-+++ fixed/./app.py
-@@ -1 +1,2 @@
- x = 1
-+
-'
+printf -v FAKE_AUTOPEP8_DIFF '%s\n' '--- original/./app.py' '+++ fixed/./app.py' '@@ -1 +1,2 @@' ' x = 1' '+'
+export FAKE_AUTOPEP8_DIFF
 When call run_action
 The status should be success
 Assert expect_output fixed_count 1

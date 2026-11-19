@@ -74,4 +74,5 @@ Total:    N findings across M actions
 
 ## Output
 
-A severity-grouped security report. CRITICAL and HIGH findings should be addressed before any release. The report includes file paths and line numbers for every finding, plus a concrete fix suggestion.
+A severity-grouped security report. CRITICAL and HIGH findings should be addressed before any release.
+The report includes file paths and line numbers for every finding, plus a concrete fix suggestion.

@@ -10,6 +10,23 @@ make_input() {
   printf '{"tool_input":{"file_path":"%s"}}' "$file_path"
 }
 
+# Helper: path_with STUB: print a directory for PATH holding only what the hook needs
+# (jq and the utilities lib.sh uses) and a stub of STUB that prints "STUB called", so
+# an example can leave out exactly the tool it is about.
+path_with() {
+  local dir="${SHELLSPEC_TMPBASE}/path-with-$1"
+  mkdir -p "$dir"
+  for _t in jq dirname tr; do ln -sf "$(command -v "$_t")" "$dir/$_t"; done
+  printf '#!/bin/sh\nprintf "%s called\\n"\n' "$1" >"$dir/$1"
+  chmod +x "$dir/$1"
+  printf '%s' "$dir"
+}
+
+# Helper: run_hook_on_path DIR INPUT: run the hook with DIR as the whole PATH.
+run_hook_on_path() {
+  printf '%s' "$2" | PATH="$1" "$(command -v sh)" "$HOOK" 2>&1
+}
+
 Describe ".claude/hooks/post-edit-write.sh"
 
 Describe "file path handling"
@@ -27,7 +44,7 @@ End
 Context "when file path does not match any known extension"
 It "exits without error for unknown file types"
 input=$(make_input "/some/file.txt")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The status should be success
 End
 End
@@ -47,7 +64,7 @@ input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should include "action-validator called"
 The output should include "action.yml"
 End
@@ -55,15 +72,13 @@ End
 
 Context "when action-validator is not available"
 It "skips action-validator gracefully without error"
-# Remove action-validator from PATH by using a clean PATH
-input=$(make_input "/myaction/action.yml")
-# Use PATH that only has basic utilities, no action-validator
-result=$(PATH="/usr/bin:/bin" sh "$HOOK" <<<"$input" 2>&1 || true)
-
-When run bash -c "printf '%s\n' '$result'; exit 0"
-# Should not contain an error about action-validator being missing
-The output should not include "command not found"
-The output should not include "action-validator: not found"
+# PATH holds jq and a stub actionlint but no action-validator; the stub's output shows the
+# hook reached its action.yml checks.
+When call run_hook_on_path "$(path_with actionlint)" "$(make_input "/myaction/action.yml")"
+The status should be success
+The output should include "actionlint called"
+The output should not include "action-validator"
+The output should not include "not found"
 End
 End
 
@@ -78,7 +93,7 @@ input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should include "actionlint called"
 The output should include "action-validator called"
 End
@@ -88,10 +103,12 @@ Context "when action-validator returns a non-zero exit code"
 It "continues without failing (uses || true)"
 TMPBIN=$(mktemp -d)
 printf '#!/bin/sh\nprintf "validation error\n" >&2\nexit 1\n' >"$TMPBIN/action-validator"
-chmod +x "$TMPBIN/action-validator"
+# A stub actionlint keeps the real one from reporting on a file that does not exist.
+printf '#!/bin/sh\nexit 0\n' >"$TMPBIN/actionlint"
+chmod +x "$TMPBIN/action-validator" "$TMPBIN/actionlint"
 
 input=$(make_input "/myaction/action.yml")
-PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>/dev/null
+PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" >/dev/null 2>&1
 exit_code=$?
 rm -rf "$TMPBIN"
 
@@ -115,7 +132,7 @@ input=$(make_input "/myaction/some_script.py")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should not include "action-validator called"
 End
 End
@@ -130,7 +147,7 @@ input=$(make_input "/myaction/helper.sh")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should not include "action-validator called"
 End
 End
@@ -145,7 +162,7 @@ input=$(make_input "/myaction/config.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should not include "action-validator called"
 End
 End
@@ -164,19 +181,19 @@ input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should include "actionlint called"
 End
 End
 
 Context "when actionlint is not available"
 It "skips actionlint gracefully"
-input=$(make_input "/myaction/action.yml")
-result=$(PATH="/usr/bin:/bin" sh "$HOOK" <<<"$input" 2>&1 || true)
-
-When run bash -c "printf '%s\n' '$result'; exit 0"
-The output should not include "actionlint: not found"
-The output should not include "command not found"
+# PATH holds jq and a stub action-validator but no actionlint.
+When call run_hook_on_path "$(path_with action-validator)" "$(make_input "/myaction/action.yml")"
+The status should be success
+The output should include "action-validator called"
+The output should not include "actionlint"
+The output should not include "not found"
 End
 End
 

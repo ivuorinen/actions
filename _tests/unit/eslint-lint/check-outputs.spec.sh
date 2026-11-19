@@ -9,7 +9,9 @@ Describe "eslint-lint check outputs"
 ACTION_DIR="${PROJECT_ROOT}/eslint-lint"
 
 # A clean file and a file with one error.
-REPORT='{"runs": [{"artifacts": [{"location": {"uri": "file:///w/clean.js"}}, {"location": {"uri": "file:///w/bad.js"}}], "results": [{"level": "error", "ruleId": "no-unused-vars", "locations": [{"physicalLocation": {"artifactLocation": {"uri": "file:///w/bad.js", "index": 1}}}]}]}]}'
+REPORT='{"runs": [{"artifacts": [{"location": {"uri": "file:///w/clean.js"}}, {"location": {"uri": "file:///w/bad.js"}}],'
+REPORT="$REPORT"' "results": [{"level": "error", "ruleId": "no-unused-vars",'
+REPORT="$REPORT"' "locations": [{"physicalLocation": {"artifactLocation": {"uri": "file:///w/bad.js", "index": 1}}}]}]}]}'
 
 before() {
   shellspec_setup_test_env "eslint-lint-check-outputs-$$"

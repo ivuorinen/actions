@@ -30,7 +30,7 @@ End
 Context "when file path is a generated validate.py"
 It "blocks the edit"
 input=$(make_input "ansible-lint-fix/validate.py" "print('x')")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The status should be success
 The output should include "deny"
 End
@@ -39,7 +39,7 @@ End
 Context "when file path is a deeply nested validate.py"
 It "blocks regardless of nesting depth"
 input=$(make_input "some/nested/action/validate.py" "content")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The status should be success
 The output should include "deny"
 End
@@ -48,21 +48,21 @@ End
 Context "when file path is not a generated validate.py"
 It "allows edits to action.yml"
 input=$(make_input "ansible-lint-fix/action.yml" "name: test")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The status should be success
 The output should equal ""
 End
 
 It "allows edits to the generator and kit sources"
 input=$(make_input "_validation/generate.py" "content")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The status should be success
 The output should equal ""
 End
 
 It "allows edits to files merely containing validate in the name"
 input=$(make_input "_tests/shared/validation_core.py" "content")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The status should be success
 The output should equal ""
 End
@@ -75,21 +75,21 @@ Describe "deny response format"
 Context "when blocking a validate.py edit"
 It "returns permissionDecision deny in JSON"
 input=$(make_input "action/validate.py" "content")
-When run bash -c "printf '%s' '$input' | sh '$HOOK' | jq -r '.hookSpecificOutput.permissionDecision'"
+When call hook_field "$HOOK" "$input" .hookSpecificOutput.permissionDecision
 The status should be success
 The output should equal "deny"
 End
 
 It "returns hookEventName PreToolUse"
 input=$(make_input "action/validate.py" "content")
-When run bash -c "printf '%s' '$input' | sh '$HOOK' | jq -r '.hookSpecificOutput.hookEventName'"
+When call hook_field "$HOOK" "$input" .hookSpecificOutput.hookEventName
 The status should be success
 The output should equal "PreToolUse"
 End
 
 It "includes make update-validators in the reason"
 input=$(make_input "action/validate.py" "content")
-When run bash -c "printf '%s' '$input' | sh '$HOOK' | jq -r '.hookSpecificOutput.permissionDecisionReason'"
+When call hook_field "$HOOK" "$input" .hookSpecificOutput.permissionDecisionReason
 The status should be success
 The output should include "update-validators"
 End

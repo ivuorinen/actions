@@ -28,7 +28,7 @@
 # 4. Use SHA-pinned action references: `ivuorinen/actions/docker-publish@<commit-sha>`
 ---
 name: Docker Publish
-description: Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
+description: 'Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub'
 author: Ismo Vuorinen
 
 branding:

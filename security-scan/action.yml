@@ -22,9 +22,9 @@ branding:
 inputs:
   gitleaks-license:
     description: >-
-      Gitleaks license key. Required for Gitleaks scanning unless the event payload names a personal account as the repository owner.
-      A schedule payload names no owner, so scheduled scans need it. Gitleaks runs only on push, pull_request, workflow_dispatch
-      and schedule events, the ones gitleaks-action supports
+      Gitleaks license key. Required for Gitleaks scanning unless the event payload names a personal account as the
+      repository owner. A schedule payload names no owner, so scheduled scans need it. Gitleaks runs only on push,
+      pull_request, workflow_dispatch and schedule events, the ones gitleaks-action supports
     required: false
     default: ''
   gitleaks-config:

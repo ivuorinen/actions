@@ -3,10 +3,10 @@
 
 This is the codegen behind ``make update-validators``. For each action in ``spec.py`` it:
 
-  * selects the kit checks that action's inputs use,
-  * inlines the *exact source* of those checks (and only the preamble helpers they
+*   selects the kit checks that action's inputs use,
+*   inlines the *exact source* of those checks (and only the preamble helpers they
     reference) via :func:`inspect.getsource`, and
-  * writes ``<action>/validate.py`` — a pure-stdlib, dependency-free validator that the
+*   writes ``<action>/validate.py`` — a pure-stdlib, dependency-free validator that the
     action runs with ``python3 validate.py``.
 
 Because every pattern is defined once in ``kit.py`` and copied verbatim, the per-action

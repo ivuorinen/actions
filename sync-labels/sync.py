@@ -5,21 +5,22 @@ repositories to match it, using the GitHub CLI (``gh``) for every API call.
 
 Design notes
 ------------
-* **No Docker, no PyYAML.** GitHub-hosted runners ship ``yq`` and ``gh`` but not
-  PyYAML in the system ``python3``; we shell out to ``yq -o=json`` (a real YAML
-  parser) and parse the JSON with the standard library. JSON manifests are read
-  directly when ``yq`` is unavailable.
-* **Batch by diff.** REST/``gh label`` operations are inherently per-label (there
-  is no bulk label endpoint), so the only way to "batch" is to issue the fewest
-  requests possible: list each repo's labels once (``gh label list -L 9999``),
-  then create/edit/delete *only* what actually differs. Unchanged labels cost
-  zero requests.
+*   **No Docker, no PyYAML.** GitHub-hosted runners ship ``yq`` and ``gh`` but not
+    PyYAML in the system ``python3``; we shell out to ``yq -o=json`` (a real YAML
+    parser) and parse the JSON with the standard library. JSON manifests are read
+    directly when ``yq`` is unavailable.
+*   **Batch by diff.** REST/``gh label`` operations are inherently per-label (there
+    is no bulk label endpoint), so the only way to "batch" is to issue the fewest
+    requests possible: list each repo's labels once (``gh label list -L 9999``),
+    then create/edit/delete *only* what actually differs. Unchanged labels cost
+    zero requests.
 
-Inputs (read from ``INPUT_*`` env vars, set by action.yml):
-  INPUT_LABELS      manifest path (default ``.github/labels.yml``); a missing
-                    manifest is a warning + successful no-op, not an error
-  INPUT_REPOSITORY  newline-separated ``owner/repo`` list (default: current repo)
-  INPUT_PRUNE       ``true``/``false`` — delete labels not in the manifest (default true)
+Inputs (read from ``INPUT_*`` env vars, set by action.yml)::
+
+    INPUT_LABELS        manifest path (default .github/labels.yml); a missing
+                        manifest is a warning + successful no-op, not an error
+    INPUT_REPOSITORY    newline-separated owner/repo list (default: current repo)
+    INPUT_PRUNE         true/false — delete labels not in the manifest (default true)
 
 ``GH_TOKEN`` (set by action.yml from the ``token`` input) authenticates ``gh``.
 """

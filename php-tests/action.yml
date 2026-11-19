@@ -3,7 +3,7 @@
 #   - contents: read  # Required for checking out repository
 ---
 name: PHP Tests
-description: Run PHPUnit tests with optional Laravel setup and Composer dependency management
+description: 'Run PHPUnit tests with optional Laravel setup and Composer dependency management'
 author: Ismo Vuorinen
 
 branding:
@@ -28,7 +28,10 @@ inputs:
     required: false
     default: 'none'
   composer-args:
-    description: 'Composer install options for both install steps, separated by spaces, as --flag or --flag=value. Options that move or skip the install or turn off security blocking are rejected. Plugins must be listed in config.allow-plugins in composer.json'
+    description: >-
+      Composer install options for both install steps, separated by spaces, as --flag or --flag=value. Options that
+      move or skip the install or turn off security blocking are rejected. Plugins must be listed in
+      config.allow-plugins in composer.json
     required: false
     default: '--no-progress --prefer-dist --optimize-autoloader'
   max-retries:

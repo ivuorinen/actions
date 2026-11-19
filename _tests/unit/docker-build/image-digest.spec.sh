@@ -42,8 +42,11 @@ Describe "build step"
 # fixture stands in for what buildx writes, which has no trailing newline.
 METADATA_FILE_NAME="docker-build-metadata.json"
 write_metadata() {
-  printf '{"buildx.build.ref":"b/b0/abc","containerimage.descriptor":{"mediaType":"application/vnd.oci.image.index.v1+json","digest":"%s","size":1609},"containerimage.digest":"%s","image.name":"%s:1.0.0"}' \
-    "$DIGEST" "$DIGEST" "$IMAGE" >"${RUNNER_TEMP}/${METADATA_FILE_NAME}"
+  {
+    printf '{"buildx.build.ref":"b/b0/abc",'
+    printf '"containerimage.descriptor":{"mediaType":"application/vnd.oci.image.index.v1+json","digest":"%s","size":1609},' "$DIGEST"
+    printf '"containerimage.digest":"%s","image.name":"%s:1.0.0"}' "$DIGEST" "$IMAGE"
+  } >"${RUNNER_TEMP}/${METADATA_FILE_NAME}"
 }
 remove_metadata() { rm -f "${RUNNER_TEMP}/${METADATA_FILE_NAME}"; }
 seed_image_name() { export HARNESS_STEP_OUTPUTS='{"image-name":{"outputs":{"name":"ghcr.io/acme/app"}}}'; }

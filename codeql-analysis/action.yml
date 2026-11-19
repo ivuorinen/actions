@@ -4,7 +4,7 @@
 #   - contents: read          # Required for checking out repository
 ---
 name: CodeQL Analysis
-description: Run CodeQL security analysis for a single language with configurable query suites
+description: 'Run CodeQL security analysis for a single language with configurable query suites'
 author: Ismo Vuorinen
 
 branding:
@@ -82,7 +82,10 @@ inputs:
     default: ''
 
   output:
-    description: 'Workspace-relative directory for the SARIF results. Absolute paths, .. and paths through a symlink, committed or made by the build, are rejected. The analysis deletes and recreates this directory, so it must not hold tracked files.'
+    description: >-
+      Workspace-relative directory for the SARIF results. Absolute paths, .. and paths through a symlink,
+      committed or made by the build, are rejected. The analysis deletes and recreates this directory,
+      so it must not hold tracked files.
     required: false
     default: 'codeql-results'
 

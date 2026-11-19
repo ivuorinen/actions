@@ -4,9 +4,9 @@
 The actual input checks live in ``_validation/kit.py`` (the single source of truth); this
 module delegates to ``kit.CHECKS`` via ``_validation/spec.py`` and adds:
 
-1. action.yml parsing utilities (name, inputs, outputs, runs-using, input properties)
-2. a command-line interface for ShellSpec test integration (``--validate``, ``--property``,
-   ``--inputs``, ``--outputs``, ``--name``, ``--runs-using``, ``--validate-yaml``)
+1.  action.yml parsing utilities (name, inputs, outputs, runs-using, input properties)
+2.  a command-line interface for ShellSpec test integration (``--validate``, ``--property``,
+    ``--inputs``, ``--outputs``, ``--name``, ``--runs-using``, ``--validate-yaml``)
 
 It holds no validation patterns of its own — to change what an input accepts, edit
 ``_validation/kit.py`` and run ``make update-validators``.
@@ -232,20 +232,20 @@ def _create_argument_parser():
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
-  # Validate an input value
-  python3 validation_core.py --validate action-dir input-name input-value
+    # Validate an input value
+    python3 validation_core.py --validate action-dir input-name input-value
 
-  # Get input property
-  python3 validation_core.py --property action.yml input-name required
+    # Get input property
+    python3 validation_core.py --property action.yml input-name required
 
-  # List inputs
-  python3 validation_core.py --inputs action.yml
+    # List inputs
+    python3 validation_core.py --inputs action.yml
 
-  # List outputs
-  python3 validation_core.py --outputs action.yml
+    # List outputs
+    python3 validation_core.py --outputs action.yml
 
-  # Get action name
-  python3 validation_core.py --name action.yml
+    # Get action name
+    python3 validation_core.py --name action.yml
         """,
     )
 
