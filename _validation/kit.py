@@ -971,10 +971,13 @@ def check_severity_enum(value: str) -> str | None:
 
 
 def check_scanner_list(value: str) -> str | None:
-    """Comma-separated Trivy scanners."""
+    """Comma-separated Trivy scanners.
+
+    ``config`` is Trivy's older, deprecated name for ``misconfig``.
+    """
     if _skip(value):
         return None
-    allowed = ("vuln", "config", "secret", "license")
+    allowed = ("vuln", "misconfig", "config", "secret", "license")
     bad = _enum_list(value, allowed)
     if bad:
         return "invalid scanner(s): " + ", ".join(bad) + "; allowed: " + ", ".join(allowed)
@@ -1197,15 +1200,6 @@ def check_composer_args(value: str) -> str | None:
     return None
 
 
-def check_license_key(value: str) -> str | None:
-    """Opaque license key — a single token."""
-    if _skip(value):
-        return None
-    if re.fullmatch(r"[A-Za-z0-9+/=._-]+", value):
-        return None
-    return "must be an opaque key (letters, digits, + / = . _ -)"
-
-
 def check_git_author_name(value: str) -> str | None:
     """Git author/committer display name (e.g. ``GitHub Actions``, ``github-actions[bot]``)."""
     if _skip(value):
@@ -1265,7 +1259,7 @@ CHECKS: dict[str, Callable[[str], str | None]] = {
 # logs. This holds check type names, never a credential.
 # --------------------------------------------------------------------------------------
 
-MASKED_CHECKS = frozenset({"github_token", "license_key", "opaque_token"})
+MASKED_CHECKS = frozenset({"github_token", "opaque_token"})
 
 
 # --------------------------------------------------------------------------------------
@@ -1334,7 +1328,6 @@ EXAMPLES = {
     "json_format": '{"linux/amd64": "--build-arg ARCH=amd64"}',
     "key_value_list": "NODE_ENV=production",
     "language_enum": "python",
-    "license_key": _actions_expression("secrets.GITLEAKS_LICENSE"),
     "linter_list": "gosec,govet",
     "mode_enum": "check",
     "namespace_with_lookahead": "my-org",

@@ -9,6 +9,8 @@
 #   mock_command <cmd> <argv-glob> <stdout> [exit-code]
 #   expect_output <key> <value>        -- the value GitHub stores for <key> in $GITHUB_OUTPUT is <value>
 #   expect_argv <cmd> <arg>...         -- exact, consecutive argv entries of a mocked call
+#   step_value <action-dir> <step> <path> -- print a field of a step, by name or id, such as its run: script
+#   harness_reset                      -- drop the session's mocks and recorded calls
 #
 # $GITHUB_OUTPUT and $GITHUB_ENV must be set by the spec (shellspec_setup_test_env).
 
@@ -130,6 +132,35 @@ sys.exit(1)
 PY
 }
 
+# Prints the field <path> of the step whose name, or else id, is <step> in
+# <action-dir>/action.yml, or an empty line when it has none. Dotted paths reach into env:
+# and with:. A string prints as it is, a boolean as true or false, and a mapping as JSON. A
+# spec runs a step the harness cannot, such as one that reads the steps context, with its
+# run: script.
+step_value() {
+  _harness_python - "$1/action.yml" "$2" "$3" <<'PY'
+import json
+import sys
+
+import yaml
+
+action_file, step, path = sys.argv[1:4]
+with open(action_file, encoding="utf-8") as f:
+    steps = yaml.safe_load(f)["runs"]["steps"]
+value = next((s for s in steps if s.get("name") == step), None) or next(s for s in steps if s.get("id") == step)
+for key in path.split("."):
+    value = value.get(key) if isinstance(value, dict) else None
+if value is None:
+    print("")
+elif isinstance(value, bool):
+    print("true" if value else "false")
+elif isinstance(value, (dict, list)):
+    print(json.dumps(value))
+else:
+    print(value)
+PY
+}
+
 export -f run_step run_all_owned_steps run_retry_step list_unguarded_retry_commands
-export -f mock_command expect_output expect_argv harness_reset
+export -f mock_command expect_output expect_argv harness_reset step_value
 export -f _harness_py _harness_ensure_session _harness_execute _harness_python _harness_project_root

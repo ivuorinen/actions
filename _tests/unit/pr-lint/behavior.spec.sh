@@ -121,25 +121,14 @@ End
 End
 
 Describe "Corepack settings from the checkout"
-# Prints a step's COREPACK_ENV_FILE, which a .corepack.env in the checkout must not override.
-corepack_env_file_of() {
-  _harness_python - "${ACTION_DIR}/action.yml" "$1" <<'PY'
-import sys
-
-import yaml
-
-steps = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))["runs"]["steps"]
-print(next(step for step in steps if step.get("name") == sys.argv[2]).get("env", {}).get("COREPACK_ENV_FILE"))
-PY
-}
-
 Parameters
 "Install Package Manager (Fallback)"
 "Install Node Dependencies"
 End
 
+# A step's COREPACK_ENV_FILE, which a .corepack.env in the checkout must not override.
 It "ignores them in $1"
-When call corepack_env_file_of "$1"
+When call step_value "$ACTION_DIR" "$1" env.COREPACK_ENV_FILE
 The output should equal "0"
 End
 End

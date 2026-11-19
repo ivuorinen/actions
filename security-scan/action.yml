@@ -1,19 +1,21 @@
 # yaml-language-server: $schema=https://json.schemastore.org/github-action.json
-#
-# REQUIRED PERMISSIONS (set these in your workflow file):
-#   permissions:
-#     security-events: write  # Required for SARIF uploads
-#     contents: read          # Required for repository access
-#     pull-requests: read     # Required for Gitleaks to list a pull request's commits in a private repository
-#
+# permissions:
+#   - contents: read          # Required for checking out the repository
+#   - security-events: write  # Required for uploading the SARIF reports to code scanning
+#   - pull-requests: write    # Required on a pull request for the inline gitleaks:allow comment; without it, a warning
 ---
 name: Security Scan
-description: |
-  Comprehensive security scanning for GitHub Actions including actionlint,
-  Gitleaks (optional), and Trivy vulnerability scanning. Requires
-  'security-events: write' and 'contents: read' permissions in the workflow,
-  and 'pull-requests: read' for Gitleaks on pull requests in private repositories.
-  On a pull request, gitleaks-action scans only the first 30 commits.
+description: >-
+  Security scanning for repositories with GitHub Actions: actionlint, Gitleaks and Trivy, with the results uploaded to
+  code scanning. Requires 'contents: read' and 'security-events: write', and on a pull request 'pull-requests: write'
+  for its comment. All three scanners run from release binaries checked against SHA-256 digests pinned in this action,
+  on Linux and macOS (x64 and ARM64) and Windows x64. Gitleaks scans the commits a pull request, merge group or push
+  adds, two-parent merge commits included, and the whole history on other events and on a push whose earlier commit
+  the clone lacks, such as the push that creates a branch, where an older commit can fail the scan. On a pull request
+  or merge group, Gitleaks and Trivy run from an export of the base commit, so their configs, ignore files and git
+  attributes come from the base branch, and actionlint reads the base branch's config. Inline gitleaks:allow comments,
+  and Trivy's trivy:ignore comments, in the changed files still apply; a pull request's scan lists the gitleaks:allow
+  comments it adds in a comment when the base branch keeps a Gitleaks config or ignore file.
 author: Ismo Vuorinen
 branding:
   icon: shield
@@ -22,13 +24,14 @@ branding:
 inputs:
   gitleaks-license:
     description: >-
-      Gitleaks license key. Required for Gitleaks scanning unless the event payload names a personal account as the
-      repository owner. A schedule payload names no owner, so scheduled scans need it. Gitleaks runs only on push,
-      pull_request, workflow_dispatch and schedule events, the ones gitleaks-action supports
+      Deprecated: has no effect, because Gitleaks runs from its own release binary, which needs no license. A value
+      set here must still contain no whitespace or control characters, and is masked in the log.
+    deprecationMessage: 'This input has no effect. security-scan runs the Gitleaks binary, which needs no license.'
     required: false
-    default: ''
   gitleaks-config:
-    description: 'Path to Gitleaks config file. If missing, Gitleaks uses a root .gitleaks.toml or its default rules'
+    description: >-
+      Path to the Gitleaks config file. If it does not exist, Gitleaks uses a root .gitleaks.toml or its default
+      rules. On a pull request or merge group the file is read from the base commit.
     required: false
     default: '.gitleaks.toml'
   trivy-severity:
@@ -36,9 +39,11 @@ inputs:
     required: false
     default: 'CRITICAL,HIGH'
   trivy-scanners:
-    description: 'Types of scanners to run (comma-separated)'
+    description: >-
+      Trivy scanners to run (comma-separated): vuln, misconfig, secret, license. config is Trivy's older, deprecated
+      name for misconfig
     required: false
-    default: 'vuln,config,secret'
+    default: 'vuln,misconfig,secret'
   trivy-timeout:
     description: 'Timeout for Trivy scan'
     required: false
@@ -48,7 +53,9 @@ inputs:
     required: false
     default: 'true'
   token:
-    description: 'GitHub token for authentication'
+    description: >-
+      GitHub token for checking out the repository and, on a pull request, for the inline gitleaks:allow comment.
+      Defaults to the workflow token
     required: false
     default: ''
 
@@ -91,6 +98,7 @@ runs:
     - name: Checkout repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
+        token: ${{ inputs.token || github.token }}
         fetch-depth: 0
         persist-credentials: false
 
@@ -100,7 +108,6 @@ runs:
       env:
         ACTIONLINT_ENABLED: ${{ inputs.actionlint-enabled }}
         GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
-        GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
       run: |
         set -eu
 
@@ -108,76 +115,359 @@ runs:
         # report found after the scans was written by this run.
         rm -rf results.sarif trivy-results.sarif
 
-        # Initialize flags: Gitleaks stays off unless it can run (see below)
         {
-          printf 'run_gitleaks=%s\n' "false"
+          printf 'run_gitleaks=%s\n' "true"
           printf 'run_trivy=%s\n' "true"
           printf 'run_actionlint=%s\n' "$ACTIONLINT_ENABLED"
         } >> "$GITHUB_OUTPUT"
 
-        # gitleaks-action decides whether a license is needed from the account type
-        # of the repository owner in the event payload: individual users need none.
-        # The payload has no repository on schedule events, so no type is read there.
-        command -v jq >/dev/null 2>&1 || { echo "jq required" >&2; exit 1; }
-        owner_type=$(jq -r '.repository.owner.type // empty' "$GITHUB_EVENT_PATH" 2>/dev/null || true)
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the event payload"; exit 1; }
+        command -v git >/dev/null 2>&1 || { echo "::error::git is required to choose the commits Gitleaks scans"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required for the scanner configs"; exit 1; }
 
-        # gitleaks-action exits with an error on any other event, before it checks
-        # a license. A merge group's commits were already scanned on their pull
-        # request.
+        # The commits Gitleaks scans: those a pull request or merge group adds, or a push
+        # brought, as BASE..HEAD. --remerge-diff makes git log show what a merge commit itself
+        # changes, which it otherwise leaves out.
+        field() { jq -r "$1 // empty" "$GITHUB_EVENT_PATH"; }
         case "$GITHUB_EVENT_NAME" in
-          push | pull_request | workflow_dispatch | schedule) gitleaks_event="supported" ;;
-          *) gitleaks_event="unsupported" ;;
+          pull_request)
+            base=$(field .pull_request.base.sha)
+            head=$(field .pull_request.head.sha)
+            ;;
+          merge_group)
+            base=$(field .merge_group.base_sha)
+            head=$(field .merge_group.head_sha)
+            ;;
+          push)
+            base=$(field .before)
+            head=$(field .after)
+            ;;
+          *)
+            base=''
+            head=''
+            ;;
         esac
-
-        # A config file is optional. With no GITLEAKS_CONFIG, gitleaks reads
-        # .gitleaks.toml at the repository root, then its default rules. A path
-        # that does not exist would make it exit before scanning, so it is not
-        # passed on.
-        if [ "$gitleaks_event" = "unsupported" ]; then
-          printf '::notice::Skipping Gitleaks scan - gitleaks-action does not support the %s event\n' "$GITHUB_EVENT_NAME"
-        elif [ -n "$GITLEAKS_LICENSE" ] || [ "$owner_type" = "User" ]; then
-          printf 'run_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
-          if [ -f "$GITLEAKS_CONFIG" ]; then
-            printf 'gitleaks_config=%s\n' "$GITLEAKS_CONFIG" >> "$GITHUB_OUTPUT"
-          else
-            printf '::warning::Gitleaks config not found - using a root .gitleaks.toml if present, otherwise the default rules\n'
-          fi
+        is_commit() {
+          case "$1" in
+            '' | *[!0-9a-f]*) return 1 ;;
+          esac
+          git cat-file -e "$1^{commit}" 2>/dev/null
+        }
+        if is_commit "$base" && is_commit "$head"; then
+          printf 'gitleaks_range=%s\n' "${base}..${head}" >> "$GITHUB_OUTPUT"
         else
-          printf '::warning::Gitleaks license missing - skipping Gitleaks scan\n'
+          case "$GITHUB_EVENT_NAME" in
+            pull_request | merge_group)
+              printf '::error::This clone lacks a commit the %s event names, so the base branch configuration cannot be read\n' "$GITHUB_EVENT_NAME"
+              exit 1
+              ;;
+          esac
+          # On any other event, or a push whose first commit is not in the clone (the push
+          # that creates a branch has none), Gitleaks scans the whole history.
+          printf '::notice::Gitleaks scans the whole history on this %s event\n' "$GITHUB_EVENT_NAME"
         fi
 
-    - name: Run actionlint
-      if: steps.check-configs.outputs.run_actionlint == 'true'
-      uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
+        case "$GITHUB_EVENT_NAME" in
+          pull_request | merge_group)
+            # The changes could allowlist themselves through the files the scanners read, so
+            # Gitleaks and Trivy run from an export of the base commit, where their default
+            # config and ignore file names, and relative paths inside the configs, resolve.
+            # Gitleaks reads git attributes from the base commit for the same reason, through
+            # GIT_ATTR_SOURCE, which git reads from 2.41 on.
+            command -v tar >/dev/null 2>&1 || { echo "::error::tar is required to export the base commit"; exit 1; }
+            git_version=$(git version | sed -E -n 's/^git version ([0-9]+)\.([0-9]+).*/\1 \2/p')
+            case "$git_version" in
+              [0-9]*' '[0-9]*) ;;
+              *) git_version='0 0' ;;
+            esac
+            if [ "${git_version% *}" -lt 2 ] || { [ "${git_version% *}" -eq 2 ] && [ "${git_version#* }" -lt 41 ]; }; then
+              printf '::error::git 2.41 or later is required to read git attributes from the base commit; found %s\n' "$(git version)"
+              exit 1
+            fi
+            scan_dir=$(mktemp -d "${RUNNER_TEMP}/security-scan-base.XXXXXX")
+            configs=$(mktemp -d "${RUNNER_TEMP}/security-scan-configs.XXXXXX")
+            # git archive applies the export-ignore, export-subst and filter attributes the base
+            # tree sets, which can leave a config out of the export, as /.* export-ignore does,
+            # or rewrite it. $GIT_DIR/info/attributes overrides them while the export runs, and
+            # is put back as it was.
+            attributes=$(git rev-parse --git-path info/attributes)
+            if [ -e "$attributes" ]; then
+              cp "$attributes" "${configs}/info-attributes"
+            fi
+            mkdir -p "$(dirname "$attributes")"
+            printf '* -export-ignore -export-subst -filter -text -eol -ident -working-tree-encoding\n' >"$attributes"
+            exported=true
+            git archive --format=tar --output="${configs}/base.tar" "$base" || exported=false
+            if [ -e "${configs}/info-attributes" ]; then
+              mv "${configs}/info-attributes" "$attributes"
+            else
+              rm -f "$attributes"
+            fi
+            if [ "$exported" != "true" ]; then
+              echo "::error::git archive could not export the base commit"
+              exit 1
+            fi
+            tar -x -f "${configs}/base.tar" -C "$scan_dir"
+            rm -f "${configs}/base.tar"
+
+            # Without --config, Gitleaks falls back to the .gitleaks.toml of the repository it
+            # scans, the changes' own, so it always gets one: the base commit's, or its
+            # default rules.
+            if [ -f "${scan_dir}/${GITLEAKS_CONFIG}" ]; then
+              gitleaks_config=$GITLEAKS_CONFIG
+            elif [ -f "${scan_dir}/.gitleaks.toml" ]; then
+              gitleaks_config=.gitleaks.toml
+            else
+              printf '[extend]\nuseDefault = true\n' >"${configs}/gitleaks.toml"
+              gitleaks_config=${configs}/gitleaks.toml
+            fi
+            # Gitleaks also reads the .gitleaksignore at the root of the repository it scans,
+            # whatever --gitleaks-ignore-path names, so the checkout's is removed. The base
+            # commit's is read from the export.
+            rm -rf .gitleaksignore
+            # actionlint reads .github/actionlint.yaml from the checkout unless it is given a
+            # config: the base commit's, or an empty one. It still parses the checkout's copy,
+            # and would print part of what a symlink there points to, so that is removed too.
+            rm -rf .github/actionlint.yaml .github/actionlint.yml
+            actionlint_config=${configs}/actionlint.yaml
+            : >"$actionlint_config"
+            for name in actionlint.yaml actionlint.yml; do
+              if [ -f "${scan_dir}/.github/${name}" ]; then
+                actionlint_config=${scan_dir}/.github/${name}
+                break
+              fi
+            done
+            {
+              printf 'scan_dir=%s\n' "$scan_dir"
+              printf 'base_sha=%s\n' "$base"
+              printf 'head_sha=%s\n' "$head"
+              printf 'gitleaks_config=%s\n' "$gitleaks_config"
+              printf 'actionlint_config=%s\n' "$actionlint_config"
+            } >> "$GITHUB_OUTPUT"
+            ;;
+          *)
+            printf 'scan_dir=%s\n' "$PWD" >> "$GITHUB_OUTPUT"
+            if [ -f "$GITLEAKS_CONFIG" ]; then
+              printf 'gitleaks_config=%s\n' "$GITLEAKS_CONFIG" >> "$GITHUB_OUTPUT"
+            else
+              printf '::warning::Gitleaks config not found - using a root .gitleaks.toml if present, otherwise the default rules\n'
+            fi
+            ;;
+        esac
+
+    - name: Install the scanners
+      id: install-tools
+      shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
+        RUN_ACTIONLINT: ${{ steps.check-configs.outputs.run_actionlint }}
+        # Update security-scan/tools.sha256 with each version.
+        # renovate: datasource=github-releases depName=gitleaks/gitleaks extractVersion=^v(?<version>.+)$
+        GITLEAKS_VERSION: '8.30.1'
+        # renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.+)$
+        TRIVY_VERSION: '0.70.0'
         # renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.+)$
         ACTIONLINT_VERSION: '1.7.12'
+      run: |
+        set -eu
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to install the scanners"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to install the scanners"; exit 1; }
+
+        # Release archive names: gitleaks says x64, actionlint amd64 and Trivy 64bit. Trivy
+        # publishes no Windows ARM64 build.
+        case "${RUNNER_OS}/${RUNNER_ARCH}" in
+          Linux/X64) gitleaks_platform=linux_x64 actionlint_platform=linux_amd64 trivy_platform=Linux-64bit ext=tar.gz exe='' ;;
+          Linux/ARM64) gitleaks_platform=linux_arm64 actionlint_platform=linux_arm64 trivy_platform=Linux-ARM64 ext=tar.gz exe='' ;;
+          macOS/X64) gitleaks_platform=darwin_x64 actionlint_platform=darwin_amd64 trivy_platform=macOS-64bit ext=tar.gz exe='' ;;
+          macOS/ARM64) gitleaks_platform=darwin_arm64 actionlint_platform=darwin_arm64 trivy_platform=macOS-ARM64 ext=tar.gz exe='' ;;
+          Windows/X64) gitleaks_platform=windows_x64 actionlint_platform=windows_amd64 trivy_platform=windows-64bit ext=zip exe=.exe ;;
+          *)
+            printf '::error::security-scan pins no scanner binaries for %s on %s\n' "$RUNNER_ARCH" "$RUNNER_OS"
+            exit 1
+            ;;
+        esac
+
+        tools=$(mktemp -d "${RUNNER_TEMP}/security-scan-tools.XXXXXX")
+        # install_tool NAME VERSION PLATFORM REPO: fetch NAME's archive and install it into
+        # $tools once its SHA-256 matches the digest tools.sha256 pins. A scanner whose install
+        # fails gets no step output, which skips its scan; the others still install and run,
+        # and this step fails at the end.
+        failed=''
+        install_tool() {
+          archive="${tools}/${1}_${2}_${3}.${ext}"
+          if python3 "${ACTION_PATH}/install_tool.py" download "https://github.com/${4}/releases/download/v${2}/${archive##*/}" "$archive" &&
+            python3 "${ACTION_PATH}/install_tool.py" install "${ACTION_PATH}/tools.sha256" "$archive" "${1}${exe}" "$tools"; then
+            return 0
+          fi
+          failed="${failed} ${1}"
+          return 1
+        }
+        if install_tool gitleaks "$GITLEAKS_VERSION" "$gitleaks_platform" gitleaks/gitleaks; then
+          printf 'gitleaks=%s\n' "${tools}/gitleaks${exe}" >> "$GITHUB_OUTPUT"
+        fi
+        if install_tool trivy "$TRIVY_VERSION" "$trivy_platform" aquasecurity/trivy; then
+          printf 'trivy=%s\n' "${tools}/trivy${exe}" >> "$GITHUB_OUTPUT"
+        fi
+        if [ "$RUN_ACTIONLINT" = "true" ] && install_tool actionlint "$ACTIONLINT_VERSION" "$actionlint_platform" rhysd/actionlint; then
+          printf 'actionlint=%s\n' "${tools}/actionlint${exe}" >> "$GITHUB_OUTPUT"
+        fi
+        # Trivy keeps its vulnerability database outside the checkout, so the files a change
+        # commits cannot supply one. The next step caches it by day, except on a pull request
+        # or merge group: another job running the changes could save a cache entry of its own,
+        # which their scan would prefer, and Trivy does not verify the database.
+        {
+          printf 'trivy_cache=%s\n' "${RUNNER_TEMP}/security-scan-trivy-cache"
+          printf 'date=%s\n' "$(date -u +%Y-%m-%d)"
+        } >> "$GITHUB_OUTPUT"
+        if [ -n "$failed" ]; then
+          printf '::error::Could not install:%s\n' "$failed"
+          exit 1
+        fi
+
+    - name: Cache the Trivy database
+      if: >-
+        ${{ !cancelled() && steps.install-tools.outputs.trivy != '' && steps.check-configs.outputs.run_trivy == 'true'
+        && github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
+      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
-        version: ${{ env.ACTIONLINT_VERSION }}
-        cache: true
-        fail-on-error: true
-        shellcheck: false
+        path: ${{ steps.install-tools.outputs.trivy_cache }}
+        key: security-scan-trivy-db-${{ steps.install-tools.outputs.date }}
+        restore-keys: security-scan-trivy-db-
+
+    - name: Run actionlint
+      if: ${{ !cancelled() && steps.install-tools.outputs.actionlint != '' && steps.check-configs.outputs.run_actionlint == 'true' }}
+      shell: sh
+      env:
+        ACTIONLINT: ${{ steps.install-tools.outputs.actionlint }}
+        ACTIONLINT_CONFIG: ${{ steps.check-configs.outputs.actionlint_config }}
+      run: |
+        set -eu
+        # Only regular files: actionlint would follow a symlink out of the repository and print
+        # the lines it cannot parse.
+        if [ ! -d .github/workflows ] || [ -z "$(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -print)" ]; then
+          printf '::notice::No workflow files in .github/workflows - nothing for actionlint to check\n'
+          exit 0
+        fi
+        # Without the shellcheck integration, as before, and without pyflakes, so the result does
+        # not depend on what else the runner has installed. Errors fail this step.
+        set -- -shellcheck= -pyflakes=
+        if [ -n "$ACTIONLINT_CONFIG" ]; then
+          set -- "$@" -config-file "$ACTIONLINT_CONFIG"
+        fi
+        find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -exec "$ACTIONLINT" "$@" {} +
 
     - name: Run Gitleaks
-      if: steps.check-configs.outputs.run_gitleaks == 'true'
-      uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3.0.0
+      if: ${{ !cancelled() && steps.install-tools.outputs.gitleaks != '' && steps.check-configs.outputs.run_gitleaks == 'true' }}
+      shell: sh
       env:
-        GITHUB_TOKEN: ${{ inputs.token || github.token }}
-        GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
-        GITLEAKS_CONFIG: ${{ steps.check-configs.outputs.gitleaks_config }}
+        GITLEAKS: ${{ steps.install-tools.outputs.gitleaks }}
+        GITLEAKS_CONFIG_PATH: ${{ steps.check-configs.outputs.gitleaks_config }}
+        GITLEAKS_RANGE: ${{ steps.check-configs.outputs.gitleaks_range }}
+        SCAN_DIR: ${{ steps.check-configs.outputs.scan_dir }}
+        BASE_SHA: ${{ steps.check-configs.outputs.base_sha }}
+      run: |
+        set -eu
+        command -v git >/dev/null 2>&1 || { echo "::error::git is required for Gitleaks to read the history"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required for the Gitleaks log"; exit 1; }
+        workspace=$PWD
+        # The commits to scan: the range check-configs chose, or the whole history with the
+        # options Gitleaks uses when it is given no --log-opts. --remerge-diff makes git log
+        # show what a merge commit itself changes, which it otherwise leaves out.
+        if [ -n "$GITLEAKS_RANGE" ]; then
+          revisions=$GITLEAKS_RANGE
+          log_opts="--remerge-diff ${GITLEAKS_RANGE}"
+        else
+          revisions=--all
+          log_opts="--remerge-diff --full-history --all --diff-filter=tuxdb"
+        fi
+        # --remerge-diff shows only what a two-parent merge changes. A merge of more parents in a
+        # range fails this step, since its own changes would go unscanned; in the whole history,
+        # which cannot be changed, it is a warning.
+        octopus=$(git -C "$workspace" rev-list --min-parents=3 --count "$revisions")
+        if [ "$octopus" != "0" ]; then
+          if [ -n "$GITLEAKS_RANGE" ]; then
+            printf '::error::%s merge commits with more than two parents in %s; Gitleaks cannot scan what they change\n' "$octopus" "$GITLEAKS_RANGE"
+            exit 1
+          fi
+          printf '::warning::Gitleaks cannot scan what the %s merge commits with more than two parents in the history change\n' "$octopus"
+        fi
+        log=$(mktemp "${RUNNER_TEMP}/security-scan-gitleaks.XXXXXX")
+        # Gitleaks reads its ignore file, and the paths in its config, relative to the working
+        # directory: SCAN_DIR, the base commit's export on a pull request or merge group (see
+        # check-configs). It scans the checkout's history.
+        cd "$SCAN_DIR"
+        if [ -n "$BASE_SHA" ]; then
+          GIT_ATTR_SOURCE=$BASE_SHA
+          export GIT_ATTR_SOURCE
+        fi
+        # --redact keeps each secret out of the log and the report. Leaks exit 1 and fail this
+        # step; the steps after it still verify and upload the report.
+        set -- --no-banner --redact --report-format sarif --report-path "${workspace}/results.sarif" --log-opts "$log_opts"
+        if [ -n "$GITLEAKS_CONFIG_PATH" ]; then
+          set -- "$@" --config "$GITLEAKS_CONFIG_PATH"
+        fi
+        status=0
+        "$GITLEAKS" git "$@" "$workspace" 2>"$log" || status=$?
+        cat "$log" >&2
+        # When git log writes anything but a known harmless warning to stderr, as a git too old
+        # for --remerge-diff or a missing commit does, Gitleaks logs it as an error, stops, and
+        # still exits 0 with a report that found nothing. An error in its log fails this step.
+        if grep -Eq '(^|[^[:alnum:]_])ERR([^[:alnum:]_]|$)' "$log"; then
+          echo "::error::Gitleaks could not read the whole history; its log above names the error"
+          exit 1
+        fi
+        exit "$status"
+
+    - name: Comment on inline gitleaks:allow comments
+      if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.check-configs.outcome == 'success' }}
+      uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        BASE_SHA: ${{ steps.check-configs.outputs.base_sha }}
+        HEAD_SHA: ${{ steps.check-configs.outputs.head_sha }}
+        GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
+      with:
+        github-token: ${{ inputs.token || github.token }}
+        # A file URL, because import() takes no Windows path.
+        script: |
+          const { join } = await import('node:path');
+          const { pathToFileURL } = await import('node:url');
+          const module = await import(pathToFileURL(join(process.env.ACTION_PATH, 'inline_allows.mjs')).href);
+          await module.default({ github, context, core });
 
     # Leaks fail the Gitleaks step; the vulnerability scan still runs unless the job was cancelled.
     - name: Run Trivy vulnerability scanner
-      if: ${{ !cancelled() && steps.check-configs.outputs.run_trivy == 'true' }}
-      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-      with:
-        scan-type: 'fs'
-        scanners: ${{ inputs.trivy-scanners }}
-        format: 'sarif'
-        output: 'trivy-results.sarif'
-        severity: ${{ inputs.trivy-severity }}
-        limit-severities-for-sarif: 'true'
-        timeout: ${{ inputs.trivy-timeout }}
+      if: ${{ !cancelled() && steps.install-tools.outputs.trivy != '' && steps.check-configs.outputs.run_trivy == 'true' }}
+      shell: sh
+      env:
+        TRIVY: ${{ steps.install-tools.outputs.trivy }}
+        CACHE_DIR: ${{ steps.install-tools.outputs.trivy_cache }}
+        SCAN_DIR: ${{ steps.check-configs.outputs.scan_dir }}
+        SCANNERS: ${{ inputs.trivy-scanners }}
+        SEVERITY: ${{ inputs.trivy-severity }}
+        SCAN_TIMEOUT: ${{ inputs.trivy-timeout }}
+      run: |
+        set -eu
+        workspace=$PWD
+        # The lists without the spaces the validator allows around each item, which Trivy would
+        # read as part of a name. An empty input leaves Trivy at its own default.
+        scanners=$(printf '%s' "$SCANNERS" | tr -d '[:space:]')
+        severity=$(printf '%s' "$SEVERITY" | tr -d '[:space:]')
+        set -- fs
+        if [ -n "$scanners" ]; then
+          set -- "$@" --scanners "$scanners"
+        fi
+        if [ -n "$severity" ]; then
+          set -- "$@" --severity "$severity"
+        fi
+        if [ -n "$SCAN_TIMEOUT" ]; then
+          set -- "$@" --timeout "$SCAN_TIMEOUT"
+        fi
+        # Trivy reads trivy.yaml, .trivyignore and trivy-secret.yaml, and the paths inside them,
+        # relative to the working directory: SCAN_DIR, as for Gitleaks. It scans the checkout.
+        # Findings do not fail this step; Analyze Results counts the critical ones.
+        cd "$SCAN_DIR"
+        "$TRIVY" "$@" --cache-dir "$CACHE_DIR" --format sarif --output "${workspace}/trivy-results.sarif" "$workspace"
 
     - name: Verify SARIF files
       id: verify-sarif
@@ -188,37 +478,40 @@ runs:
       shell: sh
       env:
         RUN_GITLEAKS: ${{ steps.check-configs.outputs.run_gitleaks }}
+        RUN_TRIVY: ${{ steps.check-configs.outputs.run_trivy }}
       run: |
         set -eu
+        command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the scan reports"; exit 1; }
 
-        # Initialize outputs
-        {
-          printf 'has_trivy=%s\n' "false"
-          printf 'has_gitleaks=%s\n' "false"
-        } >> "$GITHUB_OUTPUT"
-
-        # Check Trivy results
-        if [ -f "trivy-results.sarif" ]; then
-          command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the Trivy report"; exit 1; }
-          if jq -e . <"trivy-results.sarif" >/dev/null 2>&1; then
-            printf 'has_trivy=%s\n' "true" >> "$GITHUB_OUTPUT"
+        # valid REPORT: REPORT exists and holds one SARIF document with the runs array the
+        # upload and Analyze Results read; an empty one is a scan that found nothing.
+        valid() { [ -f "$1" ] && jq -e -s 'length == 1 and (.[0] | type == "object" and (.runs | type == "array"))' <"$1" >/dev/null 2>&1; }
+        has_trivy=false
+        has_gitleaks=false
+        missing=false
+        if [ "$RUN_TRIVY" = "true" ]; then
+          if valid trivy-results.sarif; then
+            has_trivy=true
           else
-            printf '::warning::Trivy SARIF file exists but is not valid JSON\n'
+            printf '::error::Trivy left no valid report - the scan did not run or did not finish\n'
+            missing=true
           fi
         fi
-
-        # Check Gitleaks results if it ran
         if [ "$RUN_GITLEAKS" = "true" ]; then
-          if [ -f "results.sarif" ]; then
-            command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the Gitleaks report"; exit 1; }
-            if jq -e . <"results.sarif" >/dev/null 2>&1; then
-              printf 'has_gitleaks=%s\n' "true" >> "$GITHUB_OUTPUT"
-            else
-              printf '::warning::Gitleaks SARIF file exists but is not valid JSON\n'
-            fi
+          if valid results.sarif; then
+            has_gitleaks=true
           else
-            printf '::warning::Gitleaks left no report - nothing was scanned or the scan did not finish\n'
+            printf '::error::Gitleaks left no valid report - the scan did not run or did not finish\n'
+            missing=true
           fi
+        fi
+        {
+          printf 'has_trivy=%s\n' "$has_trivy"
+          printf 'has_gitleaks=%s\n' "$has_gitleaks"
+        } >> "$GITHUB_OUTPUT"
+        # A scanner that was to run and left no report gives no result to trust.
+        if [ "$missing" = "true" ]; then
+          exit 1
         fi
 
     - name: Upload Trivy results

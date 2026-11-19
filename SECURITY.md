@@ -14,7 +14,7 @@ This repository implements multiple layers of security controls to protect again
 
 ### 1. Script Injection Prevention
 
-**Status**: ✅ Implemented across all 43 actions
+**Status**: ✅ Implemented across all actions
 
 All shell scripts use environment variables instead of direct `${{ inputs.* }}` interpolation to prevent command injection attacks.
 
@@ -78,7 +78,7 @@ All actions use comprehensive input validation to prevent:
 
 ### 5. Permissions Documentation
 
-**Status**: ✅ All 43 actions documented
+**Status**: ✅ All actions documented
 
 Every action includes explicit permissions comments documenting required GitHub token permissions:
 
@@ -88,12 +88,12 @@ Every action includes explicit permissions comments documenting required GitHub 
 #   - packages: write  # Required for publishing packages
 ```
 
-### 6. Official Action Usage
+### 6. Third-Party Tools
 
-Third-party security tools use official maintained actions:
-
-- **Bun**: `oven-sh/setup-bun@v2.0.2` (SHA-pinned)
-- **Trivy**: `aquasecurity/trivy-action@0.33.1` (SHA-pinned)
+- Third-party actions, such as `oven-sh/setup-bun`, are pinned to a full commit SHA.
+- security-scan runs Gitleaks, Trivy and actionlint from their release archives, installed only when an archive's
+  SHA-256 matches the digest pinned in `security-scan/tools.sha256`, rather than a checksums file from the same
+  release, which would be replaced along with the archive.
 
 ## Security Best Practices
 
@@ -212,7 +212,7 @@ When security issues are fixed:
 
 ### Phase 1: Script Injection Prevention (2024)
 
-- Converted 43 actions to use environment variables
+- Converted every action to use environment variables
 - Eliminated all direct `${{ inputs.* }}` usage in shell scripts
 - Added comprehensive input validation
 - Status: ✅ Complete
@@ -221,15 +221,22 @@ When security issues are fixed:
 
 - Replaced custom Bun installation with official action
 - Replaced custom Trivy installation with official action
-- Added secret masking to 7 critical actions (including docker-publish)
+- Added secret masking to the actions that handle credentials (including docker-publish)
 - Migrated from custom common-cache to official actions/cache
 - Status: ✅ Complete
 
 ### Phase 3: Documentation & Policy (2024)
 
-- Added permissions comments to all 43 actions
+- Added permissions comments to every action
 - Created security policy (this document)
 - Documented best practices
+- Status: ✅ Complete
+
+### Phase 4: Pinned Scanner Binaries (2026)
+
+- security-scan replaced gitleaks-action, trivy-action and raven-actions/actionlint with release binaries checked
+  against SHA-256 digests pinned in the repository
+- On a pull request or merge group, the scanners read their configuration from the base branch
 - Status: ✅ Complete
 
 ## Security Testing

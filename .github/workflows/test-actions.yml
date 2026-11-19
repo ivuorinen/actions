@@ -8,7 +8,12 @@ on:
       - main
     paths:
       - '*/action.yml'
-      - '*/validate.py'
+      # An action's own files the specs read: its validator and helpers, pinned digests and locks.
+      - '*/*.py'
+      - '*/*.mjs'
+      - '*/tools.sha256'
+      - '*/requirements.*'
+      - '*/package*.json'
       - '_tests/**'
       - '_validation/**'
       - '_tools/**'
@@ -23,7 +28,11 @@ on:
       - main
     paths:
       - '*/action.yml'
-      - '*/validate.py'
+      - '*/*.py'
+      - '*/*.mjs'
+      - '*/tools.sha256'
+      - '*/requirements.*'
+      - '*/package*.json'
       - '_tests/**'
       - '_validation/**'
       - '_tools/**'

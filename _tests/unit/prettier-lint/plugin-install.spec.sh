@@ -41,11 +41,7 @@ FAKE
   for pm in npm pnpm yarn bun; do
     ln -s fakepm "${FAKE_BIN}/${pm}"
   done
-  _harness_python -c '
-import sys, yaml
-steps = yaml.safe_load(open(sys.argv[1]))["runs"]["steps"]
-print(next(s for s in steps if s.get("name") == "Install Prettier Plugins")["run"])
-' "$ACTION_FILE" >"$STEP"
+  step_value "$(dirname "$ACTION_FILE")" "Install Prettier Plugins" run >"$STEP"
   printf '{"name":"proj"}\n' >package.json
   printf 'lock: original\n' >pnpm-lock.yaml
   printf 'lock: original\n' >yarn.lock

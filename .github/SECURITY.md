@@ -50,11 +50,10 @@ When using these actions:
 The following table shows available secrets (auto-provisioned secrets are provided by
 GitHub, optional secrets require manual repository configuration):
 
-| Secret Name        | Description                                                       | Requirement |
-| ------------------ | ----------------------------------------------------------------- | ----------- |
-| `GITHUB_TOKEN`     | GitHub token for workflow authentication (automatically provided) | Auto        |
-| `GITLEAKS_LICENSE` | License for Gitleaks scanning                                     | Optional    |
-| `FIXIMUS_TOKEN`    | Enhanced token for automated fix PRs                              | Optional    |
+| Secret Name     | Description                                                       | Requirement |
+| --------------- | ----------------------------------------------------------------- | ----------- |
+| `GITHUB_TOKEN`  | GitHub token for workflow authentication (automatically provided) | Auto        |
+| `FIXIMUS_TOKEN` | Enhanced token for automated fix PRs                              | Optional    |
 
 ## Security Workflows
 
@@ -67,10 +66,10 @@ This repository includes several security-focused workflows:
    - Creates automated fix PRs
 
 2. **Action Security** (`action-security.yml`)
-   - Validates GitHub Action files
-   - Checks for hardcoded credentials
-   - Gitleaks secret scanning
-   - Scans for vulnerabilities in action definitions
+   - Runs security-scan on this repository
+   - actionlint checks the workflow files
+   - Gitleaks scans the commits for secrets
+   - Trivy scans the files for vulnerabilities, misconfigurations and secrets
 
 3. **CodeQL Analysis** (`codeql.yml` and `codeql-new.yml`)
    - Analyzes code for security issues

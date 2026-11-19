@@ -352,7 +352,7 @@ End
 
 Context "when pinning the builder"
 # Prints one field as YAML parses it, so a comment cannot satisfy a check. The path is
-# dotted; a first segment step:<id> selects that step.
+# dotted from the top of action.yml; step_value reads a step's fields.
 action_field() {
   _harness_python - "$ACTION_FILE" "$1" <<'PY'
 import sys
@@ -361,16 +361,13 @@ import yaml
 
 value = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))
 for key in sys.argv[2].split("."):
-    if key.startswith("step:"):
-        value = next(s for s in value["runs"]["steps"] if s.get("id") == key[5:])
-    else:
-        value = value.get(key, "") if isinstance(value, dict) else ""
+    value = value.get(key, "") if isinstance(value, dict) else ""
 print(value)
 PY
 }
 
 default_buildkit_is_pinned_and_patched() {
-  tag=$(action_field step:buildx.env.DEFAULT_BUILDKIT_IMAGE_TAG)
+  tag=$(step_value "$ACTION_DIR" buildx env.DEFAULT_BUILDKIT_IMAGE_TAG)
   case "$tag" in
   v*@sha256:*) ;;
   *) return 1 ;;
@@ -382,7 +379,7 @@ default_buildkit_is_pinned_and_patched() {
 }
 
 default_buildx_is_pinned() {
-  version=$(action_field step:buildx.env.DEFAULT_BUILDX_VERSION)
+  version=$(step_value "$ACTION_DIR" buildx env.DEFAULT_BUILDX_VERSION)
   case "$version" in
   "" | latest) return 1 ;;
   esac
@@ -446,17 +443,17 @@ The output should equal ""
 End
 
 It "lets a caller's explicit Buildx version win over the pin"
-When call action_field step:buildx.with.version
+When call step_value "$ACTION_DIR" buildx with.version
 The output should equal '${{ inputs.buildx-version || env.DEFAULT_BUILDX_VERSION }}'
 End
 
 It "lets a caller's explicit BuildKit version win over the pin"
-When call action_field step:buildx.with.driver-opts
+When call step_value "$ACTION_DIR" buildx with.driver-opts
 The output should include 'image=moby/buildkit:${{ inputs.buildkit-version || env.DEFAULT_BUILDKIT_IMAGE_TAG }}'
 End
 
 It "enables BuildKit debug logs only on request, without restoring setup-buildx's default flags"
-When call action_field step:buildx.with.buildkitd-flags
+When call step_value "$ACTION_DIR" buildx with.buildkitd-flags
 The output should equal "\${{ inputs.verbose == 'true' && '--debug' || '--oci-worker=auto' }}"
 End
 

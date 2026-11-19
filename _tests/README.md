@@ -206,6 +206,12 @@ get_action_outputs "action.yml"          # Get action outputs
 get_action_name "action.yml"             # Get action name
 ```
 
+### Harness Functions from harness_wrapper.sh
+
+The harness runs an action's real `run:` steps with mocked external commands; the header of
+`_tests/framework/harness_wrapper.sh` lists its functions. It gives each step a PATH of its own, and it cannot seed
+the `steps` context or run a `node` shell, so a spec runs such a step from the script `step_value` prints.
+
 ### Complete Action Validation Example
 
 ```bash

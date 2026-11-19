@@ -3,14 +3,10 @@
 # and validates syntax inside working-directory
 
 Describe "terraform-lint-fix report directory and working directory"
-ACTION_FILE="$PWD/terraform-lint-fix/action.yml"
+ACTION_DIR="$PWD/terraform-lint-fix"
 
 step_script() {
-  yq ".runs.steps[] | select(.name == \"$1\") | .run" "$ACTION_FILE"
-}
-
-upload_path() {
-  yq '.runs.steps[] | select(.name == "Upload SARIF Report") | .with.sarif_file' "$ACTION_FILE"
+  step_value "$ACTION_DIR" "$1" run
 }
 
 # Runs the lint and cleanup steps in a workspace whose `reports` entry is a
@@ -81,7 +77,7 @@ The line 5 of output should equal "reports removed: yes"
 End
 
 It "uploads the SARIF file the lint step reports"
-When call upload_path
+When call step_value "$ACTION_DIR" "Upload SARIF Report" with.sarif_file
 The output should equal '${{ steps.lint.outputs.sarif_file }}'
 End
 

@@ -2,14 +2,10 @@
 # Unit tests: go-lint keeps its reports outside the repository tree
 
 Describe "go-lint report directory"
-ACTION_FILE="$PWD/go-lint/action.yml"
+ACTION_DIR="$PWD/go-lint"
 
 step_script() {
-  yq ".runs.steps[] | select(.name == \"$1\") | .run" "$ACTION_FILE"
-}
-
-step_upload_path() {
-  yq '.runs.steps[] | select(.name == "Upload Lint Results") | .with.sarif_file' "$ACTION_FILE"
+  step_value "$ACTION_DIR" "$1" run
 }
 
 # Runs the lint and cleanup steps in a workspace whose `reports` entry is a
@@ -65,12 +61,12 @@ The line 5 of output should equal "reports removed: yes"
 End
 
 It "uploads the SARIF file the lint step reports"
-When call step_upload_path
+When call step_value "$ACTION_DIR" "Upload Lint Results" with.sarif_file
 The output should equal '${{ steps.lint.outputs.sarif_file }}'
 End
 
 It "skips the upload when the lint step wrote no report"
-When call yq '.runs.steps[] | select(.name == "Upload Lint Results") | .if' "$ACTION_FILE"
+When call step_value "$ACTION_DIR" "Upload Lint Results" if
 The output should include "steps.lint.outputs.sarif_file != ''"
 End
 

@@ -841,7 +841,10 @@ CASES: dict[str, dict[str, list[str]]] = {
         "valid": ["HIGH", "HIGH,CRITICAL", "LOW,MEDIUM,HIGH"],
         "invalid": ["high", "HIGH,BOGUS"],
     },
-    "scanner_list": {"valid": ["vuln", "vuln,secret,config"], "invalid": ["vuln,bogus"]},
+    "scanner_list": {
+        "valid": ["vuln", "vuln,secret,config", "vuln,misconfig,secret"],
+        "invalid": ["vuln,bogus", "misconfigs"],
+    },
     "linter_list": {
         "valid": ["gosec", "gosec,govet", "errcheck", "gosec,\tgovet"],
         "invalid": ["gosec,,govet", "lint;er", "lint er"],
@@ -1065,17 +1068,6 @@ CASES: dict[str, dict[str, list[str]]] = {
             "${{ -d/tmp }}",
         ],
     },
-    "license_key": {
-        "valid": ["ABC-123_x", "b64+val/ue="],
-        "invalid": [
-            "has space",
-            "a;b",
-            "$(rm -rf /)",
-            "$GITLEAKS_LICENSE",
-            "${GITLEAKS_LICENSE}",
-            "${{ secrets.LIC }}",
-        ],
-    },
     "positive_integer": {
         "valid": ["1", "100"],
         # int() raises on the last one, past its 4300-digit limit
@@ -1116,7 +1108,7 @@ SCALAR_CHECKS = [
 # A secret's example is a `${{ }}` reference, because a reader must never paste the secret
 # itself. The runner expands it before validate.py runs, so the check sees the secret and
 # never this text: there is nothing here to run the check against.
-SECRET_CHECKS = {"github_token", "license_key", "opaque_token"}
+SECRET_CHECKS = {"github_token", "opaque_token"}
 
 
 def test_every_check_is_covered():

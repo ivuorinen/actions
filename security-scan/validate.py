@@ -133,20 +133,30 @@ def check_github_token(value: str) -> str | None:
     return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
-def check_license_key(value: str) -> str | None:
-    """Opaque license key — a single token."""
+def check_opaque_token(value: str) -> str | None:
+    """Token whose format its issuer owns (npm, Docker Hub): rejects only what cannot be one.
+
+    No prefix, length or alphabet is enforced, so a real token never fails on a format this
+    repo guessed. Whitespace and control characters are refused because a line break would add
+    lines to any line-based file the token is written to, such as a config file or
+    ``GITHUB_OUTPUT``. Shell metacharacters
+    are not refused: consumers read the value from a quoted env var and never parse it as shell.
+    """
     if _skip(value):
         return None
-    if re.fullmatch(r"[A-Za-z0-9+/=._-]+", value):
-        return None
-    return "must be an opaque key (letters, digits, + / = . _ -)"
+    if re.search(r"[\s\x00-\x1f\x7f-\x9f]", value):
+        return "must not contain whitespace or control characters"
+    return None
 
 
 def check_scanner_list(value: str) -> str | None:
-    """Comma-separated Trivy scanners."""
+    """Comma-separated Trivy scanners.
+
+    ``config`` is Trivy's older, deprecated name for ``misconfig``.
+    """
     if _skip(value):
         return None
-    allowed = ("vuln", "config", "secret", "license")
+    allowed = ("vuln", "misconfig", "config", "secret", "license")
     bad = _enum_list(value, allowed)
     if bad:
         return "invalid scanner(s): " + ", ".join(bad) + "; allowed: " + ", ".join(allowed)
@@ -178,7 +188,7 @@ ACTION = "security-scan"
 CHECKS = {
     "actionlint-enabled": check_boolean,
     "gitleaks-config": check_file_path,
-    "gitleaks-license": check_license_key,
+    "gitleaks-license": check_opaque_token,
     "token": check_github_token,
     "trivy-scanners": check_scanner_list,
     "trivy-severity": check_severity_enum,
