@@ -107,7 +107,7 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 - `make test-unit` — unit tests only
 - `make test-integration` — integration tests only
 - `make test-action ACTION=<name>` — one action's tests
-- `make test-update-validators` — fails when a generated `validate.py` is stale
+- `make test-update-validators` — `validate.py` freshness check
 - `make test-coverage` — tests with coverage reporting
 
 **Validation**: `make update-validators`, `make update-validators-dry`
