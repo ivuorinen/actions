@@ -69,11 +69,12 @@ outputs:
 
 ### Language Version Detection
 
-The actions that set up a language (csharp-build, csharp-lint-check, csharp-publish, go-build, php-tests,
-pr-lint, python-lint-fix) detect its version inline, from project files such as `.tool-versions`, `.go-version`,
-`.python-version`, `go.mod`, `global.json`, `composer.json`, `pyproject.toml`, `package.json` and the devcontainer
-config, and validate it before use. Each action's README lists its version input. `language-version-detect` does
-the same as a separate action and is deprecated.
+csharp-build, csharp-lint-check and csharp-publish (.NET), go-build (Go), php-tests (PHP) and python-lint-fix
+(Python) detect the language version inline and validate it before use. They read project files such as
+`.tool-versions`, `.go-version`, `.php-version`, `.python-version`, `go.mod`, `global.json`, `composer.json`,
+`pyproject.toml` and the devcontainer config, and each also takes the version as an input, which its README lists.
+pr-lint detects the PHP version the same way but has no version input, and sets up Node 24 when the repository has
+a `package.json`. `language-version-detect` detects a version as a separate action and is deprecated.
 
 ### Error Handling
 

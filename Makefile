@@ -369,7 +369,7 @@ lint-actions: ## Validate GitHub Actions workflows and action.yml files
 		exit 1; \
 	fi
 
-lint-editorconfig: ## Check every tracked file against .editorconfig
+lint-editorconfig: ## Check tracked files against .editorconfig (the checker skips lockfiles and binaries)
 	@echo "$(BLUE)🔍 Checking EditorConfig...$(RESET)"
 	@if command -v pre-commit >/dev/null 2>&1; then \
 		if pre-commit run editorconfig-checker --all-files; then \

@@ -166,10 +166,25 @@ The status should be success
 The output should equal "deny"
 End
 
-It "still decides on input that carries a raw control character"
-When call hook_run "$HOOK" "{\"tool_input\":{\"command\":\"ls$(printf '\001')\"}}"
+# Removing the byte would leave an allowed git push, so the hook must judge the bytes as sent.
+It "denies a raw control byte inside the input, which is not JSON"
+When call hook_field "$HOOK" "{\"tool_input\":{\"command\":\"git pu$(printf '\001')sh origin main\"}}" \
+  .hookSpecificOutput.permissionDecision
+The status should be success
+The output should equal "deny"
+End
+
+It "denies a raw NUL inside the input, which a shell variable would drop"
+When run sh -c 'printf "{\"tool_input\":{\"command\":\"git pu\\000sh origin main\"}}" | sh "$1"' _ "$HOOK"
 The status should be success
 The output should include '"permissionDecision":"deny"'
+End
+
+It "denies an escaped control character, which the command keeps"
+When call hook_field "$HOOK" '{"tool_input":{"command":"git pu\u0001sh origin main"}}' \
+  .hookSpecificOutput.permissionDecision
+The status should be success
+The output should equal "deny"
 End
 End
 
