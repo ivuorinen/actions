@@ -40,7 +40,7 @@ install_with() {
   mkdir -p "$fake_dir"
   printf '#!/bin/sh\nprintf "%%s\\n" "$@" >"$ARGV_LOG"\n' >"$fake_dir/$1"
   chmod +x "$fake_dir/$1"
-  script=$(yq -r '.runs.steps[] | select(.id == "install-plugins") | .run' "${ACTION_DIR}/action.yml")
+  script=$(step_value "$ACTION_DIR" install-plugins run)
   ARGV_LOG="$ARGV_LOG" PATH="$fake_dir:$PATH" PACKAGE_MANAGER="$1" PLUGINS="$2" sh -c "$script"
 }
 

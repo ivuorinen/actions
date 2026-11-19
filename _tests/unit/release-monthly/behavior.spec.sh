@@ -112,15 +112,10 @@ Describe "release creation target"
 # an existing tag keeps its own commit, so the step refuses one that points
 # anywhere but GITHUB_SHA. The create mock matches only when --target carries
 # GITHUB_SHA; without it the call is unregistered, exits 127, and the step fails.
-# The action runs after a full checkout, so each example runs in a repository. Its
-# identity and signing settings are local, because a CI runner has no global ones and
-# both a commit and an annotated tag need them.
+# The action runs after a full checkout, so each example runs in a repository, where both
+# a commit and an annotated tag need the identity fixture_repo sets.
 setup_release() {
-  git init -q .
-  git config user.email test@example.com
-  git config user.name test
-  git config commit.gpgsign false
-  git config tag.gpgSign false
+  fixture_repo
   git commit -q --allow-empty -m one
   export INPUT_TOKEN="ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
   export INPUT_PREFIX=""

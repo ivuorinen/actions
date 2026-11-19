@@ -132,7 +132,7 @@ End
 
 Context "when lint fails"
 It "lets the lint step fail without skipping the fix and commit steps"
-When call yq -r '.runs.steps[] | select(.id == "lint") | .["continue-on-error"]' "$ACTION_FILE"
+When call step_value "$ACTION_DIR" lint continue-on-error
 The output should equal "true"
 End
 
@@ -143,7 +143,7 @@ The line 2 of output should equal "Fail on Lint Errors"
 End
 
 It "gates the final failure step on the lint outcome"
-When call yq -r '.runs.steps[] | select(.name == "Fail on Lint Errors") | .if' "$ACTION_FILE"
+When call step_value "$ACTION_DIR" "Fail on Lint Errors" if
 The output should equal "steps.lint.outcome == 'failure'"
 End
 End

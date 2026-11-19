@@ -517,7 +517,20 @@ hook_field() {
   printf '%s' "$2" | sh "$1" | jq -er "$3"
 }
 
+# fixture_repo [DIR]: make DIR, the current directory by default, a git repository for a
+# spec's own commits and tags. The identity and signing settings are local, because a CI
+# runner has no global ones, and the commits never leave the test, so they need no signature.
+fixture_repo() {
+  local dir="${1:-.}"
+  git init -q "$dir"
+  git -C "$dir" config user.email test@example.com
+  git -C "$dir" config user.name test
+  git -C "$dir" config commit.gpgsign false
+  git -C "$dir" config tag.gpgSign false
+}
+
 # Export all functions
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name get_action_runs_using is_input_required
 export -f test_input_validation test_action_outputs test_external_usage measure_action_time run_action_tests
 export -f requirements_lock_problems package_lock_problems lock_aware_dotnet_cache cache_key_misses hook_run hook_field
+export -f fixture_repo

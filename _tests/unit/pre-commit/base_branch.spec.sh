@@ -24,11 +24,7 @@ AfterEach 'after'
 # Builds an upstream repo (main + feature branch) and a full clone of the
 # feature branch, which is the state actions/checkout leaves with fetch-depth 0.
 make_full_clone() {
-  git init -q up
-  git -C up config user.email test@example.com
-  git -C up config user.name test
-  # A fixture repository: its commits never leave the test, so they need no signature.
-  git -C up config commit.gpgsign false
+  fixture_repo up
   git -C up commit -q --allow-empty -m base
   git -C up branch -M main
   git -C up switch -q -c feature

@@ -100,12 +100,12 @@ Context "when passing the token to gh"
 # not exported, so the token must arrive through the step's env block, and only
 # on the steps that run gh.
 It "sets GH_TOKEN on the Create Release step"
-When call yq -r '.runs.steps[] | select(.id == "create-release") | .env.GH_TOKEN' "$ACTION_FILE"
+When call step_value "$ACTION_DIR" create-release env.GH_TOKEN
 The output should equal '${{ inputs.token }}'
 End
 
 It "sets GH_TOKEN on the Verify Release step"
-When call yq -r '.runs.steps[] | select(.name == "Verify Release") | .env.GH_TOKEN' "$ACTION_FILE"
+When call step_value "$ACTION_DIR" "Verify Release" env.GH_TOKEN
 The output should equal '${{ inputs.token }}'
 End
 

@@ -329,7 +329,7 @@ SPECS: dict[str, ActionSpec] = {
         "checks": {
             "actionlint-enabled": "boolean",
             "gitleaks-config": "file_path",
-            "gitleaks-license": "license_key",
+            "gitleaks-license": "opaque_token",
             "token": "github_token",
             "trivy-scanners": "scanner_list",
             "trivy-severity": "severity_enum",

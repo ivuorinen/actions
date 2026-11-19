@@ -48,8 +48,9 @@ End
 # The harness runs the command in the shell the step names. On Windows, retry's default
 # is PowerShell, which cannot read the expansion, so the step has to name bash.
 It "runs the restore in bash with the project in its environment"
-When call yq -r '.runs.steps[] | select(.name == "Restore Dependencies") | .with.shell + " " + .env.PROJECT' "$ACTION_FILE"
-The stdout should equal 'bash ${{ inputs.project }}'
+When call step_value "$ACTION_DIR" "Restore Dependencies" with.shell
+The stdout should equal 'bash'
+Assert test "$(step_value "$ACTION_DIR" "Restore Dependencies" env.PROJECT)" = '${{ inputs.project }}'
 End
 End
 

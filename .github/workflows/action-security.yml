@@ -8,9 +8,11 @@ on:
       - main
     paths:
       - '**/action.yml'
+      - 'security-scan/**'
   pull_request:
     paths:
       - '**/action.yml'
+      - 'security-scan/**'
   merge_group:
 
 concurrency:
@@ -28,10 +30,15 @@ jobs:
     permissions:
       contents: read
       actions: read
-      pull-requests: read
       security-events: write
-      statuses: write
-      issues: write
+      # For the comment on the inline gitleaks:allow comments a pull request adds
+      pull-requests: write
+
+    outputs:
+      critical_issues: ${{ steps.security-scan.outputs.critical_issues }}
+      total_issues: ${{ steps.security-scan.outputs.total_issues }}
+      has_trivy_results: ${{ steps.security-scan.outputs.has_trivy_results }}
+      has_gitleaks_results: ${{ steps.security-scan.outputs.has_gitleaks_results }}
 
     steps:
       - name: Checkout Repository
@@ -44,40 +51,49 @@ jobs:
         id: security-scan
         uses: ./security-scan
         with:
-          gitleaks-license: ${{ secrets.GITLEAKS_LICENSE }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Notify on Critical Issues
-        if: failure() && steps.security-scan.outputs.critical_issues != '0'
+  # In a job of its own, so that the job running the scan, which on a pull request is the pull
+  # request's own copy of the action, holds only the scopes the scan uses, and not issues: write.
+  notify:
+    name: Notify on Critical Issues
+    needs: analyze
+    if: failure() && needs.analyze.outputs.critical_issues != '' && needs.analyze.outputs.critical_issues != '0'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    permissions:
+      issues: write
+
+    steps:
+      - name: Open an issue
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
         env:
-          CRITICAL_ISSUES: ${{ steps.security-scan.outputs.critical_issues }}
-          TOTAL_ISSUES: ${{ steps.security-scan.outputs.total_issues }}
-          HAS_TRIVY_RESULTS: ${{ steps.security-scan.outputs.has_trivy_results }}
-          HAS_GITLEAKS_RESULTS: ${{ steps.security-scan.outputs.has_gitleaks_results }}
+          CRITICAL_ISSUES: ${{ needs.analyze.outputs.critical_issues }}
+          TOTAL_ISSUES: ${{ needs.analyze.outputs.total_issues }}
+          HAS_TRIVY_RESULTS: ${{ needs.analyze.outputs.has_trivy_results }}
+          HAS_GITLEAKS_RESULTS: ${{ needs.analyze.outputs.has_gitleaks_results }}
         with:
           script: |-
             const { repo, owner } = context.repo;
             const critical = process.env.CRITICAL_ISSUES;
             const total = process.env.TOTAL_ISSUES;
             const trivyStatus = process.env.HAS_TRIVY_RESULTS === 'true' ? 'Completed' : 'Skipped/Failed';
-            const gitleaksStatus = process.env.HAS_GITLEAKS_RESULTS === 'true' ? 'Completed' : 'Skipped';
+            const gitleaksStatus = process.env.HAS_GITLEAKS_RESULTS === 'true' ? 'Completed' : 'Skipped/Failed';
 
             const body = `🚨 Critical security issues found in GitHub Actions
 
             ${critical} critical security issues (out of ${total} total) were found during the security scan.
 
             ### Scan Results
-            - Actionlint: Completed
             - Trivy: ${trivyStatus}
             - Gitleaks: ${gitleaksStatus}
 
-            [View detailed scan results](https://github.com/${owner}/${repo}/actions/runs/${context.runId})
+            [View detailed scan results](${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId})
 
             Please address these issues immediately.
 
-            > Note: Some security tools might have been skipped due to missing configurations.
-            > Check the workflow run for details.`;
+            > Note: A scanner marked Skipped/Failed left no report. Check the workflow run for details.`;
 
             await github.rest.issues.create({
               owner,

@@ -106,7 +106,6 @@ sarif_result_count() { jq '.runs[0].results | length' "$(sarif_file_output)"; }
 first_result_uri() {
   jq -r '.runs[0].results[0].locations[0].physicalLocation.artifactLocation.uri' "$(sarif_file_output)"
 }
-step_field() { yq -r ".runs.steps[] | select(.name == \"$1\") | $2" "$ACTION_FILE"; }
 
 THREE_VIOLATIONS='[
   {"row": 1, "col": 1, "code": "F401", "path": "./app.py", "text": "'"'"'os'"'"' imported but unused"},
@@ -248,17 +247,17 @@ End
 # The harness skips `uses:` steps, so their wiring is asserted on the metadata.
 Context "wiring the steps the harness cannot run"
 It "uploads the path the lint step published, including after a lint failure"
-When call step_field "Upload SARIF Report" ".if"
+When call step_value "$ACTION_DIR" "Upload SARIF Report" if
 The output should equal "always() && steps.lint.outputs.sarif_file != ''"
 End
 
 It "reads the SARIF path from the lint step's output"
-When call step_field "Upload SARIF Report" ".with.sarif_file"
+When call step_value "$ACTION_DIR" "Upload SARIF Report" with.sarif_file
 The output should equal '${{ steps.lint.outputs.sarif_file }}'
 End
 
 It "guards the commit condition so a skipped run never parses an empty count"
-When call step_field "Commit Fixes" ".if"
+When call step_value "$ACTION_DIR" "Commit Fixes" if
 The output should equal "steps.check-files.outputs.result == 'found' && fromJSON(steps.fix.outputs.fixed_count) > 0"
 End
 

@@ -51,7 +51,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |  ✅  | [`prettier-lint`][prettier-lint]                     | Linting    | Run Prettier in check or fix mode                               | Caching, Auto-detection, Token auth, Outputs |
 |  📝  | [`python-lint-fix`][python-lint-fix]                 | Linting    | Lints and fixes Python files, commits changes, and uploads S... | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`release-monthly`][release-monthly]                 | Repository | Creates a release for the current month, incrementing patch ... | Token auth, Outputs                          |
-|  🛡️  | [`security-scan`][security-scan]                     | Security   | Comprehensive security scanning for GitHub Actions including... | Caching, Auto-detection, Token auth, Outputs |
+|  🛡️  | [`security-scan`][security-scan]                     | Security   | Security scanning for repositories with GitHub Actions: acti... | Caching, Auto-detection, Token auth, Outputs |
 |  📦  | [`stale`][stale]                                     | Repository | A GitHub Action to close stale issues and pull requests.        | Token auth, Outputs                          |
 |  🏷️  | [`sync-labels`][sync-labels]                         | Repository | Sync GitHub labels declaratively from a YAML/JSON manifest (... | Token auth, Outputs                          |
 |  🖥️  | [`terraform-lint-fix`][terraform-lint-fix]           | Linting    | Lints and fixes Terraform files with advanced validation and... | Token auth, Outputs                          |
@@ -115,7 +115,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 
 | Action                              | Description                                           | Languages | Features                                     |
 | :---------------------------------- | :---------------------------------------------------- | :-------- | :------------------------------------------- |
-| 🛡️ [`security-scan`][security-scan] | Comprehensive security scanning for GitHub Actions... | -         | Caching, Auto-detection, Token auth, Outputs |
+| 🛡️ [`security-scan`][security-scan] | Security scanning for repositories with GitHub Act... | -         | Caching, Auto-detection, Token auth, Outputs |
 
 ### Feature Matrix
 

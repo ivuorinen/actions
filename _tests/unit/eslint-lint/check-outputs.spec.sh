@@ -109,7 +109,7 @@ End
 # The harness does not evaluate step conditions, so this reads the upload's whole condition:
 # a substring match would also pass one that joins the guard with ||.
 It "uploads only a report the check step wrote"
-When call yq -r '.runs.steps[] | select(.name == "Upload SARIF Report") | .if' "${ACTION_DIR}/action.yml"
+When call step_value "$ACTION_DIR" "Upload SARIF Report" if
 The output should equal "always() && inputs.mode == 'check' && inputs.report-format == 'sarif' && steps.check.outputs.sarif_file != ''"
 End
 

@@ -71,7 +71,6 @@ CREDENTIALS = {
     "github_token": actions_expression("github.token"),
     "npm_token": actions_expression("secrets.NPM_TOKEN"),
     "dockerhub-token": actions_expression("secrets.DOCKERHUB_TOKEN"),
-    "gitleaks-license": actions_expression("secrets.GITLEAKS_LICENSE"),
 }
 
 # The theme emits one generic `on: [push, pull_request]` for every action, which

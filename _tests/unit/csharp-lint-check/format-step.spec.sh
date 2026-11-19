@@ -9,7 +9,7 @@ ACTION_FILE="$PWD/csharp-lint-check/action.yml"
 setup_stub() {
   WORK=$(mktemp -d)
   mkdir -p "$WORK/bin"
-  yq -r '.runs.steps[] | select(.id == "dotnet-format") | .run' "$ACTION_FILE" >"$WORK/step.sh"
+  step_value "$(dirname "$ACTION_FILE")" dotnet-format run >"$WORK/step.sh"
   cat >"$WORK/bin/dotnet" <<'STUB'
 #!/bin/sh
 [ "$1" = "format" ] || exit 64
