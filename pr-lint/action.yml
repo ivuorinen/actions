@@ -6,7 +6,7 @@
 # MegaLinter GitHub Action configuration file
 # More info at https://megalinter.io
 name: PR Lint
-description: Runs MegaLinter against pull requests. Refuses pull_request_target and workflow_run.
+description: 'Runs MegaLinter against pull requests. Refuses pull_request_target and workflow_run.'
 author: Ismo Vuorinen
 
 branding:
@@ -53,7 +53,9 @@ runs:
 
         case "$GITHUB_EVENT_NAME" in
           pull_request_target | workflow_run)
-            printf '::error::pr-lint refuses to run on %s, which grants secrets and a write token to code it would install and lint. Run it on pull_request, with a read-only token and no secrets for untrusted pull requests.\n' "$GITHUB_EVENT_NAME"
+            printf '::error::pr-lint refuses to run on %s, %s %s\n' "$GITHUB_EVENT_NAME" \
+              'which grants secrets and a write token to code it would install and lint.' \
+              'Run it on pull_request, with a read-only token and no secrets for untrusted pull requests.'
             exit 1
             ;;
         esac
@@ -189,7 +191,7 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: node_modules
-        key: ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock', 'bun.lockb') }}
+        key: ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock*') }}
         restore-keys: |
           ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-
 

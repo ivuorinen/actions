@@ -14,7 +14,9 @@ branding:
 
 inputs:
   image-name:
-    description: 'The name of the Docker image to build. Defaults to ghcr.io/OWNER/REPO, lower-cased, the registry the action logs in to; set it when the repository name is not a valid image name (for example .github).'
+    description: >-
+      The name of the Docker image to build. Defaults to ghcr.io/OWNER/REPO, lower-cased, the registry the action
+      logs in to; set it when the repository name is not a valid image name (for example .github).
     required: false
   tag:
     description: 'Docker image tag: letters, digits, _ . and -, up to 128 characters, not starting with . or -'
@@ -38,7 +40,11 @@ inputs:
     description: 'External cache source, one spec on one line (e.g., type=registry,ref=user/app:cache)'
     required: false
   push:
-    description: "Whether to push the image after building (lowercase true or false). Also enables the per-image registry build cache at ghcr.io/OWNER/REPO/cache/IMAGE: every build reads the default branch's tag, and only push, schedule and workflow_dispatch runs write their ref's tag. The first push of each image creates its cache package, so an organization should limit who can create packages in its namespace."
+    description: >-
+      Whether to push the image after building (lowercase true or false). Also enables the per-image registry
+      build cache at ghcr.io/OWNER/REPO/cache/IMAGE: every build reads the default branch's tag, and only push,
+      schedule and workflow_dispatch runs write their ref's tag. The first push of each image creates its cache
+      package, so an organization should limit who can create packages in its namespace.
     required: false
     default: 'true'
   max-retries:
@@ -56,11 +62,15 @@ inputs:
     description: 'BuildKit image tag (e.g., v0.34.2), optionally with @sha256:<digest>. Empty uses the digest this action pins.'
     required: false
   cache-mode:
-    description: 'Cache mode for build layers (min, max, or inline). max also exports the layers of every intermediate stage, and the cache package of a public repository is public, so pass credentials with secrets, never in a stage.'
+    description: >-
+      Cache mode for build layers (min, max, or inline). max also exports the layers of every intermediate stage,
+      and the cache package of a public repository is public, so pass credentials with secrets, never in a stage.
     required: false
     default: 'max'
   build-contexts:
-    description: 'Additional build contexts as name=value,name2=value2, on one line. Each value is a workspace-relative path (spaces allowed, no comma or newline), oci-layout://relative-path, docker-image://, target:, or a Git/HTTP URL.'
+    description: >-
+      Additional build contexts as name=value,name2=value2, on one line. Each value is a workspace-relative path
+      (spaces allowed, no comma or newline), oci-layout://relative-path, docker-image://, target:, or a Git/HTTP URL.
     required: false
   network:
     description: 'Network mode for build (host, none, or default)'
@@ -132,8 +142,8 @@ outputs:
   sbom-location:
     description: >-
       DEPRECATED, always empty: buildx reports no SBOM location. The SBOM is an attestation on the pushed image;
-      read it with docker buildx imagetools inspect IMAGE --format "{{ json .SBOM.SPDX }}", or for a multi-platform image
-      --format '{{ json (index .SBOM "linux/amd64").SPDX }}'.
+      read it with docker buildx imagetools inspect IMAGE --format "{{ json .SBOM.SPDX }}", or for a multi-platform
+      image --format '{{ json (index .SBOM "linux/amd64").SPDX }}'.
     value: ''
 
 runs:

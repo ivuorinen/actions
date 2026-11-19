@@ -1,7 +1,13 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management with parallel execution capabilities
 
-.PHONY: help all docs update-catalog lint format check clean install-tools test test-unit test-integration test-coverage generate-tests generate-tests-dry test-generate-tests docker-build docker-push docker-test docker-login docker-all release release-dry release-prep release-tag release-undo lint-actions
+.PHONY: help all docs update-catalog update-validators update-validators-dry format lint check clean precommit \
+	check-local-refs fix-local-refs fix-local-refs-dry release release-dry release-prep release-tag release-undo \
+	format-markdown format-yaml-json format-python \
+	lint-markdown lint-yaml lint-shell lint-python lint-actions lint-editorconfig \
+	check-tools check-syntax install-tools dev dev-python ci stats \
+	test test-actions test-python test-python-coverage test-update-validators test-unit test-integration test-coverage \
+	test-action docker-build docker-test docker-login docker-push docker-all watch
 .DEFAULT_GOAL := help
 
 # Colors for output
@@ -163,7 +169,7 @@ update-validators-dry: ## Verify every validate.py is current (fails if stale)
 format: format-markdown format-yaml-json format-python ## Format all files
 	@echo "$(GREEN)✅ All files formatted$(RESET)"
 
-lint: lint-markdown lint-yaml lint-shell lint-python lint-actions ## Run all linters
+lint: lint-markdown lint-yaml lint-shell lint-python lint-actions lint-editorconfig ## Run all linters
 	@echo "$(GREEN)✅ All linting completed$(RESET)"
 
 check: check-tools check-syntax check-local-refs ## Quick syntax and tool availability checks
@@ -266,48 +272,50 @@ format-markdown: ## Format markdown files
 
 format-yaml-json: ## Format YAML and JSON files, and Markdown (tables included) with prettier
 	@echo "$(BLUE)✨ Formatting YAML/JSON/Markdown...$(RESET)"
-	@if command -v yamlfmt >/dev/null 2>&1; then \
-		if yamlfmt . 2>/dev/null; then \
-			echo "$(GREEN)✅ YAML formatted with yamlfmt$(RESET)"; \
-		else \
-			echo "$(YELLOW)⚠️ YAML formatting issues found with yamlfmt$(RESET)" | tee -a $(LOG_FILE); \
-		fi; \
-	else \
-		echo "$(BLUE)ℹ️ yamlfmt not available, skipping$(RESET)"; \
-	fi
 	@if npx --yes prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json" 2>/dev/null; then \
 		echo "$(GREEN)✅ YAML/JSON/Markdown formatted with prettier$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ YAML/JSON/Markdown formatting issues found with prettier$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
-format-python: ## Format Python files with ruff
+format-python: ## Apply ruff's fixes and format Python files
 	@echo "$(BLUE)🐍 Formatting Python files...$(RESET)"
-	@if command -v uv >/dev/null 2>&1; then \
-		if uvx ruff format . --no-cache; then \
-			echo "$(GREEN)✅ Python files formatted$(RESET)"; \
-		else \
-			echo "$(YELLOW)⚠️ Python formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
-		fi; \
+	@if ! command -v uvx >/dev/null 2>&1; then \
+		echo "$(RED)❌ uvx not found. Install uv (https://docs.astral.sh/uv/), which provides it, before formatting$(RESET)"; \
+		exit 1; \
+	fi
+	@# --exit-zero: findings ruff cannot fix are lint-python's to report.
+	@if uvx ruff check --fix --exit-zero . --no-cache && uvx ruff format . --no-cache; then \
+		echo "$(GREEN)✅ Python files formatted$(RESET)"; \
 	else \
-		echo "$(BLUE)ℹ️ uv not available, skipping Python formatting$(RESET)"; \
+		echo "$(YELLOW)⚠️ Python formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
 	fi
 
-# Linting targets
+# Linting targets: each reports, and fails on a finding; the format targets apply fixes.
 lint-markdown: ## Lint markdown files
 	@echo "$(BLUE)🔍 Linting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees" "#.claude" "#docs/superpowers"; then \
+	@if ! command -v npx >/dev/null 2>&1; then \
+		echo "$(RED)❌ npx not found. Install Node.js, which provides it, before linting$(RESET)"; \
+		exit 1; \
+	fi
+	@if npx --yes markdownlint-cli2 "**/*.md" "#node_modules" "#.worktrees" "#.claude" "#docs/superpowers"; then \
 		echo "$(GREEN)✅ Markdown linting passed$(RESET)"; \
 	else \
-		echo "$(YELLOW)⚠️ Markdown linting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		echo "$(RED)❌ Markdown linting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		exit 1; \
 	fi
 
 lint-yaml: ## Lint YAML files
 	@echo "$(BLUE)🔍 Linting YAML...$(RESET)"
-	@if npx --yes yaml-lint "**/*.yml" "**/*.yaml" 2>/dev/null; then \
+	@if ! command -v npx >/dev/null 2>&1; then \
+		echo "$(RED)❌ npx not found. Install Node.js, which provides it, before linting$(RESET)"; \
+		exit 1; \
+	fi
+	@if npx --yes yaml-lint "**/*.yml" "**/*.yaml"; then \
 		echo "$(GREEN)✅ YAML linting passed$(RESET)"; \
 	else \
-		echo "$(YELLOW)⚠️ YAML linting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		echo "$(RED)❌ YAML linting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		exit 1; \
 	fi
 
 lint-shell: ## Lint shell scripts
@@ -321,32 +329,30 @@ lint-shell: ## Lint shell scripts
 	@if find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" -exec shellcheck -x {} +; then \
 		echo "$(GREEN)✅ Shell linting passed$(RESET)"; \
 	else \
-		echo "$(RED)❌ Shell linting issues found$(RESET)"; \
+		echo "$(RED)❌ Shell linting issues found$(RESET)" | tee -a $(LOG_FILE); \
 		exit 1; \
 	fi
 
 lint-python: ## Lint Python files with ruff and pyright
 	@echo "$(BLUE)🔍 Linting Python files...$(RESET)"
+	@if ! command -v uvx >/dev/null 2>&1; then \
+		echo "$(RED)❌ uvx not found. Install uv (https://docs.astral.sh/uv/), which provides it, before linting$(RESET)"; \
+		exit 1; \
+	fi
 	@ruff_passed=true; pyright_passed=true; \
-	if command -v uv >/dev/null 2>&1; then \
-		uvx ruff check --fix . --no-cache; \
-		if ! uvx ruff check . --no-cache; then \
-			echo "$(YELLOW)⚠️ Python linting issues found$(RESET)" | tee -a $(LOG_FILE); \
-			ruff_passed=false; \
-		fi; \
-		if command -v uvx >/dev/null 2>&1; then \
-			if ! (cd _validation && uvx --with pytest --with pytest-cov --with pyyaml pyright .); then \
-				echo "$(YELLOW)⚠️ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
-				pyright_passed=false; \
-			fi; \
-		else \
-			echo "$(BLUE)ℹ️ pyright not available, skipping type checking$(RESET)"; \
-		fi; \
-	else \
-		echo "$(BLUE)ℹ️ uv not available, skipping Python linting$(RESET)"; \
+	if ! uvx ruff check . --no-cache; then \
+		echo "$(RED)❌ Python linting issues found$(RESET)" | tee -a $(LOG_FILE); \
+		ruff_passed=false; \
+	fi; \
+	if ! (cd _validation && uvx --with pytest --with pytest-cov --with pyyaml pyright .); then \
+		echo "$(RED)❌ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
+		pyright_passed=false; \
 	fi; \
 	if $$ruff_passed && $$pyright_passed; then \
 		echo "$(GREEN)✅ Python linting and type checking passed$(RESET)"; \
+	else \
+		echo "$(RED)❌ Python linting or type checking failed$(RESET)"; \
+		exit 1; \
 	fi
 
 lint-actions: ## Validate GitHub Actions workflows and action.yml files
@@ -363,19 +369,30 @@ lint-actions: ## Validate GitHub Actions workflows and action.yml files
 		exit 1; \
 	fi
 
+lint-editorconfig: ## Check every tracked file against .editorconfig
+	@echo "$(BLUE)🔍 Checking EditorConfig...$(RESET)"
+	@if command -v pre-commit >/dev/null 2>&1; then \
+		if pre-commit run editorconfig-checker --all-files; then \
+			echo "$(GREEN)✅ EditorConfig check passed$(RESET)"; \
+		else \
+			echo "$(RED)❌ EditorConfig check failed$(RESET)" | tee -a $(LOG_FILE); \
+			exit 1; \
+		fi; \
+	else \
+		echo "$(RED)❌ pre-commit not found. Install it via 'make install-tools' before linting$(RESET)"; \
+		exit 1; \
+	fi
+
 # Check targets
 check-tools: ## Check if required tools are available
 	@echo "$(BLUE)🔧 Checking required tools...$(RESET)"
-	@for cmd in npx sed find grep shellcheck; do \
+	@for cmd in npx uvx pre-commit sed find grep shellcheck; do \
 		if ! command -v $$cmd >/dev/null 2>&1; then \
 			echo "$(RED)❌ Error: $$cmd not found$(RESET)"; \
 			echo "  Please install $$cmd (see 'make install-tools')"; \
 			exit 1; \
 		fi; \
 	done
-	@if ! command -v yamlfmt >/dev/null 2>&1; then \
-		echo "$(YELLOW)⚠️ yamlfmt not found (optional for YAML formatting)$(RESET)"; \
-	fi
 	@echo "$(GREEN)✅ All required tools available$(RESET)"
 
 check-syntax: ## Check syntax of shell scripts and YAML files
@@ -415,14 +432,6 @@ install-tools: ## Install/update required tools
 		echo "  Linux: go install mvdan.cc/sh/v3/cmd/shfmt@v3.14.1"; \
 	else \
 		echo "  shfmt already installed"; \
-	fi
-	@echo "$(YELLOW)Checking yamlfmt...$(RESET)"
-	@if ! command -v yamlfmt >/dev/null 2>&1; then \
-		echo "$(RED)⚠️ yamlfmt not found. Please install:$(RESET)"; \
-		echo "  macOS: brew install yamlfmt"; \
-		echo "  Linux: go install github.com/google/yamlfmt/cmd/yamlfmt@latest"; \
-	else \
-		echo "  yamlfmt already installed"; \
 	fi
 	@echo "$(YELLOW)Checking uv...$(RESET)"
 	@if ! command -v uv >/dev/null 2>&1; then \
@@ -541,10 +550,10 @@ test-coverage: ## Run tests with coverage reporting
 	@echo "$(BLUE)📊 Running tests with coverage...$(RESET)"
 	@./_tests/run-tests.sh --type all --coverage --format console
 
-test-action: ## Run tests for specific action (usage: make test-action ACTION=node-setup)
+test-action: ## Run tests for specific action (usage: make test-action ACTION=docker-build)
 	@if [ -z "$(ACTION)" ]; then \
 		echo "$(RED)❌ Error: ACTION parameter required$(RESET)"; \
-		echo "Usage: make test-action ACTION=node-setup"; \
+		echo "Usage: make test-action ACTION=docker-build"; \
 		exit 1; \
 	fi
 	@echo "$(BLUE)🎯 Running tests for action: $(ACTION)$(RESET)"

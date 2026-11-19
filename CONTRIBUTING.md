@@ -19,9 +19,10 @@ Thank you for your interest in contributing to this GitHub Actions monorepo.
 
 2. Install Node.js, Python 3, [uv](https://docs.astral.sh/uv/), ShellSpec, shellcheck and
    [action-validator](https://github.com/mpalmer/action-validator#installation), then run `make install-tools`.
-   It fetches markdownlint-cli2, prettier, yaml-lint and gh-action-readme, installs pre-commit (which runs actionlint)
-   and the Python dependencies, and checks for shellcheck, yamlfmt and uv. `make lint` runs action-validator through a
-   pre-commit hook that uses the binary on your `PATH`; nothing installs it for you.
+   It fetches markdownlint-cli2, prettier, yaml-lint and gh-action-readme, installs pre-commit (which runs actionlint
+   and editorconfig-checker) and the Python dependencies, and checks for shellcheck, shfmt and uv. `make lint` runs
+   action-validator through a pre-commit hook that uses the binary on your `PATH`; nothing installs it for you. The
+   editorconfig-checker hook builds the checker from source with Go, which pre-commit downloads when it is missing.
 3. Run formatting, linting, and pre-commit checks:
 
    ```bash
@@ -36,7 +37,8 @@ Thank you for your interest in contributing to this GitHub Actions monorepo.
 
 ## Code Style
 
-- **EditorConfig**: 2-space indentation, UTF-8, LF line endings, max 200 chars.
+- **EditorConfig**: 2-space indentation, UTF-8, LF line endings, max 200 chars. editorconfig-checker enforces
+  `.editorconfig` in pre-commit, `make lint` and MegaLinter.
 - **Shell scripts**: POSIX `sh` with `set -eu`. No bash-only syntax.
 - **Python**: Formatted and linted with `ruff`.
 - **YAML/JSON/Markdown**: Formatted with `prettier`; linted with `yamllint` and `markdownlint`.

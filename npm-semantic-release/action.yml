@@ -34,7 +34,10 @@ inputs:
     required: false
     default: '24'
   extra_plugins:
-    description: 'Extra semantic-release plugins: npm package specs (name or name@version) separated by whitespace or newlines. Version ranges can use ^ or ~, but not > or <. Empty: conventional-changelog-conventionalcommits at the version pinned in this action.'
+    description: >-
+      Extra semantic-release plugins: npm package specs (name or name@version) separated by whitespace or newlines.
+      Version ranges can use ^ or ~, but not > or <. Empty: conventional-changelog-conventionalcommits at the version
+      pinned in this action.
     required: false
     default: ''
 

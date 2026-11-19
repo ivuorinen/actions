@@ -13,16 +13,17 @@ Shape::
     }
 
 Rules for editing:
-  * ``checks`` keys are the action's input names *exactly* as declared in its
+
+*   ``checks`` keys are the action's input names *exactly* as declared in its
     ``action.yml`` (the runner derives the ``INPUT_<UPPER_SNAKE>`` env var from them).
-  * each check value must be a type defined in ``kit.py`` (``kit.CHECKS``);
+*   each check value must be a type defined in ``kit.py`` (``kit.CHECKS``);
     ``tests/test_spec.py`` fails if a value is unknown or an action's inputs and its
     spec drift apart.
-  * a credential input must use a check type in ``kit.MASKED_CHECKS``: that type is what
+*   a credential input must use a check type in ``kit.MASKED_CHECKS``: that type is what
     makes its validator mask the value in the job's logs.
-  * ``detected_version`` adds a ``--detected-version VALUE`` mode to the generated
+*   ``detected_version`` adds a ``--detected-version VALUE`` mode to the generated
     validator; ``tests/test_spec.py`` fails unless the action calls it exactly when set.
-  * after editing, run ``make update-validators`` to regenerate every ``validate.py``.
+*   after editing, run ``make update-validators`` to regenerate every ``validate.py``.
 """
 
 from __future__ import annotations

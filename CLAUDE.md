@@ -38,11 +38,14 @@ Edit/Write (ruff for .py, shfmt for .sh, prettier for
 - Action `README.md` — auto-generated, use `make docs`
 - `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
 - Bash-isms in .sh/action.yml — blocked, must be POSIX sh.
-  Exempt: anything under `_tests/*` or `*/_tests/*` (intentionally bash).
+  Exempt: anything under `_tests/*` or `*/_tests/*` (intentionally bash), unless the path has a `..` segment.
 
 **Hook schema**: `matcher` is a regex string matching tool names
 (e.g. `"Edit|Write"`), not an object. File filtering done in hook
-scripts via stdin JSON (`jq -r '.tool_input.file_path'`).
+scripts via stdin JSON: each hook sources `.claude/hooks/lib.sh`, which reads fields
+(`input_field '.tool_input.file_path'`), denies input that is not JSON, builds the deny
+decision with jq, and exits 2 when jq is missing. Each PreToolUse hook sets
+`"onFailure": "block"`, so one that fails or cannot start blocks the call.
 
 **Reference**: `$CLAUDE_PROJECT_DIR` for project-relative paths
 in hook commands
@@ -96,7 +99,8 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 - `make ci` — check + docs + lint, no formatting (CI parity)
 - Individual: `make lint`, `make format`, `make docs`, `make test`
 
-**Testing**: `make test-python`, `make test-python-coverage`, `make test-actions`, `make test-update-validators`, `make test-coverage`, `make test-unit`, `make test-integration`, `make test-action ACTION=<name>`
+**Testing**: `make test-python`, `make test-python-coverage`, `make test-actions`, `make test-update-validators`,
+`make test-coverage`, `make test-unit`, `make test-integration`, `make test-action ACTION=<name>`
 
 **Validation**: `make update-validators`, `make update-validators-dry`
 
@@ -108,7 +112,8 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 
 ### Linters
 
-Use `make lint` (not direct calls). Runs: markdownlint-cli2, yaml-lint, shellcheck, ruff, pyright, action-validator.
+Use `make lint` (not direct calls). Runs: markdownlint-cli2, yaml-lint, shellcheck, ruff, pyright, action-validator,
+editorconfig-checker; each fails the target on a finding.
 `make format` runs prettier, which also formats markdown tables; actionlint runs in pre-commit.
 
 ### Tests
@@ -137,7 +142,9 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 ### Core Requirements
 
 - All actions SHA-pinned (external + internal), use `${{ github.token }}`, POSIX shell (`set -eu`)
-- EditorConfig: 2-space indent, UTF-8, LF, max 200 chars (120 for MD)
+- EditorConfig: 2-space indent, UTF-8, LF, max 200 chars. editorconfig-checker enforces `.editorconfig` in pre-commit,
+  `make lint` and MegaLinter; generated action READMEs and the findings ledger are exempt from the line length only.
+  An action.yml description longer than 200 characters is a `>-` folded block wrapped at 120 columns
 - Auto-gen README via `gh-action-readme` (Go binary, pinned + checksum-verified by `make docs`; not an npm dependency)
 - Python tools an action chooses install from its hash-locked `requirements.lock.txt`. Edit `requirements.in`, then run
   the `uv pip compile` command in the lock's header from the repo root
@@ -189,7 +196,8 @@ All actions modular and externally usable. No exceptions to any rule.
 
 ## context-mode — MANDATORY routing rules
 
-You have context-mode MCP tools available. These rules are NOT optional — they protect your context window from flooding. A single unrouted command can dump 56 KB into context and waste the entire session.
+You have context-mode MCP tools available. These rules are NOT optional — they protect your context window from
+flooding. A single unrouted command can dump 56 KB into context and waste the entire session.
 
 ### BLOCKED commands — do NOT attempt these
 

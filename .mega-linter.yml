@@ -25,6 +25,8 @@ ENABLE_LINTERS:
   - JSON_PRETTIER
   - JAVASCRIPT_ES
   - TYPESCRIPT_ES
+  # The same .editorconfig check pre-commit and `make lint` run, enforced on pull requests.
+  - EDITORCONFIG_EDITORCONFIG_CHECKER
 
 YAML_YAMLLINT_CONFIG_FILE: .yamllint.yml
 MARKDOWN_MARKDOWNLINT_CONFIG_FILE: .markdownlint.json

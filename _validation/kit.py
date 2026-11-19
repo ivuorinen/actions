@@ -11,10 +11,11 @@ Every check has the signature ``check_<type>(value: str) -> str | None`` and ret
 ``None`` when the value is acceptable, or a short human-readable reason when it is not.
 
 Shared contract:
-  * the ``_skip`` gate, applied first by nearly every check, accepts an empty value or one
+
+*   the ``_skip`` gate, applied first by nearly every check, accepts an empty value or one
     of ASCII whitespace only: inputs are optional unless the action marks them required (the
     generated runner enforces "required" on its own, before calling the check);
-  * a check judges the value exactly as the action will use it. The runner has expanded
+*   a check judges the value exactly as the action will use it. The runner has expanded
     every ``${{ ... }}`` before ``validate.py`` reads ``INPUT_*``, and it never expands
     ``$VAR`` in an input, so neither form is a reference here: both are literal data. Matches
     use ``re.fullmatch`` because ``re.match(...$)`` also accepts a trailing newline.
@@ -32,6 +33,11 @@ each underlying tool actually accepts.
 from __future__ import annotations
 
 import re
+from types import FunctionType
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # --------------------------------------------------------------------------------------
 # Shared preamble helpers. The generator emits only the helpers a given action's checks
@@ -1238,13 +1244,15 @@ def check_output_path(value: str) -> str | None:
 
 # --------------------------------------------------------------------------------------
 # Registry: type name -> check function. The generator and the test-suite both introspect
-# this mapping; it is the authoritative list of supported validator types.
+# this mapping; it is the authoritative list of supported validator types. Every check is a
+# plain function, and matching FunctionType rather than callable() lets the declared type
+# hold: a type checker reads callable() on a module global as "returns object".
 # --------------------------------------------------------------------------------------
 
-CHECKS = {
+CHECKS: dict[str, Callable[[str], str | None]] = {
     name[len("check_") :]: function
     for name, function in sorted(globals().items())
-    if name.startswith("check_") and callable(function)
+    if name.startswith("check_") and isinstance(function, FunctionType)
 }
 
 

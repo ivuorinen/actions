@@ -29,19 +29,19 @@ End
 Context "when file path is not a README.md"
 It "ignores non-README files"
 input=$(make_input "/some/action.yml")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The output should equal ""
 End
 
 It "ignores other markdown files"
 input=$(make_input "/some/CONTRIBUTING.md")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The output should equal ""
 End
 
 It "ignores readme files in non-action directories"
 input=$(make_input "/project/docs/README.md")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The output should equal ""
 End
 End
@@ -58,7 +58,7 @@ touch "$TMPDIR/action.yml"
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include '"permissionDecision":"deny"'
 End
 
@@ -68,7 +68,7 @@ touch "$TMPDIR/action.yml"
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include "auto-generated"
 The output should include "gh-action-readme"
 End
@@ -79,7 +79,7 @@ touch "$TMPDIR/action.yml"
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include "make docs"
 End
 End
@@ -91,7 +91,7 @@ touch "$TMPDIR/action.yaml"
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include '"permissionDecision":"deny"'
 End
 End
@@ -103,7 +103,7 @@ TMPDIR=$(mktemp -d)
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should equal ""
 End
 End
@@ -115,7 +115,7 @@ touch "$TMPDIR/action.yml"
 input=$(printf '{"tool_input":{"filePath":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include '"permissionDecision":"deny"'
 End
 End
@@ -131,7 +131,7 @@ touch "$TMPDIR/action.yml"
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK" | jq -e '.hookSpecificOutput.permissionDecision' 2>/dev/null)
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include "deny"
 End
 
@@ -141,7 +141,7 @@ touch "$TMPDIR/action.yml"
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK" | jq -r '.hookSpecificOutput.hookEventName' 2>/dev/null)
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include "PreToolUse"
 End
 End
@@ -158,7 +158,7 @@ TMPDIR=$(mktemp -d)
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Root readme"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should equal ""
 End
 End
@@ -171,7 +171,7 @@ touch "$TMPDIR/action.yaml"
 input=$(printf '{"tool_input":{"file_path":"%s/README.md","new_string":"# Updated"}}' "$TMPDIR")
 result=$(printf '%s' "$input" | sh "$HOOK")
 rm -rf "$TMPDIR"
-When run bash -c "printf '%s' '$result'"
+When call printf '%s' "$result"
 The output should include '"permissionDecision":"deny"'
 End
 End

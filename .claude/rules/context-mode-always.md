@@ -12,10 +12,19 @@ through context-mode, or, for file content, through `Edit`/`Write`. There is no
 "short output", "one line", or "state-mutating" exemption: any other command's
 terminal output bloats the context window, which is exactly what this rule prevents.
 
-- Bash-permitted — the ONLY two: `git commit` (with any flags or a `-F -` heredoc)
-  and `git push`. They must run as real git so the commit/push reaches the host
-  repo; their output (pre-commit hooks, the new SHA, push refs) is the single
+- Bash-permitted — the ONLY two, each on its own, in the forms the route-bash hook
+  allows (it denies anything else). They must run as real git so the commit/push reaches
+  the host repo; their output (pre-commit hooks, the new SHA, push refs) is the single
   accepted source of terminal output.
+  - `git commit` with a message from `-m <word>`, `-m '<text>'` (no `'` inside),
+    `-F <file>`, `--no-edit`, or a `-F - <<'EOF'` heredoc whose quoted delimiter stands
+    alone on the last line and on no line before it; it may add `--amend`, `-s`,
+    `--signoff`, `-q` or `--quiet`. Never `--no-verify`, `-n` or `-a`; `-m "..."` is
+    refused, since double quotes still expand.
+  - `git push` with `-u`, `--set-upstream`, `--tags`, `--follow-tags`, `--dry-run` or
+    `--force-with-lease[=<ref>[:<ref>]]`, then a remote name and refspecs. A refspec may
+    not start with `+` or `:`, and the remote may not be a path or URL.
+  - A word is plain text: letters, digits and `_ . / : @ + , % = -`, not starting with `=`.
 - File CONTENT (creating or editing a file's bytes) → `Edit` / `Write` (native
   tools). Never `printf >file`, `cat <<EOF >file`, `tee`, or `sed -i` in Bash.
 - Every OTHER state mutation → context-mode (`ctx_execute(language: "shell", ...)`

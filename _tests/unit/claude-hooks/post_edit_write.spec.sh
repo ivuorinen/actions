@@ -27,7 +27,7 @@ End
 Context "when file path does not match any known extension"
 It "exits without error for unknown file types"
 input=$(make_input "/some/file.txt")
-When run bash -c "printf '%s' '$input' | sh '$HOOK'"
+When call hook_run "$HOOK" "$input"
 The status should be success
 End
 End
@@ -47,7 +47,7 @@ input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should include "action-validator called"
 The output should include "action.yml"
 End
@@ -60,7 +60,7 @@ input=$(make_input "/myaction/action.yml")
 # Use PATH that only has basic utilities, no action-validator
 result=$(PATH="/usr/bin:/bin" sh "$HOOK" <<<"$input" 2>&1 || true)
 
-When run bash -c "printf '%s\n' '$result'; exit 0"
+When call printf '%s\n' "$result"
 # Should not contain an error about action-validator being missing
 The output should not include "command not found"
 The output should not include "action-validator: not found"
@@ -78,7 +78,7 @@ input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should include "actionlint called"
 The output should include "action-validator called"
 End
@@ -88,10 +88,12 @@ Context "when action-validator returns a non-zero exit code"
 It "continues without failing (uses || true)"
 TMPBIN=$(mktemp -d)
 printf '#!/bin/sh\nprintf "validation error\n" >&2\nexit 1\n' >"$TMPBIN/action-validator"
-chmod +x "$TMPBIN/action-validator"
+# A stub actionlint keeps the real one from reporting on a file that does not exist.
+printf '#!/bin/sh\nexit 0\n' >"$TMPBIN/actionlint"
+chmod +x "$TMPBIN/action-validator" "$TMPBIN/actionlint"
 
 input=$(make_input "/myaction/action.yml")
-PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>/dev/null
+PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" >/dev/null 2>&1
 exit_code=$?
 rm -rf "$TMPBIN"
 
@@ -115,7 +117,7 @@ input=$(make_input "/myaction/some_script.py")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should not include "action-validator called"
 End
 End
@@ -130,7 +132,7 @@ input=$(make_input "/myaction/helper.sh")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should not include "action-validator called"
 End
 End
@@ -145,7 +147,7 @@ input=$(make_input "/myaction/config.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should not include "action-validator called"
 End
 End
@@ -164,7 +166,7 @@ input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
-When run bash -c "printf '%s\n' '$result'"
+When call printf '%s\n' "$result"
 The output should include "actionlint called"
 End
 End
@@ -174,7 +176,7 @@ It "skips actionlint gracefully"
 input=$(make_input "/myaction/action.yml")
 result=$(PATH="/usr/bin:/bin" sh "$HOOK" <<<"$input" 2>&1 || true)
 
-When run bash -c "printf '%s\n' '$result'; exit 0"
+When call printf '%s\n' "$result"
 The output should not include "actionlint: not found"
 The output should not include "command not found"
 End

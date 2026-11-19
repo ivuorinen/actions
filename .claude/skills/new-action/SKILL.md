@@ -41,10 +41,13 @@ This generates `<action-name>/validate.py` (self-contained pure-stdlib validator
 `_validation/spec.py` + `_validation/kit.py`. Never hand-edit the generated `validate.py`.
 Add a `shell: sh` step that runs `python3 validate.py` as the action's first real step.
 
-## 4. Generate test scaffolding
+## 4. Write the tests
+
+Write the action's ShellSpec specs under `_tests/unit/<action-name>/` (`_tests/README.md` describes
+the harness and its patterns); the test runner reports any action without them. Then run them:
 
 ```bash
-make generate-tests
+make test-action ACTION=<action-name>
 ```
 
 ## 5. Generate README

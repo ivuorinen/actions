@@ -15,10 +15,10 @@ This is a **flat-structure GitHub Actions monorepo** with over 40 self-contained
 ### Development Commands
 
 ```bash
-make all           # Complete workflow: docs + format + lint + test
+make all           # Tools, validators, docs, catalog, format, lint and pre-commit (no tests)
 make dev           # Quick dev cycle: format + lint only
 make test          # Run all tests (ShellSpec + pytest)
-make test-action ACTION=node-setup  # Test specific action
+make test-action ACTION=docker-build  # Test specific action
 ```
 
 ### Documentation Generation
@@ -67,14 +67,13 @@ outputs:
 - Use `_tests/shared/` for common test utilities
 - Integration tests use `nektos/act` for local GitHub Actions simulation
 
-### Language Detection Actions
+### Language Version Detection
 
-Actions like `node-setup`, `php-version-detect` follow auto-detection patterns:
-
-1. Check project files (package.json, composer.json, go.mod, etc.)
-2. Fallback to `default-version` input
-3. Support `force-version` override
-4. Output detected version for downstream actions
+The actions that set up a language (csharp-build, csharp-lint-check, csharp-publish, go-build, php-tests,
+pr-lint, python-lint-fix) detect its version inline, from project files such as `.tool-versions`, `.go-version`,
+`.python-version`, `go.mod`, `global.json`, `composer.json`, `pyproject.toml`, `package.json` and the devcontainer
+config, and validate it before use. Each action's README lists its version input. `language-version-detect` does
+the same as a separate action and is deprecated.
 
 ### Error Handling
 
@@ -87,7 +86,8 @@ Actions like `node-setup`, `php-version-detect` follow auto-detection patterns:
 
 ### Code Quality (Zero Tolerance)
 
-- All linting must pass: markdownlint, yaml-lint, shellcheck, ruff, pyright, action-validator (`make lint`); actionlint runs in the pre-commit hook
+- All linting must pass: markdownlint, yaml-lint, shellcheck, ruff, pyright, action-validator, editorconfig-checker
+  (`make lint`); actionlint runs in the pre-commit hook
 - All tests must pass: unit + integration
 - No warnings allowed in production
 - Use `make all` before committing
@@ -127,9 +127,8 @@ Actions like `node-setup`, `php-version-detect` follow auto-detection patterns:
 
 Actions are designed for composition:
 
-1. **Setup actions** (node-setup, php-version-detect) prepare environment
-2. **Linting actions** (eslint-check, biome-check) validate code quality
-3. **Build actions** (docker-build, go-build) create artifacts
-4. **Publishing actions** (npm-publish, docker-publish) deploy results
+1. **Linting actions** (eslint-lint, biome-lint) validate code quality
+2. **Build actions** (docker-build, go-build) create artifacts
+3. **Publishing actions** (npm-publish, docker-publish) deploy results
 
-Use outputs from setup actions as inputs to subsequent actions for proper chaining.
+Pass one action's outputs to the next action as inputs.

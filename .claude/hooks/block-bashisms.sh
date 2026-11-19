@@ -1,12 +1,11 @@
 #!/bin/sh
 set -eu
 
-if ! command -v jq >/dev/null 2>&1; then
-  exit 0
-fi
+# shellcheck source=SCRIPTDIR/lib.sh
+. "$(dirname -- "$0")/lib.sh"
 
-INPUT=$(cat)
-FILE_PATH=$(printf '%s' "$INPUT" | jq -r '.tool_input.file_path // .tool_input.filePath // empty')
+read_tool_call
+FILE_PATH=$(input_field '.tool_input.file_path // .tool_input.filePath')
 
 if [ -z "$FILE_PATH" ]; then
   exit 0
@@ -20,11 +19,13 @@ esac
 
 # _tests/ helpers are intentionally bash (ShellSpec, export -f, local, etc.).
 # Includes top-level test runner (_tests/run-tests.sh) and all subdirs.
+# A path with a .. segment can name _tests/ and still lead out of it, so it gets no exemption.
 case "$FILE_PATH" in
+.. | ../* | */.. | */../*) ;;
 _tests/* | */_tests/*) exit 0 ;;
 esac
 
-NEW_CONTENT=$(printf '%s' "$INPUT" | jq -r '.tool_input.new_string // .tool_input.content // empty')
+NEW_CONTENT=$(input_field '.tool_input.new_string // .tool_input.content')
 
 if [ -z "$NEW_CONTENT" ]; then
   exit 0
@@ -110,6 +111,5 @@ if printf '%s\n' "$CHECKABLE" | grep -qE '\$\{[a-zA-Z_][a-zA-Z0-9_]*\['; then
 fi
 
 if [ -n "$REASON" ]; then
-  REASON=$(printf '%s' "$REASON" | sed -E 's/"/\\"/g')
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"POSIX violation(s): %s All scripts must be POSIX sh (set -eu), not bash."}}\n' "$REASON"
+  deny "POSIX violation(s): ${REASON}All scripts must be POSIX sh (set -eu), not bash."
 fi

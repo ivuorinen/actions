@@ -609,8 +609,8 @@ generate_sarif_report() {
   # N-046: clean up temp files on all exit paths (including jq failure).
   # .tmp variants guard against jq failing after creating but before mv-ing the atomic file.
   trap 'rm -f "$_sarif_results_file" "$_sarif_rules_file" \
-             "${_sarif_results_file}.tmp" "${_sarif_rules_file}.tmp" \
-             "${temp_file:-}"' RETURN
+    "${_sarif_results_file}.tmp" "${_sarif_rules_file}.tmp" \
+    "${temp_file:-}"' RETURN
   printf '[]' >"$_sarif_results_file"
   printf '[]' >"$_sarif_rules_file"
   _sarif_need_unit_rule=1
@@ -630,7 +630,10 @@ generate_sarif_report() {
 
           # T-M4: append to temp file; single jq pass at end
           if [ "$_sarif_need_unit_rule" -eq 1 ]; then
-            if ! jq '. + [{"id":"test-failure","name":"TestFailure","shortDescription":{"text":"Test execution failed"},"fullDescription":{"text":"A unit or integration test failed during execution"},"defaultConfiguration":{"level":"error"}}]' \
+            if ! jq '. + [{"id":"test-failure","name":"TestFailure",
+              "shortDescription":{"text":"Test execution failed"},
+              "fullDescription":{"text":"A unit or integration test failed during execution"},
+              "defaultConfiguration":{"level":"error"}}]' \
               "$_sarif_rules_file" >"${_sarif_rules_file}.tmp"; then
               log_error "Failed to update SARIF rules file for unit test failure"
               return 1
@@ -639,7 +642,9 @@ generate_sarif_report() {
             _sarif_need_unit_rule=0
           fi
           if ! jq --arg msg "$failure_message" --arg act "$action_name" \
-            '. + [{"ruleId":"test-failure","level":"error","message":{"text":$msg},"locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},"region":{"startLine":1,"startColumn":1}}}]}]' \
+            '. + [{"ruleId":"test-failure","level":"error","message":{"text":$msg},
+              "locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},
+              "region":{"startLine":1,"startColumn":1}}}]}]' \
             "$_sarif_results_file" >"${_sarif_results_file}.tmp"; then
             log_error "Failed to append unit test failure to SARIF results"
             return 1
@@ -663,7 +668,10 @@ generate_sarif_report() {
 
           # T-M4: append to temp file; single jq pass at end
           if [ "$_sarif_need_int_rule" -eq 1 ]; then
-            if ! jq '. + [{"id":"integration-failure","name":"IntegrationFailure","shortDescription":{"text":"Integration test failed"},"fullDescription":{"text":"An integration test failed during workflow execution"},"defaultConfiguration":{"level":"warning"}}]' \
+            if ! jq '. + [{"id":"integration-failure","name":"IntegrationFailure",
+              "shortDescription":{"text":"Integration test failed"},
+              "fullDescription":{"text":"An integration test failed during workflow execution"},
+              "defaultConfiguration":{"level":"warning"}}]' \
               "$_sarif_rules_file" >"${_sarif_rules_file}.tmp"; then
               log_error "Failed to update SARIF rules file for integration test failure"
               return 1
@@ -672,7 +680,9 @@ generate_sarif_report() {
             _sarif_need_int_rule=0
           fi
           if ! jq --arg msg "$failure_message" --arg act "$action_name" \
-            '. + [{"ruleId":"integration-failure","level":"warning","message":{"text":$msg},"locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},"region":{"startLine":1,"startColumn":1}}}]}]' \
+            '. + [{"ruleId":"integration-failure","level":"warning","message":{"text":$msg},
+              "locations":[{"physicalLocation":{"artifactLocation":{"uri":($act+"/action.yml")},
+              "region":{"startLine":1,"startColumn":1}}}]}]' \
             "$_sarif_results_file" >"${_sarif_results_file}.tmp"; then
             log_error "Failed to append integration test failure to SARIF results"
             return 1

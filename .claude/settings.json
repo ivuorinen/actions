@@ -6,19 +6,23 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-generated-validators.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-generated-validators.sh",
+            "onFailure": "block"
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-readme-edits.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-readme-edits.sh",
+            "onFailure": "block"
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-echo-github-output.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-echo-github-output.sh",
+            "onFailure": "block"
           },
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-bashisms.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/block-bashisms.sh",
+            "onFailure": "block"
           }
         ]
       },
@@ -27,7 +31,8 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/route-bash-to-context-mode.sh"
+            "command": "\"$CLAUDE_PROJECT_DIR\"/.claude/hooks/route-bash-to-context-mode.sh",
+            "onFailure": "block"
           }
         ]
       }
