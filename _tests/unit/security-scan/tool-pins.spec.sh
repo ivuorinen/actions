@@ -14,18 +14,24 @@ before() {
   mkdir -p "$STUB_DIR"
   export CALLS="${RUNNER_TEMP}/calls"
   : >"$CALLS"
+  export FAIL_DOWNLOAD=""
+  # Records each call; a download whose archive name starts with FAIL_DOWNLOAD fails.
   cat >"${STUB_DIR}/install_tool.py" <<'PY'
 import os
 import sys
 
 with open(os.environ["CALLS"], "a", encoding="utf-8") as calls:
     calls.write(" ".join(sys.argv[1:]) + "\n")
+fail = os.environ.get("FAIL_DOWNLOAD")
+if fail and sys.argv[1] == "download" and os.path.basename(sys.argv[3]).startswith(fail):
+    print("::error::could not download")
+    sys.exit(1)
 PY
 }
 BeforeEach 'before'
 
 after() {
-  unset CALLS STUB_DIR
+  unset CALLS STUB_DIR FAIL_DOWNLOAD
   shellspec_cleanup_test_env "security-scan-tool-pins-$$"
 }
 AfterEach 'after'
@@ -155,6 +161,17 @@ When call run_install Linux X64
 The status should be success
 Assert grep -Fxq "trivy_cache=${RUNNER_TEMP}/security-scan-trivy-cache" "$GITHUB_OUTPUT"
 Assert grep -Eq '^date=[0-9]{4}-[0-9]{2}-[0-9]{2}$' "$GITHUB_OUTPUT"
+End
+
+It "installs the other scanners when one fails, names only those installed, and fails"
+FAIL_DOWNLOAD=trivy
+When call run_install Linux X64
+The status should be failure
+The output should include "::error::Could not install: trivy"
+Assert output_names gitleaks gitleaks
+Assert output_names actionlint actionlint
+Assert test -z "$(grep '^trivy=' "$GITHUB_OUTPUT")"
+Assert test -z "$(grep "^install .*/trivy_" "$CALLS")"
 End
 
 # Renovate bumps a version through its comment; the tools.sha256 tests above then fail

@@ -315,17 +315,19 @@ The status should be success
 The contents of file .git/info/attributes should equal "*.bin binary"
 End
 
+# Git 2.40 reads attributes from a tree only for git check-attr --source; GIT_ATTR_SOURCE,
+# which Gitleaks' git log needs, came in 2.41.
 It "fails on $1 when git is too old to read attributes from the base commit"
-git_reporting "2.39.5"
+git_reporting "2.40.1"
 "$1"
 When call run_check_configs_script
 The status should be failure
-The stdout should include "::error::git 2.40 or later is required to read git attributes from the base commit; found git version 2.39.5"
+The stdout should include "::error::git 2.41 or later is required to read git attributes from the base commit; found git version 2.40.1"
 Assert no_output scan_dir
 End
 
-It "accepts git 2.40 on $1"
-git_reporting "2.40.0"
+It "accepts git 2.41 on $1"
+git_reporting "2.41.0"
 "$1"
 When call run_check_configs_script
 The status should be success

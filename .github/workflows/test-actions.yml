@@ -10,7 +10,7 @@ on:
       - '*/action.yml'
       # An action's own files the specs read: its validator and helpers, pinned digests and locks.
       - '*/*.py'
-      - '*/*.cjs'
+      - '*/*.mjs'
       - '*/tools.sha256'
       - '*/requirements.*'
       - '*/package*.json'
@@ -29,7 +29,7 @@ on:
     paths:
       - '*/action.yml'
       - '*/*.py'
-      - '*/*.cjs'
+      - '*/*.mjs'
       - '*/tools.sha256'
       - '*/requirements.*'
       - '*/package*.json'

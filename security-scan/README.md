@@ -4,10 +4,10 @@
 
 > Security scanning for repositories with GitHub Actions: actionlint, Gitleaks and Trivy, with the results uploaded to code scanning. Requires 'contents: read' and 'security-events: write', and on a
 > pull request 'pull-requests: write' for its comment. All three scanners run from release binaries checked against SHA-256 digests pinned in this action, on Linux and macOS (x64 and ARM64) and
-> Windows x64. Gitleaks scans the commits a pull request, merge group or push adds, merge commits included, and the whole history on other events. On a pull request or merge group, Gitleaks and Trivy
-> run from an export of the base commit, so their configs, ignore files and git attributes come from the base branch, and actionlint reads the base branch's config. Inline gitleaks:allow comments, and
-> Trivy's trivy:ignore comments, in the changed files still apply; a pull request's scan lists the gitleaks:allow comments it adds in a comment when the base branch keeps a Gitleaks config or ignore
-> file.
+> Windows x64. Gitleaks scans the commits a pull request, merge group or push adds, two-parent merge commits included, and the whole history on other events and on a push whose earlier commit the
+> clone lacks, such as the push that creates a branch, where an older commit can fail the scan. On a pull request or merge group, Gitleaks and Trivy run from an export of the base commit, so their
+> configs, ignore files and git attributes come from the base branch, and actionlint reads the base branch's config. Inline gitleaks:allow comments, and Trivy's trivy:ignore comments, in the changed
+> files still apply; a pull request's scan lists the gitleaks:allow comments it adds in a comment when the base branch keeps a Gitleaks config or ignore file.
 
 ## 🚀 Quick Start
 

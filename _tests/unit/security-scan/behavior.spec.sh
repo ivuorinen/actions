@@ -57,15 +57,18 @@ run_check_configs_then_verify() {
   run_check_configs && RUN_TRIVY=false run_verify
 }
 
-# fake_tool NAME [STATUS]: write a stand-in for the scanner NAME into RUNNER_TEMP. It writes
-# each argument it receives on a line of its own to NAME.args, its working directory to
-# NAME.cwd and GIT_ATTR_SOURCE (or "unset") to NAME.attr, then exits STATUS.
+# fake_tool NAME [STATUS] [LOG]: write a stand-in for the scanner NAME into RUNNER_TEMP. It
+# writes each argument it receives on a line of its own to NAME.args, its working directory
+# to NAME.cwd and GIT_ATTR_SOURCE (or "unset") to NAME.attr, prints LOG to stderr as its log,
+# then exits STATUS.
 fake_tool() {
+  printf '%s' "${3:-}" >"${RUNNER_TEMP}/$1.log"
   cat >"${RUNNER_TEMP}/$1" <<EOF
 #!/bin/sh
 printf '%s\n' "\$@" >"${RUNNER_TEMP}/$1.args"
 pwd >"${RUNNER_TEMP}/$1.cwd"
 printf '%s\n' "\${GIT_ATTR_SOURCE-unset}" >"${RUNNER_TEMP}/$1.attr"
+cat "${RUNNER_TEMP}/$1.log" >&2
 exit ${2:-0}
 EOF
   chmod +x "${RUNNER_TEMP}/$1"
@@ -95,10 +98,25 @@ run_gitleaks() {
     SCAN_DIR="$SCAN_DIR" sh -c "$(step_value "$ACTION_DIR" 'Run Gitleaks' run)"
 }
 
+# run_trivy: run the Trivy step with the stand-in and the action's default inputs, which a
+# spec overrides by setting SCANNERS, SEVERITY or SCAN_TIMEOUT, empty included.
 run_trivy() {
   TRIVY="${RUNNER_TEMP}/trivy" CACHE_DIR="${RUNNER_TEMP}/trivy-cache" SCAN_DIR="$SCAN_DIR" \
-    SCANNERS="vuln,misconfig,secret" SEVERITY="CRITICAL,HIGH" SCAN_TIMEOUT="10m" \
+    SCANNERS="${SCANNERS-vuln,misconfig,secret}" SEVERITY="${SEVERITY-CRITICAL,HIGH}" SCAN_TIMEOUT="${SCAN_TIMEOUT-10m}" \
     sh -c "$(step_value "$ACTION_DIR" 'Run Trivy vulnerability scanner' run)"
+}
+
+# octopus_history: make the workspace a repository whose last commit merges three parents,
+# and set RANGE to the commits that merge brought. commit-tree needs no branch for each.
+octopus_history() {
+  history
+  base=$(git rev-parse HEAD)
+  tree=$(git rev-parse "${base}^{tree}")
+  side_a=$(git commit-tree -p "$base" -m a "$tree")
+  side_b=$(git commit-tree -p "$base" -m b "$tree")
+  octopus=$(git commit-tree -p "$base" -p "$side_a" -p "$side_b" -m octopus "$tree")
+  git reset -q --hard "$octopus"
+  RANGE="${base}..${octopus}"
 }
 
 # run_actionlint [CONFIG]: run the actionlint step with the stand-in and the config
@@ -247,7 +265,43 @@ The status should be success
 Assert test "$(recorded gitleaks args | sed -n '/^--log-opts$/{n;p;}')" = "--remerge-diff --full-history --all --diff-filter=tuxdb"
 End
 
-It "fails before Gitleaks runs when git cannot read the history, which Gitleaks would report as clean"
+It "fails when Gitleaks logs an error, which it does for a git log that failed while still exiting 0"
+history
+fake_tool gitleaks 0 "$(printf '3:07PM ERR [git] fatal: unrecognized argument: --remerge-diff\n3:07PM ERR error="stderr is not empty"\n3:07PM INF no leaks found\n')"
+When call run_gitleaks
+The status should be failure
+The stdout should include "::error::Gitleaks could not read the whole history"
+The stderr should include "ERR [git] fatal: unrecognized argument"
+End
+
+It "does not take a warning or a found leak for an error"
+history
+fake_tool gitleaks 1 "$(printf '3:07PM WRN exhaustive rename detection was skipped due to too many files.\n3:07PM WRN leaks found: 1\n')"
+When call run_gitleaks
+The status should equal 1
+The stdout should equal ""
+The stderr should include "WRN leaks found: 1"
+End
+
+It "fails a range holding a merge of more than two parents, whose own changes it cannot scan"
+octopus_history
+fake_tool gitleaks
+When call run_gitleaks "" "" "$RANGE"
+The status should be failure
+The stdout should include "::error::1 merge commits with more than two parents in ${RANGE}"
+Assert no_path "${RUNNER_TEMP}/gitleaks.args"
+End
+
+It "warns about a merge of more than two parents in the whole history, and still scans it"
+octopus_history
+fake_tool gitleaks
+When call run_gitleaks
+The status should be success
+The stdout should include "::warning::Gitleaks cannot scan what the 1 merge commits with more than two parents"
+Assert test -s "${RUNNER_TEMP}/gitleaks.args"
+End
+
+It "fails before Gitleaks runs when the range names a commit the clone lacks"
 history
 fake_tool gitleaks
 When call run_gitleaks "" "" "1111111111111111111111111111111111111111..$(git rev-parse HEAD)"
@@ -310,6 +364,24 @@ fake_tool trivy
 When call run_trivy
 The status should be success
 Assert test "$(recorded trivy cwd)" = "$(cd "$SCAN_DIR" && pwd)"
+End
+
+It "drops the spaces the validator allows around list items, which Trivy would read as part of a name"
+fake_tool trivy
+SCANNERS="vuln, misconfig" SEVERITY=" CRITICAL , HIGH"
+When call run_trivy
+The status should be success
+Assert test "$(recorded trivy args | sed -n '/^--scanners$/{n;p;}')" = "vuln,misconfig"
+Assert test "$(recorded trivy args | sed -n '/^--severity$/{n;p;}')" = "CRITICAL,HIGH"
+End
+
+It "leaves Trivy at its defaults for empty inputs, which it would reject as values"
+fake_tool trivy
+SCANNERS="" SEVERITY="" SCAN_TIMEOUT=""
+When call run_trivy
+The status should be success
+Assert test "$(recorded trivy args)" = "$(lines fs --cache-dir "${RUNNER_TEMP}/trivy-cache" --format sarif \
+  --output "${PWD}/trivy-results.sarif" "$PWD")"
 End
 
 It "fails the step when Trivy cannot scan"
@@ -405,6 +477,32 @@ Assert expect_output has_gitleaks "true"
 Assert expect_output has_trivy "false"
 End
 
+Describe "a report that is JSON but not a SARIF document"
+Parameters
+'{}'
+'{"runs": {}}'
+'[]'
+'{"runs": []} {"runs": []}'
+End
+
+It "rejects $1, which the upload and Analyze Results cannot read"
+printf '%s\n' "$1" >results.sarif
+export RUN_TRIVY="false"
+When call run_verify
+The status should be failure
+The stdout should include "::error::Gitleaks left no valid report"
+Assert no_output_line "has_gitleaks=true"
+End
+End
+
+It "accepts a report of a scan that found nothing"
+printf '%s\n' '{"version": "2.1.0", "runs": []}' >results.sarif
+export RUN_TRIVY="false"
+When call run_verify
+The status should be success
+Assert expect_output has_gitleaks "true"
+End
+
 It "does not read results.sarif when Gitleaks did not run"
 write_gitleaks_report 0
 export RUN_GITLEAKS="false" RUN_TRIVY="false"
@@ -488,10 +586,11 @@ When call step_value "$ACTION_DIR" "$1" "env.$3"
 The output should equal "\${{ $2 }}"
 End
 
-It "runs \"$1\" after another scanner fails, once the scanners are installed"
+It "runs \"$1\" after another scanner fails or fails to install, once its own binary is installed"
 When call step_value "$ACTION_DIR" "$1" "if"
 The output should include "!cancelled()"
-The output should include "steps.install-tools.outcome == 'success'"
+The output should include "$2 != ''"
+The output should not include "steps.install-tools.outcome"
 End
 End
 
@@ -563,17 +662,22 @@ The output should include "github.event_name == 'pull_request'"
 The output should include "steps.check-configs.outcome == 'success'"
 End
 
-It "runs inline_allows.cjs with the commits check-configs checked"
+It "runs inline_allows.mjs with the commits check-configs checked"
 When call step_value "$ACTION_DIR" "Comment on inline gitleaks:allow comments" "env"
 The output should include "steps.check-configs.outputs.base_sha"
 The output should include "steps.check-configs.outputs.head_sha"
 The output should include "inputs.gitleaks-config"
 End
 
-It "loads the module from the action's own directory"
+It "imports the module from the action's own directory by file URL, which also works for a Windows path"
 When call step_value "$ACTION_DIR" "Comment on inline gitleaks:allow comments" "with.script"
-The output should include "inline_allows.cjs"
-The output should include "process.env.ACTION_PATH"
+The output should include "pathToFileURL(join(process.env.ACTION_PATH, 'inline_allows.mjs'))"
+End
+
+It "has a script that runs as github-script runs it"
+script=$(step_value "$ACTION_DIR" "Comment on inline gitleaks:allow comments" "with.script")
+When call node -e "new (Object.getPrototypeOf(async function () {}).constructor)('github', 'context', 'core', process.argv[1])" "$script"
+The status should be success
 End
 
 It "posts with the token input, or the workflow token"

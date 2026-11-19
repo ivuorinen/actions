@@ -1,11 +1,11 @@
 #!/usr/bin/env shellspec
-# Tests for security-scan/inline_allows.cjs, which lists the inline gitleaks:allow comments a
-# pull request adds in one pull request comment that each run updates. They run the module in
-# a scratch repository, with a stand-in for github-script's github, context and core that
-# records each API call to calls.json.
+# Tests for security-scan/inline_allows.mjs, which lists the inline gitleaks:allow comments a
+# pull request adds in one pull request comment that each run updates. They import the module,
+# as the action's github-script step does, in a scratch repository, with a stand-in for
+# github-script's github, context and core that records each API call to calls.json.
 
 Describe "security-scan inline gitleaks:allow comment"
-MODULE="${PROJECT_ROOT}/security-scan/inline_allows.cjs"
+MODULE="${PROJECT_ROOT}/security-scan/inline_allows.mjs"
 
 before() {
   shellspec_setup_test_env "security-scan-inline-allows-$$"
@@ -50,13 +50,16 @@ in_pr() {
 }
 
 marker() {
-  node -p "require(process.env.MODULE).MARKER"
+  node --input-type=module -e "const { pathToFileURL } = await import('node:url'); \
+console.log((await import(pathToFileURL(process.env.MODULE).href)).MARKER);"
 }
 
 run_module() {
-  node <<'JS'
-const fs = require('node:fs');
-const run = require(process.env.MODULE);
+  node --input-type=module <<'JS'
+import fs from 'node:fs';
+import { pathToFileURL } from 'node:url';
+
+const { default: run } = await import(pathToFileURL(process.env.MODULE).href);
 const calls = [];
 const fail = process.env.API_FAILS === 'true';
 const record = (name, args) => {
@@ -95,7 +98,8 @@ const core = {
   warning: (message, at) => console.log(`warning: ${message}${at ? ` [${at.file}:${at.startLine}]` : ''}`),
 };
 const context = { repo: { owner: 'octo', repo: 'demo' }, payload: { pull_request: { number: 5 } }, serverUrl: 'https://github.com' };
-run({ github, context, core }).then(() => fs.writeFileSync(process.env.CALLS, JSON.stringify(calls)));
+await run({ github, context, core });
+fs.writeFileSync(process.env.CALLS, JSON.stringify(calls));
 JS
 }
 
@@ -150,6 +154,25 @@ in_pr app.txt 'one'
 When call run_module
 The status should be success
 Assert test "$(call_names)" = "listComments"
+End
+
+It "names a file with a space without the tab git puts after it in the header"
+in_base .gitleaks.toml 'title = "base"'
+in_pr "my file.txt" 'value # gitleaks:allow'
+When call run_module
+The status should be success
+The contents of file "$CALLS" should include '[`my file.txt:1`](https://github.com/octo/demo/blob/'
+The contents of file "$CALLS" should include '/my%20file.txt#L1)'
+The contents of file "$CALLS" should not include '%09'
+End
+
+It "annotates a file with a space by its name when it cannot comment"
+API_FAILS=true
+in_base .gitleaks.toml 'title = "base"'
+in_pr "my file.txt" 'value # gitleaks:allow'
+When call run_module
+The status should be success
+The output should include "Gitleaks skips this line [my file.txt:1]"
 End
 
 It "does not read a +++ line inside a hunk as a file name"
@@ -249,6 +272,17 @@ It "does not take a user's comment with its marker for its own"
 EXISTING="$(marker) planted"
 EXISTING_AUTHOR="someone"
 EXISTING_TYPE="User"
+in_base .gitleaks.toml 'title = "base"'
+in_pr app.txt "$(printf 'one\nvalue # gitleaks:allow')"
+When call run_module
+The status should be success
+Assert test "$(call_names)" = "$(printf 'listComments\ncreateComment')"
+End
+
+It "does not take another bot's comment with its marker for its own"
+EXISTING="$(marker) planted"
+EXISTING_AUTHOR="other-app[bot]"
+EXISTING_TYPE="Bot"
 in_base .gitleaks.toml 'title = "base"'
 in_pr app.txt "$(printf 'one\nvalue # gitleaks:allow')"
 When call run_module
