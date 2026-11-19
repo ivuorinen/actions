@@ -33,23 +33,54 @@ function inCommit(commit, file) {
   }
 }
 
+// The bytes git's C-style quoting writes as a backslash and a letter.
+const ESCAPES = new Map([
+  ['a', 7],
+  ['b', 8],
+  ['f', 12],
+  ['n', 10],
+  ['r', 13],
+  ['t', 9],
+  ['v', 11],
+  ['"', 34],
+  ['\\', 92],
+]);
+
+// The name git's C-style quoting of QUOTED stands for: the bytes between the quotes, with
+// each \ooo octal escape and each escape above decoded, read as UTF-8.
+function unquote(quoted) {
+  const input = Buffer.from(quoted.slice(1, -1), 'utf8');
+  const bytes = [];
+  for (let i = 0; i < input.length; i += 1) {
+    if (input[i] !== 0x5c) {
+      bytes.push(input[i]);
+      continue;
+    }
+    i += 1;
+    const next = String.fromCharCode(input[i]);
+    if (next >= '0' && next <= '7') {
+      bytes.push(Number.parseInt(input.subarray(i, i + 3).toString('latin1'), 8));
+      i += 2;
+    } else {
+      bytes.push(ESCAPES.get(next) ?? input[i]);
+    }
+  }
+  return Buffer.from(bytes).toString('utf8');
+}
+
 // The path a "+++ b/PATH" header names, or null for "+++ /dev/null". With
 // core.quotePath=false git quotes only a path holding a quote, a backslash or a control
-// character, much as JSON would, and ends the header of an unquoted path holding a space
-// with a tab, which is not part of the name.
+// character, and ends the header of an unquoted path holding a space with a tab, which is
+// not part of the name.
 function headerPath(header) {
   const name = header.slice('+++ '.length);
   if (name === '/dev/null') {
     return null;
   }
-  if (!name.startsWith('"')) {
-    return name.slice('b/'.length, name.endsWith('\t') ? -1 : undefined);
+  if (name.startsWith('"')) {
+    return unquote(name).slice('b/'.length);
   }
-  try {
-    return JSON.parse(name).slice('b/'.length);
-  } catch {
-    return name.slice('"b/'.length, -1);
-  }
+  return name.slice('b/'.length, name.endsWith('\t') ? -1 : undefined);
 }
 
 // The new-file line number a hunk header "@@ -A,B +C,D @@" starts at: C.
@@ -135,7 +166,10 @@ export default async function run({ github, context, core }) {
     return;
   }
 
-  const allows = addedAllows(git(['-c', 'core.quotePath=false', 'diff', '--no-color', '--no-ext-diff', '-U0', `${base}...${head}`], base));
+  // The prefixes and the empty context are set here, because diff.noprefix,
+  // diff.mnemonicPrefix and diff.interHunkContext would otherwise change what the reader gets.
+  const diff = git(['-c', 'core.quotePath=false', 'diff', '--no-color', '--no-ext-diff', '--src-prefix=a/', '--dst-prefix=b/', '-U0', '--inter-hunk-context=0', `${base}...${head}`], base);
+  const allows = addedAllows(diff);
   const { owner, repo } = context.repo;
   const issue_number = context.payload.pull_request.number;
   const link = (file, line) => `${context.serverUrl}/${owner}/${repo}/blob/${head}/${file.split('/').map(encodeURIComponent).join('/')}#L${line}`;

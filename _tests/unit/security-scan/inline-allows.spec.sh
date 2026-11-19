@@ -191,6 +191,33 @@ When call run_module
 The status should be success
 The contents of file "$CALLS" should include "app.txt:2"
 End
+
+It "decodes a name git quotes with an octal escape"
+in_base .gitleaks.toml 'title = "base"'
+in_pr "$(printf 'a\001b.txt')" 'value # gitleaks:allow'
+When call run_module
+The status should be success
+The contents of file "$CALLS" should include '/a%01b.txt#L1)'
+End
+
+Describe "git configuration that would change the diff"
+Parameters
+diff.noprefix true
+diff.mnemonicPrefix true
+diff.interHunkContext 1
+End
+
+It "names the right file and line with $1 set to $2"
+in_base .gitleaks.toml 'title = "base"'
+in_base app.txt "$(printf 'one\ntwo\nthree')"
+git config "$1" "$2"
+in_pr app.txt "$(printf 'ONE\ntwo\nthree # gitleaks:allow')"
+When call run_module
+The status should be success
+The contents of file "$CALLS" should include '[`app.txt:3`]'
+The contents of file "$CALLS" should include '/app.txt#L3)'
+End
+End
 End
 
 Describe "the base branch's Gitleaks files"
