@@ -32,7 +32,11 @@ jobs:
           cache: npm
 
       - name: Install pinned tooling
-        run: npm ci
+        # No package in the lock needs an install script.
+        run: |
+          set -eu
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install the tooling"; exit 1; }
+          npm ci --ignore-scripts
 
       - name: Regenerate action documentation
         run: |

@@ -25,9 +25,8 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      # The analysis comment on the pull request; the issues comment API accepts this scope.
       pull-requests: write
-      issues: write
-      actions: read
 
     steps:
       - name: Checkout PR
@@ -61,17 +60,27 @@ jobs:
           printf 'Base ref: %s\n' "${BASE_REF}"
           git log -1 --oneline "${BASE_REF}"
 
+      # The analysis below takes reports/dependency-check-report.json as the sign that the scan
+      # ran, so a report the pull request commits must not stand in for one.
+      - name: Remove reports from the checkout
+        if: github.event_name == 'pull_request'
+        run: |
+          set -eu
+          rm -rf reports
+
       - name: OWASP Dependency Check
         # Only run on pull_request, not pull_request_target to prevent executing
-        # untrusted third-party actions against PR head from forks
+        # untrusted third-party code against PR head from forks.
+        # Dependency-Check_Action ran this image at its floating latest tag, and dropped the
+        # out and args inputs it does not define. latest is the image's only tag, rebuilt with
+        # a fresh vulnerability database (the scan runs with --noupdate), so it is pinned by
+        # digest. On its schedule, Renovate raises a reviewable pull request that moves the
+        # digest to the newest rebuild; .github/renovate.json lets that update through.
         if: github.event_name == 'pull_request'
-        uses: dependency-check/Dependency-Check_Action@75ba02d6183445fe0761d26e836bde58b1560600 # 1.1.0
+        uses: docker://owasp/dependency-check-action:latest@sha256:4e7e1d48b860b7c84566667e1be86af398a8a7020534887a17cc0884d33882f7
         with:
-          project: 'PR Security Analysis'
-          path: '.'
-          format: 'JSON'
-          out: 'reports'
-          args: >
+          args: >-
+            --project "PR Security Analysis" --scan . --format JSON --out /github/workspace/reports --noupdate
             --enableRetired --enableExperimental --failOnCVSS 0
         continue-on-error: true
 
@@ -82,17 +91,26 @@ jobs:
         # verified by SHA-256, rather than a floating install-script ref — this
         # keeps the pin-everything trust root (a release tag is mutable; the
         # digest is not). 'p/default' is the public registry ruleset resolvable
-        # without an account token. Update OPENGREP_SHA256 with OPENGREP_VERSION.
+        # without an account token. It is fetched on each run, so its rules move
+        # with the registry: coverage can change without a change here. Update
+        # OPENGREP_SHA256 with OPENGREP_VERSION.
+        # The binary goes in a new directory of this step's own, so nothing else
+        # on the runner can swap it between the checksum and the run, as it could
+        # at a fixed path in /tmp.
         env:
+          # renovate: datasource=github-releases depName=opengrep/opengrep
           OPENGREP_VERSION: v1.22.0
           OPENGREP_SHA256: 45bcd58440e397ed52c50e953ccf5948909ea77087c9186fc7d277216f62e319
         run: |
           set -eu
-          curl -fsSL -o /tmp/opengrep \
+          tools=$(mktemp -d "${RUNNER_TEMP:?}/opengrep.XXXXXX")
+          curl --proto '=https' --tlsv1.2 -fsSL -o "${tools}/opengrep" \
             "https://github.com/opengrep/opengrep/releases/download/${OPENGREP_VERSION}/opengrep_manylinux_x86"
-          printf '%s  /tmp/opengrep\n' "$OPENGREP_SHA256" | sha256sum -c -
-          chmod +x /tmp/opengrep
-          /tmp/opengrep scan --config p/default --sarif-output=opengrep.sarif .
+          printf '%s  %s\n' "$OPENGREP_SHA256" "${tools}/opengrep" | sha256sum -c -
+          chmod +x "${tools}/opengrep"
+          # The report goes outside the checkout, where a committed symlink of its name
+          # would redirect the write.
+          "${tools}/opengrep" scan --config p/default --sarif-output="${RUNNER_TEMP}/opengrep.sarif" .
         continue-on-error: true
 
       - name: TruffleHog Secret Scan
@@ -102,22 +120,24 @@ jobs:
         # the pinned release archive, verified by SHA-256, as Opengrep is above.
         # Update TRUFFLEHOG_SHA256 with TRUFFLEHOG_VERSION.
         env:
+          # renovate: datasource=github-releases depName=trufflesecurity/trufflehog extractVersion=^v(?<version>.+)$
           TRUFFLEHOG_VERSION: 3.99.7
           TRUFFLEHOG_SHA256: bdbea0508e439b144f49de14e775908de5f902f3d14ea7ae8354bae72b0b72ef
         run: |
           set -eu
+          tools=$(mktemp -d "${RUNNER_TEMP:?}/trufflehog.XXXXXX")
           archive="trufflehog_${TRUFFLEHOG_VERSION}_linux_amd64.tar.gz"
-          curl -fsSL -o "/tmp/${archive}" \
+          curl --proto '=https' --tlsv1.2 -fsSL -o "${tools}/${archive}" \
             "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/${archive}"
-          printf '%s  /tmp/%s\n' "$TRUFFLEHOG_SHA256" "$archive" | sha256sum -c -
-          tar -xzf "/tmp/${archive}" -C /tmp trufflehog
+          printf '%s  %s\n' "$TRUFFLEHOG_SHA256" "${tools}/${archive}" | sha256sum -c -
+          tar -xzf "${tools}/${archive}" -C "$tools" trufflehog
           # TruffleHog scans a clone, which has no refs/remotes, so the base goes in
           # as a commit hash. Without --fail-on-scan-errors, a scan that cannot
           # resolve its range exits 0 having scanned nothing.
           base_sha=$(git rev-parse "$BASE_REF")
-          /tmp/trufflehog git "file://${PWD}" --since-commit "$base_sha" --branch HEAD \
+          "${tools}/trufflehog" git "file://${PWD}" --since-commit "$base_sha" --branch HEAD \
             --only-verified --json --no-update --fail-on-scan-errors \
-            > /tmp/trufflehog_output.json
+            > "${RUNNER_TEMP}/trufflehog_output.json"
         continue-on-error: true
 
       - name: Analyze Security Results
@@ -143,19 +163,24 @@ jobs:
             };
 
             // Analyze GitHub Actions permission changes
-            const { execSync } = require('child_process');
+            // git runs with an argument list, not a shell command line: a changed file's name
+            // comes from the pull request.
+            const { execFileSync } = require('child_process');
             const baseRef = process.env.BASE_REF;
             try {
-              const changedWorkflows = execSync(
-                `git diff --name-only ${baseRef}...HEAD | grep -E "\.github/workflows/.*\.ya?ml$" || true`,
-                { encoding: 'utf8' }
-              ).trim().split('\n').filter(Boolean);
+              const changedWorkflows = execFileSync('git', ['diff', '--name-only', `${baseRef}...HEAD`], { encoding: 'utf8' })
+                .split('\n')
+                .filter((file) => /\.github\/workflows\/.*\.ya?ml$/.test(file));
 
               for (const workflow of changedWorkflows) {
-                if (!workflow) continue;
-
                 try {
-                  const oldContent = execSync(`git show ${baseRef}:${workflow}`, { encoding: 'utf8' });
+                  // A workflow the pull request adds has no base version: everything in it is new.
+                  let oldContent = '';
+                  try {
+                    oldContent = execFileSync('git', ['show', `${baseRef}:${workflow}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] });
+                  } catch {
+                    oldContent = '';
+                  }
                   const newContent = fs.readFileSync(workflow, 'utf8');
 
                   // Simple permission extraction (could be enhanced with YAML parsing)
@@ -211,9 +236,10 @@ jobs:
             }
 
             // Parse Opengrep SARIF results
+            const opengrepSarif = `${process.env.RUNNER_TEMP}/opengrep.sarif`;
             try {
-              if (fs.existsSync('opengrep.sarif')) {
-                const sarifContent = JSON.parse(fs.readFileSync('opengrep.sarif', 'utf8'));
+              if (fs.existsSync(opengrepSarif)) {
+                const sarifContent = JSON.parse(fs.readFileSync(opengrepSarif, 'utf8'));
                 if (sarifContent.runs && sarifContent.runs[0] && sarifContent.runs[0].results) {
                   const run = sarifContent.runs[0];
                   const rules = run.tool?.driver?.rules || [];
@@ -235,7 +261,8 @@ jobs:
 
             // Parse TruffleHog results (NDJSON format - one JSON object per line)
             try {
-              const truffleOutput = execSync('cat /tmp/trufflehog_output.json || echo ""', { encoding: 'utf8' });
+              const truffleFile = `${process.env.RUNNER_TEMP}/trufflehog_output.json`;
+              const truffleOutput = fs.existsSync(truffleFile) ? fs.readFileSync(truffleFile, 'utf8') : '';
               const truffleLines = truffleOutput.trim().split('\n').filter(line => line.length > 0);
 
               truffleLines.forEach((line, index) => {
@@ -265,9 +292,18 @@ jobs:
 
             // A scanner that did not complete reports nothing, which must not read
             // as a clean result. OWASP exits non-zero when it finds anything
-            // (--failOnCVSS 0), so its report file, not its outcome, shows it ran.
+            // (--failOnCVSS 0), so its report, not its outcome, shows it ran. It also
+            // writes the report when an analyzer fails, listing the failures in
+            // scanInfo.analysisExceptions, so a report with any of those is incomplete too.
             const incompleteScans = [];
-            if (!fs.existsSync('reports/dependency-check-report.json')) incompleteScans.push('OWASP Dependency Check');
+            let owaspComplete = false;
+            try {
+              const owaspReport = JSON.parse(fs.readFileSync('reports/dependency-check-report.json', 'utf8'));
+              owaspComplete = (owaspReport.scanInfo?.analysisExceptions ?? []).length === 0;
+            } catch {
+              owaspComplete = false;
+            }
+            if (!owaspComplete) incompleteScans.push('OWASP Dependency Check');
             if (process.env.OPENGREP_OUTCOME !== 'success') incompleteScans.push('Opengrep');
             if (process.env.TRUFFLEHOG_OUTCOME !== 'success') incompleteScans.push('TruffleHog');
             core.setOutput('incomplete_scans', incompleteScans.join(', '));
@@ -401,10 +437,13 @@ jobs:
             }
 
             // Find existing security comment using unique marker
-            const { data: comments } = await github.rest.issues.listComments({
+            // Every page: the API returns 30 comments at a time, and a long pull request
+            // would otherwise get a second bot comment.
+            const comments = await github.paginate(github.rest.issues.listComments, {
               owner: context.repo.owner,
               repo: context.repo.repo,
-              issue_number: context.issue.number
+              issue_number: context.issue.number,
+              per_page: 100
             });
 
             const existingComment = comments.find(comment =>

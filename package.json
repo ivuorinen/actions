@@ -8,7 +8,7 @@
     "update-catalog": "node generate_listing.cjs --update",
     "lint": "npm run lint:markdown && npm run lint:yaml",
     "lint:markdown": "markdownlint-cli2 '**/*.md' '#node_modules'",
-    "lint:yaml": "npx yaml-lint '**/*.yml' '**/*.yaml'",
+    "lint:yaml": "yaml-lint '**/*.yml' '**/*.yaml'",
     "format": "npm run format:prettier",
     "format:prettier": "prettier --write '**/*.{md,yml,yaml,json,cjs}'",
     "format:markdown": "markdownlint-cli2 --fix '**/*.md' '#node_modules'",

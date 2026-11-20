@@ -19,10 +19,13 @@ Thank you for your interest in contributing to this GitHub Actions monorepo.
 
 2. Install Node.js, Python 3, [uv](https://docs.astral.sh/uv/), ShellSpec, shellcheck and
    [action-validator](https://github.com/mpalmer/action-validator#installation), then run `make install-tools`.
-   It fetches markdownlint-cli2, prettier, yaml-lint and gh-action-readme, installs pre-commit (which runs actionlint
-   and editorconfig-checker) and the Python dependencies, and checks for shellcheck, shfmt and uv. `make lint` runs
-   action-validator through a pre-commit hook that uses the binary on your `PATH`; nothing installs it for you. The
-   editorconfig-checker hook builds the checker from source with Go, which pre-commit downloads when it is missing.
+   It installs markdownlint-cli2, prettier and yaml-lint from `package-lock.json`, and ruff, pyright, pytest and
+   pre-commit (which runs actionlint and editorconfig-checker) from `uv.lock`. It fetches gh-action-readme, checked
+   against the digest the Makefile pins, and checks for shellcheck, shfmt and uv. The make targets run those tools at
+   their locked versions. pre-commit's hooks are pinned to commits, but each hook installs its own dependencies
+   without a lock. `make lint` runs action-validator through a pre-commit hook that uses the binary on your `PATH`;
+   nothing installs it for you. The editorconfig-checker hook builds the checker from source with Go, which
+   pre-commit downloads when it is missing.
 3. Run formatting, linting, and pre-commit checks:
 
    ```bash

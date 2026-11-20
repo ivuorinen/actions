@@ -44,7 +44,8 @@ runs:
       run: |
         set -eu
         command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install the Node dependencies"; exit 1; }
-        npm ci
+        # No package in the lock needs an install script.
+        npm ci --ignore-scripts
 
     - name: Install system tools
       shell: sh
@@ -57,12 +58,15 @@ runs:
 
     - name: Install shfmt
       shell: sh
+      env:
+        # Update the SHA-256 values below with each version.
+        # renovate: datasource=github-releases depName=mvdan/sh extractVersion=^v(?<version>.+)$
+        SHFMT_VERSION: '3.14.1'
       run: |
         set -eu
 
         # The posix-shell tests parse each run: script with shfmt (_tests/unit/posix-shell/find_unchecked_tools.py).
         # The release publishes no checksum file, so each binary's SHA-256 is pinned here.
-        SHFMT_VERSION="3.14.1"
         case "$(uname -m)" in
           x86_64) SHFMT_ARCH="amd64"; EXPECTED_CHECKSUM="76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf" ;;
           aarch64 | arm64) SHFMT_ARCH="arm64"; EXPECTED_CHECKSUM="5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489" ;;
@@ -112,7 +116,11 @@ runs:
         # v43, as the docker-testing-tools image builds: v42 asks for CMake below 3.5, which
         # CMake 4 on the runner image no longer accepts.
         echo "Building kcov from source..."
-        cd /tmp
+        # A new directory of this step's own, which nothing else on the machine can fill
+        # before the build, as it could a fixed path in /tmp.
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to build kcov"; exit 1; }
+        work=$(mktemp -d "${RUNNER_TEMP:?}/kcov.XXXXXX")
+        cd "$work"
         command -v git >/dev/null 2>&1 || { echo "::error::git is required to fetch the kcov source"; exit 1; }
         git clone --depth 1 --branch v43 https://github.com/SimonKagstrom/kcov.git
         git -C kcov checkout a39874f938ce13f7a65f253120d1ec946b349ffe
@@ -124,7 +132,7 @@ runs:
         make
         sudo make install
         cd /
-        rm -rf /tmp/kcov
+        rm -rf "$work"
 
         echo "Verifying kcov installation..."
         command -v kcov >/dev/null 2>&1 || { echo "::error::kcov is not on PATH after its install"; exit 1; }
@@ -132,99 +140,105 @@ runs:
 
     - name: Install ShellSpec
       shell: sh
+      env:
+        # Update EXPECTED_CHECKSUM below with each version.
+        # renovate: datasource=github-tags depName=shellspec/shellspec
+        SHELLSPEC_VERSION: '0.28.1'
       run: |
         set -eu
 
-        # Pin to specific version to avoid supply-chain risks
-        SHELLSPEC_VERSION="0.28.1"
         SHELLSPEC_URL="https://github.com/shellspec/shellspec/archive/refs/tags/${SHELLSPEC_VERSION}.tar.gz"
-        # Pinned SHA-256 checksum for ShellSpec 0.28.1
-        # Source: https://github.com/shellspec/shellspec/archive/refs/tags/0.28.1.tar.gz
+        # SHA-256 of the 0.28.1 source archive at SHELLSPEC_URL.
         EXPECTED_CHECKSUM="400d835466429a5fe6c77a62775a9173729d61dd43e05dfa893e8cf6cb511783"
 
         command -v curl >/dev/null 2>&1 || { echo "::error::curl is required to download ShellSpec"; exit 1; }
         command -v sha256sum >/dev/null 2>&1 || { echo "::error::sha256sum is required to verify ShellSpec"; exit 1; }
         command -v tar >/dev/null 2>&1 || { echo "::error::tar is required to unpack ShellSpec"; exit 1; }
         command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to link ShellSpec into /usr/local/bin"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to download ShellSpec"; exit 1; }
 
+        # A new directory of this step's own: nothing else on the machine can swap the archive
+        # between the checksum and the unpack, as it could at a fixed path in /tmp.
+        work=$(mktemp -d "${RUNNER_TEMP:?}/shellspec.XXXXXX")
         echo "Downloading ShellSpec ${SHELLSPEC_VERSION}..."
-        curl -fsSL "${SHELLSPEC_URL}" -o "/tmp/shellspec.tar.gz"
+        curl --proto '=https' --tlsv1.2 -fsSL "${SHELLSPEC_URL}" -o "${work}/shellspec.tar.gz"
 
         echo "Verifying checksum..."
-        ACTUAL_CHECKSUM="$(sha256sum /tmp/shellspec.tar.gz | awk '{print $1}')"
+        ACTUAL_CHECKSUM="$(sha256sum "${work}/shellspec.tar.gz" | awk '{print $1}')"
         if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
-          echo "Error: Checksum mismatch for ShellSpec ${SHELLSPEC_VERSION}" >&2
-          echo "Expected: ${EXPECTED_CHECKSUM}" >&2
-          echo "Got:      ${ACTUAL_CHECKSUM}" >&2
-          rm -f /tmp/shellspec.tar.gz
+          echo "::error::Checksum mismatch for ShellSpec ${SHELLSPEC_VERSION}: expected ${EXPECTED_CHECKSUM}, got ${ACTUAL_CHECKSUM}"
+          rm -rf "$work"
           exit 1
         fi
         echo "Checksum verified successfully"
 
         echo "Installing ShellSpec..."
         mkdir -p ~/.local/lib
-        tar -xzf /tmp/shellspec.tar.gz -C ~/.local/lib
+        tar -xzf "${work}/shellspec.tar.gz" -C ~/.local/lib
         mv ~/.local/lib/shellspec-"${SHELLSPEC_VERSION}" ~/.local/lib/shellspec
-        rm /tmp/shellspec.tar.gz
+        rm -rf "$work"
 
         sudo ln -s ~/.local/lib/shellspec/shellspec /usr/local/bin/shellspec
 
     - name: Install act
       if: inputs.install-act == 'true'
       shell: sh
+      env:
+        # Update the SHA-256 values below with each version.
+        # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.+)$
+        ACT_VERSION: '0.2.82'
       run: |
         set -eu
 
-        # Pin to specific version to avoid supply-chain risks
-        ACT_VERSION="0.2.82"
-        ACT_ARCH="Linux_x86_64"
-        ACT_TARBALL="act_${ACT_ARCH}.tar.gz"
+        # The release's checksums.txt would be replaced along with an archive, so each archive's
+        # SHA-256 is pinned here.
+        case "$(uname -m)" in
+          x86_64) ACT_ARCH="x86_64"; EXPECTED_CHECKSUM="76645c0bbe4bb69a8f0ba3caefa681b2f4c04babd4679c67861af9a276a3561f" ;;
+          aarch64 | arm64) ACT_ARCH="arm64"; EXPECTED_CHECKSUM="ebf375e700f6f2c139fe3c5508af2ec85032a75e7d29f6a388a58c0fab76e951" ;;
+          *) echo "::error::act has no pinned archive for $(uname -m)"; exit 1 ;;
+        esac
+        ACT_TARBALL="act_Linux_${ACT_ARCH}.tar.gz"
         ACT_URL="https://github.com/nektos/act/releases/download/v${ACT_VERSION}/${ACT_TARBALL}"
-        ACT_CHECKSUM_URL="https://github.com/nektos/act/releases/download/v${ACT_VERSION}/checksums.txt"
 
         command -v curl >/dev/null 2>&1 || { echo "::error::curl is required to download act"; exit 1; }
         command -v sha256sum >/dev/null 2>&1 || { echo "::error::sha256sum is required to verify act"; exit 1; }
         command -v tar >/dev/null 2>&1 || { echo "::error::tar is required to unpack act"; exit 1; }
         command -v sudo >/dev/null 2>&1 || { echo "::error::sudo is required to install act into /usr/local/bin"; exit 1; }
+        command -v install >/dev/null 2>&1 || { echo "::error::install is required to install act into /usr/local/bin"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to download act"; exit 1; }
 
+        # A new directory of this step's own: nothing else on the machine can swap the archive
+        # between the checksum and the install, as it could at a fixed path in /tmp.
+        work=$(mktemp -d "${RUNNER_TEMP:?}/act.XXXXXX")
         echo "Downloading act v${ACT_VERSION}..."
-        curl -fsSL "${ACT_URL}" -o "/tmp/${ACT_TARBALL}"
-
-        echo "Downloading checksums..."
-        curl -fsSL "${ACT_CHECKSUM_URL}" -o "/tmp/act-checksums.txt"
+        curl --proto '=https' --tlsv1.2 -fsSL "${ACT_URL}" -o "${work}/${ACT_TARBALL}"
 
         echo "Verifying checksum..."
-        # Extract the checksum for our specific file and verify
-        # Use cd to match the filename format in checksums.txt
-        cd /tmp
-        if ! grep "${ACT_TARBALL}" act-checksums.txt | sha256sum -c -; then
-          echo "Error: Checksum verification failed for ${ACT_TARBALL}" >&2
-          rm -f "${ACT_TARBALL}" act-checksums.txt
+        ACTUAL_CHECKSUM="$(sha256sum "${work}/${ACT_TARBALL}" | awk '{print $1}')"
+        if [ "${ACTUAL_CHECKSUM}" != "${EXPECTED_CHECKSUM}" ]; then
+          echo "::error::Checksum mismatch for act ${ACT_VERSION}: expected ${EXPECTED_CHECKSUM}, got ${ACTUAL_CHECKSUM}"
+          rm -rf "$work"
           exit 1
         fi
         echo "Checksum verified successfully"
 
         echo "Installing act..."
-        tar -xzf "${ACT_TARBALL}" -C /tmp
-        command -v install >/dev/null 2>&1 || { echo "::error::install is required to install act into /usr/local/bin"; exit 1; }
-        sudo install -m 755 /tmp/act /usr/local/bin/act
-        rm -f "${ACT_TARBALL}" /tmp/act act-checksums.txt
+        tar -xzf "${work}/${ACT_TARBALL}" -C "$work" act
+        sudo install -m 755 "${work}/act" /usr/local/bin/act
+        rm -rf "$work"
 
         echo "Verifying act installation..."
         command -v act >/dev/null 2>&1 || { echo "::error::act is not on PATH after its install"; exit 1; }
         act --version
 
-    - name: Setup Docker and act configuration
+    - name: Check Docker for act
       if: inputs.install-act == 'true'
       shell: sh
       run: |
         set -eu
+        # act pulls the runner image _tests/run-tests.sh pins by digest when it first runs.
         command -v docker >/dev/null 2>&1 || { echo "::error::docker is required to run act"; exit 1; }
-        # Ensure Docker is running
         docker ps > /dev/null 2>&1 || { echo "::error::Docker is not running"; exit 1; }
-
-        # Pre-pull the act Docker image to avoid interactive prompts
-        docker pull catthehacker/ubuntu:act-latest
 
     - name: Verify tools
       shell: sh

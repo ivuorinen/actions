@@ -31,7 +31,7 @@ _harness_project_root() {
 # changing cwd.
 _harness_python() {
   if command -v uv >/dev/null 2>&1; then
-    uv run --project "$(_harness_project_root)" python3 "$@"
+    uv run --locked --project "$(_harness_project_root)" python3 "$@"
   else
     python3 "$@"
   fi

@@ -62,6 +62,18 @@ The output should include "Integration Skipped:         0"
 End
 End
 
+# The act-latest tag is pushed again with other contents, so the runner names the image by digest.
+It "runs a workflow in the act image pinned by digest"
+mkdir -p "${REPORTS_TMP}/bin"
+printf '#!/bin/sh\nprintf "%%s\\n" "$@" >"%s/act-args"\n' "$REPORTS_TMP" >"${REPORTS_TMP}/bin/act"
+chmod +x "${REPORTS_TMP}/bin/act"
+export ACT_BIN="${REPORTS_TMP}/bin/act"
+When call run_integration npm-publish
+The status should be success
+The output should include "Integration Tests Run:       1"
+The contents of file "${REPORTS_TMP}/act-args" should match pattern "*ubuntu-latest=catthehacker/ubuntu:act-latest@sha256:????????????????????????????????????????????????????????????????*"
+End
+
 Describe "the JSON report"
 json_integration_tests() { jq -r '.results.integration_tests' "${REPORTS_TMP}/test-results.json"; }
 json_integration_skipped() { jq -r '.results.integration_skipped' "${REPORTS_TMP}/test-results.json"; }

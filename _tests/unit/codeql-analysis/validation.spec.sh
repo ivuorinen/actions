@@ -302,7 +302,7 @@ Describe "output validation"
 ACTION_FILE="${PROJECT_ROOT}/codeql-analysis/action.yml"
 
 read_output_default() {
-  uv run "${PROJECT_ROOT}/_tests/shared/validation_core.py" --property "$ACTION_FILE" "output" "default"
+  uv run --locked "${PROJECT_ROOT}/_tests/shared/validation_core.py" --property "$ACTION_FILE" "output" "default"
 }
 
 It "defaults to a directory below the workspace"

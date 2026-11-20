@@ -183,22 +183,22 @@ End
 
 Context "when testing input requirements"
 It "has all inputs as optional"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 
 It "has empty default token (runtime fallback)"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "default"
+When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "default"
 The output should equal "no-default"
 End
 
 It "has correct default username"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "username" "default"
+When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "username" "default"
 The output should equal "github-actions"
 End
 
 It "has correct default email"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "email" "default"
+When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "email" "default"
 The output should equal "github-actions@github.com"
 End
 End
@@ -268,7 +268,7 @@ Context "when installing and caching Composer dependencies"
 # Answers questions about the step list. Parsing the YAML keeps these assertions on
 # step structure rather than on line positions.
 composer_step_fact() {
-  uv run python - "$ACTION_FILE" "$@" <<'PY'
+  uv run --locked python - "$ACTION_FILE" "$@" <<'PY'
 import sys
 
 import yaml
@@ -606,7 +606,7 @@ Context "when scoping the Composer token"
 # Answers questions about the step list. Parsing the YAML keeps these assertions on
 # step structure, where a token can reach, rather than on line positions.
 composer_token_fact() {
-  uv run python - "$ACTION_FILE" "$@" <<'PY'
+  uv run --locked python - "$ACTION_FILE" "$@" <<'PY'
 import importlib.util
 import json
 from pathlib import Path

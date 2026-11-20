@@ -136,7 +136,7 @@ The output should include "commit_email"
 End
 
 It "has all inputs as optional"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
+When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
 End
 

@@ -3,6 +3,9 @@
 # Pre-commit 3.6.0+ automatically detects and uses uv when available
 default_install_hook_types: [pre-commit, commit-msg]
 
+# Each rev is the commit its tag pointed to, in the format `pre-commit autoupdate --freeze`
+# writes: a tag can be moved to other code, a commit cannot. Renovate's pre-commit manager
+# keeps this format when it bumps a hook.
 repos:
   - repo: local
     hooks:
@@ -18,12 +21,12 @@ repos:
         types_or: [markdown, python, yaml]
         files: ^(docs/.*|README\.md|CONTRIBUTING\.md|CHANGELOG\.md|.*\.py|.*\.ya?ml)$
   - repo: https://github.com/astral-sh/uv-pre-commit
-    rev: 0.13.7
+    rev: d1df990f871e616da38bb602a2671d5e840b9989 # frozen: 0.13.7
     hooks:
       - id: uv-lock
       - id: uv-sync
   - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # frozen: v6.0.0
     hooks:
       - id: requirements-txt-fixer
       - id: detect-private-key
@@ -47,18 +50,18 @@ repos:
         args: [--autofix, --no-sort-keys]
 
   - repo: https://github.com/DavidAnson/markdownlint-cli2
-    rev: v0.24.0
+    rev: 341e2a331ba578029e66c2e01183e7a6b5ca9ab4 # frozen: v0.24.0
     hooks:
       - id: markdownlint-cli2
         args: [--fix]
 
   - repo: https://github.com/adrienverge/yamllint
-    rev: v1.38.0
+    rev: cba56bcde1fdd01c1deb3f945e69764c291a6530 # frozen: v1.38.0
     hooks:
       - id: yamllint
 
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.17.3
+    rev: 25bcf95026b96e2dd3c0aec3090c3d6ef6ca2e6c # frozen: v0.17.3
     hooks:
       # Run the linter with auto-fix
       - id: ruff-check
@@ -67,41 +70,41 @@ repos:
       - id: ruff-format
 
   - repo: https://github.com/scop/pre-commit-shfmt
-    rev: v3.13.1-1
+    rev: 05c1426671b9237fb5e1444dd63aa5731bec0dfb # frozen: v3.13.1-1
     hooks:
       - id: shfmt
         args: ['--apply-ignore']
         exclude: '^_tests/.*\.sh$'
 
   - repo: https://github.com/shellcheck-py/shellcheck-py
-    rev: v0.11.0.1-1
+    rev: a6564f5d57444e123433a5c9af733e3975c77229 # frozen: v0.11.0.1-1
     hooks:
       - id: shellcheck
         args: ['-x']
         exclude: '^_tests/.*\.sh$'
 
   - repo: https://github.com/rhysd/actionlint
-    rev: v1.7.12
+    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
     hooks:
       - id: actionlint
         args: ['-shellcheck=']
 
   - repo: https://github.com/bridgecrewio/checkov.git
-    rev: '3.4.5'
+    rev: af20f73b3f9ef72c04c8a524ed41f6c5f39a3490 # frozen: 3.4.5
     hooks:
       - id: checkov
         args:
           - '--quiet'
 
   - repo: https://github.com/gitleaks/gitleaks
-    rev: v8.30.1
+    rev: 83d9cd684c87d95d656c1458ef04895a7f1cbd8e # frozen: v8.30.1
     hooks:
       - id: gitleaks
 
   # The project's own hook builds the checker from source at this tag; the Python wrapper
   # downloads a prebuilt binary without verifying it.
   - repo: https://github.com/editorconfig-checker/editorconfig-checker
-    rev: v4.0.2
+    rev: 0adfdb012938ada0cf563a40f2fceaf9466290ca # frozen: v4.0.2
     hooks:
       - id: editorconfig-checker
 

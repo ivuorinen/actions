@@ -25,11 +25,13 @@ case "$FILE_PATH" in
   shfmt -w "$FILE_PATH" 2>/dev/null || true
   shellcheck "$FILE_PATH" 2>&1 || true
   ;;
+# --no-install: the prettier package-lock.json pins (make install-tools), never a version npx
+# would fetch for itself.
 *.yml | *.yaml | *.json)
-  npx prettier --write "$FILE_PATH" 2>/dev/null || true
+  npx --no-install prettier --write "$FILE_PATH" 2>/dev/null || true
   ;;
 *.md)
-  npx prettier --write "$FILE_PATH" 2>/dev/null || true
+  npx --no-install prettier --write "$FILE_PATH" 2>/dev/null || true
   ;;
 esac
 

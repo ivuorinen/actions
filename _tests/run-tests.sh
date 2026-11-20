@@ -23,6 +23,11 @@ REPORTS_DIR="${TEST_REPORTS_DIR:-${TEST_ROOT}/reports}"
 # The act binary to run integration workflows with. A spec sets this to a missing
 # name or a stub, so the runner's reporting is tested with and without act.
 ACT_BIN="${ACT_BIN:-act}"
+# The image act runs the integration workflows in, pinned by digest: the act-latest tag is
+# pushed again with other contents. .github/renovate.json's regex manager reads the pin, and a
+# packageRule there enables the digest updates that move it.
+# renovate: datasource=docker depName=catthehacker/ubuntu
+ACT_IMAGE_TAG='act-latest@sha256:a17ca1ab0676e450e5383024da90a53521edbbcf1e85b13a4d4a20bd5663eaa9'
 # Integration outcome counters, set by run_integration_tests. A workflow that was
 # skipped (no act, no workflow file) is counted separately and never as a run.
 INTEGRATION_ATTEMPTED=false
@@ -211,8 +216,9 @@ check_dependencies() {
   # Unit specs call `uv run`; on a fresh clone or stale .venv uv prints its
   # "creating/rebuilding .venv" progress to stderr, which ShellSpec counts as a
   # warning and fails the first spec. Sync once here, quietly, before any spec runs.
+  # --inexact keeps the dev extra install-tools synced, whose pre-commit the git hook runs.
   if [[ $TEST_TYPE == "unit" || $TEST_TYPE == "all" ]] && command -v uv >/dev/null 2>&1; then
-    if ! (cd "${TEST_ROOT}/.." && uv sync --quiet); then
+    if ! (cd "${TEST_ROOT}/.." && uv sync --locked --inexact --quiet); then
       log_error "uv sync failed"
       exit 1
     fi
@@ -235,25 +241,35 @@ install_shellspec() {
   local shellspec_version="0.28.1"
   local install_dir="${HOME}/.local"
 
-  # Download and install ShellSpec (download -> verify SHA256 -> extract -> install)
-  local tarball
-  tarball="$(mktemp /tmp/shellspec-XXXXXX.tar.gz)"
+  # Download and install ShellSpec (download -> verify SHA256 -> extract -> install), all in
+  # a new directory of this run's own: at a fixed path in /tmp another user of the machine
+  # could swap the files between the checksum and the install.
+  # _shellspec_work is intentionally non-local so the EXIT trap can still remove it.
+  local tool
+  for tool in mktemp curl tar make; do
+    if ! command -v "$tool" >/dev/null 2>&1; then
+      log_error "$tool is required to install ShellSpec"
+      exit 1
+    fi
+  done
+  _shellspec_work="$(mktemp -d "${TMPDIR:-/tmp}/shellspec.XXXXXX")"
+  local tarball="${_shellspec_work}/shellspec.tar.gz"
 
   # Pinned SHA256 checksum for ShellSpec 0.28.1
   # Source: https://github.com/shellspec/shellspec/archive/refs/tags/0.28.1.tar.gz
   local checksum="400d835466429a5fe6c77a62775a9173729d61dd43e05dfa893e8cf6cb511783"
 
-  # Ensure cleanup of the downloaded file
-  # Use ${tarball:-} to handle unbound variable when trap fires after function returns
+  # Ensure cleanup of the work directory
+  # Use ${_shellspec_work:-} to handle an unset variable when the trap fires
   # T-H1: chain the outer EXIT trap: extract its command string (not the trap statement)
   # so eval executes the commands rather than re-registering the handler.
   # _old_trap_cmd is intentionally non-local so it survives function return.
   eval "set -- $(trap -p EXIT 2>/dev/null)"
   _old_trap_cmd="${3:-:}"
-  trap 'rm -f "${tarball:-}"; eval "${_old_trap_cmd:-:}"' EXIT
+  trap 'rm -rf "${_shellspec_work:-}"; eval "${_old_trap_cmd:-:}"' EXIT
 
   log_info "Downloading ShellSpec ${shellspec_version} to ${tarball}..."
-  if ! curl -fsSL -o "$tarball" "https://github.com/shellspec/shellspec/archive/refs/tags/${shellspec_version}.tar.gz"; then
+  if ! curl --proto '=https' --tlsv1.2 -fsSL -o "$tarball" "https://github.com/shellspec/shellspec/archive/refs/tags/${shellspec_version}.tar.gz"; then
     log_error "Failed to download ShellSpec ${shellspec_version}"
     exit 1
   fi
@@ -275,12 +291,12 @@ install_shellspec() {
   fi
 
   log_info "Checksum verified for ShellSpec ${shellspec_version}, extracting..."
-  if ! tar -xzf "$tarball" -C /tmp/; then
+  if ! tar -xzf "$tarball" -C "$_shellspec_work"; then
     log_error "Failed to extract ShellSpec archive"
     exit 1
   fi
 
-  if ! (cd "/tmp/shellspec-${shellspec_version}" && make install PREFIX="$install_dir"); then
+  if ! (cd "${_shellspec_work}/shellspec-${shellspec_version}" && make install PREFIX="$install_dir"); then
     log_error "ShellSpec make install failed"
     exit 1
   fi
@@ -419,7 +435,7 @@ run_integration_tests() {
           -W "$workflow_file" \
           --container-architecture linux/amd64 \
           --artifact-server-path "$artifacts_dir" \
-          -P ubuntu-latest=catthehacker/ubuntu:act-latest \
+          -P "ubuntu-latest=catthehacker/ubuntu:${ACT_IMAGE_TAG}" \
           >"$output_file" 2>&1; then
 
           log_success "Integration tests passed: $action"

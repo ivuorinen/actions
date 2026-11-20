@@ -2,17 +2,21 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>ivuorinen/renovate-config",
-    "customManagers:biomeVersions"
+    "customManagers:biomeVersions",
+    "customManagers:dockerfileVersions"
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Digest-pinned image tags in action env blocks. customManagers:githubActionsVersions reads '*_VERSION' keys, and has no digest group.",
+      "description": "Digest-pinned image tags: YAML env keys in action.yml files and build-testing-image.yml, a shell variable in run-tests.sh. githubActionsVersions has no digest group.",
       "managerFilePatterns": [
-        "/(^|/)action\\.ya?ml$/"
+        "/(^|/)action\\.ya?ml$/",
+        "/^\\.github/workflows/build-testing-image\\.yml$/",
+        "/^_tests/run-tests\\.sh$/"
       ],
       "matchStrings": [
-        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+\\w+_IMAGE_TAG:\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'"
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+\\w+_IMAGE_TAG:\\s*'(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'",
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: versioning=(?<versioning>\\S+))?\\s+\\w+_IMAGE_TAG='(?<currentValue>[^'@]+)@(?<currentDigest>sha256:[a-f0-9]{64})'"
       ]
     }
   ],
@@ -68,6 +72,20 @@
         "tonistiigi/binfmt",
         "moby/buildkit"
       ],
+      "automerge": false
+    },
+    {
+      "description": "Images pinned on a re-pushed tag move only by digest. The preset disables those outside github-actions, and a tag without a timestamp would wait for minimumReleaseAge forever.",
+      "matchDepNames": [
+        "catthehacker/ubuntu",
+        "owasp/dependency-check-action",
+        "ubuntu"
+      ],
+      "matchUpdateTypes": [
+        "digest"
+      ],
+      "enabled": true,
+      "minimumReleaseAgeBehaviour": "timestamp-optional",
       "automerge": false
     }
   ],

@@ -15,14 +15,16 @@ on:
     paths:
       - '_tools/docker-testing-tools/**'
       - '.github/workflows/build-testing-image.yml'
-  # checkov:skip=CKV_GHA_7:tag input feeds docker/metadata-action only, never interpolated into shell
+  # checkov:skip=CKV_GHA_7:tag input is a choice that feeds docker/metadata-action only, never shell
   workflow_dispatch:
     inputs:
       tag:
         description: 'Docker image tag'
         required: false
         default: 'latest'
-        type: string
+        type: choice
+        options:
+          - latest
 
 permissions: {}
 
@@ -43,8 +45,21 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        env:
+          # buildx runs the BuildKit daemon from this image with --privileged, so it is pinned by
+          # digest, the same image docker-build and docker-publish pin.
+          # renovate: datasource=docker depName=moby/buildkit
+          BUILDKIT_IMAGE_TAG: 'v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe'
+        with:
+          # A no-op flag that has to stay non-empty: an empty value restores setup-buildx's
+          # defaults, which allow insecure entitlements on the daemon.
+          buildkitd-flags: '--oci-worker=auto'
+          driver-opts: |
+            image=moby/buildkit:${{ env.BUILDKIT_IMAGE_TAG }}
 
+      # A pull request run builds without pushing, so it needs no registry credentials.
       - name: Log in to GitHub Container Registry
+        if: github.event_name != 'pull_request'
         uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
         with:
           registry: ghcr.io
@@ -63,6 +78,7 @@ jobs:
             type=raw,value=${{ github.event.inputs.tag }},enable=${{ github.event.inputs.tag != '' }}
 
       - name: Build and push Docker image
+        id: build
         uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
         with:
           context: _tools/docker-testing-tools
@@ -74,15 +90,18 @@ jobs:
           cache-to: type=gha,mode=max
           platforms: linux/amd64,linux/arm64
 
+      # By the digest this run pushed: the tag can already name another run's image, or main's
+      # image on a dispatch from another branch.
       - name: Test image
         if: github.event_name != 'pull_request'
         env:
-          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          IMAGE: ghcr.io/${{ github.repository_owner }}/actions@${{ steps.build.outputs.digest }}
         run: |
-          # Test the built image works correctly
-          docker run --rm "ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools" shellspec --version
-          docker run --rm "ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools" act --version
-          docker run --rm "ghcr.io/${REPOSITORY_OWNER}/actions:testing-tools" trivy --version
+          set -eu
+          command -v docker >/dev/null 2>&1 || { echo "::error::docker is required to test the image"; exit 1; }
+          docker run --rm "$IMAGE" shellspec --version
+          docker run --rm "$IMAGE" act --version
+          docker run --rm "$IMAGE" trivy --version
 
       - name: Generate image summary
         if: github.event_name != 'pull_request'
@@ -106,12 +125,8 @@ jobs:
             echo "\`\`\`"
             echo ""
             echo "### Pre-installed Tools"
-            echo "- ShellSpec"
-            echo "- nektos/act (latest)"
-            echo "- Trivy security scanner (latest)"
-            echo "- TruffleHog secrets scanner (latest)"
-            echo "- actionlint (latest)"
-            echo "- shellcheck, jq, kcov, GitHub CLI"
+            echo "- ShellSpec, shfmt, nektos/act, Trivy, TruffleHog, actionlint and GitHub CLI, at the versions the Dockerfile pins"
+            echo "- shellcheck, jq, kcov"
             echo "- Node.js LTS, Python 3, build tools"
           } >> "$GITHUB_STEP_SUMMARY"
         env:

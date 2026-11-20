@@ -13,6 +13,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = [
+    # pre-commit runs the repository's hooks; make runs it from this lock. It needs Python 3.11.
+    "pre-commit>=4.7.0; python_version >= '3.11'",
+    # The nodejs extra brings a Node.js wheel uv.lock pins by hash. Without it, pyright
+    # downloads the newest Node.js through nodeenv with no checksum when node is missing.
+    "pyright[nodejs]>=1.1",
     "pytest>=9.0.3",
     "pytest-cov>=4.0",
     "ruff>=0.1.0",

@@ -30,16 +30,27 @@ UNAME_S := $(shell uname -s)
 # Pinned rather than tracking "latest": `make docs` output is gated by
 # .github/workflows/docs-check.yml, so an unpinned generator would let an
 # upstream release turn that gate red on an unrelated PR. Renovate bumps the
-# version below; the checksum is verified against the release's checksums.txt
-# on every download, so the pin is enforced and not merely declarative.
+# version below. Each platform's archive digest is pinned here rather than read
+# from the release's checksums.txt, which would be replaced along with an
+# archive, so a bump fails the download until these digests are updated.
 # renovate: datasource=github-releases depName=ivuorinen/gh-action-readme
 GAR_VERSION := v1.1.0
 GAR_BASE_URL := https://github.com/ivuorinen/gh-action-readme/releases/download/$(GAR_VERSION)
-# uname's values map straight onto the release asset names (Linux/Darwin,
-# x86_64/arm64), so no translation table is needed.
-GAR_ASSET := gh-action-readme_$(UNAME_S)_$(shell uname -m).tar.gz
+# The release asset names use Linux/Darwin and x86_64/arm64. uname -m prints
+# arm64 on macOS but aarch64 on Linux.
+GAR_ARCH := $(subst aarch64,arm64,$(shell uname -m))
+GAR_ASSET := gh-action-readme_$(UNAME_S)_$(GAR_ARCH).tar.gz
+GAR_SHA256_Linux_x86_64 := e1f6dfb546e896a2124c6f6bb4972e46358340120620c6608606d3728d35e96b
+GAR_SHA256_Linux_arm64 := 20c6e55ad9d86b9f1cd8bfe3c9500dfcc93b717b9627e633e4cbed804583558b
+GAR_SHA256_Darwin_x86_64 := c37987025d23d9b3077c51f0faad4c2847fbed20c2cfbd5d9995e9c5ad0ef093
+GAR_SHA256_Darwin_arm64 := 0bf1e05de9b2db19bfc93ca49b555bd7cd3032bdc71d971e2f115bba0da61987
+GAR_SHA256 := $(GAR_SHA256_$(UNAME_S)_$(GAR_ARCH))
 GAR_DIR := .tools/gh-action-readme/$(GAR_VERSION)
 GAR := $(GAR_DIR)/gh-action-readme
+# pre-commit at the version uv.lock pins for the dev extra. As a module, so a venv without it
+# (its marker leaves it out on Python 3.10) fails instead of running another pre-commit on PATH.
+PRE_COMMIT := uv run --locked --extra dev python -m pre_commit
+
 # Theme and the pinned `uses:` ref live in .gh-action-readme.yaml. It is passed
 # explicitly because gh-action-readme only auto-discovers a config in the XDG
 # config directory, never a project-local one.
@@ -74,13 +85,11 @@ $(GAR): ## Download and verify the pinned gh-action-readme binary
 	@mkdir -p $(GAR_DIR)
 	@tmp=$$(mktemp -d) || exit 1; \
 	trap 'rm -rf "$$tmp"' EXIT INT TERM; \
-	curl -fsSL -o "$$tmp/$(GAR_ASSET)" "$(GAR_BASE_URL)/$(GAR_ASSET)" || { \
-		echo "$(RED)❌ Failed to download $(GAR_ASSET)$(RESET)"; exit 1; }; \
-	curl -fsSL -o "$$tmp/checksums.txt" "$(GAR_BASE_URL)/checksums.txt" || { \
-		echo "$(RED)❌ Failed to download checksums.txt$(RESET)"; exit 1; }; \
-	expected=$$(awk -v f="$(GAR_ASSET)" '$$2 == f { print $$1 }' "$$tmp/checksums.txt"); \
+	expected="$(GAR_SHA256)"; \
 	[ -n "$$expected" ] || { \
-		echo "$(RED)❌ No checksum entry for $(GAR_ASSET) — unsupported platform?$(RESET)"; exit 1; }; \
+		echo "$(RED)❌ No pinned checksum for $(GAR_ASSET) — unsupported platform$(RESET)"; exit 1; }; \
+	curl --proto '=https' --tlsv1.2 -fsSL -o "$$tmp/$(GAR_ASSET)" "$(GAR_BASE_URL)/$(GAR_ASSET)" || { \
+		echo "$(RED)❌ Failed to download $(GAR_ASSET)$(RESET)"; exit 1; }; \
 	if command -v sha256sum >/dev/null 2>&1; then \
 		actual=$$(sha256sum "$$tmp/$(GAR_ASSET)" | cut -d' ' -f1); \
 	else \
@@ -122,7 +131,7 @@ docs: $(GAR) ## Generate documentation for all actions
 		echo "$(BLUE)📄 Updating $$dir/README.md...$(RESET)"; \
 		if $(GAR) gen "$$dir" --config $(GAR_CONFIG) --output-dir "$$dir" --quiet >/dev/null 2>&1; then \
 			python3 _tools/fix-generated-readme.py "$$dir/README.md"; \
-			npx --yes prettier --write --prose-wrap always "$$dir/README.md" >/dev/null 2>&1; \
+			npx --no-install prettier --write --prose-wrap always "$$dir/README.md" >/dev/null 2>&1; \
 			if grep -q "uses: ivuorinen/actions/$$dir@vYYYY.MM.DD" "$$dir/README.md"; then \
 				echo "$(GREEN)✅ Updated $$dir/README.md$(RESET)"; \
 			else \
@@ -184,17 +193,15 @@ clean: ## Clean up temporary files and caches
 
 precommit: ## Run pre-commit hooks on all files
 	@echo "$(BLUE)🔍 Running pre-commit hooks...$(RESET)"
-	@if command -v pre-commit >/dev/null 2>&1; then \
-		if pre-commit run --all-files; then \
+	@if command -v uv >/dev/null 2>&1; then \
+		if $(PRE_COMMIT) run --all-files; then \
 			echo "$(GREEN)✅ All pre-commit hooks passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Some pre-commit hooks failed$(RESET)"; \
 			exit 1; \
 		fi; \
 	else \
-		echo "$(RED)❌ pre-commit not found. Please install:$(RESET)"; \
-		echo "  brew install pre-commit"; \
-		echo "  or: pip install pre-commit"; \
+		echo "$(RED)❌ uv not found. Install it via 'make install-tools' before running pre-commit$(RESET)"; \
 		exit 1; \
 	fi
 
@@ -202,7 +209,7 @@ precommit: ## Run pre-commit hooks on all files
 check-local-refs: ## Check for ../action-name references that should be ./action-name
 	@echo "$(BLUE)🔍 Checking local action references...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run _tools/fix-local-action-refs.py --check; \
+		uv run --locked _tools/fix-local-action-refs.py --check; \
 	else \
 		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
 		exit 1; \
@@ -211,7 +218,7 @@ check-local-refs: ## Check for ../action-name references that should be ./action
 fix-local-refs: ## Fix ../action-name references to ./action-name
 	@echo "$(BLUE)🔧 Fixing local action references...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run _tools/fix-local-action-refs.py; \
+		uv run --locked _tools/fix-local-action-refs.py; \
 	else \
 		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
 		exit 1; \
@@ -220,7 +227,7 @@ fix-local-refs: ## Fix ../action-name references to ./action-name
 fix-local-refs-dry: ## Preview local action reference fixes (dry run)
 	@echo "$(BLUE)🔍 Previewing local action reference fixes...$(RESET)"
 	@if command -v uv >/dev/null 2>&1; then \
-		uv run _tools/fix-local-action-refs.py --dry-run; \
+		uv run --locked _tools/fix-local-action-refs.py --dry-run; \
 	else \
 		echo "$(RED)❌ uv not found. Please install uv (see 'make install-tools')$(RESET)"; \
 		exit 1; \
@@ -264,7 +271,7 @@ release-undo: ## Rollback the most recent release (delete tags and reset HEAD)
 # Formatting targets
 format-markdown: ## Format markdown files
 	@echo "$(BLUE)📝 Formatting markdown...$(RESET)"
-	@if npx --yes markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.worktrees" "#.claude" "#docs/superpowers" 2>/dev/null; then \
+	@if npx --no-install markdownlint-cli2 --fix "**/*.md" "#node_modules" "#.venv" "#.worktrees" "#.claude" "#docs/superpowers" 2>/dev/null; then \
 		echo "$(GREEN)✅ Markdown formatted$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Markdown formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -272,7 +279,7 @@ format-markdown: ## Format markdown files
 
 format-yaml-json: ## Format YAML and JSON files, and Markdown (tables included) with prettier
 	@echo "$(BLUE)✨ Formatting YAML/JSON/Markdown...$(RESET)"
-	@if npx --yes prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json" 2>/dev/null; then \
+	@if npx --no-install prettier --write "**/*.md" "**/*.yml" "**/*.yaml" "**/*.json" 2>/dev/null; then \
 		echo "$(GREEN)✅ YAML/JSON/Markdown formatted with prettier$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ YAML/JSON/Markdown formatting issues found with prettier$(RESET)" | tee -a $(LOG_FILE); \
@@ -280,12 +287,13 @@ format-yaml-json: ## Format YAML and JSON files, and Markdown (tables included) 
 
 format-python: ## Apply ruff's fixes and format Python files
 	@echo "$(BLUE)🐍 Formatting Python files...$(RESET)"
-	@if ! command -v uvx >/dev/null 2>&1; then \
-		echo "$(RED)❌ uvx not found. Install uv (https://docs.astral.sh/uv/), which provides it, before formatting$(RESET)"; \
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "$(RED)❌ uv not found. Install uv (https://docs.astral.sh/uv/) before formatting$(RESET)"; \
 		exit 1; \
 	fi
+	@# ruff runs at the version uv.lock pins for the dev extra.
 	@# --exit-zero: findings ruff cannot fix are lint-python's to report.
-	@if uvx ruff check --fix --exit-zero . --no-cache && uvx ruff format . --no-cache; then \
+	@if uv run --locked --extra dev ruff check --fix --exit-zero . --no-cache && uv run --locked --extra dev ruff format . --no-cache; then \
 		echo "$(GREEN)✅ Python files formatted$(RESET)"; \
 	else \
 		echo "$(YELLOW)⚠️ Python formatting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -298,7 +306,7 @@ lint-markdown: ## Lint markdown files
 		echo "$(RED)❌ npx not found. Install Node.js, which provides it, before linting$(RESET)"; \
 		exit 1; \
 	fi
-	@if npx --yes markdownlint-cli2 "**/*.md" "#node_modules" "#.worktrees" "#.claude" "#docs/superpowers"; then \
+	@if npx --no-install markdownlint-cli2 "**/*.md" "#node_modules" "#.venv" "#.worktrees" "#.claude" "#docs/superpowers"; then \
 		echo "$(GREEN)✅ Markdown linting passed$(RESET)"; \
 	else \
 		echo "$(RED)❌ Markdown linting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -311,7 +319,7 @@ lint-yaml: ## Lint YAML files
 		echo "$(RED)❌ npx not found. Install Node.js, which provides it, before linting$(RESET)"; \
 		exit 1; \
 	fi
-	@if npx --yes yaml-lint "**/*.yml" "**/*.yaml"; then \
+	@if npx --no-install yaml-lint "**/*.yml" "**/*.yaml"; then \
 		echo "$(GREEN)✅ YAML linting passed$(RESET)"; \
 	else \
 		echo "$(RED)❌ YAML linting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -326,7 +334,7 @@ lint-shell: ## Lint shell scripts
 		echo "  or: apt-get install shellcheck"; \
 		exit 1; \
 	fi
-	@if find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" -exec shellcheck -x {} +; then \
+	@if find . -name "*.sh" -not -path "./_tests/*" -not -path "./.venv/*" -not -path "./.worktrees/*" -exec shellcheck -x {} +; then \
 		echo "$(GREEN)✅ Shell linting passed$(RESET)"; \
 	else \
 		echo "$(RED)❌ Shell linting issues found$(RESET)" | tee -a $(LOG_FILE); \
@@ -335,16 +343,17 @@ lint-shell: ## Lint shell scripts
 
 lint-python: ## Lint Python files with ruff and pyright
 	@echo "$(BLUE)🔍 Linting Python files...$(RESET)"
-	@if ! command -v uvx >/dev/null 2>&1; then \
-		echo "$(RED)❌ uvx not found. Install uv (https://docs.astral.sh/uv/), which provides it, before linting$(RESET)"; \
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "$(RED)❌ uv not found. Install uv (https://docs.astral.sh/uv/) before linting$(RESET)"; \
 		exit 1; \
 	fi
+	@# ruff and pyright run at the versions uv.lock pins for the dev extra.
 	@ruff_passed=true; pyright_passed=true; \
-	if ! uvx ruff check . --no-cache; then \
+	if ! uv run --locked --extra dev ruff check . --no-cache; then \
 		echo "$(RED)❌ Python linting issues found$(RESET)" | tee -a $(LOG_FILE); \
 		ruff_passed=false; \
 	fi; \
-	if ! (cd _validation && uvx --with pytest --with pytest-cov --with pyyaml pyright .); then \
+	if ! (cd _validation && uv run --locked --extra dev pyright .); then \
 		echo "$(RED)❌ Python type checking issues found$(RESET)" | tee -a $(LOG_FILE); \
 		pyright_passed=false; \
 	fi; \
@@ -357,36 +366,36 @@ lint-python: ## Lint Python files with ruff and pyright
 
 lint-actions: ## Validate GitHub Actions workflows and action.yml files
 	@echo "$(BLUE)🔍 Validating GitHub Actions...$(RESET)"
-	@if command -v pre-commit >/dev/null 2>&1; then \
-		if pre-commit run action-validator --all-files; then \
+	@if command -v uv >/dev/null 2>&1; then \
+		if $(PRE_COMMIT) run action-validator --all-files; then \
 			echo "$(GREEN)✅ Actions validation passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ Actions validation failed$(RESET)" | tee -a $(LOG_FILE); \
 			exit 1; \
 		fi; \
 	else \
-		echo "$(RED)❌ pre-commit not found. Install it via 'make install-tools' before linting$(RESET)"; \
+		echo "$(RED)❌ uv not found. Install it via 'make install-tools' before linting$(RESET)"; \
 		exit 1; \
 	fi
 
 lint-editorconfig: ## Check tracked files against .editorconfig (the checker skips lockfiles and binaries)
 	@echo "$(BLUE)🔍 Checking EditorConfig...$(RESET)"
-	@if command -v pre-commit >/dev/null 2>&1; then \
-		if pre-commit run editorconfig-checker --all-files; then \
+	@if command -v uv >/dev/null 2>&1; then \
+		if $(PRE_COMMIT) run editorconfig-checker --all-files; then \
 			echo "$(GREEN)✅ EditorConfig check passed$(RESET)"; \
 		else \
 			echo "$(RED)❌ EditorConfig check failed$(RESET)" | tee -a $(LOG_FILE); \
 			exit 1; \
 		fi; \
 	else \
-		echo "$(RED)❌ pre-commit not found. Install it via 'make install-tools' before linting$(RESET)"; \
+		echo "$(RED)❌ uv not found. Install it via 'make install-tools' before linting$(RESET)"; \
 		exit 1; \
 	fi
 
 # Check targets
 check-tools: ## Check if required tools are available
 	@echo "$(BLUE)🔧 Checking required tools...$(RESET)"
-	@for cmd in npx uvx pre-commit sed find grep shellcheck; do \
+	@for cmd in npm npx uv sed find grep shellcheck; do \
 		if ! command -v $$cmd >/dev/null 2>&1; then \
 			echo "$(RED)❌ Error: $$cmd not found$(RESET)"; \
 			echo "  Please install $$cmd (see 'make install-tools')"; \
@@ -399,7 +408,7 @@ check-syntax: ## Check syntax of shell scripts and YAML files
 	@echo "$(BLUE)🔍 Checking syntax...$(RESET)"
 	@# T-H2: use -exec directly to avoid pipe subshell where failed=1 never propagates
 	@_syntax_fail=$$(mktemp "$${TMPDIR:-/tmp}/syntax.XXXXXX"); \
-	find . -name "*.sh" -not -path "./_tests/*" -not -path "./.worktrees/*" \
+	find . -name "*.sh" -not -path "./_tests/*" -not -path "./.venv/*" -not -path "./.worktrees/*" \
 		-exec sh -c 'if ! sh -n "$$1" 2>&1; then echo "$(RED)❌ Syntax error in $$1$(RESET)" >&2; printf "1\n" >> "$$2"; fi' _ {} "$$_syntax_fail" \; ; \
 	if [ -s "$$_syntax_fail" ]; then \
 		rm -f "$$_syntax_fail"; \
@@ -412,9 +421,22 @@ check-syntax: ## Check syntax of shell scripts and YAML files
 install-tools: ## Install/update required tools
 	@echo "$(BLUE)📦 Installing/updating tools...$(RESET)"
 	@echo "$(YELLOW)Installing NPM tools...$(RESET)"
-	@npx --yes markdownlint-cli2 --version >/dev/null
-	@npx --yes prettier --version >/dev/null
-	@npx --yes yaml-lint --version >/dev/null
+	@# package-lock.json pins markdownlint-cli2, prettier and yaml-lint; the lint and format
+	@# targets run them with npx --no-install, which never fetches a version of its own.
+	@command -v npm >/dev/null 2>&1 || { echo "$(RED)❌ npm required to install the NPM tools$(RESET)"; exit 1; }
+	@npm ci --ignore-scripts
+	@echo "$(YELLOW)Checking uv...$(RESET)"
+	@if ! command -v uv >/dev/null 2>&1; then \
+		echo "$(RED)⚠️ uv not found. Please install:$(RESET)"; \
+		echo "  macOS: brew install uv"; \
+		echo "  Linux: see https://docs.astral.sh/uv/getting-started/installation/"; \
+		exit 1; \
+	else \
+		echo "  uv already installed"; \
+	fi
+	@echo "$(YELLOW)Installing Python tools...$(RESET)"
+	@# uv.lock pins ruff, pyright, pytest and pre-commit for the dev extra.
+	@uv sync --locked --extra dev
 	@echo "$(YELLOW)Fetching gh-action-readme...$(RESET)"
 	@$(MAKE) --no-print-directory $(GAR)
 	@echo "$(YELLOW)Checking shellcheck...$(RESET)"
@@ -433,33 +455,12 @@ install-tools: ## Install/update required tools
 	else \
 		echo "  shfmt already installed"; \
 	fi
-	@echo "$(YELLOW)Checking uv...$(RESET)"
-	@if ! command -v uv >/dev/null 2>&1; then \
-		echo "$(RED)⚠️ uv not found. Please install:$(RESET)"; \
-		echo "  macOS: brew install uv"; \
-		echo "  Linux: curl -LsSf https://astral.sh/uv/install.sh | sh"; \
-		echo "  Or see: https://docs.astral.sh/uv/getting-started/installation/"; \
-		exit 1; \
-	else \
-		echo "  uv already installed"; \
-	fi
-	@echo "$(YELLOW)Checking pre-commit...$(RESET)"
-	@if ! command -v pre-commit >/dev/null 2>&1; then \
-		echo "$(BLUE)ℹ️ pre-commit not found. Installing via uv tool...$(RESET)"; \
-		uv tool install pre-commit; \
-		echo "  pre-commit installed"; \
-	else \
-		echo "  pre-commit already installed"; \
-	fi
 	@echo "$(YELLOW)Installing git hooks with pre-commit...$(RESET)"
-	@if [ -d .git ] && command -v pre-commit >/dev/null 2>&1; then \
-		if ~/.local/bin/pre-commit install 2>/dev/null || pre-commit install 2>/dev/null; then \
+	@if [ -d .git ]; then \
+		if $(PRE_COMMIT) install 2>/dev/null; then \
 			echo "  Git hooks installed"; \
 		fi; \
 	fi
-	@echo "$(YELLOW)Installing Python dependencies from pyproject.toml...$(RESET)"
-	@uv sync --all-extras
-	@echo "  Python dependencies installed"
 	@echo "$(GREEN)✅ All tools installed/updated$(RESET)"
 
 # Development targets
@@ -748,7 +749,7 @@ watch: ## Watch files and auto-format on changes (requires entr)
 	@if command -v entr >/dev/null 2>&1; then \
 		echo "$(BLUE)👀 Watching for changes... (press Ctrl+C to stop)$(RESET)"; \
 		find . \( -name "*.yml" -o -name "*.yaml" -o -name "*.md" -o -name "*.sh" \) \
-			-not -path "./_tests/*" -not -path "./.worktrees/*" -not -path "./node_modules/*" | \
+			-not -path "./_tests/*" -not -path "./.venv/*" -not -path "./.worktrees/*" -not -path "./node_modules/*" | \
 		entr -c $(MAKE) format; \
 	else \
 		echo "$(RED)❌ Error: entr not found. Install with: brew install entr$(RESET)"; \

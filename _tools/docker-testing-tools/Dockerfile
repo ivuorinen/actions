@@ -2,19 +2,33 @@
 # Multi-stage build with non-root user for security
 # Pre-installs all testing tools to reduce CI runtime
 
-# Centralized ARG defaults to avoid version drift across stages
+# Centralized ARG defaults to avoid version drift across stages. Renovate bumps each version
+# through its comment; the SHA-256 of each archive in the tools stage is for the version
+# here, so a bump fails the build until those values match the new release.
+# KCOV_COMMIT is the commit the v${KCOV_VERSION} tag points to, which a moved tag fails to check out.
+# renovate: datasource=github-tags depName=SimonKagstrom/kcov extractVersion=^v(?<version>.+)$
 ARG KCOV_VERSION=43
-ARG TRUFFLEHOG_VERSION=3.86.0
-ARG ACTIONLINT_VERSION=1.7.7
-ARG ACT_VERSION=0.2.71
+ARG KCOV_COMMIT=a39874f938ce13f7a65f253120d1ec946b349ffe
+# renovate: datasource=github-releases depName=trufflesecurity/trufflehog extractVersion=^v(?<version>.+)$
+ARG TRUFFLEHOG_VERSION=3.99.7
+# renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.+)$
+ARG ACTIONLINT_VERSION=1.7.12
+# renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.+)$
+ARG ACT_VERSION=0.2.82
+# renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.+)$
+ARG TRIVY_VERSION=0.70.0
+# renovate: datasource=github-releases depName=cli/cli extractVersion=^v(?<version>.+)$
+ARG GH_VERSION=2.105.0
+# renovate: datasource=github-releases depName=shellspec/shellspec
 ARG SHELLSPEC_VERSION=0.28.1
-# The shfmt checksums in the tools stage are for this version.
+# renovate: datasource=github-releases depName=mvdan/sh extractVersion=^v(?<version>.+)$
 ARG SHFMT_VERSION=3.14.1
 
 # Stage 1: Build kcov separately to keep final image slim
 FROM ubuntu:26.04@sha256:f3d28607ddd78734bb7f71f117f3c6706c666b8b76cbff7c9ff6e5718d46ff64 AS kcov-builder
 
 ARG KCOV_VERSION
+ARG KCOV_COMMIT
 
 # Install only build dependencies needed for kcov
 RUN apt-get update \
@@ -37,7 +51,8 @@ RUN apt-get update \
 
 # Build kcov from source
 WORKDIR /tmp/kcov-build
-RUN git clone --depth 1 --branch "v${KCOV_VERSION}" https://github.com/SimonKagstrom/kcov.git .
+RUN git clone --depth 1 --branch "v${KCOV_VERSION}" https://github.com/SimonKagstrom/kcov.git . \
+  && git checkout "${KCOV_COMMIT}"
 
 WORKDIR /tmp/kcov-build/build
 RUN cmake .. \
@@ -71,10 +86,8 @@ RUN apt-get update && apt-get install -y \
   ca-certificates \
   curl \
   git \
-  gnupg \
   gzip \
   jq \
-  lsb-release \
   nodejs \
   npm \
   python3 \
@@ -97,83 +110,66 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 ARG TRUFFLEHOG_VERSION
 ARG ACTIONLINT_VERSION
 ARG ACT_VERSION
+ARG TRIVY_VERSION
+ARG GH_VERSION
 ARG SHELLSPEC_VERSION
 ARG SHFMT_VERSION
 
-# Install all APT-based and standalone tools in a single optimized layer
-# 1. Configure APT repositories (Trivy, GitHub CLI)
-# 2. Install APT packages (trivy, gh, xz-utils)
-# 3. Download all tool tarballs and checksums in parallel
-# 4. Verify checksums and install tools
+# Install the standalone tools in a single layer. Each comes from its release archive and is
+# installed only when the archive's SHA-256 matches the value pinned below, rather than a
+# checksums file from the same release, which would be replaced along with the archive.
 # hadolint ignore=DL3008
 RUN set -eux \
-  # Detect architecture once
   && arch="$(dpkg --print-architecture)" \
   && case "${arch}" in \
-    amd64) trufflehog_arch="amd64"; actionlint_arch="amd64"; act_arch="Linux_x86_64"; shfmt_sha256="76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf" ;; \
-    arm64) trufflehog_arch="arm64"; actionlint_arch="arm64"; act_arch="Linux_arm64"; shfmt_sha256="5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489" ;; \
+    amd64) \
+      trufflehog_sha256="bdbea0508e439b144f49de14e775908de5f902f3d14ea7ae8354bae72b0b72ef"; \
+      actionlint_sha256="8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"; \
+      act_arch="x86_64"; act_sha256="76645c0bbe4bb69a8f0ba3caefa681b2f4c04babd4679c67861af9a276a3561f"; \
+      trivy_arch="64bit"; trivy_sha256="8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9"; \
+      gh_sha256="79e7ab5db738c48777b696e374f8b428f0647debfb424f44d2f426370407fe2f"; \
+      shfmt_sha256="76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf" ;; \
+    arm64) \
+      trufflehog_sha256="3060f7c9f18c70afdc432984cacabdd1e9103729b5d5fee7fb6755a90d1c59d4"; \
+      actionlint_sha256="325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"; \
+      act_arch="arm64"; act_sha256="ebf375e700f6f2c139fe3c5508af2ec85032a75e7d29f6a388a58c0fab76e951"; \
+      trivy_arch="ARM64"; trivy_sha256="2f6bb988b553a1bbac6bdd1ce890f5e412439564e17522b88a4541b4f364fc8d"; \
+      gh_sha256="b1278c75107423d818f1937fd92cafc9e5e9b606631568f68d7fb816f5885a02"; \
+      shfmt_sha256="5f2db09dae91fca848f7adbdd014632e921a383863a2ad7e0450ad3aba0c6489" ;; \
     *) echo "Unsupported architecture: ${arch}" && exit 1 ;; \
   esac \
-  # Configure APT repositories for Trivy and GitHub CLI
-  && echo "=== Configuring APT repositories ===" \
-  && curl -fsSL --proto '=https' --tlsv1.2 https://aquasecurity.github.io/trivy-repo/deb/public.key -o /tmp/trivy.key \
-  && gpg --dearmor -o /usr/share/keyrings/trivy.gpg < /tmp/trivy.key \
-  && echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" \
-    | tee /etc/apt/sources.list.d/trivy.list \
-  && curl -fsSL --proto '=https' --tlsv1.2 https://cli.github.com/packages/githubcli-archive-keyring.gpg -o /tmp/githubcli-archive-keyring.gpg \
-  && install -m 0644 /tmp/githubcli-archive-keyring.gpg /usr/share/keyrings/githubcli-archive-keyring.gpg \
-  && echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    | tee /etc/apt/sources.list.d/github-cli.list > /dev/null \
-  # Install APT packages
-  && echo "=== Installing APT packages ===" \
   && apt-get update \
-  && apt-get install -y --no-install-recommends gh trivy xz-utils \
+  && apt-get install -y --no-install-recommends xz-utils \
   && apt-get clean \
-  && rm -rf /var/lib/apt/lists/* /tmp/trivy.key /tmp/githubcli-archive-keyring.gpg \
-  # Download all tool tarballs and checksums
-  && echo "=== Downloading standalone tools ===" \
-  && trufflehog_tarball="trufflehog_${TRUFFLEHOG_VERSION}_linux_${trufflehog_arch}.tar.gz" \
-  && actionlint_tarball="actionlint_${ACTIONLINT_VERSION}_linux_${actionlint_arch}.tar.gz" \
-  && act_tarball="act_${act_arch}.tar.gz" \
-  && trufflehog_release="https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}" \
-  && actionlint_release="https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}" \
-  && act_release="https://github.com/nektos/act/releases/download/v${ACT_VERSION}" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "${trufflehog_release}/${trufflehog_tarball}" -o "/tmp/${trufflehog_tarball}" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "${trufflehog_release}/trufflehog_${TRUFFLEHOG_VERSION}_checksums.txt" -o /tmp/trufflehog_checksums.txt \
-  && curl -fsSL --proto '=https' --tlsv1.2 "${actionlint_release}/${actionlint_tarball}" -o "/tmp/${actionlint_tarball}" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "${actionlint_release}/actionlint_${ACTIONLINT_VERSION}_checksums.txt" -o /tmp/actionlint_checksums.txt \
-  && curl -fsSL --proto '=https' --tlsv1.2 "${act_release}/${act_tarball}" -o "/tmp/${act_tarball}" \
-  && curl -fsSL --proto '=https' --tlsv1.2 "${act_release}/checksums.txt" -o /tmp/act_checksums.txt \
-  # Verify checksums and install trufflehog
-  && echo "=== Verifying checksums and installing tools ===" \
-  && grep "${trufflehog_tarball}" /tmp/trufflehog_checksums.txt \
-    | sed "s|${trufflehog_tarball}|/tmp/${trufflehog_tarball}|" \
-    | sha256sum -c - \
-  && tar -xzf "/tmp/${trufflehog_tarball}" -C /tmp \
-  && chmod +x /tmp/trufflehog \
-  && mv /tmp/trufflehog /usr/local/bin/trufflehog \
-  # Verify checksum and install actionlint
-  && grep "${actionlint_tarball}" /tmp/actionlint_checksums.txt \
-    | sed "s|${actionlint_tarball}|/tmp/${actionlint_tarball}|" \
-    | sha256sum -c - \
-  && tar -xzf "/tmp/${actionlint_tarball}" -C /tmp \
-  && chmod +x /tmp/actionlint \
-  && mv /tmp/actionlint /usr/local/bin/actionlint \
-  # Verify checksum and install act
-  && grep "${act_tarball}" /tmp/act_checksums.txt \
-    | sed "s|${act_tarball}|/tmp/${act_tarball}|" \
-    | sha256sum -c - \
-  && tar -xzf "/tmp/${act_tarball}" -C /tmp \
-  && chmod +x /tmp/act \
-  && mv /tmp/act /usr/local/bin/act \
-  # Install shfmt, which the posix-shell tests parse run: scripts with. Its release publishes no
-  # checksum file, so the SHA-256 of each binary of SHFMT_VERSION is pinned in the case above.
-  && curl -fsSL --proto '=https' --tlsv1.2 "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_${arch}" -o /tmp/shfmt \
-  && echo "${shfmt_sha256}  /tmp/shfmt" | sha256sum -c - \
-  && install -m 0755 /tmp/shfmt /usr/local/bin/shfmt \
-  && rm -f /tmp/shfmt \
-  # Clean up all temporary files
-  && rm -f /tmp/*.tar.gz /tmp/*_checksums.txt \
+  && rm -rf /var/lib/apt/lists/* \
+  # fetch URL SHA256 FILE: download URL to /tmp/FILE and check it against SHA256.
+  && fetch() { \
+    curl -fsSL --proto '=https' --tlsv1.2 "$1" -o "/tmp/$3" \
+    && echo "$2  /tmp/$3" | sha256sum -c -; \
+  } \
+  && echo "=== Downloading and verifying standalone tools ===" \
+  && fetch "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_${arch}.tar.gz" \
+    "$trufflehog_sha256" trufflehog.tar.gz \
+  && fetch "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${arch}.tar.gz" \
+    "$actionlint_sha256" actionlint.tar.gz \
+  && fetch "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_Linux_${act_arch}.tar.gz" \
+    "$act_sha256" act.tar.gz \
+  && fetch "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${trivy_arch}.tar.gz" \
+    "$trivy_sha256" trivy.tar.gz \
+  && fetch "https://github.com/cli/cli/releases/download/v${GH_VERSION}/gh_${GH_VERSION}_linux_${arch}.tar.gz" \
+    "$gh_sha256" gh.tar.gz \
+  # shfmt, which the posix-shell tests parse run: scripts with, is a bare binary.
+  && fetch "https://github.com/mvdan/sh/releases/download/v${SHFMT_VERSION}/shfmt_v${SHFMT_VERSION}_linux_${arch}" \
+    "$shfmt_sha256" shfmt \
+  && echo "=== Installing standalone tools ===" \
+  && tar -xzf /tmp/trufflehog.tar.gz -C /tmp trufflehog \
+  && tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint \
+  && tar -xzf /tmp/act.tar.gz -C /tmp act \
+  && tar -xzf /tmp/trivy.tar.gz -C /tmp trivy \
+  && tar -xzf /tmp/gh.tar.gz -C /tmp "gh_${GH_VERSION}_linux_${arch}/bin/gh" \
+  && install -m 0755 /tmp/trufflehog /tmp/actionlint /tmp/act /tmp/trivy /tmp/shfmt /usr/local/bin/ \
+  && install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${arch}/bin/gh" /usr/local/bin/gh \
+  && rm -rf /tmp/*.tar.gz /tmp/trufflehog /tmp/actionlint /tmp/act /tmp/trivy /tmp/shfmt "/tmp/gh_${GH_VERSION}_linux_${arch}" \
   # Verify all installations
   && echo "=== Verifying tool installations ===" \
   && trivy --version \
@@ -191,7 +187,8 @@ FROM tools AS final
 # Set shell to bash with pipefail for better error handling
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
-# Create non-root user for security
+# Tests run as a non-root user by default. It has passwordless sudo, which tests that install
+# packages need, so it is a convenience and not a security boundary.
 ARG USERNAME=runner
 ARG USER_UID=1001
 ARG USER_GID=$USER_UID
@@ -214,7 +211,7 @@ RUN groupadd --gid "$USER_GID" "$USERNAME" \
   && chown -R "$USERNAME:$USERNAME" /workspace
 
 # Copy kcov from builder stage (avoiding build dependencies in final image)
-# kcov is not available in Ubuntu 22.04 apt repositories, so we build it separately
+# kcov is built at KCOV_VERSION in its own stage, so its build dependencies stay out of this image
 COPY --from=kcov-builder /kcov-install/usr/local/ /usr/local/
 
 # Install only runtime dependencies for kcov (not build dependencies)
