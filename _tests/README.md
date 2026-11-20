@@ -20,16 +20,20 @@ make test-coverage
 
 ### Prerequisites
 
-The tests need ShellSpec and shfmt (the posix-shell tests parse each action's `run:` scripts with it); nektos/act
-is optional, for integration tests. `.github/actions/setup-test-environment/action.yml` pins each one's version
-and the SHA-256 of its release archive, and installs it in CI only when the archive matches.
+`make test` needs [uv](https://docs.astral.sh/uv/), which runs the Python tests and the harness from `uv.lock`, and
+stops with an error when uv is missing. The tests also need ShellSpec and shfmt (the posix-shell tests parse each
+action's `run:` scripts with it); nektos/act is optional, for integration tests.
+`.github/actions/setup-test-environment/action.yml` pins the version of ShellSpec, shfmt and act and the SHA-256 of
+each release archive, and installs each in CI only when the archive matches.
 
 ```bash
-# macOS: Homebrew checks each download against the checksum in its formula
-brew install shellspec shfmt act
+# macOS: Homebrew checks each download against the checksum in its formula, but installs the
+# formula's current version, which can be newer than the one CI pins (act, for one).
+brew install uv shellspec shfmt act
 
-# Linux: download the version setup-test-environment pins from the tool's release page, and check
-# the archive against the SHA-256 that file pins before installing it, as CI does.
+# Linux, or to match CI exactly: download the version setup-test-environment pins from the
+# tool's release page (act and shfmt publish macOS builds there; ShellSpec is plain shell), and
+# check a Linux archive against the SHA-256 that file pins before installing it, as CI does.
 ```
 
 ## 📁 Framework Overview

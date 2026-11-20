@@ -1,5 +1,5 @@
 # Makefile for GitHub Actions repository
-# Provides organized task management with parallel execution capabilities
+# Provides organized task management
 
 .PHONY: help all docs update-catalog update-validators update-validators-dry format lint check clean precommit \
 	check-local-refs fix-local-refs fix-local-refs-dry release release-dry release-prep release-tag release-undo \
@@ -9,6 +9,11 @@
 	test test-actions test-python test-python-coverage test-update-validators test-unit test-integration test-coverage \
 	test-action docker-build docker-test docker-login docker-push docker-all watch
 .DEFAULT_GOAL := help
+
+# Targets run one at a time, even under -j: install-tools' npm ci replaces node_modules, which
+# the npx --no-install targets run from, and docs, format and lint write and read the same files.
+# An order-only `| install-tools` would rerun the phony install-tools before each target instead.
+.NOTPARALLEL:
 
 # Colors for output
 GREEN := $(shell printf '\033[32m')

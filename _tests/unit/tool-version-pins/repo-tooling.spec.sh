@@ -22,58 +22,92 @@ after() {
 AfterEach 'after'
 
 Describe "pre-commit"
-# Each remote hook's repository and rev line, one per line.
-remote_revs() {
-  _harness_python - "${ROOT}/.pre-commit-config.yaml" <<'PY'
+# unfrozen CONFIG: "REPO REV" for each remote hook in the pre-commit CONFIG whose rev is not a
+# commit with its tag in a frozen comment, then "remote: N", the number of remote hooks.
+# Parsed as YAML, so a quoted repository URL is checked like any other.
+unfrozen() {
+  _harness_python - "$1" <<'PY'
 import re
 import sys
 
-for repo, rev in re.findall(r"- repo: (https://\S+)\n\s+rev: (.+)", open(sys.argv[1], encoding="utf-8").read()):
-    print(repo, rev.strip())
+import yaml
+
+text = open(sys.argv[1], encoding="utf-8").read()
+remote = [repo for repo in yaml.safe_load(text).get("repos", []) if repo.get("repo") not in ("local", "meta")]
+for repo in remote:
+    rev = str(repo.get("rev", ""))
+    commit = re.fullmatch(r"[0-9a-f]{40}", rev)
+    if not (commit and re.search(rf"rev:\s*['\"]?{rev}['\"]?\s+# frozen: \S+", text)):
+        print(repo.get("repo"), rev)
+print(f"remote: {len(remote)}")
 PY
 }
 
-# The remote hooks whose rev is not a commit followed by its tag in a frozen comment.
-unfrozen() {
-  remote_revs | grep -E -v ' [0-9a-f]{40} # frozen: [^ ]+$' || true
-}
-
-It "has remote hooks to check"
-When call remote_revs
-The output should include "https://github.com/"
+It "finds a floating rev on a quoted or unquoted repository"
+printf '%s\n' "repos:" \
+  "  - repo: \"https://github.com/example/hooks\"" "    rev: v1" "    hooks: [{id: a}]" \
+  "  - repo: https://github.com/example/frozen" \
+  "    rev: 0123456789abcdef0123456789abcdef01234567 # frozen: v2" "    hooks: [{id: b}]" \
+  "  - repo: local" "    hooks: [{id: c, name: c, entry: c, language: system}]" >"${TREE}/config.yaml"
+When call unfrozen "${TREE}/config.yaml"
+The output should equal "$(printf '%s\n' "https://github.com/example/hooks v1" "remote: 2")"
 End
 
 # A tag can be moved to other code; Renovate keeps this format when it bumps a hook.
 It "pins every remote hook to a commit, with its tag in a frozen comment"
-When call unfrozen
-The output should equal ""
+When call unfrozen "${ROOT}/.pre-commit-config.yaml"
+The output should match pattern "remote: [1-9]*"
+The lines of output should equal 1
 End
 End
 
-Describe "npx and uvx"
-# invocations FILE...: each npx or uvx run in FILE that may fetch a package of its own, as
-# FILE:LINE. A comment, a tool check, a not-found message or a list of names runs nothing.
-invocations() {
+# executable.py: prints, for each FILE, each line's text that runs as a command, as
+# "FILE:LINE: TEXT". Comments and quoted text (messages, paths) are dropped, and so are tool
+# presence checks and for-loop name lists; package.json contributes its scripts.
+executable_lines() {
   _harness_python - "$@" <<'PY'
+import json
 import re
 import sys
 
 for path in sys.argv[1:]:
+    if path.endswith(".json"):
+        for name, script in json.load(open(path, encoding="utf-8")).get("scripts", {}).items():
+            print(f"{path}:{name}: {script}")
+        continue
     for number, line in enumerate(open(path, encoding="utf-8"), 1):
-        if re.match(r"\s*@?#", line) or re.search(r"command -v|not found|for cmd in", line):
+        if re.match(r"\s*@?#", line):
             continue
-        for match in re.finditer(r"(?<![\w-])(npx|uvx)\b(\s+(\S+))?", line):
-            if match.group(1) == "uvx" or match.group(3) != "--no-install":
-                print(f"{path}:{number}: {line.strip()}")
+        line = re.sub(r'"[^"]*"', '""', line)
+        line = re.sub(r"'[^']*'", "''", line)
+        line = re.sub(r"command -v\s+\S+", "", line)
+        line = re.sub(r"\bfor \w+ in [^;]*;", "", line)
+        print(f"{path}:{number}: {line.strip()}")
 PY
 }
 
-It "finds a floating npx and uvx run"
-printf '%s\n' "lint:" "	npx --yes prettier --check ." "	uvx ruff check ." "	npx --no-install prettier --check ." >"${TREE}/Makefile"
+Describe "npx and uvx"
+# invocations FILE...: each npx or uvx run in FILE that may fetch a package of its own.
+invocations() {
+  executable_lines "$@" | grep -E '(^|[^[:alnum:]_-])(uvx|npx)([[:space:]]|$)' | grep -E -v '(^|[^[:alnum:]_-])npx --no-install ' || true
+}
+
+It "finds a floating npx and uvx run, even after a tool check"
+printf '%s\n' "lint:" "	npx --yes prettier --check ." "	uvx ruff check ." "	npx --no-install prettier --check ." \
+  "	command -v npx >/dev/null && npx --yes prettier --check ." \
+  "	command -v npx >/dev/null || { echo \"npx not found\"; exit 1; }" >"${TREE}/Makefile"
 When call invocations "${TREE}/Makefile"
-The lines of output should equal 2
-The output should include "npx --yes prettier"
+The lines of output should equal 3
+The output should include "npx --yes prettier --check ."
 The output should include "uvx ruff"
+The output should include "&& npx --yes prettier"
+End
+
+It "finds npx in an npm script"
+printf '%s\n' '{"scripts": {"lint": "npx yaml-lint x.yml", "ok": "yaml-lint x.yml"}}' >"${TREE}/package.json"
+When call invocations "${TREE}/package.json"
+The output should include "npx yaml-lint"
+The lines of output should equal 1
 End
 
 # The npm tools come from package-lock.json, and ruff and pyright from uv.lock.
@@ -191,18 +225,17 @@ End
 
 Describe "locks"
 # unlocked FILE...: each uv run or uv sync in FILE that would re-resolve a stale uv.lock.
+# Each invocation is read up to the next command separator, so a locked one cannot cover
+# another on the same line.
 unlocked() {
-  _harness_python - "$@" <<'PY'
+  executable_lines "$@" | _harness_python -c '
 import re
 import sys
 
-for path in sys.argv[1:]:
-    for number, line in enumerate(open(path, encoding="utf-8"), 1):
-        if re.match(r"\s*@?#", line) or re.search(r"\b(log_\w+|echo)\b", line):
-            continue
-        if re.search(r"\buv (run|sync)\b", line) and "--locked" not in line:
-            print(f"{path}:{number}: {line.strip()}")
-PY
+for line in sys.stdin:
+    if any("--locked" not in m.group(2) for m in re.finditer(r"\buv (run|sync)\b([^;&|)]*)", line)):
+        print(line.rstrip())
+'
 }
 
 # scripted_installs FILE...: each npm ci or npm install in FILE that runs the packages' install scripts.
@@ -210,11 +243,16 @@ scripted_installs() {
   uncommented 'npm (ci|install)' "$@" | grep -v -- '--ignore-scripts' | grep -v 'npm ci --ignore-scripts' || true
 }
 
-It "finds a uv run that would re-resolve the lock"
-printf '%s\n' "check:" "	uv run tool.py" "	uv run --locked tool.py" >"${TREE}/Makefile"
+It "finds a uv run that would re-resolve the lock, even after a log line or a locked one"
+printf '%s\n' "check:" "	uv run tool.py" "	uv run --locked tool.py" \
+  "	echo \"Checking Python\"; uv run ruff check ." \
+  "	uv run --locked a.py && uv run b.py" \
+  "	log_error \"uv sync failed\"" >"${TREE}/Makefile"
 When call unlocked "${TREE}/Makefile"
 The output should include "uv run tool.py"
-The lines of output should equal 1
+The output should include "uv run ruff check ."
+The output should include "uv run b.py"
+The lines of output should equal 3
 End
 
 It "runs uv against uv.lock as it stands"
@@ -247,6 +285,27 @@ End
 It "installs npm packages without their install scripts"
 When call scripted_installs "${ROOT}"/.github/workflows/*.yml "$SETUP_ENV" "${ROOT}/Makefile"
 The output should equal ""
+End
+
+# serial DIR: prints serial when the Makefile in DIR runs its targets one at a time, as read by make.
+# grep reads the whole database: one that stopped at the first match would cut make off mid-write.
+serial() {
+  [ "$(make -s -C "$1" -p -n 2>/dev/null | grep -c -E '^\.NOTPARALLEL:')" -gt 0 ] && echo serial || true
+}
+
+It "tells a Makefile that runs its targets one at a time from one that runs them in parallel"
+mkdir -p "${TREE}/parallel" "${TREE}/serial"
+printf '%s\n' "all: ; @true" >"${TREE}/parallel/Makefile"
+printf '%s\n' "all: ; @true" ".NOTPARALLEL:" >"${TREE}/serial/Makefile"
+When call serial "${TREE}/parallel"
+The output should equal ""
+Assert [ "$(serial "${TREE}/serial")" = serial ]
+End
+
+# npm ci replaces node_modules, which the npx --no-install targets run from.
+It "runs the Makefile's targets one at a time, so install-tools' npm ci cannot race a linter"
+When call serial "${ROOT}"
+The output should equal "serial"
 End
 End
 
