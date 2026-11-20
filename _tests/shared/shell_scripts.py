@@ -191,12 +191,14 @@ def runner_shell(job_fields: dict) -> str | None:
 def workflow_scripts(text: str):
     """Yield (script, language, line_of) for each sh or bash script a workflow's jobs run, as
     step_scripts does for an action. A run step that names no shell runs the one its job's or
-    the workflow's defaults.run.shell names, or else the runner's default (runner_shell)."""
+    the workflow's defaults.run.shell names, or else sh in a container job, or else the
+    runner's default (runner_shell)."""
     root = fields(yaml.compose(text))
     workflow = default_shell(root)
     for job in fields(root.get("jobs")).values():
         job_fields = fields(job)
-        shell = default_shell(job_fields) or workflow or runner_shell(job_fields)
+        container = "sh" if "container" in job_fields else None
+        shell = default_shell(job_fields) or workflow or container or runner_shell(job_fields)
         yield from steps_scripts(job_fields.get("steps"), shell)
 
 

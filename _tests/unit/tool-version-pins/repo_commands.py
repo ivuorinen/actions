@@ -1,8 +1,8 @@
 """Print the commands the repository's own tooling runs that break a pin: a package fetched at a
 floating version, uv run against uv.lock without --locked, a download that accepts plain HTTP or
-old TLS, or an npm install that runs the packages' install scripts.
+old TLS, an npm install that runs the packages' install scripts, or a fixed path in /tmp.
 
-    repo_commands.py fetches|unlocked|insecure-downloads|install-scripts FILE...
+    repo_commands.py fetches|unlocked|insecure-downloads|install-scripts|fixed-tmp FILE...
 
 shfmt parses each script FILE runs as the shell reads it: a Makefile's recipes and the
 $(shell ...) calls make runs, a package.json's scripts, an action's or a workflow's run steps, a
@@ -32,8 +32,22 @@ ASSIGNMENT = re.compile(
 # The operators that expand the value once, where it is assigned.
 SIMPLE = {":=", "::=", ":::="}
 VARIABLE = re.compile(r"[A-Za-z_.][\w.-]*")
-DEFINE = re.compile(r"(?:(?:export|override)\s+)*define\s")
+# A define line: the variable's name and its operator, recursive (=) when it names none.
+DEFINE = re.compile(
+    r"(?:(?:export|override)\s+)*define\s+([A-Za-z_.][\w.-]*)\s*(:::=|::=|:=|\?=|\+=|!=|=)?\s*"
+)
 ENDEF = re.compile(r"\s*endef\b")
+
+# A fixed path in /tmp, as a word or the value after an option's =.
+TMP_PATH = re.compile(r"(?:^|=)/tmp(?:/|$)")
+# Each option sets the oldest TLS version curl accepts.
+TLS_VERSIONS = {
+    "--tlsv1": "1.0",
+    "--tlsv1.0": "1.0",
+    "--tlsv1.1": "1.1",
+    "--tlsv1.2": "1.2",
+    "--tlsv1.3": "1.3",
+}
 
 # What a make reference reads as in a shell script: a word that names no command.
 REFERENCE = "MAKEREF"
@@ -83,15 +97,20 @@ def reresolves(name: str, args: list[str]) -> bool:
 
 
 def insecure_download(name: str, args: list[str]) -> bool:
-    """Whether a curl command lacks --proto =https or --tlsv1.2 (or --tlsv1.3), so a redirect
-    can take it to plain HTTP or an old TLS version."""
+    """Whether a curl command ends up without --proto =https or without TLS 1.2 or later as
+    its oldest version, so a redirect can take it to plain HTTP or an old TLS version. curl
+    uses the last --proto it gets, and the last TLS version option."""
     if name != "curl":
         return False
-    https = any(
-        word == "--proto==https" or (word == "--proto" and following == "=https")
-        for word, following in pairwise([*args, ""])
-    )
-    return not (https and {"--tlsv1.2", "--tlsv1.3"} & set(args))
+    protocols, tls = "", ""
+    for word, following in pairwise([*args, ""]):
+        if word == "--proto":
+            protocols = following
+        elif word.startswith("--proto="):
+            protocols = word.split("=", 1)[1]
+        elif word in TLS_VERSIONS:
+            tls = TLS_VERSIONS[word]
+    return not (protocols == "=https" and tls in ("1.2", "1.3"))
 
 
 def runs_install_scripts(name: str, args: list[str]) -> bool:
@@ -142,16 +161,21 @@ def rebuild(text: str, replace) -> str:
     return "".join(out)
 
 
-def expand(text: str, variables: dict[str, str], depth: int = 0) -> str:
+def expand(
+    text: str, variables: dict[str, str], later: frozenset[str] = frozenset(), depth: int = 0
+) -> str:
     """Return text with each reference to a variable the Makefile defines replaced by its
-    value, expanded too, at any depth. Other references keep their place."""
+    value, expanded too, at any depth. A variable in later, which the Makefile defines only
+    further down, is empty where make expands the text now. Other references keep their place."""
 
     def replace(reference: str, inner: str) -> str:
         name = inner or reference[1:]
         if depth < 20 and VARIABLE.fullmatch(name) and name in variables:
-            return expand(variables[name], variables, depth + 1)
+            return expand(variables[name], variables, later, depth + 1)
+        if VARIABLE.fullmatch(name) and name in later:
+            return ""
         if depth < 20 and inner:
-            return reference[:2] + expand(inner, variables, depth + 1) + reference[-1]
+            return reference[:2] + expand(inner, variables, later, depth + 1) + reference[-1]
         return reference
 
     return rebuild(text, replace)
@@ -214,13 +238,20 @@ def logical_lines(text: str):
 
 class Makefile:
     """What make hands to a shell for one Makefile, read line by line: the variables defined so
-    far, which of them are simple, the recipe lines, and the scripts found so far."""
+    far, which of them are simple, the recipe lines, and the scripts found so far. names holds
+    every variable the Makefile defines anywhere."""
 
-    def __init__(self) -> None:
+    def __init__(self, names: set[str]) -> None:
+        self.names = names
         self.variables: dict[str, str] = {}
         self.simple: set[str] = set()
         self.recipes: list[tuple[str, int]] = []
         self.statements: list[tuple[str, int, bool]] = []
+
+    def now(self, text: str) -> str:
+        """Return text as make expands it at this point of the file: a variable defined only
+        further down is still empty."""
+        return expand(text, self.variables, frozenset(self.names - self.variables.keys()))
 
     def run_now(self, expanded: str, line: int) -> None:
         """Add the $(shell ...) calls make runs when it expands this text at this line."""
@@ -236,7 +267,7 @@ class Makefile:
         appended = operator == "+=" and name in self.simple
         immediate = operator in SIMPLE or operator == "!=" or appended
         if immediate:
-            command = expand(value, self.variables)
+            command = self.now(value)
             self.run_now(command, line)
             if operator == "!=":
                 self.statements.append((shell_text(command), line, False))
@@ -262,27 +293,43 @@ class Makefile:
         if semicolon != -1 and ":" in code[:semicolon]:
             self.recipes.append((logical[semicolon + 1 :].lstrip("@-+ \t"), line))
             code = code[:semicolon]
-        self.run_now(expand(code, self.variables), line)
+        self.run_now(self.now(code), line)
+
+
+def defined_names(text: str) -> set[str]:
+    """Return the name of every variable a Makefile assigns or defines outside its recipes."""
+    names = set()
+    for _line, logical in logical_lines(text):
+        code = "" if logical.startswith("\t") else without_comment(logical)
+        if match := DEFINE.fullmatch(code) or ASSIGNMENT.fullmatch(code):
+            names.add(match.group(1))
+    return names
 
 
 def make_statements(text: str) -> list[tuple[str, int, bool]]:
     """Return (script, line, spread) for each script a Makefile hands to a shell: each recipe
     line, a rule's recipe after its semicolon, with the variables it references expanded, and
     each $(shell ...) and != command make runs. spread says whether the script's lines follow
-    the Makefile's from line on; the others all come from line. Comments outside recipes, and
-    the bodies of define blocks, hand nothing to a shell."""
-    makefile = Makefile()
-    in_define = False
+    the Makefile's from line on; the others all come from line. A define block assigns its body
+    to its variable, and comments outside recipes hand nothing to a shell."""
+    makefile = Makefile(defined_names(text))
+    define: tuple[str, str, int] | None = None
+    body: list[str] = []
     for line, logical in logical_lines(text):
-        if in_define:
-            in_define = not ENDEF.match(logical)
-        elif not logical.startswith("\t") and DEFINE.match(without_comment(logical)):
-            in_define = True
+        if define is not None:
+            if ENDEF.match(logical):
+                makefile.assign(define[0], define[1], "\n".join(body), define[2])
+                define, body = None, []
+            else:
+                body.append(logical)
+        elif not logical.startswith("\t") and (match := DEFINE.fullmatch(without_comment(logical))):
+            define = (match.group(1), match.group(2) or "=", line)
         else:
             makefile.read(line, logical)
-    for body, line in makefile.recipes:
-        expanded = expand(body, makefile.variables)
-        makefile.statements.append((shell_text(expanded), line, True))
+    for recipe, line in makefile.recipes:
+        expanded = expand(recipe, makefile.variables)
+        spread = expanded.count("\n") == recipe.count("\n")
+        makefile.statements.append((shell_text(expanded), line, spread))
         makefile.run_now(expanded, line)
     return makefile.statements
 
@@ -343,19 +390,72 @@ def scripts(path: Path):
         yield text, "bash", int
 
 
-def commands(path: Path, matches) -> list[tuple[int | str, str]]:
-    """Return (where, command) for each command FILE runs that matches(name, args) holds for."""
+def nodes(tree):
+    """Yield every mapping in a syntax tree."""
+    if isinstance(tree, dict):
+        yield tree
+        for value in tree.values():
+            yield from nodes(value)
+    elif isinstance(tree, list):
+        for value in tree:
+            yield from nodes(value)
+
+
+def fixed_tmp_paths(script: str, language: str, line_of) -> list[tuple[int | str, str]]:
+    """Return (where, word) for each word a script, or a script it runs, hands a command,
+    assigns or redirects to that is a fixed path in /tmp. mktemp's own arguments are templates
+    it makes a unique name from, and an expansion such as ${TMPDIR:-/tmp} is no fixed path."""
+    found: list[tuple[int | str, str]] = []
+    tree = sh.parse(script, language)
+
+    def check(word, node) -> None:
+        text = sh.shape(word)
+        if TMP_PATH.search(text):
+            found.append((line_of(node["Pos"]["Line"]), text.replace(sh.EXPANSION, "$...")))
+
+    for node in nodes(tree):
+        for redirect in node.get("Redirs") or []:
+            check(redirect.get("Word"), node)
+    for cmd in sh.simple_commands(tree):
+        words = [sh.shape(word) for word in cmd.get("Args") or []]
+        calls, inner_scripts = sh.command_names(words)
+        if all(name != "mktemp" for _index, name in calls):
+            for word in cmd.get("Args") or []:
+                check(word, cmd)
+        for assign in cmd.get("Assigns") or []:
+            check(assign.get("Value"), cmd)
+        line = line_of(cmd["Pos"]["Line"])
+        for inner, inner_language in inner_scripts:
+            found += fixed_tmp_paths(inner, inner_language, lambda _line, at=line: at)
+    for body, language_read, line in sh.heredoc_scripts(tree, script.encode("utf-8")):
+        outer = line_of(line)
+        found += fixed_tmp_paths(body, language_read, lambda _line, at=outer: at)
+    # In source order: redirects and commands are found in two passes.
+    return sorted(found, key=lambda item: item[0] if isinstance(item[0], int) else 0)
+
+
+def matching(matches):
+    """Return a finder for the commands that matches(name, args) holds for."""
+    return lambda script, language, line_of: check_pins.find_commands(
+        script, language, line_of, matches
+    )
+
+
+def commands(path: Path, finder) -> list[tuple[int | str, str]]:
+    """Return (where, text) for each finding finder(script, language, line_of) makes in the
+    scripts FILE runs."""
     found: list[tuple[int | str, str]] = []
     for script, language, line_of in scripts(path):
-        found += check_pins.find_commands(script, language, line_of, matches)
+        found += finder(script, language, line_of)
     return found
 
 
 CHECKS = {
-    "fetches": check_pins.fetches_floating,
-    "unlocked": reresolves,
-    "insecure-downloads": insecure_download,
-    "install-scripts": runs_install_scripts,
+    "fetches": matching(check_pins.fetches_floating),
+    "unlocked": matching(reresolves),
+    "insecure-downloads": matching(insecure_download),
+    "install-scripts": matching(runs_install_scripts),
+    "fixed-tmp": fixed_tmp_paths,
 }
 
 

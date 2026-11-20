@@ -183,24 +183,32 @@ printf '%s\n' "runs:" "  using: composite" "  steps:" "    - shell: sh" "      r
   "        curl -fsSL \"\$URL\" -o tool # --proto '=https' --tlsv1.2" \
   "        curl --proto '=https' --tlsv1.2 -fsSL \"\$URL\" -o tool" \
   "        curl --proto==https --tlsv1.3 -fsSL \"\$URL\" -o tool" \
-  "        if ! curl; then exit 1; fi" >"${TREE}/action.yml"
+  "        if ! curl; then exit 1; fi" \
+  "        curl --proto '=https' --tlsv1.2 --proto '=http' http://example.com/tool -o tool" \
+  "        curl --proto '=https' --tlsv1.3 --tlsv1.0 -fsSL \"\$URL\" -o tool" >"${TREE}/action.yml"
 When call fetches_without_tls "${TREE}/action.yml"
 The output should include "action.yml:6: curl -fsSL https://example.com/tool -o tool"
 The output should include "action.yml:7: curl -fsSL \$... -o tool"
 The output should include "action.yml:10: curl"
-The lines of output should equal 3
+The output should include "action.yml:11: curl --proto =https --tlsv1.2 --proto =http"
+The output should include "action.yml:12: curl --proto =https --tlsv1.3 --tlsv1.0"
+The lines of output should equal 5
 End
 
-# A run step without a shell runs pwsh on a Windows runner, which is not read as bash, and an
-# inherited template such as `bash -e {0}` names bash. An expression in runs-on leaves the shell
-# unknown, so the step stops the check instead of going unread.
-It "reads each workflow step with the shell its runner and defaults give it"
+# A run step without a shell runs pwsh on a Windows runner, which is not read as bash, and sh in
+# a container job, whatever runs-on says. An inherited template such as `bash -e {0}` names
+# bash. An expression in runs-on leaves the shell unknown otherwise, so the step stops the check
+# instead of going unread.
+It "reads each workflow step with the shell its runner, container and defaults give it"
 printf '%s\n' "jobs:" \
   "  windows:" "    runs-on: windows-latest" "    steps:" "      - run: curl -fsSL https://example.com/a -o a" \
   "  templated:" "    runs-on: ubuntu-latest" "    defaults:" "      run:" "        shell: bash -e {0}" "    steps:" \
-  "      - run: curl -fsSL https://example.com/b -o b" >"${TREE}/workflow.yml"
+  "      - run: curl -fsSL https://example.com/b -o b" \
+  "  boxed:" "    runs-on: \${{ matrix.runner }}" "    container: alpine:3" "    steps:" \
+  "      - run: curl -fsSL https://example.com/d -o d" >"${TREE}/workflow.yml"
 When call fetches_without_tls "${TREE}/workflow.yml"
-The output should equal "${TREE}/workflow.yml:12: curl -fsSL https://example.com/b -o b"
+The output should equal "$(printf '%s\n' "${TREE}/workflow.yml:12: curl -fsSL https://example.com/b -o b" \
+  "${TREE}/workflow.yml:17: curl -fsSL https://example.com/d -o d")"
 End
 
 It "stops on a workflow step whose shell depends on an expression in runs-on"
@@ -216,16 +224,19 @@ When call fetches_without_tls "$SETUP_ENV" "$SECURITY_SUITE" "$DOCKERFILE" "${RO
 The output should equal ""
 End
 
-# fixed_tmp FILE...: each use of a fixed path in /tmp outside a comment; a mktemp template is not one.
+# fixed_tmp FILE...: each fixed path in /tmp FILE hands a command, assigns or redirects to, read
+# from the syntax tree; mktemp's template and an expansion such as ${TMPDIR:-/tmp} are not one.
 fixed_tmp() {
-  uncommented '/tmp' "$@" | grep -v 'mktemp' || true
+  _harness_python "$REPO_COMMANDS" fixed-tmp "$@"
 }
 
-It "finds a fixed path in /tmp"
-printf '%s\n' 'tar -xzf "$tarball" -C /tmp/' 'work=$(mktemp -d "${TMPDIR:-/tmp}/x.XXXXXX")' >"${TREE}/install.sh"
+It "finds a fixed path in /tmp, also beside a mktemp on the same line"
+printf '%s\n' 'tar -xzf "$tarball" -C /tmp/' 'work=$(mktemp -d "${TMPDIR:-/tmp}/x.XXXXXX")' \
+  'work=$(mktemp -d); tar -xzf "$tarball" -C /tmp/' 'mktemp -d /tmp/y.XXXXXX' 'echo "built in /tmp"' \
+  'cp a b > /tmp/out' 'dir=/tmp/cache' >"${TREE}/install.sh"
 When call fixed_tmp "${TREE}/install.sh"
-The output should include "-C /tmp/"
-The lines of output should equal 1
+The output should equal "$(printf '%s\n' "${TREE}/install.sh:1: /tmp/" "${TREE}/install.sh:3: /tmp/" \
+  "${TREE}/install.sh:6: /tmp/out" "${TREE}/install.sh:7: /tmp/cache")"
 End
 
 # Another user of the machine could swap a file at a fixed path between the checksum and its use.
@@ -280,7 +291,12 @@ printf '%s\n' "TOOL := \$(shell uv run tool.py --version)" "LOCKED := uv run --l
   "endif" \
   "LEFT_PAREN := (" \
   "RUNNER = uv run --extra dev" \
-  "	\$(RUNNER) tool.py" >"${TREE}/Makefile"
+  "	\$(RUNNER) tool.py" \
+  "ARGS := \$(LOCK)" "LOCK := --locked" "	uv run \$(ARGS) frozen.py" \
+  "ARGS2 = \$(LOCK2)" "LOCK2 := --locked" "	uv run \$(ARGS2) deferred.py" \
+  "define DEFINED_RUNNER" "uv run defined.py" "endef" \
+  "define UNUSED_RUNNER" "uv run unused.py" "endef" \
+  "	\$(DEFINED_RUNNER)" >"${TREE}/Makefile"
 When call unlocked "${TREE}/Makefile"
 The output should include "Makefile:1: uv run tool.py --version"
 The output should include "Makefile:4: uv run tool.py"
@@ -299,7 +315,9 @@ The output should include "Makefile:22: uv --python-preference=system sync"
 The output should include "Makefile:23: uv run --locked --no-locked h.py"
 The output should include "Makefile:26: uv run cond.py"
 The output should include "Makefile:30: uv run --extra dev tool.py"
-The lines of output should equal 17
+The output should include "Makefile:33: uv run frozen.py"
+The output should include "Makefile:43: uv run defined.py"
+The lines of output should equal 19
 End
 
 It "finds a uv sync without --locked in a shell script"
