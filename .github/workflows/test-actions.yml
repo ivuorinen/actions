@@ -306,7 +306,7 @@ jobs:
           install-kcov: 'true'
 
       - name: Scan for secrets
-        uses: trufflesecurity/trufflehog@31ce31ee1abbcc7dc8eee5764c17121c3044c8b2 # v3.99.7
+        uses: trufflesecurity/trufflehog@3bd2b5887eb0efb8fa18bfd1d296032924e4ffdc # v3.99.9
         with:
           # The input defaults to `latest`, so the SHA above pins only the wrapper
           # script. Keep this in step with the version in that comment.
