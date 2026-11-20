@@ -71,7 +71,16 @@ GLOBAL_OPTIONS = {
     "pnpm": {"-C", "--dir", "--filter", "-F"},
     "yarn": {"--cwd"},
     "bun": {"--cwd", "--config", "-c"},
-    "uv": {"--directory", "--project", "--cache-dir", "--python", "-p", "--config-file"},
+    "uv": {
+        "--allow-insecure-host",
+        "--cache-dir",
+        "--color",
+        "--config-file",
+        "--directory",
+        "--project",
+        "--python",
+        "-p",
+    },
     "pipx": set(),
 }
 

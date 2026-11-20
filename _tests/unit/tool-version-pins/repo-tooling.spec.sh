@@ -68,17 +68,19 @@ invocations() {
   _harness_python "$REPO_COMMANDS" fetches "$@"
 }
 
-It "finds a floating npx and uvx run, even after a tool check or inside a quoted substitution"
+It "finds a floating npx and uvx run, after a tool check, in a quoted substitution or in an inline recipe"
 printf '%s\n' "lint:" "	npx --yes prettier --check ." "	uvx ruff check ." "	npx --no-install prettier --check ." \
   "	command -v npx >/dev/null && npx --yes prettier --check ." \
   "	command -v npx >/dev/null || { echo \"npx not found\"; exit 1; }" \
-  "	echo \"\$\$(npx --yes prettier --version)\"" >"${TREE}/Makefile"
+  "	echo \"\$\$(npx --yes prettier --version)\"" \
+  "inline: ; @npx --yes prettier --check ." >"${TREE}/Makefile"
 When call invocations "${TREE}/Makefile"
-The lines of output should equal 4
+The lines of output should equal 5
 The output should include "Makefile:2: npx --yes prettier --check ."
 The output should include "Makefile:3: uvx ruff"
 The output should include "Makefile:5: npx --yes prettier --check ."
 The output should include "Makefile:7: npx --yes prettier --version"
+The output should include "Makefile:8: npx --yes prettier --check ."
 End
 
 It "finds npx in an npm script, but not in one that only prints it"
@@ -214,7 +216,7 @@ scripted_installs() {
   uncommented 'npm (ci|install)' "$@" | grep -v -- '--ignore-scripts' | grep -v 'npm ci --ignore-scripts' || true
 }
 
-It "finds a uv run that would update the lock, however the line around it is quoted or commented"
+It "finds a uv run that would update the lock, however make or the shell wraps it"
 printf '%s\n' "TOOL := \$(shell uv run tool.py --version)" "LOCKED := uv run --locked --extra dev ruff" "check:" \
   "	uv run tool.py" "	uv run --locked tool.py" \
   "	echo \"Checking Python\"; uv run ruff check ." \
@@ -224,7 +226,14 @@ printf '%s\n' "TOOL := \$(shell uv run tool.py --version)" "LOCKED := uv run --l
   "	uv run --project dir d.py --locked" \
   "	log_error \"uv sync failed\"" \
   "	echo \"\$\$(uv run ruff --version)\"" \
-  "	echo \"message: \\\" # note\"; uv run ruff check src" >"${TREE}/Makefile"
+  "	echo \"message: \\\" # note\"; uv run ruff check src" \
+  "VERSION := \$(strip \$(shell uv run nested.py --version))" \
+  "	echo '\$(shell uv run quoted.py)'" \
+  "	uv run --color always --locked e.py" \
+  "	uv run --color=always --locked f.py" \
+  "	uv --color always sync --quiet" \
+  "inline: ; uv run g.py" \
+  "help: ## run; then stop" >"${TREE}/Makefile"
 When call unlocked "${TREE}/Makefile"
 The output should include "Makefile:1: uv run tool.py --version"
 The output should include "Makefile:4: uv run tool.py"
@@ -234,7 +243,11 @@ The output should include "Makefile:8: uv run lint.py"
 The output should include "Makefile:10: uv run --project dir d.py --locked"
 The output should include "Makefile:12: uv run ruff --version"
 The output should include "Makefile:13: uv run ruff check src"
-The lines of output should equal 8
+The output should include "Makefile:14: uv run nested.py --version"
+The output should include "Makefile:15: uv run quoted.py"
+The output should include "Makefile:18: uv --color always sync --quiet"
+The output should include "Makefile:19: uv run g.py"
+The lines of output should equal 12
 End
 
 It "finds a uv sync without --locked in a shell script"
