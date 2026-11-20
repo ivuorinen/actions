@@ -134,10 +134,10 @@ def fetches_floating(name: str, args: list[str]) -> bool:
     return name in ("pnpx", "uvx")
 
 
-def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str]]:
+def find_commands(script: str, language: str, line_of, matches) -> list[tuple[int, str]]:
     """Return (line, command) for each command in a script, and in the scripts it runs (with
-    -c, eval, trap, env -S, or a here-document fed to a shell), that fetches at a floating
-    version."""
+    -c, eval, trap, env -S, or a here-document fed to a shell), for which matches(name, args)
+    holds, such as fetches_floating."""
     found = []
     tree = sh.parse(script, language)
     for cmd in sh.simple_commands(tree):
@@ -145,14 +145,12 @@ def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str
         calls, scripts = sh.command_names(words)
         line = line_of(cmd["Pos"]["Line"])
         text = " ".join(words).replace(sh.EXPANSION, "$...")
-        found += [
-            (line, text) for index, name in calls if fetches_floating(name, words[index + 1 :])
-        ]
+        found += [(line, text) for index, name in calls if matches(name, words[index + 1 :])]
         for inner, inner_language in scripts:
-            found += floating_fetches(inner, inner_language, lambda _line, at=line: at)
+            found += find_commands(inner, inner_language, lambda _line, at=line: at, matches)
     for body, language_read, line in sh.heredoc_scripts(tree, script.encode("utf-8")):
         outer = line_of(line)
-        found += floating_fetches(body, language_read, lambda _line, at=outer: at)
+        found += find_commands(body, language_read, lambda _line, at=outer: at, matches)
     return found
 
 
@@ -212,7 +210,7 @@ def check_action(action: Path, managers: list[re.Pattern[str]]) -> tuple[list[st
         for script, language, line_of in sh.step_scripts(text):
             problems += [
                 f"{label}:{number}: floating tool reference: {command}"
-                for number, command in floating_fetches(script, language, line_of)
+                for number, command in find_commands(script, language, line_of, fetches_floating)
             ]
     except (yaml.YAMLError, sh.ParseError) as error:
         problems.append(f"{label}: cannot read its scripts: {error}")

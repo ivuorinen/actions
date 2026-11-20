@@ -3,10 +3,11 @@
 # Makefile, the Claude Code hooks, the test environment, the security workflow and the testing
 # image fetch nothing at a floating version, check each download against a digest pinned in the
 # repository, and leave each pin where Renovate can update it. check_pins.py and static.spec.sh
-# cover the actions themselves.
+# cover the actions themselves; repo_commands.py reads the commands the tooling runs.
 
 Describe "repository tooling pins"
 ROOT="${PROJECT_ROOT}"
+REPO_COMMANDS="${ROOT}/_tests/unit/tool-version-pins/repo_commands.py"
 SETUP_ENV="${ROOT}/.github/actions/setup-test-environment/action.yml"
 SECURITY_SUITE="${ROOT}/.github/workflows/security-suite.yml"
 DOCKERFILE="${ROOT}/_tools/docker-testing-tools/Dockerfile"
@@ -61,52 +62,23 @@ The lines of output should equal 1
 End
 End
 
-# executable_lines FILE...: prints, for each FILE, each line's text that runs as a command, as
-# "FILE:LINE: TEXT", or "FILE:NAME: TEXT" for each script in a package.json. Quoted text
-# (messages, paths) goes first, so a # inside it starts no comment; then comments, tool
-# presence checks and for-loop name lists.
-executable_lines() {
-  _harness_python - "$@" <<'PY'
-import json
-import re
-import sys
-
-
-def command_text(text):
-    text = re.sub(r'"[^"]*"', '""', text)
-    text = re.sub(r"'[^']*'", "''", text)
-    text = re.sub(r"^\s*@#.*|(^|\s)#.*", "", text)
-    text = re.sub(r"command -v\s+\S+", "", text)
-    text = re.sub(r"\bfor \w+ in [^;]*;", "", text)
-    return text.strip()
-
-
-for path in sys.argv[1:]:
-    if path.endswith(".json"):
-        lines = json.load(open(path, encoding="utf-8")).get("scripts", {}).items()
-    else:
-        lines = enumerate(open(path, encoding="utf-8"), 1)
-    for where, line in lines:
-        if text := command_text(line):
-            print(f"{path}:{where}: {text}")
-PY
-}
-
 Describe "npx and uvx"
-# invocations FILE...: each npx or uvx run in FILE that may fetch a package of its own.
+# invocations FILE...: each command in FILE that fetches a package at a floating version.
 invocations() {
-  executable_lines "$@" | grep -E '(^|[^[:alnum:]_-])(uvx|npx)([[:space:]]|$)' | grep -E -v '(^|[^[:alnum:]_-])npx --no-install ' || true
+  _harness_python "$REPO_COMMANDS" fetches "$@"
 }
 
-It "finds a floating npx and uvx run, even after a tool check"
+It "finds a floating npx and uvx run, even after a tool check or inside a quoted substitution"
 printf '%s\n' "lint:" "	npx --yes prettier --check ." "	uvx ruff check ." "	npx --no-install prettier --check ." \
   "	command -v npx >/dev/null && npx --yes prettier --check ." \
-  "	command -v npx >/dev/null || { echo \"npx not found\"; exit 1; }" >"${TREE}/Makefile"
+  "	command -v npx >/dev/null || { echo \"npx not found\"; exit 1; }" \
+  "	echo \"\$\$(npx --yes prettier --version)\"" >"${TREE}/Makefile"
 When call invocations "${TREE}/Makefile"
-The lines of output should equal 3
-The output should include "npx --yes prettier --check ."
-The output should include "uvx ruff"
-The output should include "&& npx --yes prettier"
+The lines of output should equal 4
+The output should include "Makefile:2: npx --yes prettier --check ."
+The output should include "Makefile:3: uvx ruff"
+The output should include "Makefile:5: npx --yes prettier --check ."
+The output should include "Makefile:7: npx --yes prettier --version"
 End
 
 It "finds npx in an npm script, but not in one that only prints it"
@@ -231,18 +203,10 @@ End
 End
 
 Describe "locks"
-# unlocked FILE...: each uv run or uv sync in FILE that would re-resolve a stale uv.lock.
-# Each invocation is read up to the next command separator, so a locked one cannot cover
-# another on the same line.
+# unlocked FILE...: each uv run or uv sync in FILE that would update a stale uv.lock instead of
+# failing on it.
 unlocked() {
-  executable_lines "$@" | _harness_python -c '
-import re
-import sys
-
-for line in sys.stdin:
-    if any("--locked" not in m.group(2) for m in re.finditer(r"\buv (run|sync)\b([^;&|)]*)", line)):
-        print(line.rstrip())
-'
+  _harness_python "$REPO_COMMANDS" unlocked "$@"
 }
 
 # scripted_installs FILE...: each npm ci or npm install in FILE that runs the packages' install scripts.
@@ -250,19 +214,34 @@ scripted_installs() {
   uncommented 'npm (ci|install)' "$@" | grep -v -- '--ignore-scripts' | grep -v 'npm ci --ignore-scripts' || true
 }
 
-It "finds a uv run that would re-resolve the lock, even after a log line or a locked one, or with --locked in a comment"
-printf '%s\n' "check:" "	uv run tool.py" "	uv run --locked tool.py" \
+It "finds a uv run that would update the lock, however the line around it is quoted or commented"
+printf '%s\n' "TOOL := \$(shell uv run tool.py --version)" "LOCKED := uv run --locked --extra dev ruff" "check:" \
+  "	uv run tool.py" "	uv run --locked tool.py" \
   "	echo \"Checking Python\"; uv run ruff check ." \
   "	uv run --locked a.py && uv run b.py" \
   "	uv run lint.py # --locked" \
   "	uv run --project \"#dir\" --locked c.py" \
-  "	log_error \"uv sync failed\"" >"${TREE}/Makefile"
+  "	uv run --project dir d.py --locked" \
+  "	log_error \"uv sync failed\"" \
+  "	echo \"\$\$(uv run ruff --version)\"" \
+  "	echo \"message: \\\" # note\"; uv run ruff check src" >"${TREE}/Makefile"
 When call unlocked "${TREE}/Makefile"
-The output should include "uv run tool.py"
-The output should include "uv run ruff check ."
-The output should include "uv run b.py"
-The output should include "uv run lint.py"
-The lines of output should equal 4
+The output should include "Makefile:1: uv run tool.py --version"
+The output should include "Makefile:4: uv run tool.py"
+The output should include "Makefile:6: uv run ruff check ."
+The output should include "Makefile:7: uv run b.py"
+The output should include "Makefile:8: uv run lint.py"
+The output should include "Makefile:10: uv run --project dir d.py --locked"
+The output should include "Makefile:12: uv run ruff --version"
+The output should include "Makefile:13: uv run ruff check src"
+The lines of output should equal 8
+End
+
+It "finds a uv sync without --locked in a shell script"
+printf '%s\n' '#!/bin/sh' 'uv sync --locked --inexact' 'uv --directory x sync --quiet' 'if ! command -v uv >/dev/null; then exit 1; fi' \
+  >"${TREE}/run.sh"
+When call unlocked "${TREE}/run.sh"
+The output should equal "${TREE}/run.sh:3: uv --directory x sync --quiet"
 End
 
 It "runs uv against uv.lock as it stands"
