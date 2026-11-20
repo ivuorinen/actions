@@ -52,15 +52,9 @@ check type in `_validation/spec.py` is in `MASKED_CHECKS` in `_validation/kit.py
 Flag a token or secret input whose check type is not masked, and an action.yml that
 emits `::add-mask::` for an input itself, which `_validation/tests/test_spec.py` rejects.
 
-A credential an action creates at run time, such as a token it fetches, is masked in the
-step that creates it, before anything prints it:
-
-```yaml
-# SAFE — masked before use: one command per line, with % encoded
-- run: |
-    generated="$(fetch-credential)"
-    printf '%s\n' "$generated" | tr '\r' '\n' | sed -E -e '/^[[:space:]]*$/d' -e 's/%/%25/g' -e 's/^/::add-mask::/'
-```
+No action's own step creates a credential at run time, such as a token it fetches; cosign
+and npm fetch their OIDC tokens themselves. A step that did would have no generated mask, and the test rejects an `::add-mask::` in its action.yml, so flag
+such a credential for a design decision rather than proposing a mask in the step.
 
 Never use `echo "::add-mask::${{ inputs.token }}"` — the token is interpolated
 into the shell command before masking occurs.
