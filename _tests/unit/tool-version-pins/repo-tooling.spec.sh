@@ -182,11 +182,33 @@ printf '%s\n' "runs:" "  using: composite" "  steps:" "    - shell: sh" "      r
   "        curl -fsSL \"https://example.com/tool\" -o tool" \
   "        curl -fsSL \"\$URL\" -o tool # --proto '=https' --tlsv1.2" \
   "        curl --proto '=https' --tlsv1.2 -fsSL \"\$URL\" -o tool" \
-  "        curl --proto==https --tlsv1.3 -fsSL \"\$URL\" -o tool" >"${TREE}/action.yml"
+  "        curl --proto==https --tlsv1.3 -fsSL \"\$URL\" -o tool" \
+  "        if ! curl; then exit 1; fi" >"${TREE}/action.yml"
 When call fetches_without_tls "${TREE}/action.yml"
 The output should include "action.yml:6: curl -fsSL https://example.com/tool -o tool"
 The output should include "action.yml:7: curl -fsSL \$... -o tool"
-The lines of output should equal 2
+The output should include "action.yml:10: curl"
+The lines of output should equal 3
+End
+
+# A run step without a shell runs pwsh on a Windows runner, which is not read as bash, and an
+# inherited template such as `bash -e {0}` names bash. An expression in runs-on leaves the shell
+# unknown, so the step stops the check instead of going unread.
+It "reads each workflow step with the shell its runner and defaults give it"
+printf '%s\n' "jobs:" \
+  "  windows:" "    runs-on: windows-latest" "    steps:" "      - run: curl -fsSL https://example.com/a -o a" \
+  "  templated:" "    runs-on: ubuntu-latest" "    defaults:" "      run:" "        shell: bash -e {0}" "    steps:" \
+  "      - run: curl -fsSL https://example.com/b -o b" >"${TREE}/workflow.yml"
+When call fetches_without_tls "${TREE}/workflow.yml"
+The output should equal "${TREE}/workflow.yml:12: curl -fsSL https://example.com/b -o b"
+End
+
+It "stops on a workflow step whose shell depends on an expression in runs-on"
+printf '%s\n' "jobs:" "  matrix:" "    runs-on: \${{ matrix.os }}" "    steps:" "      - run: curl -fsSL https://example.com/c -o c" \
+  >"${TREE}/workflow.yml"
+When call fetches_without_tls "${TREE}/workflow.yml"
+The status should equal 2
+The error should include "runs-on is an expression"
 End
 
 It "downloads over HTTPS and TLS 1.2 only"

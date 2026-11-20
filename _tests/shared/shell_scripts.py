@@ -170,21 +170,41 @@ def default_shell(node_fields: dict) -> str | None:
     return shell.value if isinstance(shell, yaml.ScalarNode) else None
 
 
+def runner_shell(job_fields: dict) -> str | None:
+    """Return the shell GitHub runs a job's run step with when neither the step nor a defaults
+    block names one: pwsh on a Windows runner, bash on the others. None when runs-on is an
+    expression or a runner group, which only the run resolves."""
+    runs_on = job_fields.get("runs-on")
+    if isinstance(runs_on, yaml.MappingNode):
+        runs_on = fields(runs_on).get("labels")
+    if isinstance(runs_on, yaml.ScalarNode):
+        labels = [runs_on.value]
+    elif isinstance(runs_on, yaml.SequenceNode):
+        labels = [node.value for node in runs_on.value if isinstance(node, yaml.ScalarNode)]
+    else:
+        return None
+    if not labels or any("${{" in label for label in labels):
+        return None
+    return "pwsh" if any("windows" in label.lower() for label in labels) else "bash"
+
+
 def workflow_scripts(text: str):
     """Yield (script, language, line_of) for each sh or bash script a workflow's jobs run, as
     step_scripts does for an action. A run step that names no shell runs the one its job's or
-    the workflow's defaults.run.shell names, or else bash, GitHub's default on Linux."""
+    the workflow's defaults.run.shell names, or else the runner's default (runner_shell)."""
     root = fields(yaml.compose(text))
     workflow = default_shell(root)
     for job in fields(root.get("jobs")).values():
         job_fields = fields(job)
-        shell = default_shell(job_fields) or workflow or "bash"
+        shell = default_shell(job_fields) or workflow or runner_shell(job_fields)
         yield from steps_scripts(job_fields.get("steps"), shell)
 
 
-def steps_scripts(steps, run_shell: str):
+def steps_scripts(steps, run_shell: str | None):
     """Yield (script, language, line_of) for each sh or bash script a list of steps runs. A
-    run step without a shell of its own runs run_shell."""
+    run step without a shell of its own runs run_shell, a shell name or a template such as
+    `bash -e {0}`. When run_shell is None, no shell can be told for such a step, and it raises
+    ParseError rather than leave the step unread."""
     if not isinstance(steps, yaml.SequenceNode):
         return
     for step in steps.value:
@@ -198,8 +218,17 @@ def steps_scripts(steps, run_shell: str):
         else:
             scripts = [step_fields.get("run")]
             shell, default = step_fields.get("shell"), run_shell
-        words = shell.value.split() if isinstance(shell, yaml.ScalarNode) else [default]
-        name = words[0].rsplit("/", 1)[-1] if words else default
+        chosen = shell.value if isinstance(shell, yaml.ScalarNode) else default
+        if chosen is None:
+            if any(isinstance(script, yaml.ScalarNode) for script in scripts):
+                message = (
+                    f"line {step.start_mark.line + 1}: runs-on is an expression, so the shell "
+                    "this step runs is not known; name its shell or the job's defaults.run.shell"
+                )
+                raise ParseError(message)
+            continue
+        words = chosen.split()
+        name = words[0].rsplit("/", 1)[-1] if words else ""
         if name not in SHELLS:
             continue
         for script in scripts:

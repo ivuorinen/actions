@@ -14,6 +14,7 @@ when shfmt cannot parse a file.
 
 from __future__ import annotations
 
+from itertools import pairwise
 import json
 from pathlib import Path
 import re
@@ -88,7 +89,7 @@ def insecure_download(name: str, args: list[str]) -> bool:
         return False
     https = any(
         word == "--proto==https" or (word == "--proto" and following == "=https")
-        for word, following in zip(args, [*args[1:], ""], strict=True)
+        for word, following in pairwise([*args, ""])
     )
     return not (https and {"--tlsv1.2", "--tlsv1.3"} & set(args))
 
