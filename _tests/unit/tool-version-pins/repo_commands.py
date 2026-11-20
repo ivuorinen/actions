@@ -56,6 +56,148 @@ TLS_VERSIONS = {
 # curl's short options that take a value, as `curl --help all` lists them (curl 8.5): in a
 # cluster such as -sSo, the rest of the word, or else the next word, is that value.
 CURL_SHORT_VALUES = set("AbcCdDeEFhHKmoPQrtTuUwxXyYz")
+# curl's long options that take a value, as `curl --help all` lists them (curl 8.5). curl takes
+# the next word as the value; it has no --option=value form, and rejects one as unknown.
+CURL_LONG_VALUES = frozenset(
+    [
+        "--abstract-unix-socket",
+        "--alt-svc",
+        "--aws-sigv4",
+        "--cacert",
+        "--capath",
+        "--cert",
+        "--cert-type",
+        "--ciphers",
+        "--config",
+        "--connect-timeout",
+        "--connect-to",
+        "--continue-at",
+        "--cookie",
+        "--cookie-jar",
+        "--create-file-mode",
+        "--crlfile",
+        "--curves",
+        "--data",
+        "--data-ascii",
+        "--data-binary",
+        "--data-raw",
+        "--data-urlencode",
+        "--delegation",
+        "--dns-interface",
+        "--dns-ipv4-addr",
+        "--dns-ipv6-addr",
+        "--dns-servers",
+        "--doh-url",
+        "--dump-header",
+        "--egd-file",
+        "--engine",
+        "--etag-compare",
+        "--etag-save",
+        "--expect100-timeout",
+        "--form",
+        "--form-string",
+        "--ftp-account",
+        "--ftp-alternative-to-user",
+        "--ftp-method",
+        "--ftp-port",
+        "--ftp-ssl-ccc-mode",
+        "--happy-eyeballs-timeout-ms",
+        "--header",
+        "--help",
+        "--hostpubmd5",
+        "--hostpubsha256",
+        "--hsts",
+        "--interface",
+        "--ipfs-gateway",
+        "--json",
+        "--keepalive-time",
+        "--key",
+        "--key-type",
+        "--krb",
+        "--libcurl",
+        "--limit-rate",
+        "--local-port",
+        "--login-options",
+        "--mail-auth",
+        "--mail-from",
+        "--mail-rcpt",
+        "--max-filesize",
+        "--max-redirs",
+        "--max-time",
+        "--netrc-file",
+        "--noproxy",
+        "--oauth2-bearer",
+        "--output",
+        "--output-dir",
+        "--parallel-max",
+        "--pass",
+        "--pinnedpubkey",
+        "--preproxy",
+        "--proto",
+        "--proto-default",
+        "--proto-redir",
+        "--proxy",
+        "--proxy1.0",
+        "--proxy-cacert",
+        "--proxy-capath",
+        "--proxy-cert",
+        "--proxy-cert-type",
+        "--proxy-ciphers",
+        "--proxy-crlfile",
+        "--proxy-header",
+        "--proxy-key",
+        "--proxy-key-type",
+        "--proxy-pass",
+        "--proxy-pinnedpubkey",
+        "--proxy-service-name",
+        "--proxy-tls13-ciphers",
+        "--proxy-tlsauthtype",
+        "--proxy-tlspassword",
+        "--proxy-tlsuser",
+        "--proxy-user",
+        "--pubkey",
+        "--quote",
+        "--random-file",
+        "--range",
+        "--rate",
+        "--referer",
+        "--request",
+        "--request-target",
+        "--resolve",
+        "--retry",
+        "--retry-delay",
+        "--retry-max-time",
+        "--sasl-authzid",
+        "--service-name",
+        "--socks4",
+        "--socks4a",
+        "--socks5",
+        "--socks5-gssapi-service",
+        "--socks5-hostname",
+        "--speed-limit",
+        "--speed-time",
+        "--stderr",
+        "--telnet-option",
+        "--tftp-blksize",
+        "--time-cond",
+        "--tls13-ciphers",
+        "--tlsauthtype",
+        "--tls-max",
+        "--tlspassword",
+        "--tlsuser",
+        "--trace",
+        "--trace-ascii",
+        "--trace-config",
+        "--unix-socket",
+        "--upload-file",
+        "--url",
+        "--url-query",
+        "--user",
+        "--user-agent",
+        "--variable",
+        "--write-out",
+    ]
+)
 
 # What a make reference reads as in a shell script: a word that names no command.
 REFERENCE = "MAKEREF"
@@ -108,7 +250,8 @@ def curl_operations(args: list[str]):
     """Yield (protocols, tls, operands) for each operation of a curl command: --next (-:)
     starts a new one, which keeps none of the options before it. protocols is its last
     --proto, tls its last TLS or SSL version option, operands how many URLs and other operands
-    it has. Short options are read as curl reads a cluster such as -sS1."""
+    it has. A long option that takes a value consumes the next word, and short options are read
+    as curl reads a cluster such as -sS1, so a value is never read as an option."""
     protocols, tls, operands = "", "", 0
     index = 0
     while index < len(args):
@@ -117,11 +260,13 @@ def curl_operations(args: list[str]):
         if word in ("--next", "-:"):
             yield protocols, tls, operands
             protocols, tls, operands = "", "", 0
-        elif word == "--proto":
-            protocols = args[index] if index < len(args) else ""
+        elif word in CURL_LONG_VALUES:
+            value = args[index] if index < len(args) else ""
             index += 1
-        elif word.startswith("--proto="):
-            protocols = word.split("=", 1)[1]
+            if word == "--proto":
+                protocols = value
+            elif word == "--url":
+                operands += 1
         elif word.startswith("--"):
             tls = TLS_VERSIONS.get(word, tls)
         elif word.startswith("-") and word != "-":

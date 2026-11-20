@@ -182,7 +182,7 @@ printf '%s\n' "runs:" "  using: composite" "  steps:" "    - shell: sh" "      r
   "        curl -fsSL \"https://example.com/tool\" -o tool" \
   "        curl -fsSL \"\$URL\" -o tool # --proto '=https' --tlsv1.2" \
   "        curl --proto '=https' --tlsv1.2 -fsSL \"\$URL\" -o tool" \
-  "        curl --proto==https --tlsv1.3 -fsSL \"\$URL\" -o tool" \
+  "        curl --proto '=https' --tlsv1.3 -fsSL \"\$URL\" -o tool" \
   "        if ! curl; then exit 1; fi" \
   "        curl --proto '=https' --tlsv1.2 --proto '=http' http://example.com/tool -o tool" \
   "        curl --proto '=https' --tlsv1.3 --tlsv1.0 -fsSL \"\$URL\" -o tool" \
@@ -192,7 +192,10 @@ printf '%s\n' "runs:" "  using: composite" "  steps:" "    - shell: sh" "      r
   "        curl --proto '=https' --tlsv1.2 https://example.com/a --next http://example.com/b" \
   "        curl http://example.com/a -: --proto '=https' --tlsv1.2 https://example.com/b" \
   "        curl --proto '=https' --tlsv1.2 https://example.com/a -: --proto '=https' --tlsv1.2 https://example.com/b" \
-  "        curl --proto '=https' --tlsv1.2 -o1.txt https://example.com/a" >"${TREE}/action.yml"
+  "        curl --proto '=https' --tlsv1.2 -o1.txt https://example.com/a" \
+  "        curl --proto '=https' --tlsv1.2 --user-agent '-sS1' https://example.com/tool -o tool" \
+  "        curl --proto '=https' --user-agent '--tlsv1.2' https://example.com/tool -o tool" \
+  "        curl --proto==https --tlsv1.2 https://example.com/tool -o tool" >"${TREE}/action.yml"
 When call fetches_without_tls "${TREE}/action.yml"
 The output should include "action.yml:6: curl -fsSL https://example.com/tool -o tool"
 The output should include "action.yml:7: curl -fsSL \$... -o tool"
@@ -203,7 +206,9 @@ The output should include "action.yml:13: curl --proto =https --tlsv1.2 -1 "
 The output should include "action.yml:14: curl --proto =https --tlsv1.2 -sS1 "
 The output should include "action.yml:16: curl --proto =https --tlsv1.2 https://example.com/a --next"
 The output should include "action.yml:17: curl http://example.com/a -: "
-The lines of output should equal 9
+The output should include "action.yml:21: curl --proto =https --user-agent --tlsv1.2 "
+The output should include "action.yml:22: curl --proto==https --tlsv1.2 "
+The lines of output should equal 11
 End
 
 # A run step without a shell runs pwsh on a Windows runner, which is not read as bash, and sh in
