@@ -61,28 +61,34 @@ The lines of output should equal 1
 End
 End
 
-# executable.py: prints, for each FILE, each line's text that runs as a command, as
-# "FILE:LINE: TEXT". Comments and quoted text (messages, paths) are dropped, and so are tool
-# presence checks and for-loop name lists; package.json contributes its scripts.
+# executable_lines FILE...: prints, for each FILE, each line's text that runs as a command, as
+# "FILE:LINE: TEXT", or "FILE:NAME: TEXT" for each script in a package.json. Quoted text
+# (messages, paths) goes first, so a # inside it starts no comment; then comments, tool
+# presence checks and for-loop name lists.
 executable_lines() {
   _harness_python - "$@" <<'PY'
 import json
 import re
 import sys
 
+
+def command_text(text):
+    text = re.sub(r'"[^"]*"', '""', text)
+    text = re.sub(r"'[^']*'", "''", text)
+    text = re.sub(r"^\s*@#.*|(^|\s)#.*", "", text)
+    text = re.sub(r"command -v\s+\S+", "", text)
+    text = re.sub(r"\bfor \w+ in [^;]*;", "", text)
+    return text.strip()
+
+
 for path in sys.argv[1:]:
     if path.endswith(".json"):
-        for name, script in json.load(open(path, encoding="utf-8")).get("scripts", {}).items():
-            print(f"{path}:{name}: {script}")
-        continue
-    for number, line in enumerate(open(path, encoding="utf-8"), 1):
-        if re.match(r"\s*@?#", line):
-            continue
-        line = re.sub(r'"[^"]*"', '""', line)
-        line = re.sub(r"'[^']*'", "''", line)
-        line = re.sub(r"command -v\s+\S+", "", line)
-        line = re.sub(r"\bfor \w+ in [^;]*;", "", line)
-        print(f"{path}:{number}: {line.strip()}")
+        lines = json.load(open(path, encoding="utf-8")).get("scripts", {}).items()
+    else:
+        lines = enumerate(open(path, encoding="utf-8"), 1)
+    for where, line in lines:
+        if text := command_text(line):
+            print(f"{path}:{where}: {text}")
 PY
 }
 
@@ -103,8 +109,9 @@ The output should include "uvx ruff"
 The output should include "&& npx --yes prettier"
 End
 
-It "finds npx in an npm script"
-printf '%s\n' '{"scripts": {"lint": "npx yaml-lint x.yml", "ok": "yaml-lint x.yml"}}' >"${TREE}/package.json"
+It "finds npx in an npm script, but not in one that only prints it"
+printf '%s\n' '{"scripts": {"lint": "npx yaml-lint x.yml", "ok": "yaml-lint x.yml", "help": "echo \"npx prettier --check .\""}}' \
+  >"${TREE}/package.json"
 When call invocations "${TREE}/package.json"
 The output should include "npx yaml-lint"
 The lines of output should equal 1
@@ -243,16 +250,19 @@ scripted_installs() {
   uncommented 'npm (ci|install)' "$@" | grep -v -- '--ignore-scripts' | grep -v 'npm ci --ignore-scripts' || true
 }
 
-It "finds a uv run that would re-resolve the lock, even after a log line or a locked one"
+It "finds a uv run that would re-resolve the lock, even after a log line or a locked one, or with --locked in a comment"
 printf '%s\n' "check:" "	uv run tool.py" "	uv run --locked tool.py" \
   "	echo \"Checking Python\"; uv run ruff check ." \
   "	uv run --locked a.py && uv run b.py" \
+  "	uv run lint.py # --locked" \
+  "	uv run --project \"#dir\" --locked c.py" \
   "	log_error \"uv sync failed\"" >"${TREE}/Makefile"
 When call unlocked "${TREE}/Makefile"
 The output should include "uv run tool.py"
 The output should include "uv run ruff check ."
 The output should include "uv run b.py"
-The lines of output should equal 3
+The output should include "uv run lint.py"
+The lines of output should equal 4
 End
 
 It "runs uv against uv.lock as it stands"
@@ -288,17 +298,21 @@ The output should equal ""
 End
 
 # serial DIR: prints serial when the Makefile in DIR runs its targets one at a time, as read by make.
+# Only a .NOTPARALLEL without prerequisites does that: make 4.4 serializes just the prerequisites
+# of one that has them, and make prints both forms together as one entry with them.
 # grep reads the whole database: one that stopped at the first match would cut make off mid-write.
 serial() {
-  [ "$(make -s -C "$1" -p -n 2>/dev/null | grep -c -E '^\.NOTPARALLEL:')" -gt 0 ] && echo serial || true
+  [ "$(make -s -C "$1" -p -n 2>/dev/null | grep -c -E '^\.NOTPARALLEL:[[:space:]]*$')" -gt 0 ] && echo serial || true
 }
 
 It "tells a Makefile that runs its targets one at a time from one that runs them in parallel"
-mkdir -p "${TREE}/parallel" "${TREE}/serial"
+mkdir -p "${TREE}/parallel" "${TREE}/scoped" "${TREE}/serial"
 printf '%s\n' "all: ; @true" >"${TREE}/parallel/Makefile"
+printf '%s\n' "all: ; @true" "x: ; @true" ".NOTPARALLEL: x" >"${TREE}/scoped/Makefile"
 printf '%s\n' "all: ; @true" ".NOTPARALLEL:" >"${TREE}/serial/Makefile"
 When call serial "${TREE}/parallel"
 The output should equal ""
+Assert [ -z "$(serial "${TREE}/scoped")" ]
 Assert [ "$(serial "${TREE}/serial")" = serial ]
 End
 

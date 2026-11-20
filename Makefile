@@ -53,7 +53,7 @@ GAR_SHA256 := $(GAR_SHA256_$(UNAME_S)_$(GAR_ARCH))
 GAR_DIR := .tools/gh-action-readme/$(GAR_VERSION)
 GAR := $(GAR_DIR)/gh-action-readme
 # pre-commit at the version uv.lock pins for the dev extra. As a module, so a venv without it
-# (its marker leaves it out on Python 3.10) fails instead of running another pre-commit on PATH.
+# fails instead of running another pre-commit on PATH.
 PRE_COMMIT := uv run --locked --extra dev python -m pre_commit
 
 # Theme and the pinned `uses:` ref live in .gh-action-readme.yaml. It is passed
@@ -461,10 +461,13 @@ install-tools: ## Install/update required tools
 		echo "  shfmt already installed"; \
 	fi
 	@echo "$(YELLOW)Installing git hooks with pre-commit...$(RESET)"
+	@# A linked worktree's .git is a file, so it skips this: the hook it would install for the
+	@# whole repository runs that worktree's venv, which goes away with the worktree.
 	@if [ -d .git ]; then \
-		if $(PRE_COMMIT) install 2>/dev/null; then \
-			echo "  Git hooks installed"; \
-		fi; \
+		$(PRE_COMMIT) install || { echo "$(RED)❌ pre-commit could not install the git hooks$(RESET)"; exit 1; }; \
+		echo "  Git hooks installed"; \
+	else \
+		echo "  Not the main checkout; git hooks left as they are"; \
 	fi
 	@echo "$(GREEN)✅ All tools installed/updated$(RESET)"
 

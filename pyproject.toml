@@ -6,15 +6,16 @@ name = "ivuorinen-actions"
 version = "1.0.0"
 description = "Reusable GitHub Actions with Python validation and testing framework"
 authors = [{name = "Ismo Vuorinen", email = "ismo@ivuorinen.net"}]
-requires-python = ">=3.10"
+# pre-commit, which the dev extra pins for make and the git hooks, needs Python 3.11.
+requires-python = ">=3.11"
 dependencies = [
     "PyYAML>=6.0",
 ]
 
 [project.optional-dependencies]
 dev = [
-    # pre-commit runs the repository's hooks; make runs it from this lock. It needs Python 3.11.
-    "pre-commit>=4.7.0; python_version >= '3.11'",
+    # pre-commit runs the repository's hooks; make runs it from this lock.
+    "pre-commit>=4.7.0",
     # The nodejs extra brings a Node.js wheel uv.lock pins by hash. Without it, pyright
     # downloads the newest Node.js through nodeenv with no checksum when node is missing.
     "pyright[nodejs]>=1.1",
