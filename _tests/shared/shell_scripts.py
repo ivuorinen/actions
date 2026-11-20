@@ -161,7 +161,30 @@ def step_scripts(text: str):
     map to the line where the value starts. Only runs.steps runs scripts, so a key named run
     anywhere else, such as in env:, is not one.
     """
-    steps = fields(fields(yaml.compose(text)).get("runs")).get("steps")
+    yield from steps_scripts(fields(fields(yaml.compose(text)).get("runs")).get("steps"), "sh")
+
+
+def default_shell(node_fields: dict) -> str | None:
+    """Return the shell a workflow's or a job's defaults.run.shell names, if any."""
+    shell = fields(fields(node_fields.get("defaults")).get("run")).get("shell")
+    return shell.value if isinstance(shell, yaml.ScalarNode) else None
+
+
+def workflow_scripts(text: str):
+    """Yield (script, language, line_of) for each sh or bash script a workflow's jobs run, as
+    step_scripts does for an action. A run step that names no shell runs the one its job's or
+    the workflow's defaults.run.shell names, or else bash, GitHub's default on Linux."""
+    root = fields(yaml.compose(text))
+    workflow = default_shell(root)
+    for job in fields(root.get("jobs")).values():
+        job_fields = fields(job)
+        shell = default_shell(job_fields) or workflow or "bash"
+        yield from steps_scripts(job_fields.get("steps"), shell)
+
+
+def steps_scripts(steps, run_shell: str):
+    """Yield (script, language, line_of) for each sh or bash script a list of steps runs. A
+    run step without a shell of its own runs run_shell."""
     if not isinstance(steps, yaml.SequenceNode):
         return
     for step in steps.value:
@@ -174,7 +197,7 @@ def step_scripts(text: str):
             shell, default = options.get("shell"), "bash"
         else:
             scripts = [step_fields.get("run")]
-            shell, default = step_fields.get("shell"), "sh"
+            shell, default = step_fields.get("shell"), run_shell
         words = shell.value.split() if isinstance(shell, yaml.ScalarNode) else [default]
         name = words[0].rsplit("/", 1)[-1] if words else default
         if name not in SHELLS:

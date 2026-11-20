@@ -11,6 +11,8 @@ REPO_COMMANDS="${ROOT}/_tests/unit/tool-version-pins/repo_commands.py"
 SETUP_ENV="${ROOT}/.github/actions/setup-test-environment/action.yml"
 SECURITY_SUITE="${ROOT}/.github/workflows/security-suite.yml"
 DOCKERFILE="${ROOT}/_tools/docker-testing-tools/Dockerfile"
+# A shell pattern for a SHA-256 digest: 64 hexadecimal digits.
+HEX64=$(printf '[0-9a-f]%.0s' $(seq 64))
 
 before() {
   TREE=$(mktemp -d)
@@ -24,8 +26,9 @@ AfterEach 'after'
 
 Describe "pre-commit"
 # unfrozen CONFIG: "REPO REV" for each remote hook in the pre-commit CONFIG whose rev is not a
-# commit with its tag in a frozen comment, then "remote: N", the number of remote hooks.
-# Parsed as YAML, so a quoted repository URL is checked like any other.
+# commit followed, on its own line, by its tag in a frozen comment, then "remote: N", the number
+# of remote hooks. Parsed as YAML, so a quoted repository URL is checked like any other, and each
+# rev's comment is read where the rev ends.
 unfrozen() {
   _harness_python - "$1" <<'PY'
 import re
@@ -34,24 +37,35 @@ import sys
 import yaml
 
 text = open(sys.argv[1], encoding="utf-8").read()
-remote = [repo for repo in yaml.safe_load(text).get("repos", []) if repo.get("repo") not in ("local", "meta")]
-for repo in remote:
-    rev = str(repo.get("rev", ""))
-    commit = re.fullmatch(r"[0-9a-f]{40}", rev)
-    if not (commit and re.search(rf"rev:\s*['\"]?{rev}['\"]?\s+# frozen: \S+", text)):
-        print(repo.get("repo"), rev)
-print(f"remote: {len(remote)}")
+lines = text.splitlines()
+remote = 0
+repos = next((value for key, value in yaml.compose(text).value if key.value == "repos"), None)
+for repo in repos.value if repos is not None else []:
+    fields = {key.value: value for key, value in repo.value}
+    if fields.get("repo") is None or fields["repo"].value in ("local", "meta"):
+        continue
+    remote += 1
+    rev = fields.get("rev")
+    value = rev.value if rev is not None else ""
+    after = lines[rev.end_mark.line][rev.end_mark.column :] if rev is not None else ""
+    if not (re.fullmatch(r"[0-9a-f]{40}", value) and re.fullmatch(r"\s+# frozen: \S+\s*", after)):
+        print(fields["repo"].value, value)
+print(f"remote: {remote}")
 PY
 }
 
-It "finds a floating rev on a quoted or unquoted repository"
+It "finds a floating rev on a quoted or unquoted repository, and a rev whose frozen comment is elsewhere"
 printf '%s\n' "repos:" \
   "  - repo: \"https://github.com/example/hooks\"" "    rev: v1" "    hooks: [{id: a}]" \
   "  - repo: https://github.com/example/frozen" \
   "    rev: 0123456789abcdef0123456789abcdef01234567 # frozen: v2" "    hooks: [{id: b}]" \
+  "  # rev: 89abcdef0123456789abcdef0123456789abcdef # frozen: v3" \
+  "  - repo: https://github.com/example/bare" \
+  "    rev: 89abcdef0123456789abcdef0123456789abcdef" "    hooks: [{id: d}]" \
   "  - repo: local" "    hooks: [{id: c, name: c, entry: c, language: system}]" >"${TREE}/config.yaml"
 When call unfrozen "${TREE}/config.yaml"
-The output should equal "$(printf '%s\n' "https://github.com/example/hooks v1" "remote: 2")"
+The output should equal "$(printf '%s\n' "https://github.com/example/hooks v1" \
+  "https://github.com/example/bare 89abcdef0123456789abcdef0123456789abcdef" "remote: 3")"
 End
 
 # A tag can be moved to other code; Renovate keeps this format when it bumps a hook.
@@ -73,14 +87,19 @@ printf '%s\n' "lint:" "	npx --yes prettier --check ." "	uvx ruff check ." "	npx 
   "	command -v npx >/dev/null && npx --yes prettier --check ." \
   "	command -v npx >/dev/null || { echo \"npx not found\"; exit 1; }" \
   "	echo \"\$\$(npx --yes prettier --version)\"" \
-  "inline: ; @npx --yes prettier --check ." >"${TREE}/Makefile"
+  "inline: ; @npx --yes prettier --check ." \
+  "	uv --python-preference system run --locked --with ruff ruff --version" \
+  "	uv run --locked -w ruff ruff --version" \
+  "	uv run --locked tool.py --with x" >"${TREE}/Makefile"
 When call invocations "${TREE}/Makefile"
-The lines of output should equal 5
+The lines of output should equal 7
 The output should include "Makefile:2: npx --yes prettier --check ."
 The output should include "Makefile:3: uvx ruff"
 The output should include "Makefile:5: npx --yes prettier --check ."
 The output should include "Makefile:7: npx --yes prettier --version"
 The output should include "Makefile:8: npx --yes prettier --check ."
+The output should include "Makefile:9: uv --python-preference system run --locked --with ruff ruff --version"
+The output should include "Makefile:10: uv run --locked -w ruff ruff --version"
 End
 
 It "finds npx in an npm script, but not in one that only prints it"
@@ -130,7 +149,7 @@ End
 
 It "pins the SHA-256 of the $1 $3 archive"
 When call gar GAR_SHA256 "$1" "$2"
-The output should match pattern "????????????????????????????????????????????????????????????????"
+The output should match pattern "$HEX64"
 End
 
 It "names the $1 $3 archive"
@@ -152,27 +171,22 @@ End
 End
 
 Describe "downloads"
-# fetches_without_tls FILE...: each curl download in FILE that does not insist on HTTPS and TLS 1.2.
+# fetches_without_tls FILE...: each curl command FILE runs that does not insist on HTTPS and
+# TLS 1.2, read from the arguments curl gets.
 fetches_without_tls() {
-  _harness_python - "$@" <<'PY'
-import re
-import sys
-
-for path in sys.argv[1:]:
-    text = open(path, encoding="utf-8").read()
-    for match in re.finditer(r"(?<![\w-])curl\s(?:[^\n]*\\\n)*[^\n]*", text):
-        command = match.group(0)
-        if not re.search(r"https?://|\$[{(]?\w*URL", command):
-            continue
-        if "--proto '=https'" not in command or "--tlsv1.2" not in command:
-            print(f"{path}: {command.splitlines()[0].strip()}")
-PY
+  _harness_python "$REPO_COMMANDS" insecure-downloads "$@"
 }
 
-It "finds a curl download without the TLS options"
-printf '%s\n' 'run: curl -fsSL "https://example.com/tool" -o tool' >"${TREE}/action.yml"
+It "finds a curl download without the TLS options, also when they are only in a comment"
+printf '%s\n' "runs:" "  using: composite" "  steps:" "    - shell: sh" "      run: |" \
+  "        curl -fsSL \"https://example.com/tool\" -o tool" \
+  "        curl -fsSL \"\$URL\" -o tool # --proto '=https' --tlsv1.2" \
+  "        curl --proto '=https' --tlsv1.2 -fsSL \"\$URL\" -o tool" \
+  "        curl --proto==https --tlsv1.3 -fsSL \"\$URL\" -o tool" >"${TREE}/action.yml"
 When call fetches_without_tls "${TREE}/action.yml"
-The output should include "curl -fsSL"
+The output should include "action.yml:6: curl -fsSL https://example.com/tool -o tool"
+The output should include "action.yml:7: curl -fsSL \$... -o tool"
+The lines of output should equal 2
 End
 
 It "downloads over HTTPS and TLS 1.2 only"
@@ -211,9 +225,10 @@ unlocked() {
   _harness_python "$REPO_COMMANDS" unlocked "$@"
 }
 
-# scripted_installs FILE...: each npm ci or npm install in FILE that runs the packages' install scripts.
+# scripted_installs FILE...: each npm install FILE runs that runs the packages' install scripts,
+# read from the arguments npm gets.
 scripted_installs() {
-  uncommented 'npm (ci|install)' "$@" | grep -v -- '--ignore-scripts' | grep -v 'npm ci --ignore-scripts' || true
+  _harness_python "$REPO_COMMANDS" install-scripts "$@"
 }
 
 It "finds a uv run that would update the lock, however make or the shell wraps it"
@@ -233,7 +248,17 @@ printf '%s\n' "TOOL := \$(shell uv run tool.py --version)" "LOCKED := uv run --l
   "	uv run --color=always --locked f.py" \
   "	uv --color always sync --quiet" \
   "inline: ; uv run g.py" \
-  "help: ## run; then stop" >"${TREE}/Makefile"
+  "help: ## run; then stop" \
+  "	uv --python-preference system sync" \
+  "	uv --python-preference=system sync" \
+  "	uv run --locked --no-locked h.py" \
+  "	uv run --no-locked --locked i.py" \
+  "VALUE := yes # \$(shell uv run commented.py)" \
+  "ifneq (\$(shell uv run cond.py),)" \
+  "endif" \
+  "LEFT_PAREN := (" \
+  "RUNNER = uv run --extra dev" \
+  "	\$(RUNNER) tool.py" >"${TREE}/Makefile"
 When call unlocked "${TREE}/Makefile"
 The output should include "Makefile:1: uv run tool.py --version"
 The output should include "Makefile:4: uv run tool.py"
@@ -247,7 +272,12 @@ The output should include "Makefile:14: uv run nested.py --version"
 The output should include "Makefile:15: uv run quoted.py"
 The output should include "Makefile:18: uv --color always sync --quiet"
 The output should include "Makefile:19: uv run g.py"
-The lines of output should equal 12
+The output should include "Makefile:21: uv --python-preference system sync"
+The output should include "Makefile:22: uv --python-preference=system sync"
+The output should include "Makefile:23: uv run --locked --no-locked h.py"
+The output should include "Makefile:26: uv run cond.py"
+The output should include "Makefile:30: uv run --extra dev tool.py"
+The lines of output should equal 17
 End
 
 It "finds a uv sync without --locked in a shell script"
@@ -278,10 +308,16 @@ It "takes pyright's Node.js from the lock"
 The contents of file "${ROOT}/pyproject.toml" should include '"pyright[nodejs]'
 End
 
-It "finds an npm install that runs install scripts"
-printf '%s\n' "run: npm ci" >"${TREE}/workflow.yml"
+It "finds an npm install that runs install scripts, also when --ignore-scripts is turned off again"
+printf '%s\n' "jobs:" "  build:" "    runs-on: ubuntu-latest" "    steps:" "      - run: npm ci" \
+  "      - run: npm ci --ignore-scripts=false" "      - run: npm ci --ignore-scripts" \
+  "      - run: npm --ignore-scripts install" "      - run: npm install --ignore-scripts --no-ignore-scripts" \
+  "      - run: npm run build" >"${TREE}/workflow.yml"
 When call scripted_installs "${TREE}/workflow.yml"
-The output should include "npm ci"
+The output should include "workflow.yml:5: npm ci"
+The output should include "workflow.yml:6: npm ci --ignore-scripts=false"
+The output should include "workflow.yml:9: npm install --ignore-scripts --no-ignore-scripts"
+The lines of output should equal 3
 End
 
 It "installs npm packages without their install scripts"
@@ -401,19 +437,51 @@ When call digest_updates
 The output should equal "catthehacker/ubuntu owasp/dependency-check-action ubuntu timestamp-optional reviewed"
 End
 
-# unpinned_docker_steps: each docker:// step in a workflow without an image digest.
+# unpinned_docker_steps FILE...: "FILE: USES" for each docker:// uses value in FILE, as YAML reads
+# it, that names no image digest, then "docker steps: N", the number of docker:// values.
 unpinned_docker_steps() {
-  grep -n -H -E 'uses:[[:space:]]*docker://' "${ROOT}"/.github/workflows/*.yml | grep -v -E '@sha256:[0-9a-f]{64}' || true
+  _harness_python - "$@" <<'PY'
+import re
+import sys
+
+import yaml
+
+
+def uses_values(node):
+    if isinstance(node, dict):
+        for key, value in node.items():
+            if key == "uses" and isinstance(value, str):
+                yield value
+            yield from uses_values(value)
+    elif isinstance(node, list):
+        for value in node:
+            yield from uses_values(value)
+
+
+count = 0
+for path in sys.argv[1:]:
+    for uses in uses_values(yaml.safe_load(open(path, encoding="utf-8"))):
+        if uses.startswith("docker://"):
+            count += 1
+            if not re.fullmatch(r"docker://[^@\s]+@sha256:[0-9a-f]{64}", uses):
+                print(f"{path}: {uses}")
+print(f"docker steps: {count}")
+PY
 }
 
-It "runs every docker:// step in the workflows by digest"
-When call unpinned_docker_steps
-The output should equal ""
+It "finds a docker:// step without an image digest, quoted or not"
+printf '%s\n' "jobs:" "  scan:" "    runs-on: ubuntu-latest" "    steps:" \
+  "      - uses: \"docker://alpine:latest\"" "      - uses: docker://alpine:3" \
+  "      - uses: docker://alpine:3@sha256:$(printf '0%.0s' $(seq 64))" >"${TREE}/workflow.yml"
+When call unpinned_docker_steps "${TREE}/workflow.yml"
+The output should equal "$(printf '%s\n' "${TREE}/workflow.yml: docker://alpine:latest" \
+  "${TREE}/workflow.yml: docker://alpine:3" "docker steps: 3")"
 End
 
-It "has a docker:// step to check"
-When call grep -c 'uses: docker://' "$SECURITY_SUITE"
-The output should equal 1
+It "runs every docker:// step in the workflows by digest"
+When call unpinned_docker_steps "${ROOT}"/.github/workflows/*.yml
+The output should match pattern "docker steps: [1-9]*"
+The lines of output should equal 1
 End
 
 It "updates the BuildKit image build-testing-image.yml pins"
