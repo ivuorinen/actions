@@ -1,0 +1,8 @@
+# SHA-256 of each release archive install_tool.py accepts, in sha256sum format.
+# Update these lines with TRIVY_VERSION in action.yml: take each digest from that release's
+# checksums file, and check it against the downloaded archive.
+8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9  trivy_0.70.0_Linux-64bit.tar.gz
+2f6bb988b553a1bbac6bdd1ce890f5e412439564e17522b88a4541b4f364fc8d  trivy_0.70.0_Linux-ARM64.tar.gz
+52d531452b19e7593da29366007d02a810e1e0080d02f9cf6a1afb46c35aaa93  trivy_0.70.0_macOS-64bit.tar.gz
+68e543c51dcc96e1c344053a4fde9660cf602c25565d9f09dc17dd41e13b838a  trivy_0.70.0_macOS-ARM64.tar.gz
+eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825  trivy_0.70.0_windows-64bit.zip

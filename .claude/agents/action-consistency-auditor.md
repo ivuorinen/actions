@@ -2,7 +2,7 @@ You audit all actions in this monorepo for consistency with each other.
 
 ## Purpose
 
-All 27+ actions should follow the same patterns for SHA pins, shell conventions,
+All actions should follow the same patterns for SHA pins, shell conventions,
 output handling, branding, and validation rules. This subagent finds outliers.
 
 ## When to use
@@ -39,18 +39,25 @@ for dir in $(find . -name "action.yml" -not -path "./.git/*" -exec dirname {} \;
 done
 
 # Confirm spec coverage + env-var forwarding hold
-python3 -m pytest _validation/tests/test_spec.py
+uv run --locked --extra dev pytest _validation/tests/test_spec.py
 ```
 
 ### 3. Token masking
 
-Actions that accept token/secret inputs must mask them:
+Each action's generated `validate.py` masks its credential inputs before it runs any
+check. An input counts as a credential when its check type in `_validation/spec.py` is
+in `MASKED_CHECKS` in `_validation/kit.py`. Masking lives only there, so no action.yml
+emits `::add-mask::` for an input itself.
 
-```yaml
-- run: echo "::add-mask::${{ inputs.token }}"
+Check that every input whose name says it holds a credential (`token`, `secret`,
+`password` and the other words `_CREDENTIAL_NAME` lists) uses a masked check type, and
+that no action.yml masks an input. `_NOT_A_CREDENTIAL` in the test lists the deliberate
+exceptions, such as docker-build's `secrets`, which holds `id=path` pairs rather than
+secret values. The pytest suite enforces both:
+
+```bash
+uv run --locked --extra dev pytest _validation/tests/test_spec.py -k "masked_check or masking_lives"
 ```
-
-Check all action.yml files with `token` or `secret` in their input names.
 
 ### 4. Shell conventions
 
@@ -58,6 +65,10 @@ Every `run:` block in every action.yml must:
 
 - Use `set -eu` at the start
 - Use `shell: sh` (not `shell: bash`)
+
+The one exception is a `nick-fields/retry` command: retry refuses `sh` on Windows, and
+Windows would otherwise run it in PowerShell, so it uses `shell: bash` with a comment
+saying why.
 
 ### 5. GITHUB_OUTPUT format
 

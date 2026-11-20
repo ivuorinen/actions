@@ -2,7 +2,8 @@
 
 ![upload-cloud](https://img.shields.io/badge/icon-upload-cloud-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-> Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub
+> Simple wrapper to publish Docker images to GitHub Packages and/or Docker Hub. Uses the runner's Docker Buildx, which GitHub's Ubuntu runners have, and fails on a runner without it rather than
+> download one unverified.
 
 ## 🚀 Quick Start
 

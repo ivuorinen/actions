@@ -5,7 +5,9 @@
 #   - id-token: write  # Required for keyless image signing with cosign (sign-image: true)
 ---
 name: Docker Build
-description: 'Builds a Docker image for multiple architectures with enhanced security and reliability.'
+description: >-
+  Builds a Docker image for multiple architectures with enhanced security and reliability. Uses the runner's Docker
+  Buildx, which GitHub's Ubuntu runners have, unless buildx-version names a release to download.
 author: 'Ismo Vuorinen'
 
 branding:
@@ -56,10 +58,15 @@ inputs:
     required: false
     default: ''
   buildx-version:
-    description: 'Docker Buildx version to install (e.g., v0.38.2). Empty uses the release this action pins, "latest" the newest release.'
+    description: >-
+      Docker Buildx version to install (e.g., v0.38.2), or "latest" for the newest release. It is downloaded from GitHub
+      with no digest or signature check, and never restored from the Actions cache, though a self-hosted runner's tool
+      cache can keep an earlier download. Empty uses the runner's Buildx and fails when the runner has none.
     required: false
   buildkit-version:
-    description: 'BuildKit image tag (e.g., v0.34.2), optionally with @sha256:<digest>. Empty uses the digest this action pins.'
+    description: >-
+      BuildKit image tag (e.g., v0.34.2), optionally with @sha256:<digest>. Empty uses the digest this action pins.
+      Buildx runs the image privileged, and a tag without a digest can be pushed again with other contents.
     required: false
   cache-mode:
     description: >-
@@ -87,7 +94,10 @@ inputs:
     description: 'Platform-specific build args in JSON format'
     required: false
   cache-export:
-    description: 'Export cache destination, one spec on one line (e.g., type=gha,mode=max). Replaces the per-image, per-ref registry cache export.'
+    description: >-
+      Export cache destination, one spec on one line (e.g., type=gha,mode=max). Replaces the per-image, per-ref registry
+      cache export, and unlike it is written on every event: a pull_request_target, issue_comment or workflow_run run
+      shares the default branch's cache scope, so set it only where later builds may import what such a run writes.
     required: false
   cache-import:
     description: 'Import cache source, one spec on one line (e.g., type=gha)'
@@ -101,7 +111,7 @@ inputs:
     required: false
     default: 'false'
   scan-image:
-    description: 'Scan built image for vulnerabilities (lowercase true or false)'
+    description: 'Scan built image for vulnerabilities (lowercase true or false), with a Trivy release binary checked against a SHA-256 digest this action pins'
     required: false
     default: 'false'
   sign-image:
@@ -213,18 +223,46 @@ runs:
         image: docker.io/tonistiigi/binfmt:${{ env.BINFMT_IMAGE_TAG }}
         platforms: ${{ inputs.architectures }}
 
+    - name: Check for Buildx
+      shell: sh
+      env:
+        BUILDX_VERSION: ${{ inputs.buildx-version }}
+      run: |
+        set -eu
+        # docker-publish's step of this name does the same, without buildx-version. A version
+        # the caller names is downloaded, which the input's description says is unverified.
+        # setup-buildx trims the input, so a blank one names no version.
+        if [ -n "$(printf '%s' "$BUILDX_VERSION" | LC_ALL=C tr -d '[:space:]')" ]; then
+          exit 0
+        fi
+        # Set up Docker Buildx downloads the newest Buildx release, with no digest or signature
+        # check, when the runner has none, so such a runner stops here. Like setup-buildx, this
+        # looks for the Docker CLI's buildx plugin, or a buildx binary when there is no Docker CLI.
+        if command -v docker >/dev/null 2>&1; then
+          if docker buildx version >/dev/null 2>&1; then
+            exit 0
+          fi
+        elif command -v buildx >/dev/null 2>&1 && buildx version >/dev/null 2>&1; then
+          exit 0
+        fi
+        echo "::error::Docker Buildx is required: this runner has none, and the action downloads none unverified"
+        exit 1
+
     - name: Set up Docker Buildx
       id: buildx
       uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       env:
-        # These pins live here rather than in the input defaults, because a default is
-        # copied into the generated README and a bump would then fail the docs drift check.
-        # renovate: datasource=github-releases depName=docker/buildx
-        DEFAULT_BUILDX_VERSION: 'v0.38.2'
+        # This pin lives here rather than in the input default, because a default is copied
+        # into the generated README and a bump would then fail the docs drift check. buildx runs
+        # the BuildKit daemon from this image with --privileged, so it is pinned by digest: a
+        # tag can be pushed again. docker-publish pins the same image.
         # renovate: datasource=docker depName=moby/buildkit
         DEFAULT_BUILDKIT_IMAGE_TAG: 'v0.34.2@sha256:c5f8862f52499773af85bc07695b2379ef08e8002352b0df2c4864c91d78dabe'
       with:
-        version: ${{ inputs.buildx-version || env.DEFAULT_BUILDX_VERSION }}
+        version: ${{ inputs.buildx-version }}
+        # The Actions cache would restore a download by its predictable key, which another job
+        # can save first. setup-buildx still reuses one in the runner's own tool cache.
+        cache-binary: false
         platforms: ${{ inputs.architectures }}
         # setup-buildx prints the daemon log in the job log whenever --debug is set, so only
         # on request. The other arm is a no-op flag that has to stay non-empty: an empty value
@@ -585,31 +623,84 @@ runs:
         echo "::error::No build attempted: max-retries is not a usable number"
         exit 1
 
+    - name: Install Trivy
+      id: install-trivy
+      if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
+      shell: sh
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        # Update docker-build/tools.sha256 with each version.
+        # renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.+)$
+        TRIVY_VERSION: '0.70.0'
+      run: |
+        set -eu
+        command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to install Trivy"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to install Trivy"; exit 1; }
+
+        # Trivy's release archive names; it publishes no Windows ARM64 build.
+        case "${RUNNER_OS}/${RUNNER_ARCH}" in
+          Linux/X64) platform=Linux-64bit ext=tar.gz exe='' ;;
+          Linux/ARM64) platform=Linux-ARM64 ext=tar.gz exe='' ;;
+          macOS/X64) platform=macOS-64bit ext=tar.gz exe='' ;;
+          macOS/ARM64) platform=macOS-ARM64 ext=tar.gz exe='' ;;
+          Windows/X64) platform=windows-64bit ext=zip exe=.exe ;;
+          *)
+            printf '::error::docker-build pins no Trivy binary for %s on %s\n' "$RUNNER_ARCH" "$RUNNER_OS"
+            exit 1
+            ;;
+        esac
+
+        # install_tool.py installs the binary only once the archive's SHA-256 matches the digest
+        # tools.sha256 pins, rather than a checksums file from the same release.
+        tools=$(mktemp -d "${RUNNER_TEMP}/docker-build-tools.XXXXXX")
+        archive="${tools}/trivy_${TRIVY_VERSION}_${platform}.${ext}"
+        python3 "${ACTION_PATH}/install_tool.py" download \
+          "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/${archive##*/}" "$archive"
+        python3 "${ACTION_PATH}/install_tool.py" install "${ACTION_PATH}/tools.sha256" "$archive" "trivy${exe}" "$tools"
+        # Trivy's database and report go in this step's own new directory, which nothing earlier
+        # in the job can have filled: Trivy does not verify the database, and skips downloading
+        # one that says it is current. The database is downloaded on each run and not cached,
+        # since another job could save a cache entry the scan would prefer. The report stays out
+        # of the checkout, where a committed symlink of its name would redirect the write.
+        {
+          printf 'trivy=%s\n' "${tools}/trivy${exe}"
+          printf 'cache=%s\n' "${tools}/trivy-cache"
+          printf 'report=%s\n' "${tools}/trivy-results.json"
+        } >> "$GITHUB_OUTPUT"
+
     - name: Scan Image for Vulnerabilities
       id: scan
       if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
-      uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
-      with:
-        scan-type: 'image'
-        image-ref: ${{ steps.build.outputs.image-ref }}
-        format: 'json'
-        output: 'trivy-results.json'
-        severity: 'HIGH,CRITICAL'
+      shell: sh
+      env:
+        TRIVY: ${{ steps.install-trivy.outputs.trivy }}
+        CACHE_DIR: ${{ steps.install-trivy.outputs.cache }}
+        REPORT: ${{ steps.install-trivy.outputs.report }}
+        IMAGE_REF: ${{ steps.build.outputs.image-ref }}
+      run: |
+        set -eu
+        # Findings do not fail this step; Process Scan Results warns about the critical ones.
+        # Trivy reads trivy.yaml and .trivyignore from the checkout, as trivy-action did, so a
+        # repository sets its own ignores and database source here; the same checkout already
+        # decides what the image holds.
+        "$TRIVY" image --severity HIGH,CRITICAL --cache-dir "$CACHE_DIR" --format json --output "$REPORT" "$IMAGE_REF"
 
     - name: Process Scan Results
       id: scan-output
       if: inputs.scan-image == 'true' && inputs.dry-run != 'true'
       shell: sh
+      env:
+        REPORT: ${{ steps.install-trivy.outputs.report }}
       run: |
         set -eu
 
         # Read and format scan results for output
         command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the scan results"; exit 1; }
-        scan_results=$(cat trivy-results.json | jq -c '.')
+        scan_results=$(jq -c '.' "$REPORT")
         printf 'results=%s\n' "$scan_results" >> "$GITHUB_OUTPUT"
 
-        # Check for critical vulnerabilities
-        critical_count=$(cat trivy-results.json | jq '.Results[] | (.Vulnerabilities // [])[] | select(.Severity == "CRITICAL") | .VulnerabilityID' | wc -l)
+        # Check for critical vulnerabilities. An image with nothing Trivy reads has no Results.
+        critical_count=$(jq '(.Results // [])[] | (.Vulnerabilities // [])[] | select(.Severity == "CRITICAL") | .VulnerabilityID' "$REPORT" | wc -l)
         if [ "$critical_count" -gt 0 ]; then
           echo "::warning::Found $critical_count critical vulnerabilities in image"
         fi

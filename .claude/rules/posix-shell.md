@@ -26,7 +26,7 @@ any tool not in POSIX base, even when an earlier step installs it.
 The external tools this repo uses that are not POSIX utilities, each needing that check
 before its first use in a script:
 `jq`, `yq`, `terraform`, `tflint`, `actionlint`, `action-validator`,
-`shellcheck`, `shfmt`, `shellspec`, `git`, `gh`, `docker`, `kubectl`,
+`shellcheck`, `shfmt`, `shellspec`, `git`, `gh`, `docker`, `buildx`, `kubectl`,
 `node`, `npm`, `npx`, `pnpm`, `yarn`, `bun`, `bunx`,
 `python`, `python3`, `uv`, `ruff`, `pyright`, `mypy`, `pytest`,
 `prettier`, `markdownlint-cli2`, `yaml-lint`,

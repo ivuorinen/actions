@@ -63,7 +63,7 @@
       "automerge": false
     },
     {
-      "description": "docker-build runs these images privileged: setup-qemu-action starts binfmt with --privileged, and BuildKit is the builder, so a bump needs a person to look at it.",
+      "description": "Privileged images: docker-build starts binfmt with --privileged, and BuildKit builds for docker-build and docker-publish, so a person reviews each bump.",
       "matchDepNames": [
         "tonistiigi/binfmt",
         "moby/buildkit"

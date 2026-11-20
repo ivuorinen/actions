@@ -44,11 +44,12 @@ Flag differences.
 
 ### 6. Compare secret masking
 
-Check both actions for:
+Each action's generated `validate.py` masks the inputs whose check type in
+`_validation/spec.py` is in `MASKED_CHECKS` in `_validation/kit.py`. Check both actions for:
 
-- `::add-mask::` usage
-- Token/secret handling patterns
-- Whether sensitive inputs are masked before use
+- Which inputs hold a token or secret, and whether each uses a masked check type
+- An action.yml that emits `::add-mask::` for an input itself, which `_validation/tests/test_spec.py` rejects
+- Token/secret handling patterns, such as passing a credential through `env:` rather than `${{ }}` in `run:`
 
 Flag if one action masks secrets and the other does not.
 

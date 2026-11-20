@@ -311,28 +311,16 @@ runs:
         if [ "$RUN_ACTIONLINT" = "true" ] && install_tool actionlint "$ACTIONLINT_VERSION" "$actionlint_platform" rhysd/actionlint; then
           printf 'actionlint=%s\n' "${tools}/actionlint${exe}" >> "$GITHUB_OUTPUT"
         fi
-        # Trivy keeps its vulnerability database outside the checkout, so the files a change
-        # commits cannot supply one. The next step caches it by day, except on a pull request
-        # or merge group: another job running the changes could save a cache entry of its own,
-        # which their scan would prefer, and Trivy does not verify the database.
-        {
-          printf 'trivy_cache=%s\n' "${RUNNER_TEMP}/security-scan-trivy-cache"
-          printf 'date=%s\n' "$(date -u +%Y-%m-%d)"
-        } >> "$GITHUB_OUTPUT"
+        # Trivy's database goes in this step's own new directory, which neither the files a
+        # change commits nor anything earlier in the job can have filled: Trivy does not verify
+        # the database, and skips downloading one that says it is current. It is downloaded on
+        # each run and not cached, since another job could save a cache entry the scan would
+        # prefer.
+        printf 'trivy_cache=%s\n' "${tools}/trivy-cache" >> "$GITHUB_OUTPUT"
         if [ -n "$failed" ]; then
           printf '::error::Could not install:%s\n' "$failed"
           exit 1
         fi
-
-    - name: Cache the Trivy database
-      if: >-
-        ${{ !cancelled() && steps.install-tools.outputs.trivy != '' && steps.check-configs.outputs.run_trivy == 'true'
-        && github.event_name != 'pull_request' && github.event_name != 'merge_group' }}
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: ${{ steps.install-tools.outputs.trivy_cache }}
-        key: security-scan-trivy-db-${{ steps.install-tools.outputs.date }}
-        restore-keys: security-scan-trivy-db-
 
     - name: Run actionlint
       if: ${{ !cancelled() && steps.install-tools.outputs.actionlint != '' && steps.check-configs.outputs.run_actionlint == 'true' }}
