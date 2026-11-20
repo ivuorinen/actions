@@ -188,17 +188,33 @@ def runner_shell(job_fields: dict) -> str | None:
     return "pwsh" if any("windows" in label.lower() for label in labels) else "bash"
 
 
+def container_shell(job_fields: dict) -> str | None:
+    """Return the shell a job's run steps get from its container when nothing names one: sh for
+    a literal image, GitHub's default in a container. An image given by an expression can come
+    out empty, and the job then runs on the host, so it gets bash, whose parser reads an sh
+    script too. None for a job without a container."""
+    container = job_fields.get("container")
+    image = fields(container).get("image") if isinstance(container, yaml.MappingNode) else container
+    if not isinstance(image, yaml.ScalarNode) or not image.value.strip():
+        return None
+    return "bash" if "${{" in image.value else "sh"
+
+
 def workflow_scripts(text: str):
     """Yield (script, language, line_of) for each sh or bash script a workflow's jobs run, as
     step_scripts does for an action. A run step that names no shell runs the one its job's or
-    the workflow's defaults.run.shell names, or else sh in a container job, or else the
-    runner's default (runner_shell)."""
+    the workflow's defaults.run.shell names, or else its container's (container_shell), or
+    else the runner's default (runner_shell)."""
     root = fields(yaml.compose(text))
     workflow = default_shell(root)
     for job in fields(root.get("jobs")).values():
         job_fields = fields(job)
-        container = "sh" if "container" in job_fields else None
-        shell = default_shell(job_fields) or workflow or container or runner_shell(job_fields)
+        shell = (
+            default_shell(job_fields)
+            or workflow
+            or container_shell(job_fields)
+            or runner_shell(job_fields)
+        )
         yield from steps_scripts(job_fields.get("steps"), shell)
 
 

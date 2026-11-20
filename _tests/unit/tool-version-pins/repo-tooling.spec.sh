@@ -185,30 +185,45 @@ printf '%s\n' "runs:" "  using: composite" "  steps:" "    - shell: sh" "      r
   "        curl --proto==https --tlsv1.3 -fsSL \"\$URL\" -o tool" \
   "        if ! curl; then exit 1; fi" \
   "        curl --proto '=https' --tlsv1.2 --proto '=http' http://example.com/tool -o tool" \
-  "        curl --proto '=https' --tlsv1.3 --tlsv1.0 -fsSL \"\$URL\" -o tool" >"${TREE}/action.yml"
+  "        curl --proto '=https' --tlsv1.3 --tlsv1.0 -fsSL \"\$URL\" -o tool" \
+  "        curl --proto '=https' --tlsv1.2 -1 https://example.com/tool -o tool" \
+  "        curl --proto '=https' --tlsv1.2 -sS1 https://example.com/tool -o tool" \
+  "        curl --proto '=https' -1 --tlsv1.2 -fsSL https://example.com/tool -o tool" \
+  "        curl --proto '=https' --tlsv1.2 https://example.com/a --next http://example.com/b" \
+  "        curl http://example.com/a -: --proto '=https' --tlsv1.2 https://example.com/b" \
+  "        curl --proto '=https' --tlsv1.2 https://example.com/a -: --proto '=https' --tlsv1.2 https://example.com/b" \
+  "        curl --proto '=https' --tlsv1.2 -o1.txt https://example.com/a" >"${TREE}/action.yml"
 When call fetches_without_tls "${TREE}/action.yml"
 The output should include "action.yml:6: curl -fsSL https://example.com/tool -o tool"
 The output should include "action.yml:7: curl -fsSL \$... -o tool"
 The output should include "action.yml:10: curl"
 The output should include "action.yml:11: curl --proto =https --tlsv1.2 --proto =http"
 The output should include "action.yml:12: curl --proto =https --tlsv1.3 --tlsv1.0"
-The lines of output should equal 5
+The output should include "action.yml:13: curl --proto =https --tlsv1.2 -1 "
+The output should include "action.yml:14: curl --proto =https --tlsv1.2 -sS1 "
+The output should include "action.yml:16: curl --proto =https --tlsv1.2 https://example.com/a --next"
+The output should include "action.yml:17: curl http://example.com/a -: "
+The lines of output should equal 9
 End
 
 # A run step without a shell runs pwsh on a Windows runner, which is not read as bash, and sh in
-# a container job, whatever runs-on says. An inherited template such as `bash -e {0}` names
-# bash. An expression in runs-on leaves the shell unknown otherwise, so the step stops the check
-# instead of going unread.
+# a job with a literal container image, whatever runs-on says. An image from an expression can
+# come out empty and leave the job on the host, so its steps are read as bash, which parses an
+# sh script too. An inherited template such as `bash -e {0}` names bash. An expression in
+# runs-on leaves the shell unknown otherwise, so the step stops the check instead of going unread.
 It "reads each workflow step with the shell its runner, container and defaults give it"
 printf '%s\n' "jobs:" \
   "  windows:" "    runs-on: windows-latest" "    steps:" "      - run: curl -fsSL https://example.com/a -o a" \
   "  templated:" "    runs-on: ubuntu-latest" "    defaults:" "      run:" "        shell: bash -e {0}" "    steps:" \
   "      - run: curl -fsSL https://example.com/b -o b" \
   "  boxed:" "    runs-on: \${{ matrix.runner }}" "    container: alpine:3" "    steps:" \
-  "      - run: curl -fsSL https://example.com/d -o d" >"${TREE}/workflow.yml"
+  "      - run: curl -fsSL https://example.com/d -o d" \
+  "  dynamic:" "    runs-on: ubuntu-latest" "    container: \${{ matrix.image }}" "    steps:" \
+  "      - run: items=(a b); curl -fsSL https://example.com/e -o e" >"${TREE}/workflow.yml"
 When call fetches_without_tls "${TREE}/workflow.yml"
 The output should equal "$(printf '%s\n' "${TREE}/workflow.yml:12: curl -fsSL https://example.com/b -o b" \
-  "${TREE}/workflow.yml:17: curl -fsSL https://example.com/d -o d")"
+  "${TREE}/workflow.yml:17: curl -fsSL https://example.com/d -o d" \
+  "${TREE}/workflow.yml:22: curl -fsSL https://example.com/e -o e")"
 End
 
 It "stops on a workflow step whose shell depends on an expression in runs-on"
@@ -296,7 +311,9 @@ printf '%s\n' "TOOL := \$(shell uv run tool.py --version)" "LOCKED := uv run --l
   "ARGS2 = \$(LOCK2)" "LOCK2 := --locked" "	uv run \$(ARGS2) deferred.py" \
   "define DEFINED_RUNNER" "uv run defined.py" "endef" \
   "define UNUSED_RUNNER" "uv run unused.py" "endef" \
-  "	\$(DEFINED_RUNNER)" >"${TREE}/Makefile"
+  "	\$(DEFINED_RUNNER)" \
+  "define AT_RUNNER" "@uv run at.py" "endef" \
+  "	\$(AT_RUNNER)" >"${TREE}/Makefile"
 When call unlocked "${TREE}/Makefile"
 The output should include "Makefile:1: uv run tool.py --version"
 The output should include "Makefile:4: uv run tool.py"
@@ -317,7 +334,8 @@ The output should include "Makefile:26: uv run cond.py"
 The output should include "Makefile:30: uv run --extra dev tool.py"
 The output should include "Makefile:33: uv run frozen.py"
 The output should include "Makefile:43: uv run defined.py"
-The lines of output should equal 19
+The output should include "Makefile:47: uv run at.py"
+The lines of output should equal 20
 End
 
 It "finds a uv sync without --locked in a shell script"
