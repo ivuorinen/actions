@@ -21,6 +21,10 @@ on:
       - 'Makefile'
       - 'pyproject.toml'
       - 'uv.lock'
+      # The README catalog generator, and the root npm lock setup-test-environment installs.
+      - 'generate_listing.cjs'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/actions/setup-test-environment/**'
       - '.github/workflows/test-actions.yml'
   pull_request:
@@ -40,6 +44,9 @@ on:
       - 'Makefile'
       - 'pyproject.toml'
       - 'uv.lock'
+      - 'generate_listing.cjs'
+      - 'package.json'
+      - 'package-lock.json'
       - '.github/actions/setup-test-environment/**'
       - '.github/workflows/test-actions.yml'
   # checkov:skip=CKV_GHA_7:Test-only workflow; inputs passed through env: blocks, never interpolated directly into shell
@@ -321,13 +328,10 @@ jobs:
       - name: Scan shell scripts
         shell: sh
         run: |
-          # Scan all shell scripts in _tests/
-          find _tests/ -name "*.sh" -exec shellcheck -x {} \; || {
-            echo "❌ Shell script security issues found"
-            exit 1
-          }
-
-          echo "✅ Shell script security scan passed"
+          set -eu
+          # The target the Makefile runs locally, so both check the same files and fail on a
+          # finding. find -exec ... \; ignored shellcheck's exit status.
+          make lint-shell
 
   test-summary:
     name: Test Summary

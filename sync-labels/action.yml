@@ -71,6 +71,9 @@ runs:
       id: sync
       shell: sh
       env:
+        # sync.py runs gh and yq by name from the checkout. On Windows, a process looks for a
+        # program in the current directory before PATH unless this variable exists.
+        NoDefaultCurrentDirectoryInExePath: '1'
         ACTION_PATH: ${{ github.action_path }}
         INPUT_LABELS: ${{ inputs.labels }}
         INPUT_REPOSITORY: ${{ inputs.repository }}

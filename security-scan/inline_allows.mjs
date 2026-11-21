@@ -113,7 +113,9 @@ export function render(allows, link) {
   // The name is shown escaped: a line break in it would end the code span and let the rest of
   // the name render as markdown.
   const shown = file => JSON.stringify(file).slice(1, -1).replaceAll('`', "'");
-  const items = allows.map(({ file, line }) => `- [\`${shown(file)}:${line}\`](${link(file, line)})`);
+  // Each item starts with a word: one that starts with [ reads as a link reference definition
+  // when the name holds ]: and renders as an empty bullet.
+  const items = allows.map(({ file, line }) => `- File [\`${shown(file)}:${line}\`](${link(file, line)})`);
   return [
     MARKER,
     `### ⚠️ Inline \`${ALLOW}\` comments`,
@@ -159,7 +161,10 @@ export default async function run({ github, context, core }) {
   const allows = addedAllows(diff);
   const { owner, repo } = context.repo;
   const issue_number = context.payload.pull_request.number;
-  const link = (file, line) => `${context.serverUrl}/${owner}/${repo}/blob/${head}/${file.split('/').map(encodeURIComponent).join('/')}#L${line}`;
+  // encodeURIComponent leaves ( and ) as they are, and an unbalanced one would end the link early
+  // and let the rest of the name render as markdown.
+  const segment = part => encodeURIComponent(part).replace(/[()]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
+  const link = (file, line) => `${context.serverUrl}/${owner}/${repo}/blob/${head}/${file.split('/').map(segment).join('/')}#L${line}`;
 
   try {
     const comments = await github.paginate(github.rest.issues.listComments, { owner, repo, issue_number, per_page: 100 });

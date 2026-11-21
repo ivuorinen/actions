@@ -121,7 +121,7 @@ in_pr src/b.txt "$(printf 'k1 # gitleaks:allow\nplain\nk2 # gitleaks:allow')"
 When call run_module
 The status should be success
 Assert test "$(call_names)" = "$(printf 'listComments\ncreateComment')"
-Assert test "$(posted | grep -c '^- \[')" -eq 3
+Assert test "$(posted | grep -c '^- File \[')" -eq 3
 The contents of file "$CALLS" should include "app.txt:2"
 The contents of file "$CALLS" should include "src/b.txt:1"
 The contents of file "$CALLS" should include "src/b.txt:3"
@@ -164,6 +164,24 @@ The status should be success
 The contents of file "$CALLS" should include '[`my file.txt:1`](https://github.com/octo/demo/blob/'
 The contents of file "$CALLS" should include '/my%20file.txt#L1)'
 The contents of file "$CALLS" should not include '%09'
+End
+
+It "encodes the parentheses in a name, so an unbalanced one cannot end the link"
+in_base .gitleaks.toml 'title = "base"'
+in_pr 'a)b(c.txt' 'value # gitleaks:allow'
+When call run_module
+The status should be success
+The contents of file "$CALLS" should include '/a%29b%28c.txt#L1)'
+End
+
+# An item starting with [ would be a link reference definition, an empty bullet on GitHub.
+It "starts each item with a word, so a name ending in ] cannot hide it"
+in_base .gitleaks.toml 'title = "base"'
+in_pr 'notes]' 'value # gitleaks:allow'
+When call run_module
+The status should be success
+Assert test "$(posted | grep -c '^- \[')" -eq 0
+The contents of file "$CALLS" should include '- File [`notes]:1`](https://github.com/octo/demo/blob/'
 End
 
 It "annotates a file with a space by its name when it cannot comment"
@@ -335,7 +353,7 @@ in_base .gitleaks.toml 'title = "base"'
 in_pr "$(printf 'odd\n\n[x](y).txt')" 'value # gitleaks:allow'
 When call run_module
 The status should be success
-Assert test "$(posted | grep -c '^- \[')" -eq 1
+Assert test "$(posted | grep -c '^- File \[')" -eq 1
 Assert test "$(posted | grep -c '^\[x\](y)')" -eq 0
 The contents of file "$CALLS" should include 'odd\\n\\n[x](y).txt:1'
 End

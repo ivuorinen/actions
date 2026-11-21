@@ -137,13 +137,30 @@ function getActionDetails(actionPath) {
     // Extract features
     const features = [];
 
-    // Check for caching: actions/cache, a cache: input, or a Docker build cache (--cache-from)
-    if (content.includes('actions/cache') || content.includes('cache:') || content.includes('cache-from')) {
+    // Caching, read from the steps: an actions/cache step, a step's cache or cache-from setting
+    // that is not false, or a cache or cache-from input. Raw text also matched comments and
+    // settings that turn a cache off, such as no-cache: true.
+    const steps = action.runs?.steps || [];
+    const cachingStep = steps.some(step => {
+      const settings = step.with || {};
+      return (
+        String(step.uses || '').startsWith('actions/cache') ||
+        ['cache', 'cache-from'].some(key => key in settings && String(settings[key]) !== 'false')
+      );
+    });
+    const cachingInput = ['cache', 'cache-from'].some(name => name in (action.inputs || {}));
+    if (cachingStep || cachingInput) {
       features.push('Caching');
     }
 
-    // Check for auto-detection
-    if (actionName.includes('detect') || content.includes('detect')) {
+    // Auto-detection is what the action documents: its name, its description or an input's
+    // description says it detects something. A comment or a step's text says nothing to a caller.
+    const documented = [
+      actionName,
+      action.description,
+      ...Object.values(action.inputs || {}).map(input => input?.description),
+    ];
+    if (documented.some(text => /\bdetect/i.test(String(text ?? '')))) {
       features.push('Auto-detection');
     }
 
@@ -405,5 +422,9 @@ function main() {
   }
 }
 
-// Run the script
-main();
+// Run the script when called directly; a test requires it for getActionDetails.
+if (require.main === module) {
+  main();
+}
+
+module.exports = { getActionDetails };

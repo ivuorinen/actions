@@ -67,10 +67,10 @@ outputs:
     description: 'Whether Gitleaks scan produced valid results'
     value: ${{ steps.verify-sarif.outputs.has_gitleaks }}
   total_issues:
-    description: 'Total number of security issues found'
+    description: 'Total number of security issues found; empty when a scanner that was to run left no report to count'
     value: ${{ steps.analyze.outputs.total_issues }}
   critical_issues:
-    description: 'Number of critical security issues found'
+    description: 'Number of critical security issues found; empty when a scanner that was to run left no report to count'
     value: ${{ steps.analyze.outputs.critical_issues }}
 
 runs:
@@ -228,7 +228,11 @@ runs:
             # actionlint reads .github/actionlint.yaml from the checkout unless it is given a
             # config: the base commit's, or an empty one. It still parses the checkout's copy,
             # and would print part of what a symlink there points to, so that is removed too.
-            rm -rf .github/actionlint.yaml .github/actionlint.yml
+            # Not through a .github symlink, which would delete files where it points; the
+            # actionlint step does not follow one.
+            if [ ! -L .github ]; then
+              rm -rf .github/actionlint.yaml .github/actionlint.yml
+            fi
             actionlint_config=${configs}/actionlint.yaml
             : >"$actionlint_config"
             for name in actionlint.yaml actionlint.yml; do
@@ -330,8 +334,12 @@ runs:
         ACTIONLINT_CONFIG: ${{ steps.check-configs.outputs.actionlint_config }}
       run: |
         set -eu
-        # Only regular files: actionlint would follow a symlink out of the repository and print
-        # the lines it cannot parse.
+        # Only regular files under a .github that is no symlink: actionlint would follow one out of
+        # the repository and print the lines it cannot parse.
+        if [ -L .github ]; then
+          printf '::warning::.github is a symlink - actionlint does not follow it\n'
+          exit 0
+        fi
         if [ ! -d .github/workflows ] || [ -z "$(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -print)" ]; then
           printf '::notice::No workflow files in .github/workflows - nothing for actionlint to check\n'
           exit 0
@@ -402,6 +410,9 @@ runs:
         # still exits 0 with a report that found nothing. An error in its log fails this step.
         if grep -Eq '(^|[^[:alnum:]_])ERR([^[:alnum:]_]|$)' "$log"; then
           echo "::error::Gitleaks could not read the whole history; its log above names the error"
+          # Its report holds what it read before it stopped, so verification must not take it
+          # for the scan's result.
+          rm -f "${workspace}/results.sarif"
           exit 1
         fi
         exit "$status"
@@ -410,6 +421,10 @@ runs:
       if: ${{ !cancelled() && github.event_name == 'pull_request' && steps.check-configs.outcome == 'success' }}
       uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
       env:
+        # inline_allows.mjs runs git by name from the checkout. On Windows, Node looks for a
+        # program in the current directory before PATH unless this variable exists, and would
+        # run a git.exe the pull request commits.
+        NoDefaultCurrentDirectoryInExePath: '1'
         ACTION_PATH: ${{ github.action_path }}
         BASE_SHA: ${{ steps.check-configs.outputs.base_sha }}
         HEAD_SHA: ${{ steps.check-configs.outputs.head_sha }}
@@ -535,107 +550,15 @@ runs:
     - name: Analyze Results
       id: analyze
       if: always()
-      shell: node {0}
+      shell: sh
       env:
+        ACTION_PATH: ${{ github.action_path }}
         HAS_TRIVY: ${{ steps.verify-sarif.outputs.has_trivy }}
         HAS_GITLEAKS: ${{ steps.verify-sarif.outputs.has_gitleaks }}
-        RUN_ACTIONLINT: ${{ steps.check-configs.outputs.run_actionlint }}
         RUN_TRIVY: ${{ steps.check-configs.outputs.run_trivy }}
         RUN_GITLEAKS: ${{ steps.check-configs.outputs.run_gitleaks }}
       run: |
-        const fs = require('fs');
-
-        try {
-          let totalIssues = 0;
-          let criticalIssues = 0;
-
-          const isCriticalLevel = r =>
-            r.level === 'error' ||
-            r.level === 'critical' ||
-            (r.ruleId || '').toLowerCase().includes('critical');
-
-          const analyzeSarif = (file, tool, isCritical) => {
-            if (!fs.existsSync(file)) {
-              console.log(`No results file found for ${tool}`);
-              return null;
-            }
-
-            try {
-              const sarif = JSON.parse(fs.readFileSync(file, 'utf8'));
-              return sarif.runs.reduce((acc, run) => {
-                if (!run.results) return acc;
-
-                const critical = run.results.filter(isCritical).length;
-
-                return {
-                  total: acc.total + run.results.length,
-                  critical: acc.critical + critical
-                };
-              }, { total: 0, critical: 0 });
-            } catch (error) {
-              console.log(`Error analyzing ${tool} results: ${error.message}`);
-              return null;
-            }
-          };
-
-          // Only analyze reports that verification accepted.
-          // Read step outputs via env so apostrophes/backticks in values
-          // cannot break the JS literal.
-          const results = {
-            trivy: process.env.HAS_TRIVY === 'true' ?
-              analyzeSarif('trivy-results.sarif', 'trivy', isCriticalLevel) : null,
-            // Gitleaks results carry no level, and each one is a detected secret.
-            gitleaks: process.env.HAS_GITLEAKS === 'true' ?
-              analyzeSarif('results.sarif', 'gitleaks', () => true) : null
-          };
-
-          // Aggregate results
-          Object.entries(results).forEach(([tool, result]) => {
-            if (result) {
-              totalIssues += result.total;
-              criticalIssues += result.critical;
-              console.log(`${tool}: ${result.total} total, ${result.critical} critical issues`);
-            }
-          });
-
-          // Create summary
-          const summary = `## Security Scan Summary
-
-          - Total Issues Found: ${totalIssues}
-          - Critical Issues: ${criticalIssues}
-
-          ### Tool Breakdown
-          ${Object.entries(results)
-            .filter(([_, r]) => r)
-            .map(([tool, r]) =>
-              `- ${tool}: ${r.total} total, ${r.critical} critical`
-            ).join('\n')}
-
-          ### Tools Run Status
-          - Actionlint: ${process.env.RUN_ACTIONLINT}
-          - Trivy: ${process.env.RUN_TRIVY}
-          - Gitleaks: ${process.env.RUN_GITLEAKS}
-          `;
-
-          // Set outputs using GITHUB_OUTPUT
-          const outputFile = process.env.GITHUB_OUTPUT;
-          if (outputFile) {
-            fs.appendFileSync(outputFile, `total_issues=${totalIssues}\n`);
-            fs.appendFileSync(outputFile, `critical_issues=${criticalIssues}\n`);
-          }
-
-          // Add job summary using GITHUB_STEP_SUMMARY
-          const summaryFile = process.env.GITHUB_STEP_SUMMARY;
-          if (summaryFile) {
-            fs.appendFileSync(summaryFile, summary + '\n');
-          }
-
-          // Fail if critical issues found
-          if (criticalIssues > 0) {
-            console.error(`Found ${criticalIssues} critical security issues`);
-            process.exit(1);
-          }
-        } catch (error) {
-          console.error(`Analysis failed: ${error.message}`);
-          process.exit(1);
-        }
+        set -eu
+        command -v node >/dev/null 2>&1 || { echo "::error::node is required to analyze the scan results"; exit 1; }
+        # From the workspace, where the SARIF reports are.
+        node "$ACTION_PATH/analyze_results.mjs"
