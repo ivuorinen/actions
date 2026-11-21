@@ -198,6 +198,146 @@ CURL_LONG_VALUES = frozenset(
         "--write-out",
     ]
 )
+# curl's other long options, the ones that take no value (`curl --help all`, curl 8.5). curl
+# matches an exact name first and then an unambiguous prefix of one, so a flag such as --head,
+# whose name begins --header, has to be known by name.
+CURL_LONG_OPTIONS = CURL_LONG_VALUES | {
+    "--anyauth",
+    "--append",
+    "--basic",
+    "--ca-native",
+    "--cert-status",
+    "--compressed",
+    "--compressed-ssh",
+    "--create-dirs",
+    "--crlf",
+    "--digest",
+    "--disable",
+    "--disable-eprt",
+    "--disable-epsv",
+    "--disallow-username-in-url",
+    "--doh-cert-status",
+    "--doh-insecure",
+    "--fail",
+    "--fail-early",
+    "--fail-with-body",
+    "--false-start",
+    "--form-escape",
+    "--ftp-create-dirs",
+    "--ftp-pasv",
+    "--ftp-pret",
+    "--ftp-skip-pasv-ip",
+    "--ftp-ssl-ccc",
+    "--ftp-ssl-control",
+    "--get",
+    "--globoff",
+    "--haproxy-clientip",
+    "--haproxy-protocol",
+    "--head",
+    "--http0.9",
+    "--http1.0",
+    "--http1.1",
+    "--http2",
+    "--http2-prior-knowledge",
+    "--http3",
+    "--http3-only",
+    "--ignore-content-length",
+    "--include",
+    "--insecure",
+    "--ipv4",
+    "--ipv6",
+    "--junk-session-cookies",
+    "--list-only",
+    "--location",
+    "--location-trusted",
+    "--mail-rcpt-allowfails",
+    "--manual",
+    "--metalink",
+    "--negotiate",
+    "--netrc",
+    "--netrc-optional",
+    "--next",
+    "--no-alpn",
+    "--no-buffer",
+    "--no-clobber",
+    "--no-keepalive",
+    "--no-npn",
+    "--no-progress-meter",
+    "--no-sessionid",
+    "--ntlm",
+    "--ntlm-wb",
+    "--parallel",
+    "--parallel-immediate",
+    "--path-as-is",
+    "--post301",
+    "--post302",
+    "--post303",
+    "--progress-bar",
+    "--proxy-anyauth",
+    "--proxy-basic",
+    "--proxy-ca-native",
+    "--proxy-digest",
+    "--proxy-http2",
+    "--proxy-insecure",
+    "--proxy-negotiate",
+    "--proxy-ntlm",
+    "--proxy-ssl-allow-beast",
+    "--proxy-ssl-auto-client-cert",
+    "--proxy-tlsv1",
+    "--proxytunnel",
+    "--raw",
+    "--remote-header-name",
+    "--remote-name",
+    "--remote-name-all",
+    "--remote-time",
+    "--remove-on-error",
+    "--retry-all-errors",
+    "--retry-connrefused",
+    "--sasl-ir",
+    "--show-error",
+    "--silent",
+    "--socks5-basic",
+    "--socks5-gssapi",
+    "--socks5-gssapi-nec",
+    "--ssl",
+    "--ssl-allow-beast",
+    "--ssl-auto-client-cert",
+    "--ssl-no-revoke",
+    "--ssl-reqd",
+    "--ssl-revoke-best-effort",
+    "--sslv2",
+    "--sslv3",
+    "--styled-output",
+    "--suppress-connect-headers",
+    "--tcp-fastopen",
+    "--tcp-nodelay",
+    "--tftp-no-options",
+    "--tlsv1",
+    "--tlsv1.0",
+    "--tlsv1.1",
+    "--tlsv1.2",
+    "--tlsv1.3",
+    "--tr-encoding",
+    "--trace-ids",
+    "--trace-time",
+    "--use-ascii",
+    "--verbose",
+    "--version",
+    "--xattr",
+}
+
+
+def curl_long_option(word: str) -> tuple[str, bool]:
+    """Return the long option a word names, as curl resolves it, and whether curl expands
+    {{variables}} in its value: --expand-NAME is NAME with expansion, and a name that is no
+    option of its own stands for the one option it is an unambiguous prefix of."""
+    expanded = word.startswith("--expand-")
+    name = "--" + word.removeprefix("--expand-") if expanded else word
+    if name not in CURL_LONG_OPTIONS:
+        matches = [option for option in CURL_LONG_OPTIONS if option.startswith(name)]
+        name = matches[0] if len(matches) == 1 else name
+    return name, expanded
+
 
 # What a make reference reads as in a shell script: a word that names no command.
 REFERENCE = "MAKEREF"
@@ -250,25 +390,28 @@ def curl_operations(args: list[str]):
     """Yield (protocols, tls, operands) for each operation of a curl command: --next (-:)
     starts a new one, which keeps none of the options before it. protocols is its last
     --proto, tls its last TLS or SSL version option, operands how many URLs and other operands
-    it has. A long option that takes a value consumes the next word, and short options are read
-    as curl reads a cluster such as -sS1, so a value is never read as an option."""
+    it has. A long option is resolved as curl resolves it (curl_long_option), one that takes a
+    value consumes the next word, and short options are read as curl reads a cluster such as
+    -sS1, so a value is never read as an option. A --proto value curl still has to expand counts
+    as no --proto."""
     protocols, tls, operands = "", "", 0
     index = 0
     while index < len(args):
         word = args[index]
         index += 1
-        if word in ("--next", "-:"):
+        name, expanded = curl_long_option(word) if word.startswith("--") else (word, False)
+        if name in ("--next", "-:"):
             yield protocols, tls, operands
             protocols, tls, operands = "", "", 0
-        elif word in CURL_LONG_VALUES:
+        elif name in CURL_LONG_VALUES:
             value = args[index] if index < len(args) else ""
             index += 1
-            if word == "--proto":
-                protocols = value
-            elif word == "--url":
+            if name == "--proto":
+                protocols = "" if expanded and "{{" in value else value
+            elif name == "--url":
                 operands += 1
-        elif word.startswith("--"):
-            tls = TLS_VERSIONS.get(word, tls)
+        elif name.startswith("--"):
+            tls = TLS_VERSIONS.get(name, tls)
         elif word.startswith("-") and word != "-":
             for at, letter in enumerate(word[1:], 1):
                 tls = TLS_VERSIONS.get("-" + letter, tls)
