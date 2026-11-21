@@ -75,7 +75,7 @@ grep -r "uses:.*{action_name}" --include="*.yml" --include="*.yaml" .
 After the update, check that affected action.yml files remain valid:
 
 ```bash
-actionlint <affected_file>
+jactionlint --shellcheck= <affected_file>
 ```
 
 ### 6. Check for permission or input changes
@@ -99,7 +99,7 @@ in the repo use for the same dependency.
 - Update corresponds to a tagged release
 - No breaking changes
 - All occurrences updated consistently
-- actionlint passes
+- jactionlint passes
 - No permission changes
 
 ### REVIEW-NEEDED
@@ -132,7 +132,7 @@ Provide a structured report:
 - [x] New SHA matches tagged release v4.2.0
 - [x] No breaking changes in release notes
 - [x] All 12 occurrences updated consistently
-- [x] actionlint passes on all affected files
+- [x] jactionlint passes on all affected files
 - [x] No new permissions required
 - [x] No input/output changes
 

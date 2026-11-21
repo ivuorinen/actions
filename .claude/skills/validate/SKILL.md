@@ -28,7 +28,7 @@ Then re-run `make all`.
 
 ### Linting issues
 
-- **actionlint**: Check action.yml syntax, step IDs, expression usage
+- **jactionlint**: Check action.yml syntax, step IDs, expression usage
 - **shellcheck**: POSIX compliance, quoting, variable usage
 - **ruff**: Python style and errors
 - **markdownlint**: Markdown formatting

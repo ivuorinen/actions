@@ -47,88 +47,62 @@ When using these actions:
 > **Note**: `GITHUB_TOKEN` is automatically provided by GitHub Actions and does
 > not require manual repository secret configuration.
 
-The following table shows available secrets (auto-provisioned secrets are provided by
-GitHub, optional secrets require manual repository configuration):
+The workflows need no other secret:
 
-| Secret Name     | Description                                                       | Requirement |
-| --------------- | ----------------------------------------------------------------- | ----------- |
-| `GITHUB_TOKEN`  | GitHub token for workflow authentication (automatically provided) | Auto        |
-| `FIXIMUS_TOKEN` | Enhanced token for automated fix PRs                              | Optional    |
+| Secret Name    | Description                                                       | Requirement |
+| -------------- | ----------------------------------------------------------------- | ----------- |
+| `GITHUB_TOKEN` | GitHub token for workflow authentication (automatically provided) | Auto        |
 
 ## Security Workflows
 
 This repository includes several security-focused workflows:
 
 1. **PR Security Analysis** (`security-suite.yml`)
-   - Comprehensive security scanning on pull requests
-   - Opengrep static analysis
-   - Dependency vulnerability checks
-   - Creates automated fix PRs
+   - Runs on pull requests: OWASP Dependency Check, Opengrep static analysis and a TruffleHog secret scan
+   - Posts a summary comment on the pull request
+   - Fails on a critical finding, or when a scanner did not finish
 
 2. **Action Security** (`action-security.yml`)
-   - Runs security-scan on this repository
-   - actionlint checks the workflow files
+   - Runs security-scan on this repository, on pushes to `main`, pull requests and merge groups that change an action,
+     a workflow or a scanner config
+   - jactionlint checks the workflow files
    - Gitleaks scans the commits for secrets
    - Trivy scans the files for vulnerabilities, misconfigurations and secrets
+   - Opens an issue when it finds critical issues
 
-3. **CodeQL Analysis** (`codeql.yml` and `codeql-new.yml`)
-   - Analyzes code for security issues
-   - Runs on multiple languages (Python, JavaScript/TypeScript)
-   - Automated on pushes and pull requests
-   - SARIF report generation
+3. **CodeQL Analysis** (`codeql-new.yml`)
+   - Runs this repository's `codeql-analysis` action for Actions workflows, JavaScript and Python
+   - On pushes to `main`, pull requests, merge groups and weekly on Sundays
+   - Uploads SARIF reports to code scanning
 
-4. **Dependency Review** (`dependency-review.yml`)
-   - Reviews dependency changes in pull requests
-   - Checks for known vulnerabilities
-   - License compliance validation
-   - Fails PRs with critical vulnerabilities (gated by branch protection)
+4. **Dependency Review** (the `pr-lint` action, run by `pr-lint.yml`)
+   - Reviews the dependency changes of a pull request in this public repository and comments a summary
+   - Fails the pull request on a dependency with a critical vulnerability
 
-   How to enforce gating
-   - Update .github/workflows/dependency-review.yml: add the `fail-on-severity: critical`
-     input to the Dependency Review step. Example:
-
-   ```yaml
-   - name: Dependency Review
-     uses: github/dependency-review-action@v3
-     with:
-       fail-on-severity: critical
-   ```
-
-   - Require the Dependency Review workflow in branch protection:
-     - Go to Repository → Settings → Branches → Branch protection rules → Edit (or create)
-       rule for your protected branch.
-     - Under "Require status checks to pass before merging", add the exact status check
-       name shown in PR checks (e.g., "Dependency Review") and save.
-   - Verify: open a test PR with a simulated critical vulnerability or run the workflow
-     to confirm it fails and the branch protection blocks merging until the check is green.
-   - Optional: If you manage protections via config or API, add the workflow status
-     check name to your protection rule programmatically.
+5. **OpenSSF Scorecard** (`scorecard.yml`)
+   - Runs on pushes to `main` and weekly on Saturdays
+   - Uploads its SARIF report to code scanning
 
 ## Security Reports
 
 Security scan results are available as:
 
-1. SARIF reports in GitHub Security tab
-2. Artifacts in workflow runs
-3. Automated issues for critical findings
-4. Weekly trend reports
-5. Security metrics dashboard
+1. SARIF reports in the GitHub Security tab: security-scan's Trivy and Gitleaks reports, CodeQL and Scorecard
+2. Artifacts in workflow runs: security-scan's reports and Scorecard's results
+3. An issue for critical findings, opened by Action Security
+4. Comments on pull requests from PR Security Analysis and Dependency Review
 
-## Automated Fixes
+## Dependency Updates
 
-The repository automatically:
-
-1. Creates PRs for fixable vulnerabilities
-2. Updates dependencies with security issues
-3. Fixes code security issues
-4. Creates detailed fix documentation
+Renovate opens pull requests for dependency and pin updates, and labels the ones that fix a known vulnerability
+`security`.
 
 ## Regular Reviews
 
 We conduct:
 
-1. Daily automated security scans
-2. Weekly metrics analysis
+1. Scans of every pull request and push to `main`
+2. Weekly scheduled scans: CodeQL on Sundays, Scorecard on Saturdays
 3. Monthly suppression reviews
 4. Regular dependency updates
 

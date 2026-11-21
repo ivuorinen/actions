@@ -1,5 +1,5 @@
 # SHA-256 of each release archive install_tool.py accepts, in sha256sum format.
-# Update these lines with GITLEAKS_VERSION, TRIVY_VERSION or ACTIONLINT_VERSION in action.yml: take
+# Update these lines with GITLEAKS_VERSION, TRIVY_VERSION or JACTIONLINT_VERSION in action.yml: take
 # each digest from that release's checksums file, and check it against the downloaded archive.
 551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks_8.30.1_linux_x64.tar.gz
 e4a487ee7ccd7d3a7f7ec08657610aa3606637dab924210b3aee62570fb4b080  gitleaks_8.30.1_linux_arm64.tar.gz
@@ -11,8 +11,8 @@ d29144deff3a68aa93ced33dddf84b7fdc26070add4aa0f4513094c8332afc4e  gitleaks_8.30.
 52d531452b19e7593da29366007d02a810e1e0080d02f9cf6a1afb46c35aaa93  trivy_0.70.0_macOS-64bit.tar.gz
 68e543c51dcc96e1c344053a4fde9660cf602c25565d9f09dc17dd41e13b838a  trivy_0.70.0_macOS-ARM64.tar.gz
 eea5442eab86f9e26cd718d7618d43899e72a83767619e8bee47911bddbfb825  trivy_0.70.0_windows-64bit.zip
-8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8  actionlint_1.7.12_linux_amd64.tar.gz
-325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6  actionlint_1.7.12_linux_arm64.tar.gz
-5b44c3bc2255115c9b69e30efc0fecdf498fdb63c5d58e17084fd5f16324c644  actionlint_1.7.12_darwin_amd64.tar.gz
-aba9ced2dee8d27fecca3dc7feb1a7f9a52caefa1eb46f3271ea66b6e0e6953f  actionlint_1.7.12_darwin_arm64.tar.gz
-6e7241b51e6817ea6a047693d8e6fed13b31819c9a0dd6c5a726e1592d22f6e9  actionlint_1.7.12_windows_amd64.zip
+d5400967b8f0d3a5ae9a4cee21f56400a50eb3f05d0cbb4ef17184f17f0760c8  jactionlint_2.6.0_linux_amd64.tar.gz
+c726185a85f26d09aa94ea556509a19827979074b35d65f357f3a4947573e934  jactionlint_2.6.0_linux_arm64.tar.gz
+aa89c49ad5c9530f2308f18333166050f97f14d420f478a8225d043bef1e2cab  jactionlint_2.6.0_darwin_amd64.tar.gz
+c3f373c7eac668aacb390b9c802cf4b5e2ad1a11b0b0c0aea6b04ca0cfa0c018  jactionlint_2.6.0_darwin_arm64.tar.gz
+e939dd8c0eeeb620e70d30aa9aa21c671be078876660a831a82d07e372f0fa4d  jactionlint_2.6.0_windows_amd64.zip

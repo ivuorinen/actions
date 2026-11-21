@@ -6,16 +6,16 @@
 ---
 name: Security Scan
 description: >-
-  Security scanning for repositories with GitHub Actions: actionlint, Gitleaks and Trivy, with the results uploaded to
+  Security scanning for repositories with GitHub Actions: jactionlint, Gitleaks and Trivy, with the results uploaded to
   code scanning. Requires 'contents: read' and 'security-events: write', and on a pull request 'pull-requests: write'
   for its comment. All three scanners run from release binaries checked against SHA-256 digests pinned in this action,
   on Linux and macOS (x64 and ARM64) and Windows x64. Gitleaks scans the commits a pull request, merge group or push
   adds, two-parent merge commits included, and the whole history on other events and on a push whose earlier commit
-  the clone lacks, such as the push that creates a branch, where an older commit can fail the scan. On a pull request
-  or merge group, Gitleaks and Trivy run from an export of the base commit, so their configs, ignore files and git
-  attributes come from the base branch, and actionlint reads the base branch's config. Inline gitleaks:allow comments,
-  and Trivy's trivy:ignore comments, in the changed files still apply; a pull request's scan lists the gitleaks:allow
-  comments it adds in a comment when the base branch keeps a Gitleaks config or ignore file.
+  the clone lacks, such as the push that creates a branch, where an older commit can fail the scan. On a pull request,
+  its review events or a merge group, Gitleaks and Trivy run from an export of the base commit, so their configs, ignore
+  files and git attributes come from the base branch, and jactionlint reads the base branch's config. Inline
+  gitleaks:allow comments, and Trivy's trivy:ignore comments, in the changed files still apply; a pull request's scan
+  lists the gitleaks:allow comments it adds in a comment when the base branch keeps a Gitleaks config or ignore file.
 author: Ismo Vuorinen
 branding:
   icon: shield
@@ -49,9 +49,17 @@ inputs:
     required: false
     default: '10m'
   actionlint-enabled:
-    description: 'Enable actionlint scanning (lowercase true or false)'
+    description: >-
+      Lint the workflows with jactionlint, a fork of actionlint (lowercase true or false). jactionlint fails on a key
+      its config file does not know, where actionlint ignored one
     required: false
     default: 'true'
+  jactionlint-profile:
+    description: >-
+      jactionlint rule profile: correctness runs the checks of actionlint, default adds jactionlint's other rules, most
+      of them security and policy rules. Overrides a profile in the jactionlint or actionlint config file
+    required: false
+    default: 'correctness'
   token:
     description: >-
       GitHub token for checking out the repository and, on a pull request, for the inline gitleaks:allow comment.
@@ -83,6 +91,7 @@ runs:
         INPUT_ACTIONLINT_ENABLED: ${{ inputs.actionlint-enabled }}
         INPUT_GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
         INPUT_GITLEAKS_LICENSE: ${{ inputs.gitleaks-license }}
+        INPUT_JACTIONLINT_PROFILE: ${{ inputs.jactionlint-profile }}
         INPUT_TOKEN: ${{ inputs.token }}
         INPUT_TRIVY_SCANNERS: ${{ inputs.trivy-scanners }}
         INPUT_TRIVY_SEVERITY: ${{ inputs.trivy-severity }}
@@ -129,8 +138,10 @@ runs:
         # brought, as BASE..HEAD. --remerge-diff makes git log show what a merge commit itself
         # changes, which it otherwise leaves out.
         field() { jq -r "$1 // empty" "$GITHUB_EVENT_PATH"; }
+        # A pull request's review events check out its merge commit too, so they are a pull
+        # request here.
         case "$GITHUB_EVENT_NAME" in
-          pull_request)
+          pull_request | pull_request_review | pull_request_review_comment)
             base=$(field .pull_request.base.sha)
             head=$(field .pull_request.head.sha)
             ;;
@@ -157,7 +168,7 @@ runs:
           printf 'gitleaks_range=%s\n' "${base}..${head}" >> "$GITHUB_OUTPUT"
         else
           case "$GITHUB_EVENT_NAME" in
-            pull_request | merge_group)
+            pull_request | pull_request_review | pull_request_review_comment | merge_group)
               printf '::error::This clone lacks a commit the %s event names, so the base branch configuration cannot be read\n' "$GITHUB_EVENT_NAME"
               exit 1
               ;;
@@ -167,8 +178,26 @@ runs:
           printf '::notice::Gitleaks scans the whole history on this %s event\n' "$GITHUB_EVENT_NAME"
         fi
 
+        configs=$(mktemp -d "${RUNNER_TEMP}/security-scan-configs.XXXXXX")
+        # pick_jactionlint_config DIR: the jactionlint config in DIR, the first regular file of the names
+        # jactionlint looks for, never a symlink; an empty one when DIR has none. jactionlint runs on
+        # a copy of the workflows outside any repository, so it reads only the config named here,
+        # never the checkout's or a user-global one on the runner.
+        pick_jactionlint_config() {
+          if [ ! -L "$1/.github" ]; then
+            for name in jactionlint.yaml jactionlint.yml actionlint.yaml actionlint.yml; do
+              if [ -f "$1/.github/${name}" ] && [ ! -L "$1/.github/${name}" ]; then
+                printf '%s\n' "$1/.github/${name}"
+                return 0
+              fi
+            done
+          fi
+          : >"${configs}/jactionlint.yaml"
+          printf '%s\n' "${configs}/jactionlint.yaml"
+        }
+
         case "$GITHUB_EVENT_NAME" in
-          pull_request | merge_group)
+          pull_request | pull_request_review | pull_request_review_comment | merge_group)
             # The changes could allowlist themselves through the files the scanners read, so
             # Gitleaks and Trivy run from an export of the base commit, where their default
             # config and ignore file names, and relative paths inside the configs, resolve.
@@ -185,7 +214,6 @@ runs:
               exit 1
             fi
             scan_dir=$(mktemp -d "${RUNNER_TEMP}/security-scan-base.XXXXXX")
-            configs=$(mktemp -d "${RUNNER_TEMP}/security-scan-configs.XXXXXX")
             # git archive applies the export-ignore, export-subst and filter attributes the base
             # tree sets, which can leave a config out of the export, as /.* export-ignore does,
             # or rewrite it. $GIT_DIR/info/attributes overrides them while the export runs, and
@@ -225,32 +253,21 @@ runs:
             # whatever --gitleaks-ignore-path names, so the checkout's is removed. The base
             # commit's is read from the export.
             rm -rf .gitleaksignore
-            # actionlint reads .github/actionlint.yaml from the checkout unless it is given a
-            # config: the base commit's, or an empty one. It still parses the checkout's copy,
-            # and would print part of what a symlink there points to, so that is removed too.
-            # Not through a .github symlink, which would delete files where it points; the
-            # actionlint step does not follow one.
-            if [ ! -L .github ]; then
-              rm -rf .github/actionlint.yaml .github/actionlint.yml
-            fi
-            actionlint_config=${configs}/actionlint.yaml
-            : >"$actionlint_config"
-            for name in actionlint.yaml actionlint.yml; do
-              if [ -f "${scan_dir}/.github/${name}" ]; then
-                actionlint_config=${scan_dir}/.github/${name}
-                break
-              fi
-            done
+            jactionlint_config=$(pick_jactionlint_config "$scan_dir")
             {
               printf 'scan_dir=%s\n' "$scan_dir"
               printf 'base_sha=%s\n' "$base"
               printf 'head_sha=%s\n' "$head"
               printf 'gitleaks_config=%s\n' "$gitleaks_config"
-              printf 'actionlint_config=%s\n' "$actionlint_config"
+              printf 'jactionlint_config=%s\n' "$jactionlint_config"
             } >> "$GITHUB_OUTPUT"
             ;;
           *)
-            printf 'scan_dir=%s\n' "$PWD" >> "$GITHUB_OUTPUT"
+            jactionlint_config=$(pick_jactionlint_config "$PWD")
+            {
+              printf 'scan_dir=%s\n' "$PWD"
+              printf 'jactionlint_config=%s\n' "$jactionlint_config"
+            } >> "$GITHUB_OUTPUT"
             if [ -f "$GITLEAKS_CONFIG" ]; then
               printf 'gitleaks_config=%s\n' "$GITLEAKS_CONFIG" >> "$GITHUB_OUTPUT"
             else
@@ -270,21 +287,21 @@ runs:
         GITLEAKS_VERSION: '8.30.1'
         # renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.+)$
         TRIVY_VERSION: '0.70.0'
-        # renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.+)$
-        ACTIONLINT_VERSION: '1.7.12'
+        # renovate: datasource=github-releases depName=jdx/jactionlint extractVersion=^v(?<version>.+)$
+        JACTIONLINT_VERSION: '2.6.0'
       run: |
         set -eu
         command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to install the scanners"; exit 1; }
         command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to install the scanners"; exit 1; }
 
-        # Release archive names: gitleaks says x64, actionlint amd64 and Trivy 64bit. Trivy
+        # Release archive names: gitleaks says x64, jactionlint amd64 and Trivy 64bit. Trivy
         # publishes no Windows ARM64 build.
         case "${RUNNER_OS}/${RUNNER_ARCH}" in
-          Linux/X64) gitleaks_platform=linux_x64 actionlint_platform=linux_amd64 trivy_platform=Linux-64bit ext=tar.gz exe='' ;;
-          Linux/ARM64) gitleaks_platform=linux_arm64 actionlint_platform=linux_arm64 trivy_platform=Linux-ARM64 ext=tar.gz exe='' ;;
-          macOS/X64) gitleaks_platform=darwin_x64 actionlint_platform=darwin_amd64 trivy_platform=macOS-64bit ext=tar.gz exe='' ;;
-          macOS/ARM64) gitleaks_platform=darwin_arm64 actionlint_platform=darwin_arm64 trivy_platform=macOS-ARM64 ext=tar.gz exe='' ;;
-          Windows/X64) gitleaks_platform=windows_x64 actionlint_platform=windows_amd64 trivy_platform=windows-64bit ext=zip exe=.exe ;;
+          Linux/X64) gitleaks_platform=linux_x64 jactionlint_platform=linux_amd64 trivy_platform=Linux-64bit ext=tar.gz exe='' ;;
+          Linux/ARM64) gitleaks_platform=linux_arm64 jactionlint_platform=linux_arm64 trivy_platform=Linux-ARM64 ext=tar.gz exe='' ;;
+          macOS/X64) gitleaks_platform=darwin_x64 jactionlint_platform=darwin_amd64 trivy_platform=macOS-64bit ext=tar.gz exe='' ;;
+          macOS/ARM64) gitleaks_platform=darwin_arm64 jactionlint_platform=darwin_arm64 trivy_platform=macOS-ARM64 ext=tar.gz exe='' ;;
+          Windows/X64) gitleaks_platform=windows_x64 jactionlint_platform=windows_amd64 trivy_platform=windows-64bit ext=zip exe=.exe ;;
           *)
             printf '::error::security-scan pins no scanner binaries for %s on %s\n' "$RUNNER_ARCH" "$RUNNER_OS"
             exit 1
@@ -312,8 +329,8 @@ runs:
         if install_tool trivy "$TRIVY_VERSION" "$trivy_platform" aquasecurity/trivy; then
           printf 'trivy=%s\n' "${tools}/trivy${exe}" >> "$GITHUB_OUTPUT"
         fi
-        if [ "$RUN_ACTIONLINT" = "true" ] && install_tool actionlint "$ACTIONLINT_VERSION" "$actionlint_platform" rhysd/actionlint; then
-          printf 'actionlint=%s\n' "${tools}/actionlint${exe}" >> "$GITHUB_OUTPUT"
+        if [ "$RUN_ACTIONLINT" = "true" ] && install_tool jactionlint "$JACTIONLINT_VERSION" "$jactionlint_platform" jdx/jactionlint; then
+          printf 'jactionlint=%s\n' "${tools}/jactionlint${exe}" >> "$GITHUB_OUTPUT"
         fi
         # Trivy's database goes in this step's own new directory, which neither the files a
         # change commits nor anything earlier in the job can have filled: Trivy does not verify
@@ -326,31 +343,50 @@ runs:
           exit 1
         fi
 
-    - name: Run actionlint
-      if: ${{ !cancelled() && steps.install-tools.outputs.actionlint != '' && steps.check-configs.outputs.run_actionlint == 'true' }}
+    - name: Run jactionlint
+      if: ${{ !cancelled() && steps.install-tools.outputs.jactionlint != '' && steps.check-configs.outputs.run_actionlint == 'true' }}
       shell: sh
       env:
-        ACTIONLINT: ${{ steps.install-tools.outputs.actionlint }}
-        ACTIONLINT_CONFIG: ${{ steps.check-configs.outputs.actionlint_config }}
+        JACTIONLINT: ${{ steps.install-tools.outputs.jactionlint }}
+        JACTIONLINT_CONFIG: ${{ steps.check-configs.outputs.jactionlint_config }}
+        PROFILE: ${{ inputs.jactionlint-profile }}
       run: |
         set -eu
-        # Only regular files under a .github that is no symlink: actionlint would follow one out of
-        # the repository and print the lines it cannot parse.
-        if [ -L .github ]; then
-          printf '::warning::.github is a symlink - actionlint does not follow it\n'
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to copy the workflows"; exit 1; }
+        # The workflows GitHub loads: the regular files directly in .github/workflows, never what a
+        # symlink points to, and nothing under a .github or .github/workflows that is a symlink.
+        for dir in .github .github/workflows; do
+          if [ -L "$dir" ]; then
+            printf '::warning::%s is a symlink - jactionlint does not follow it\n' "$dir"
+            exit 0
+          fi
+        done
+        # jactionlint reads the local actions and reusable workflows a workflow names, following
+        # symlinks and .. paths out of the repository, and prints what it cannot parse there. A copy
+        # of the workflows outside any repository makes it read none of them, and no config but
+        # the one check-configs chose.
+        lint_dir=$(mktemp -d "${RUNNER_TEMP}/security-scan-jactionlint.XXXXXX")
+        mkdir -p "${lint_dir}/.github/workflows"
+        set --
+        for file in .github/workflows/*.yml .github/workflows/*.yaml; do
+          if [ -f "$file" ] && [ ! -L "$file" ]; then
+            cp "$file" "${lint_dir}/${file}"
+            set -- "$@" "$file"
+          fi
+        done
+        if [ "$#" -eq 0 ]; then
+          printf '::notice::No workflow files in .github/workflows - nothing for jactionlint to check\n'
           exit 0
         fi
-        if [ ! -d .github/workflows ] || [ -z "$(find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -print)" ]; then
-          printf '::notice::No workflow files in .github/workflows - nothing for actionlint to check\n'
-          exit 0
-        fi
-        # Without the shellcheck integration, as before, and without pyflakes, so the result does
-        # not depend on what else the runner has installed. Errors fail this step.
-        set -- -shellcheck= -pyflakes=
-        if [ -n "$ACTIONLINT_CONFIG" ]; then
-          set -- "$@" -config-file "$ACTIONLINT_CONFIG"
-        fi
-        find .github/workflows -type f \( -name '*.yml' -o -name '*.yaml' \) -exec "$ACTIONLINT" "$@" {} +
+        # Without the shellcheck and pyflakes integrations, and never online: the config file it is
+        # given counts as the user's own, so its online checks would send a token to the host it
+        # names. Its github-script-syntax check parses github-script scripts with node --check when
+        # the runner has node. A blank jactionlint-profile is the default, correctness. Findings
+        # fail this step.
+        profile=$(printf '%s' "$PROFILE" | tr -d '[:space:]')
+        cd "$lint_dir"
+        "$JACTIONLINT" --shellcheck= --pyflakes= --no-online --profile "${profile:-correctness}" \
+          --config-file "$JACTIONLINT_CONFIG" "$@"
 
     - name: Run Gitleaks
       if: ${{ !cancelled() && steps.install-tools.outputs.gitleaks != '' && steps.check-configs.outputs.run_gitleaks == 'true' }}

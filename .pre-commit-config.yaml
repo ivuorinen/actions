@@ -83,12 +83,6 @@ repos:
         args: ['-x']
         exclude: '^_tests/.*\.sh$'
 
-  - repo: https://github.com/rhysd/actionlint
-    rev: 914e7df21a07ef503a81201c76d2b11c789d3fca # frozen: v1.7.12
-    hooks:
-      - id: actionlint
-        args: ['-shellcheck=']
-
   - repo: https://github.com/bridgecrewio/checkov.git
     rev: af20f73b3f9ef72c04c8a524ed41f6c5f39a3490 # frozen: 3.4.5
     hooks:
@@ -108,10 +102,20 @@ repos:
     hooks:
       - id: editorconfig-checker
 
+  # pre-commit puts the file names after each entry; the -- keeps a path that starts with - from
+  # being read as an option.
   - repo: local
     hooks:
       - id: action-validator
         name: action-validator
         language: system
-        entry: action-validator
+        entry: action-validator --
         files: '(^\.github/workflows/.*\.ya?ml$|.*/action\.ya?ml$)'
+      # The jactionlint on PATH, with the profile in .github/jactionlint.yaml, on the files jactionlint's own
+      # hooks take. Those hooks clone jdx/jactionlint, whose mise.toml a mise-managed git refuses to read.
+      - id: jactionlint
+        name: jactionlint
+        language: system
+        entry: jactionlint --shellcheck= --
+        types: [yaml]
+        files: '^(\.github/workflows/|\.github/dependabot\.ya?ml$|(.*/)?action\.ya?ml$)'

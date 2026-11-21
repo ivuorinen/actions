@@ -35,11 +35,12 @@ case "$FILE_PATH" in
   ;;
 esac
 
-# Run actionlint and action-validator on action.yml files
+# Run jactionlint, which checks action metadata, and action-validator on action.yml files
 case "$FILE_PATH" in
 */action.yml)
-  if command -v actionlint >/dev/null 2>&1; then
-    actionlint "$FILE_PATH" 2>&1 || true
+  if command -v jactionlint >/dev/null 2>&1; then
+    # As the pre-commit hook runs it: shellcheck off, and -- before the path.
+    jactionlint --shellcheck= -- "$FILE_PATH" 2>&1 || true
   fi
   if command -v action-validator >/dev/null 2>&1; then
     action-validator "$FILE_PATH" 2>&1 || true

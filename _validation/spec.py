@@ -330,6 +330,7 @@ SPECS: dict[str, ActionSpec] = {
             "actionlint-enabled": "boolean",
             "gitleaks-config": "file_path",
             "gitleaks-license": "opaque_token",
+            "jactionlint-profile": "jactionlint_profile",
             "token": "github_token",
             "trivy-scanners": "scanner_list",
             "trivy-severity": "severity_enum",

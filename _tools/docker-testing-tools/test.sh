@@ -63,7 +63,7 @@ for tool_cmd in \
   "act --version" \
   "trivy --version" \
   "trufflehog --version" \
-  "actionlint --version" \
+  "jactionlint --version" \
   "shellcheck --version" \
   "jq --version" \
   "kcov --version" \

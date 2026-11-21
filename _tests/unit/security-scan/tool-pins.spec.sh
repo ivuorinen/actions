@@ -50,7 +50,7 @@ run_install() {
   RUNNER_OS="$1" RUNNER_ARCH="$2" RUN_ACTIONLINT="${3:-true}" ACTION_PATH="$STUB_DIR" \
     GITLEAKS_VERSION="$(pinned_version GITLEAKS_VERSION)" \
     TRIVY_VERSION="$(pinned_version TRIVY_VERSION)" \
-    ACTIONLINT_VERSION="$(pinned_version ACTIONLINT_VERSION)" \
+    JACTIONLINT_VERSION="$(pinned_version JACTIONLINT_VERSION)" \
     sh -c "$(step_value "$ACTION_DIR" "$INSTALL_STEP" run)"
 }
 
@@ -98,12 +98,12 @@ End
 
 It "fetches the $1 $2 release archives of all three scanners"
 gitleaks="$(pinned_version GITLEAKS_VERSION)"
-actionlint="$(pinned_version ACTIONLINT_VERSION)"
+jactionlint="$(pinned_version JACTIONLINT_VERSION)"
 trivy="$(pinned_version TRIVY_VERSION)"
 When call run_install "$1" "$2"
 The status should be success
 Assert downloaded gitleaks/gitleaks "$gitleaks" "gitleaks_${gitleaks}_$3.$6"
-Assert downloaded rhysd/actionlint "$actionlint" "actionlint_${actionlint}_$4.$6"
+Assert downloaded jdx/jactionlint "$jactionlint" "jactionlint_${jactionlint}_$4.$6"
 Assert downloaded aquasecurity/trivy "$trivy" "trivy_${trivy}_$5.$6"
 End
 
@@ -112,10 +112,10 @@ When call run_install "$1" "$2"
 The status should be success
 Assert installed "gitleaks$7"
 Assert installed "trivy$7"
-Assert installed "actionlint$7"
+Assert installed "jactionlint$7"
 Assert output_names gitleaks "gitleaks$7"
 Assert output_names trivy "trivy$7"
-Assert output_names actionlint "actionlint$7"
+Assert output_names jactionlint "jactionlint$7"
 End
 End
 
@@ -146,14 +146,14 @@ Assert test ! -s "$CALLS"
 End
 End
 
-It "installs no actionlint when actionlint is off"
+It "installs no jactionlint when actionlint-enabled is off"
 When call run_install Linux X64 false
 The status should be success
 The output should equal ""
 Assert test "$(fetched)" = "$(lines "gitleaks_$(pinned_version GITLEAKS_VERSION)_linux_x64.tar.gz" \
   "trivy_$(pinned_version TRIVY_VERSION)_Linux-64bit.tar.gz")"
 Assert output_names gitleaks gitleaks
-Assert test -z "$(grep '^actionlint=' "$GITHUB_OUTPUT")"
+Assert test -z "$(grep '^jactionlint=' "$GITHUB_OUTPUT")"
 End
 
 # A new directory: nothing earlier in the job can have put a database there.
@@ -169,7 +169,7 @@ When call run_install Linux X64
 The status should be failure
 The output should include "::error::Could not install: trivy"
 Assert output_names gitleaks gitleaks
-Assert output_names actionlint actionlint
+Assert output_names jactionlint jactionlint
 Assert test -z "$(grep '^trivy=' "$GITHUB_OUTPUT")"
 Assert test -z "$(grep "^install .*/trivy_" "$CALLS")"
 End
@@ -180,6 +180,6 @@ It "lets Renovate bump each scanner version"
 When call cat "${ACTION_DIR}/action.yml"
 The output should include "# renovate: datasource=github-releases depName=gitleaks/gitleaks"
 The output should include "# renovate: datasource=github-releases depName=aquasecurity/trivy"
-The output should include "# renovate: datasource=github-releases depName=rhysd/actionlint"
+The output should include "# renovate: datasource=github-releases depName=jdx/jactionlint"
 End
 End

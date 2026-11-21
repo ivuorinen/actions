@@ -17,14 +17,15 @@ Thank you for your interest in contributing to this GitHub Actions monorepo.
    cd actions
    ```
 
-2. Install Node.js, Python 3, [uv](https://docs.astral.sh/uv/), ShellSpec, shellcheck and
-   [action-validator](https://github.com/mpalmer/action-validator#installation), then run `make install-tools`.
+2. Install Node.js, Python 3, [uv](https://docs.astral.sh/uv/), ShellSpec, shellcheck,
+   [action-validator](https://github.com/mpalmer/action-validator#installation) and
+   [jactionlint](https://jactionlint.jdx.dev/install), then run `make install-tools`.
    It installs markdownlint-cli2, prettier and yaml-lint from `package-lock.json`, and ruff, pyright, pytest and
-   pre-commit (which runs actionlint and editorconfig-checker) from `uv.lock`. It fetches gh-action-readme, checked
+   pre-commit (which runs editorconfig-checker) from `uv.lock`. It fetches gh-action-readme, checked
    against the digest the Makefile pins, and checks for shellcheck, shfmt and uv. The make targets run those tools at
    their locked versions. pre-commit's hooks are pinned to commits, but each hook installs its own dependencies
-   without a lock. `make lint` runs action-validator through a pre-commit hook that uses the binary on your `PATH`;
-   nothing installs it for you. The editorconfig-checker hook builds the checker from source with Go, which
+   without a lock. `make lint` runs action-validator, and pre-commit runs jactionlint, through hooks that use the
+   binary on your `PATH`; nothing installs them for you. The editorconfig-checker hook builds the checker from source with Go, which
    pre-commit downloads when it is missing.
 3. Run formatting, linting, and pre-commit checks:
 
