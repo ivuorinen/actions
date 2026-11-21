@@ -51,8 +51,8 @@ inputs:
   actionlint-enabled:
     description: >-
       Lint the workflows with jactionlint, a fork of actionlint (lowercase true or false). jactionlint fails on a key
-      its config file does not know, where actionlint ignored one, and applies no baseline the config names, so it
-      reports every finding
+      its config file does not know, where actionlint ignored one. It applies no baseline the config names; the
+      config's ignores, and jactionlint ignore= comments in the workflows, still apply
     required: false
     default: 'true'
   jactionlint-profile:
@@ -385,7 +385,8 @@ runs:
         # given counts as the user's own, so its online checks would send a token to the host it
         # names. Without a baseline too: outside the repository jactionlint reads the baseline a
         # config names, through its extends, relative to the copy, where it is missing, so a named
-        # one failed the step and "auto" hid nothing; every finding is reported instead. Its
+        # one failed the step and "auto" hid nothing. The config's ignores and the workflows' ignore
+        # comments still apply; --no-ignores would drop the config's too, which actionlint kept. Its
         # github-script-syntax check parses github-script scripts with node --check when the runner
         # has node. A blank jactionlint-profile is the default, correctness. Findings fail this step.
         profile=$(printf '%s' "$PROFILE" | tr -d '[:space:]')
