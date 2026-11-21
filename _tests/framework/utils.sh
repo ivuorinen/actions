@@ -25,7 +25,7 @@ validate_action_yml() {
     # Compute path relative to this script for CWD independence
     local utils_dir
     utils_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-    if ! uv run "$utils_dir/../shared/validation_core.py" --validate-yaml "$action_file" 2>/dev/null; then
+    if ! uv run --locked "$utils_dir/../shared/validation_core.py" --validate-yaml "$action_file" 2>/dev/null; then
       [[ $quiet_mode == "false" ]] && log_error "Invalid YAML in action file: $action_file"
       return 1
     fi
@@ -40,28 +40,28 @@ get_action_inputs() {
   local action_file="$1"
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  uv run "$script_dir/../shared/validation_core.py" --inputs "$action_file"
+  uv run --locked "$script_dir/../shared/validation_core.py" --inputs "$action_file"
 }
 
 get_action_outputs() {
   local action_file="$1"
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  uv run "$script_dir/../shared/validation_core.py" --outputs "$action_file"
+  uv run --locked "$script_dir/../shared/validation_core.py" --outputs "$action_file"
 }
 
 get_action_name() {
   local action_file="$1"
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  uv run "$script_dir/../shared/validation_core.py" --name "$action_file"
+  uv run --locked "$script_dir/../shared/validation_core.py" --name "$action_file"
 }
 
 get_action_runs_using() {
   local action_file="$1"
   local script_dir
   script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-  uv run "$script_dir/../shared/validation_core.py" --runs-using "$action_file"
+  uv run --locked "$script_dir/../shared/validation_core.py" --runs-using "$action_file"
 }
 
 # Check if an input is required in an action.yml file
@@ -73,7 +73,7 @@ is_input_required() {
 
   # Get the 'required' property for the input
   local required_status
-  required_status=$(uv run "$script_dir/../shared/validation_core.py" --property "$action_file" "$input_name" "required")
+  required_status=$(uv run --locked "$script_dir/../shared/validation_core.py" --property "$action_file" "$input_name" "required")
 
   # Return 0 (success) if input is required, 1 (failure) if optional
   [[ "$required_status" == "required" ]]
@@ -100,7 +100,7 @@ test_input_validation() {
 
   local result="success"
   # Call validation_core CLI with proper argument passing (no injection risk)
-  if ! uv run "$script_dir/../shared/validation_core.py" --validate "$action_dir" "$input_name" "$test_value" 2>&1; then
+  if ! uv run --locked "$script_dir/../shared/validation_core.py" --validate "$action_dir" "$input_name" "$test_value" 2>&1; then
     result="failure"
   fi
 

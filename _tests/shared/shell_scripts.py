@@ -161,7 +161,68 @@ def step_scripts(text: str):
     map to the line where the value starts. Only runs.steps runs scripts, so a key named run
     anywhere else, such as in env:, is not one.
     """
-    steps = fields(fields(yaml.compose(text)).get("runs")).get("steps")
+    yield from steps_scripts(fields(fields(yaml.compose(text)).get("runs")).get("steps"), "sh")
+
+
+def default_shell(node_fields: dict) -> str | None:
+    """Return the shell a workflow's or a job's defaults.run.shell names, if any."""
+    shell = fields(fields(node_fields.get("defaults")).get("run")).get("shell")
+    return shell.value if isinstance(shell, yaml.ScalarNode) else None
+
+
+def runner_shell(job_fields: dict) -> str | None:
+    """Return the shell GitHub runs a job's run step with when neither the step nor a defaults
+    block names one: pwsh on a Windows runner, bash on the others. None when runs-on is an
+    expression or a runner group, which only the run resolves."""
+    runs_on = job_fields.get("runs-on")
+    if isinstance(runs_on, yaml.MappingNode):
+        runs_on = fields(runs_on).get("labels")
+    if isinstance(runs_on, yaml.ScalarNode):
+        labels = [runs_on.value]
+    elif isinstance(runs_on, yaml.SequenceNode):
+        labels = [node.value for node in runs_on.value if isinstance(node, yaml.ScalarNode)]
+    else:
+        return None
+    if not labels or any("${{" in label for label in labels):
+        return None
+    return "pwsh" if any("windows" in label.lower() for label in labels) else "bash"
+
+
+def container_shell(job_fields: dict) -> str | None:
+    """Return the shell a job's run steps get from its container when nothing names one: sh for
+    a literal image, GitHub's default in a container. An image given by an expression can come
+    out empty, and the job then runs on the host, so it gets bash, whose parser reads an sh
+    script too. None for a job without a container."""
+    container = job_fields.get("container")
+    image = fields(container).get("image") if isinstance(container, yaml.MappingNode) else container
+    if not isinstance(image, yaml.ScalarNode) or not image.value.strip():
+        return None
+    return "bash" if "${{" in image.value else "sh"
+
+
+def workflow_scripts(text: str):
+    """Yield (script, language, line_of) for each sh or bash script a workflow's jobs run, as
+    step_scripts does for an action. A run step that names no shell runs the one its job's or
+    the workflow's defaults.run.shell names, or else its container's (container_shell), or
+    else the runner's default (runner_shell)."""
+    root = fields(yaml.compose(text))
+    workflow = default_shell(root)
+    for job in fields(root.get("jobs")).values():
+        job_fields = fields(job)
+        shell = (
+            default_shell(job_fields)
+            or workflow
+            or container_shell(job_fields)
+            or runner_shell(job_fields)
+        )
+        yield from steps_scripts(job_fields.get("steps"), shell)
+
+
+def steps_scripts(steps, run_shell: str | None):
+    """Yield (script, language, line_of) for each sh or bash script a list of steps runs. A
+    run step without a shell of its own runs run_shell, a shell name or a template such as
+    `bash -e {0}`. When run_shell is None, no shell can be told for such a step, and it raises
+    ParseError rather than leave the step unread."""
     if not isinstance(steps, yaml.SequenceNode):
         return
     for step in steps.value:
@@ -174,9 +235,18 @@ def step_scripts(text: str):
             shell, default = options.get("shell"), "bash"
         else:
             scripts = [step_fields.get("run")]
-            shell, default = step_fields.get("shell"), "sh"
-        words = shell.value.split() if isinstance(shell, yaml.ScalarNode) else [default]
-        name = words[0].rsplit("/", 1)[-1] if words else default
+            shell, default = step_fields.get("shell"), run_shell
+        chosen = shell.value if isinstance(shell, yaml.ScalarNode) else default
+        if chosen is None:
+            if any(isinstance(script, yaml.ScalarNode) for script in scripts):
+                message = (
+                    f"line {step.start_mark.line + 1}: runs-on is an expression, so the shell "
+                    "this step runs is not known; name its shell or the job's defaults.run.shell"
+                )
+                raise ParseError(message)
+            continue
+        words = chosen.split()
+        name = words[0].rsplit("/", 1)[-1] if words else ""
         if name not in SHELLS:
             continue
         for script in scripts:

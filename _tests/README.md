@@ -20,18 +20,22 @@ make test-coverage
 
 ### Prerequisites
 
+`make test` needs [uv](https://docs.astral.sh/uv/), which runs the Python tests and the harness from `uv.lock`, and
+stops with an error when uv is missing. The tests also need ShellSpec and shfmt (the posix-shell tests parse each
+action's `run:` scripts with it); nektos/act is optional, for integration tests.
+`.github/actions/setup-test-environment/action.yml` pins the version of ShellSpec, shfmt and act and the SHA-256 of
+each download (ShellSpec's source archive, shfmt's binary, act's archive), and installs each in CI only when the
+download matches.
+
 ```bash
-# Install ShellSpec (testing framework)
-curl -fsSL https://github.com/shellspec/shellspec/releases/latest/download/shellspec-dist.tar.gz | tar -xz
-sudo make -C shellspec-* install
+# macOS: Homebrew checks each download against the checksum in its formula, but installs the
+# formula's current version, which can be newer than the one CI pins (act, for one).
+brew install uv shellspec shfmt act
 
-# Install shfmt: the posix-shell tests parse each action's run: scripts with it
-brew install shfmt  # macOS
-# or: go install mvdan.cc/sh/v3/cmd/shfmt@v3.14.1
-
-# Install nektos/act (optional, for integration tests)
-brew install act  # macOS
-# or: curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
+# Linux, or to match CI exactly: download each file from the URL setup-test-environment
+# builds for it, at the pinned version (act and shfmt publish macOS builds on the same
+# release pages; ShellSpec is plain shell), and check a Linux download against the SHA-256
+# that file pins before installing it, as CI does.
 ```
 
 ## 📁 Framework Overview
@@ -126,7 +130,7 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Test action locally
         id: test-local
@@ -555,21 +559,13 @@ All input validation flows from the canonical validation kit in `_validation/`:
 
 #### "ShellSpec command not found"
 
-```bash
-# Install ShellSpec globally
-curl -fsSL https://github.com/shellspec/shellspec/releases/latest/download/shellspec-dist.tar.gz | tar -xz
-sudo make -C shellspec-* install
-```
+Install ShellSpec as [Prerequisites](#prerequisites) describes: `brew install shellspec` on macOS, or on Linux the
+version and SHA-256 that `.github/actions/setup-test-environment/action.yml` pins.
 
 #### "act command not found"
 
-```bash
-# Install nektos/act (macOS)
-brew install act
-
-# Install nektos/act (Linux)
-curl https://raw.githubusercontent.com/nektos/act/master/install.sh | sudo bash
-```
+Install act the same way: `brew install act` on macOS, or on Linux the version and SHA-256 that
+`.github/actions/setup-test-environment/action.yml` pins.
 
 #### Tests timeout
 

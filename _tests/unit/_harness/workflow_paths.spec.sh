@@ -10,7 +10,7 @@ WORKFLOW="${PROJECT_ROOT}/.github/workflows/test-actions.yml"
 # so quoting style does not matter and entries under other keys, such as branches, do
 # not count.
 trigger_lists_path() {
-  uv run python - "$WORKFLOW" "$1" "$2" <<'PY'
+  uv run --locked python - "$WORKFLOW" "$1" "$2" <<'PY'
 import sys
 
 import yaml

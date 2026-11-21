@@ -71,9 +71,101 @@ GLOBAL_OPTIONS = {
     "pnpm": {"-C", "--dir", "--filter", "-F"},
     "yarn": {"--cwd"},
     "bun": {"--cwd", "--config", "-c"},
-    "uv": {"--directory", "--project", "--cache-dir", "--python", "-p", "--config-file"},
+    # The ones `uv --help` lists with a <VALUE>, and the hidden ones uv 0.13.6 reads a value for
+    # before a subcommand: probed with `uv <option> x help`.
+    "uv": {
+        "--allow-insecure-host",
+        "--cache-dir",
+        "--color",
+        "--config-file",
+        "--directory",
+        "--preview-feature",
+        "--preview-features",
+        "--project",
+        "--python-fetch",
+        "--python-preference",
+        "--trusted-host",
+    },
     "pipx": set(),
 }
+
+# uv run and uv sync options that take a value, so the word after one is not the command uv run
+# runs: each one `uv run --help` and `uv sync --help` list with a <VALUE> (uv 0.13.6), and the
+# hidden ones it reads a value for, probed with `uv run <option> x --help`. An option a later uv
+# adds reads as the command, which reports a locked call or a fetch that is not there, never
+# hides one.
+UV_OPTIONS = GLOBAL_OPTIONS["uv"] | {
+    "-C",
+    "--config-setting",
+    "--config-settings-package",
+    "--default-index",
+    "--env-file",
+    "--exclude-newer",
+    "--exclude-newer-package",
+    "--extra",
+    "--extra-index-url",
+    "-f",
+    "--find-links",
+    "--fork-strategy",
+    "--group",
+    "-i",
+    "--index",
+    "--index-strategy",
+    "--index-url",
+    "--keyring-provider",
+    "--link-mode",
+    "--max-recursion-depth",
+    "--no-binary-package",
+    "--no-build-isolation-package",
+    "--no-build-package",
+    "--no-editable-package",
+    "--no-extra",
+    "--no-group",
+    "--no-install-package",
+    "--no-sources-package",
+    "--only-group",
+    "--only-install-package",
+    "--output-format",
+    "-p",
+    "-P",
+    "--package",
+    "--prerelease",
+    "--prerelease-package",
+    "--python",
+    "--python-platform",
+    "--refresh-package",
+    "--reinstall-package",
+    "--resolution",
+    "--script",
+    "--upgrade-group",
+    "--upgrade-package",
+    "-w",
+    "--with",
+    "--with-editable",
+    "--with-requirements",
+}
+
+
+def own_options(args: list[str], options: set[str]) -> list[str]:
+    """Return, in order, the options a command reads before its first operand, each by name:
+    --name for --name=value, and -x for each letter of a short cluster up to the one that takes
+    an argument. options names the ones that take an argument."""
+    names = []
+    index = 0
+    while index < len(args) and args[index] != "--":
+        word = args[index]
+        is_option, needs_next = sh.takes_argument(word, options)
+        if not is_option:
+            break
+        if word.startswith("--"):
+            names.append(word.split("=", 1)[0])
+        else:
+            for letter in word[1:]:
+                names.append("-" + letter)
+                if "-" + letter in options:
+                    break
+        index += 2 if needs_next else 1
+    return names
 
 
 def subcommand(name: str, args: list[str]) -> tuple[str, list[str]]:
@@ -108,7 +200,7 @@ def fetches_floating(name: str, args: list[str]) -> bool:
     npx and bunx (bun x) fetch a package they do not find unless --no-install (npx: --no) comes
     before its name; npm exec reads its own options up to --. pnpm dlx, yarn dlx, pnpx, uvx,
     pipx run and uv tool run always fetch, as do create with a template and npm init with an
-    initializer, and uv run --with fetches what it names.
+    initializer, and uv run --with (-w) among its own options fetches what it names.
     """
     if name == "npx":
         return not leading_options(args) & {"--no-install", "--no"}
@@ -129,15 +221,15 @@ def fetches_floating(name: str, args: list[str]) -> bool:
         return operand
     if name == "uv":
         return (command == "tool" and rest[:1] == ["run"]) or (
-            command == "run" and any(arg.split("=", 1)[0] == "--with" for arg in rest)
+            command == "run" and bool({"--with", "-w"} & set(own_options(rest, UV_OPTIONS)))
         )
     return name in ("pnpx", "uvx")
 
 
-def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str]]:
+def find_commands(script: str, language: str, line_of, matches) -> list[tuple[int, str]]:
     """Return (line, command) for each command in a script, and in the scripts it runs (with
-    -c, eval, trap, env -S, or a here-document fed to a shell), that fetches at a floating
-    version."""
+    -c, eval, trap, env -S, or a here-document fed to a shell), for which matches(name, args)
+    holds, such as fetches_floating."""
     found = []
     tree = sh.parse(script, language)
     for cmd in sh.simple_commands(tree):
@@ -145,14 +237,12 @@ def floating_fetches(script: str, language: str, line_of) -> list[tuple[int, str
         calls, scripts = sh.command_names(words)
         line = line_of(cmd["Pos"]["Line"])
         text = " ".join(words).replace(sh.EXPANSION, "$...")
-        found += [
-            (line, text) for index, name in calls if fetches_floating(name, words[index + 1 :])
-        ]
+        found += [(line, text) for index, name in calls if matches(name, words[index + 1 :])]
         for inner, inner_language in scripts:
-            found += floating_fetches(inner, inner_language, lambda _line, at=line: at)
+            found += find_commands(inner, inner_language, lambda _line, at=line: at, matches)
     for body, language_read, line in sh.heredoc_scripts(tree, script.encode("utf-8")):
         outer = line_of(line)
-        found += floating_fetches(body, language_read, lambda _line, at=outer: at)
+        found += find_commands(body, language_read, lambda _line, at=outer: at, matches)
     return found
 
 
@@ -212,7 +302,7 @@ def check_action(action: Path, managers: list[re.Pattern[str]]) -> tuple[list[st
         for script, language, line_of in sh.step_scripts(text):
             problems += [
                 f"{label}:{number}: floating tool reference: {command}"
-                for number, command in floating_fetches(script, language, line_of)
+                for number, command in find_commands(script, language, line_of, fetches_floating)
             ]
     except (yaml.YAMLError, sh.ParseError) as error:
         problems.append(f"{label}: cannot read its scripts: {error}")

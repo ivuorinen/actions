@@ -5,8 +5,9 @@
 # Scans the repository rather than a list of actions, so a new action is covered too.
 
 Describe "validate.py step order"
+# Scans SCAN_ROOT, or the repository. uv keeps running in the repository's project.
 list_order_violations() {
-  _harness_python - "$PROJECT_ROOT" <<'PY'
+  _harness_python - "${SCAN_ROOT:-$PROJECT_ROOT}" <<'PY'
 import re
 import sys
 from pathlib import Path
@@ -49,7 +50,7 @@ order_fixture() {
     printf 'runs:\n  using: composite\n  steps:\n'
     cat
   } >"${SHELLSPEC_TMPBASE}/order/x/action.yml"
-  PROJECT_ROOT="${SHELLSPEC_TMPBASE}/order"
+  SCAN_ROOT="${SHELLSPEC_TMPBASE}/order"
 }
 
 It "runs validate.py before actions/checkout in every action"

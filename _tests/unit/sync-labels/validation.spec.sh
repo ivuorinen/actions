@@ -14,12 +14,12 @@ The status should be failure
 End
 
 It "accepts classic GitHub token"
-When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
+When call uv run --locked "_tests/shared/validation_core.py" --validate "sync-labels" "token" "ghp_abcdefghijklmnopqrstuvwxyz1234567890"
 The status should be success
 End
 
 It "accepts fine-grained GitHub token"
-When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "token" "github_pat_1234567890123456789012345678901234567890123456789012345678901234567890a"
+When call uv run --locked "_tests/shared/validation_core.py" --validate "sync-labels" "token" "github_pat_1234567890123456789012345678901234567890123456789012345678901234567890a"
 The status should be success
 End
 
@@ -36,12 +36,12 @@ End
 
 Context "when validating config-file input"
 It "accepts valid config file"
-When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.yml"
+When call uv run --locked "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.yml"
 The status should be success
 End
 
 It "accepts config file with json extension"
-When call uv run "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.json"
+When call uv run --locked "_tests/shared/validation_core.py" --validate "sync-labels" "labels" ".github/labels.json"
 The status should be success
 End
 
@@ -82,12 +82,12 @@ End
 
 Context "when testing input requirements"
 It "token input is optional"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "optional"
+When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "token" "optional"
 The output should equal "optional"
 End
 
 It "labels input is optional"
-When call uv run "_tests/shared/validation_core.py" --property "$ACTION_FILE" "labels" "optional"
+When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "labels" "optional"
 The output should equal "optional"
 End
 End
