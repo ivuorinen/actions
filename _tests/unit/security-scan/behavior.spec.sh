@@ -419,7 +419,7 @@ printf 'name: ci\n' >.github/workflows/ci.yml
 fake_tool jactionlint
 When call run_jactionlint
 The status should be success
-Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --profile correctness \
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
   --config-file "${RUNNER_TEMP}/jactionlint.yaml" .github/workflows/ci.yml)"
 Assert linted_in_copy
 The contents of file "$(recorded jactionlint cwd)/.github/workflows/ci.yml" should equal "name: ci"
@@ -432,7 +432,7 @@ touch .github/workflows/ci.yml
 fake_tool jactionlint
 When call run_jactionlint "${RUNNER_TEMP}/jactionlint.yaml" " "
 The status should be success
-Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --profile correctness \
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
   --config-file "${RUNNER_TEMP}/jactionlint.yaml" .github/workflows/ci.yml)"
 End
 
@@ -442,7 +442,7 @@ touch .github/workflows/ci.yml
 fake_tool jactionlint
 When call run_jactionlint "${RUNNER_TEMP}/base.yaml" default
 The status should be success
-Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --profile default \
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile default \
   --config-file "${RUNNER_TEMP}/base.yaml" .github/workflows/ci.yml)"
 End
 
@@ -458,8 +458,8 @@ Assert linted_in_copy
 Assert no_path "$(recorded jactionlint cwd)/act"
 End
 
-# Outside a repository jactionlint reads the config's baseline relative to the directory it runs in.
-It "puts the baseline \"baseline: auto\" names into the copy"
+# Outside the repository jactionlint would read the baseline relative to the copy, where it is missing.
+It "applies no baseline the config names, and copies none"
 mkdir -p .github/workflows
 touch .github/workflows/ci.yml
 printf 'baseline: auto\n' >.github/jactionlint.yaml
@@ -467,67 +467,9 @@ printf '{"entries": []}\n' >.github/jactionlint-baseline.json
 fake_tool jactionlint
 When call run_jactionlint "${PWD}/.github/jactionlint.yaml"
 The status should be success
-The contents of file "$(recorded jactionlint cwd)/.github/jactionlint-baseline.json" should equal '{"entries": []}'
-End
-
-It "puts the baseline file the config names into the copy at the same path"
-mkdir -p .github/workflows
-touch .github/workflows/ci.yml
-printf 'baseline: "accepted.json" # reviewed\n' >.github/jactionlint.yaml
-printf '{"entries": [1]}\n' >accepted.json
-fake_tool jactionlint
-When call run_jactionlint "${PWD}/.github/jactionlint.yaml"
-The status should be success
-The contents of file "$(recorded jactionlint cwd)/accepted.json" should equal '{"entries": [1]}'
-End
-
-It "copies no baseline that is a symlink, and warns"
-mkdir -p .github/workflows
-touch .github/workflows/ci.yml
-printf 'outside\n' >"${RUNNER_TEMP}/outside.json"
-ln -s "${RUNNER_TEMP}/outside.json" link.json
-printf 'baseline: link.json\n' >.github/jactionlint.yaml
-fake_tool jactionlint
-When call run_jactionlint "${PWD}/.github/jactionlint.yaml"
-The status should be success
-The stdout should include "::warning::jactionlint baseline link.json is a symlink"
-Assert no_path "$(recorded jactionlint cwd)/link.json"
-End
-
-It "copies no baseline under a symlinked directory that leaves the config's tree"
-mkdir -p .github/workflows "${RUNNER_TEMP}/outdir"
-touch .github/workflows/ci.yml
-printf 'outside\n' >"${RUNNER_TEMP}/outdir/x.json"
-ln -s "${RUNNER_TEMP}/outdir" dir
-printf 'baseline: dir/x.json\n' >.github/jactionlint.yaml
-fake_tool jactionlint
-When call run_jactionlint "${PWD}/.github/jactionlint.yaml"
-The status should be success
-The stdout should include "::warning::jactionlint baseline dir/x.json is a symlink"
-Assert no_path "$(recorded jactionlint cwd)/dir"
-End
-
-# The file exists inside the tree, so only the .. segment keeps it out.
-It "copies no baseline named by a path with a .. segment"
-mkdir -p .github/workflows
-touch .github/workflows/ci.yml
-printf '{}\n' >accepted.json
-printf 'baseline: .github/../accepted.json\n' >.github/jactionlint.yaml
-fake_tool jactionlint
-When call run_jactionlint "${PWD}/.github/jactionlint.yaml"
-The status should be success
-The stdout should include "::warning::jactionlint baseline .github/../accepted.json is a symlink"
-Assert no_path "$(recorded jactionlint cwd)/accepted.json"
-End
-
-It "never puts a baseline over a copied workflow"
-mkdir -p .github/workflows
-printf 'on: push\n' >.github/workflows/ci.yml
-printf 'baseline: .github/workflows/ci.yml\n' >.github/jactionlint.yaml
-fake_tool jactionlint
-When call run_jactionlint "${PWD}/.github/jactionlint.yaml"
-The status should be success
-The stdout should include "::warning::jactionlint baseline .github/workflows/ci.yml is a symlink"
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
+  --config-file "${PWD}/.github/jactionlint.yaml" .github/workflows/ci.yml)"
+Assert no_path "$(recorded jactionlint cwd)/.github/jactionlint-baseline.json"
 End
 
 It "lints the regular .yml and .yaml files directly in .github/workflows, never a symlink or a subdirectory"
@@ -538,7 +480,7 @@ ln -s "${RUNNER_TEMP}/outside.yml" .github/workflows/link.yml
 fake_tool jactionlint
 When call run_jactionlint
 The status should be success
-Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --profile correctness \
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
   --config-file "${RUNNER_TEMP}/jactionlint.yaml" .github/workflows/ci.yml .github/workflows/release.yaml)"
 Assert no_path "$(recorded jactionlint cwd)/.github/workflows/link.yml"
 End
