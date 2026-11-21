@@ -13,9 +13,10 @@ description: >-
   adds, two-parent merge commits included, and the whole history on other events and on a push whose earlier commit
   the clone lacks, such as the push that creates a branch, where an older commit can fail the scan. On a pull request,
   its review events or a merge group, Gitleaks and Trivy run from an export of the base commit, so their configs, ignore
-  files and git attributes come from the base branch, and jactionlint reads the base branch's config. Inline
-  gitleaks:allow comments, and Trivy's trivy:ignore comments, in the changed files still apply; a pull request's scan
-  lists the gitleaks:allow comments it adds in a comment when the base branch keeps a Gitleaks config or ignore file.
+  files and git attributes come from the base branch, and jactionlint reads the base branch's config and the baseline
+  it names. Inline gitleaks:allow comments, and Trivy's trivy:ignore comments, in the changed files still apply; a pull
+  request's scan lists the gitleaks:allow comments it adds in a comment when the base branch keeps a Gitleaks config or
+  ignore file.
 author: Ismo Vuorinen
 branding:
   icon: shield
@@ -57,7 +58,9 @@ inputs:
   jactionlint-profile:
     description: >-
       jactionlint rule profile: correctness runs the checks of actionlint, default adds jactionlint's other rules, most
-      of them security and policy rules. Overrides a profile in the jactionlint or actionlint config file
+      of them security and policy rules. Overrides a profile in the jactionlint or actionlint config file. Either way,
+      jactionlint runs without its shellcheck and pyflakes integrations, so it does not check the shell or Python
+      scripts of run: steps
     required: false
     default: 'correctness'
   token:
@@ -377,6 +380,44 @@ runs:
         if [ "$#" -eq 0 ]; then
           printf '::notice::No workflow files in .github/workflows - nothing for jactionlint to check\n'
           exit 0
+        fi
+        # Outside a repository, jactionlint reads the baseline the config names relative to the
+        # directory it runs in, so the baseline goes into the copy at the same place: from the tree
+        # the config came from (the base commit's on a pull request), never through a symlink, a
+        # symlinked directory or a .. segment, and never over a copied workflow. "auto" names
+        # .github/jactionlint-baseline.json; an absolute path is read as it is. The empty config
+        # check-configs writes has no tree and no baseline.
+        root=${JACTIONLINT_CONFIG%/.github/*}
+        baseline=''
+        if [ "$root" != "$JACTIONLINT_CONFIG" ]; then
+          baseline=$(sed -n -E "s/^baseline:[[:space:]]*['\"]?([^'\"#[:space:]]*).*/\1/p" "$JACTIONLINT_CONFIG" | tail -n 1)
+        fi
+        case "$(printf '%s' "$baseline" | tr '[:upper:]' '[:lower:]')" in
+          auto | true | yes) baseline=.github/jactionlint-baseline.json ;;
+          '' | false | off | no) baseline='' ;;
+        esac
+        refused=false
+        case "$baseline" in
+          /*) baseline='' ;;
+          .. | ../* | */.. | */../*) refused=true ;;
+        esac
+        if [ -n "$baseline" ] && [ "$refused" = false ] && [ -f "${root}/${baseline}" ]; then
+          real_root=$(cd -P "$root" && pwd -P)
+          real_dir=$(cd -P "$(dirname -- "${root}/${baseline}")" && pwd -P)
+          case "${real_dir}/" in
+            "${real_root}"/*) ;;
+            *) refused=true ;;
+          esac
+          if [ -L "${root}/${baseline}" ] || [ -e "${lint_dir}/${baseline}" ]; then
+            refused=true
+          fi
+          if [ "$refused" = false ]; then
+            mkdir -p "$(dirname -- "${lint_dir}/${baseline}")"
+            cp "${root}/${baseline}" "${lint_dir}/${baseline}"
+          fi
+        fi
+        if [ "$refused" = true ]; then
+          printf '::warning::jactionlint baseline %s is a symlink, outside the config'"'"'s tree or a workflow - not used\n' "$baseline"
         fi
         # Without the shellcheck and pyflakes integrations, and never online: the config file it is
         # given counts as the user's own, so its online checks would send a token to the host it

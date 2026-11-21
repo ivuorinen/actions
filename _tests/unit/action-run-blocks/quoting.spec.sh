@@ -187,6 +187,15 @@ The stdout should include '_tests/integration/workflows/ci.yml:'
 The stdout should include 'SC2086'
 End
 
+# Only the run resolves ${{ matrix.shell }}, so the scripts cannot be checked as sh or bash.
+It "fails on a workflow whose shell is an expression instead of leaving its scripts unread"
+fixture_workflow .github/workflows '${{ matrix.shell }}' "" 'printf "%s\n" $list'
+
+When call _harness_python "$CHECKER" fixture
+The status should be failure
+The stdout should include 'the shell this step runs is an expression'
+End
+
 # nick-fields/retry runs its command: with bash unless its with: names another shell.
 It "flags an unquoted variable in a script nick-fields/retry runs"
 mkdir -p fixture/sample
