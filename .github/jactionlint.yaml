@@ -1,0 +1,6 @@
+# jactionlint config for this repository's workflows and action metadata, read by the pre-commit
+# hook and by security-scan. correctness runs the checks of actionlint, which jactionlint forks;
+# default would add jactionlint's other rules, most of them security and policy rules.
+profile: correctness
+self-hosted-runner:
+  labels: []

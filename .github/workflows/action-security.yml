@@ -6,13 +6,20 @@ on:
   push:
     branches:
       - main
+    # The actions and the workflows the scan lints, and the configs it reads.
     paths:
       - '**/action.yml'
       - 'security-scan/**'
+      - '.github/workflows/**'
+      - '.github/jactionlint.yaml'
+      - '.gitleaks.toml'
   pull_request:
     paths:
       - '**/action.yml'
       - 'security-scan/**'
+      - '.github/workflows/**'
+      - '.github/jactionlint.yaml'
+      - '.gitleaks.toml'
   merge_group:
 
 concurrency:

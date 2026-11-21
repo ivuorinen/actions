@@ -88,7 +88,7 @@ a `package.json`. `language-version-detect` detects a version as a separate acti
 ### Code Quality (Zero Tolerance)
 
 - All linting must pass: markdownlint, yaml-lint, shellcheck, ruff, pyright, action-validator, editorconfig-checker
-  (`make lint`); actionlint runs in the pre-commit hook
+  (`make lint`); jactionlint runs in the pre-commit hook
 - All tests must pass: unit + integration
 - No warnings allowed in production
 - Use `make all` before committing

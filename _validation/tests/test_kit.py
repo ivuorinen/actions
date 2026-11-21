@@ -302,6 +302,10 @@ CASES: dict[str, dict[str, list[str]]] = {
     },
     "cache_mode": {"valid": ["max", "min", "inline"], "invalid": ["fast", "MAX"]},
     "network_mode": {"valid": ["host", "none", "default"], "invalid": ["bridge"]},
+    "jactionlint_profile": {
+        "valid": ["correctness", "default"],
+        "invalid": ["pedantic", "Correctness", "correctness,default", " default"],
+    },
     "sbom_format": {
         "valid": ["spdx-json"],
         "invalid": ["spdx", "json", "cyclonedx-json", "syft-json"],

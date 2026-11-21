@@ -34,8 +34,9 @@ match, and env-var forwarding), so run it as part of the audit.
 
 ```bash
 # Find actions that declare inputs but are missing validate.py
-for dir in $(find . -name "action.yml" -not -path "./.git/*" -exec dirname {} \;); do
-  grep -q '^inputs:' "$dir/action.yml" && [ ! -f "$dir/validate.py" ] && echo "MISSING: $dir/validate.py"
+for file in ./*/action.yml; do
+  dir=${file%/action.yml}
+  grep -q '^inputs:' "$file" && [ ! -f "$dir/validate.py" ] && echo "MISSING: $dir/validate.py"
 done
 
 # Confirm spec coverage + env-var forwarding hold
@@ -90,11 +91,13 @@ Every action.yml must have a non-empty `description:` field.
 ## How to scan
 
 ```bash
-# List all action directories
-find . -name "action.yml" -not -path "./.git/*" -exec dirname {} \;
+# List the published action directories: the top-level ones holding an action.yml
+for file in ./*/action.yml; do printf '%s\n' "${file%/action.yml}"; done
 ```
 
-Read each action.yml and check against all rules above.
+Read each action.yml and check against all rules above. The rules cover the published actions, as
+`_validation/tests/test_spec.py` does: `.github/actions/` holds a local action only CI uses, and
+`_tests/fixtures/` holds test actions, neither of which carries a validate.py or branding.
 
 ## How to interpret results
 

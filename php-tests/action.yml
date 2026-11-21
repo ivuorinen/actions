@@ -261,13 +261,16 @@ runs:
     - name: Setup PHP
       id: setup-php
       uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+      # setup-php reads fail-fast from the environment, not as an input: with it, an extension or tool that
+      # cannot be set up fails this step instead of leaving an error in the log.
+      env:
+        fail-fast: true
       with:
         php-version: ${{ steps.detect-php-version.outputs.detected-version }}
         tools: composer:${{ steps.detect-php-version.outputs.composer-version }}
         extensions: ${{ inputs.extensions }}
         coverage: ${{ inputs.coverage }}
         ini-values: memory_limit=1G, max_execution_time=600
-        fail-fast: true
         # setup-php defaults this to github.token and writes it to ~/.composer/auth.json, where tests can read it.
         github-token: ''
 

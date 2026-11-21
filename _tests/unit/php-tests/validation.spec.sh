@@ -179,6 +179,13 @@ The output should include "tests-run"
 The output should include "tests-passed"
 The output should include "framework"
 End
+
+# setup-php reads fail-fast from the environment; under with: it is not an input and does nothing.
+It "gives setup-php fail-fast through the environment"
+When call step_value "${PROJECT_ROOT}/php-tests" "Setup PHP" "env.fail-fast"
+The output should equal "true"
+Assert test -z "$(step_value "${PROJECT_ROOT}/php-tests" "Setup PHP" "with.fail-fast")"
+End
 End
 
 Context "when testing input requirements"

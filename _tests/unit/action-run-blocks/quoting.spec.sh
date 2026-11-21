@@ -1,8 +1,8 @@
 #!/usr/bin/env shellspec
-# Static check across every composite action: a run: block quotes its variables,
-# unless it is a deliberate split between `set -f` and `set +f`.
+# Static check across every composite action and workflow: a run: block quotes its
+# variables, unless it is a deliberate split between `set -f` and `set +f`.
 
-Describe "composite action run: blocks"
+Describe "composite action and workflow run: blocks"
 CHECKER="${PROJECT_ROOT}/_tests/unit/action-run-blocks/check_quoting.py"
 
 before() {
@@ -35,6 +35,24 @@ EOF
       printf '        %s\n' "$line"
     done
   } >fixture/sample/action.yml
+}
+
+# fixture_workflow DIR WORKFLOW_SHELL STEP_SHELL LINE: write a one-step workflow into
+# fixture/DIR whose step runs LINE. An empty WORKFLOW_SHELL leaves out defaults.run.shell,
+# and an empty STEP_SHELL the step's shell.
+fixture_workflow() {
+  mkdir -p "fixture/$1"
+  {
+    printf 'on: push\n'
+    if [ -n "$2" ]; then
+      printf 'defaults:\n  run:\n    shell: %s\n' "$2"
+    fi
+    printf 'jobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - name: step\n'
+    if [ -n "$3" ]; then
+      printf '        shell: %s\n' "$3"
+    fi
+    printf '        run: |\n          list="$1"\n          %s\n' "$4"
+  } >"fixture/$1/ci.yml"
 }
 
 It "quote their variables in this repository"
@@ -132,5 +150,64 @@ sed -E -i.bak 's/shell: sh$/shell: node {0}/' fixture/sample/action.yml
 When call _harness_python "$CHECKER" fixture
 The status should be success
 The stdout should equal ""
+End
+
+# A workflow step that names no shell runs in bash on a Linux runner.
+It "flags an unquoted variable in a workflow step that names no shell"
+fixture_workflow .github/workflows "" "" 'printf "%s\n" $list'
+
+When call _harness_python "$CHECKER" fixture
+The status should be failure
+The stdout should include '.github/workflows/ci.yml:9: SC2086'
+End
+
+It "takes a workflow step's shell from the workflow's defaults.run.shell"
+fixture_workflow .github/workflows pwsh "" 'printf "%s\n" $list'
+
+When call _harness_python "$CHECKER" fixture
+The status should be success
+The stdout should equal ""
+End
+
+It "takes a workflow step's own shell over the defaults"
+fixture_workflow .github/workflows pwsh sh 'printf "%s\n" $list'
+
+When call _harness_python "$CHECKER" fixture
+The status should be failure
+The stdout should include 'SC2086'
+End
+
+# The pre-commit hook's file pattern leaves these out, so this check is their only one.
+It "checks the integration test workflows"
+fixture_workflow _tests/integration/workflows "" "" 'printf "%s\n" $list'
+
+When call _harness_python "$CHECKER" fixture
+The status should be failure
+The stdout should include '_tests/integration/workflows/ci.yml:'
+The stdout should include 'SC2086'
+End
+
+# nick-fields/retry runs its command: with bash unless its with: names another shell.
+It "flags an unquoted variable in a script nick-fields/retry runs"
+mkdir -p fixture/sample
+cat >fixture/sample/action.yml <<'EOF'
+name: sample
+description: sample
+runs:
+  using: composite
+  steps:
+    - name: retried
+      uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
+      with:
+        timeout_minutes: 5
+        command: |
+          list="$1"
+          printf '%s\n' $list
+EOF
+
+When call _harness_python "$CHECKER" fixture
+The status should be failure
+The stdout should include 'fixture/sample/action.yml:'
+The stdout should include 'SC2086'
 End
 End

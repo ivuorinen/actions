@@ -13,7 +13,8 @@ Check each action.yml file for these violations:
 9. Token inputs use `${{ github.token }}` default
 10. Fallbacks provided for tools not on all runners
 
-Run `actionlint` on each file. Report violations with file path, line, and fix suggestion.
+Run `jactionlint`, which checks action metadata, on each file. Report violations with file path, line, and fix
+suggestion.
 
 To find all action.yml files:
 
@@ -24,7 +25,7 @@ find . -name "action.yml" -not -path "./.git/*"
 For each file, read it and check against all 10 rules. Then run:
 
 ```bash
-actionlint <file>
+jactionlint --shellcheck= <file>
 ```
 
 Output a summary table of violations found, grouped by action.

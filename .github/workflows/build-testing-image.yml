@@ -125,7 +125,7 @@ jobs:
             echo "\`\`\`"
             echo ""
             echo "### Pre-installed Tools"
-            echo "- ShellSpec, shfmt, nektos/act, Trivy, TruffleHog, actionlint and GitHub CLI, at the versions the Dockerfile pins"
+            echo "- ShellSpec, shfmt, nektos/act, Trivy, TruffleHog, jactionlint and GitHub CLI, at the versions the Dockerfile pins"
             echo "- shellcheck, jq, kcov"
             echo "- Node.js LTS, Python 3, build tools"
           } >> "$GITHUB_STEP_SUMMARY"

@@ -567,6 +567,11 @@ def check_registry_enum(value: str) -> str | None:
     return _enum(value, "dockerhub", "github", "both")
 
 
+def check_jactionlint_profile(value: str) -> str | None:
+    """Rule profile for jactionlint: correctness, or default with its other rules."""
+    return _enum(value, "correctness", "default")
+
+
 def check_cache_config(value: str) -> str | None:
     """One buildx cache spec: ``type=<backend>[,key=value...]`` (e.g. ``type=gha,mode=max``).
 
@@ -1325,6 +1330,7 @@ EXAMPLES = {
     "go_version": "1.24",
     "golangci_lint_version": "2.1.0",
     "golangci_report_format": "sarif",
+    "jactionlint_profile": "correctness",
     "json_format": '{"linux/amd64": "--build-arg ARCH=amd64"}',
     "key_value_list": "NODE_ENV=production",
     "language_enum": "python",
