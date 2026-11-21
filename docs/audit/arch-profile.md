@@ -14,8 +14,7 @@ Evidence:
 - An action keeps the tools and helpers it runs in its own directory: npm locks (`biome-lint`, `eslint-lint`,
   `prettier-lint`), hash-locked Python requirements (`ansible-lint-fix`, `pre-commit`, `python-lint-fix`), release
   binaries checked against `tools.sha256` by `install_tool.py` (`docker-build`, `security-scan`), and single-purpose
-  scripts (`python-lint-fix/flake8_to_sarif.py`, `security-scan/inline_allows.mjs`,
-  `security-scan/analyze_results.mjs`, `sync-labels/sync.py`).
+  scripts (`python-lint-fix/flake8_to_sarif.py`, `security-scan/inline_allows.mjs`, `sync-labels/sync.py`).
 - `docker-build/install_tool.py` and `security-scan/install_tool.py` are byte-identical copies, one per action, so
   each action stays usable from its own directory; a test compares them.
 - `_tests/unit/<action>/` exists for each of the 25 actions, beside directories for shared components

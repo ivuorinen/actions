@@ -43,7 +43,7 @@ When call features "$FIX_ROOT/quiet"
 The output should equal ""
 End
 
-It "lists Auto-detection when the name, description or an input's description says so"
+It "lists Auto-detection when the directory, name, description or an input's description says so"
 write_action input-says <<'EOF'
 name: Input says
 description: Builds a project.
@@ -62,8 +62,16 @@ runs:
   steps: []
 EOF
 write_action thing-detect <<'EOF'
-name: Thing detect
+name: Thing
 description: Reports a thing.
+runs:
+  using: composite
+  steps: []
+EOF
+# The metadata name alone: the directory, the description and the inputs say nothing.
+write_action named <<'EOF'
+name: Detect project
+description: Reports a project.
 runs:
   using: composite
   steps: []
@@ -72,6 +80,7 @@ When call features "$FIX_ROOT/input-says"
 The output should equal "Auto-detection"
 Assert [ "$(features "$FIX_ROOT/described")" = "Auto-detection" ]
 Assert [ "$(features "$FIX_ROOT/thing-detect")" = "Auto-detection" ]
+Assert [ "$(features "$FIX_ROOT/named")" = "Auto-detection" ]
 End
 
 It "lists Caching for an actions/cache step, a cache or cache-from setting, or a cache input"

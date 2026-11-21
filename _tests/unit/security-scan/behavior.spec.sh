@@ -49,7 +49,7 @@ run_verify() {
 
 # The Analyze Results step's script, run from the workspace as the step runs it.
 run_analyze() {
-  ACTION_PATH="$ACTION_DIR" sh -c "$(step_value "$ACTION_DIR" 'Analyze Results' run)"
+  sh -c "$(step_value "$ACTION_DIR" 'Analyze Results' run)"
 }
 
 # The step order on a run where the Gitleaks step exits 0 without scanning.
@@ -637,7 +637,8 @@ Assert no_output_key total_issues
 Assert no_output_key critical_issues
 End
 
-It "still fails on the critical findings it counted while it writes no totals"
+# A caller that opens an issue on critical findings still sees the ones the other reports hold.
+It "writes the critical findings it counted, and no total, when a scanner left no report"
 write_gitleaks_report 2
 export HAS_GITLEAKS="true"
 When call run_analyze
@@ -646,7 +647,8 @@ The stdout should include "gitleaks: 2 total, 2 critical issues"
 The stdout should include "::warning::No issue totals: trivy left no report to count"
 The stderr should include "Found 2 critical security issues"
 Assert no_output_key total_issues
-Assert no_output_key critical_issues
+Assert expect_output critical_issues "2"
+The contents of file "$GITHUB_STEP_SUMMARY" should include "- Critical Issues: at least 2"
 End
 End
 

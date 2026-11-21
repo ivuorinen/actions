@@ -141,22 +141,24 @@ function getActionDetails(actionPath) {
     // that is not false, or a cache or cache-from input. Raw text also matched comments and
     // settings that turn a cache off, such as no-cache: true.
     const steps = action.runs?.steps || [];
-    const cachingStep = steps.some(step => {
-      const settings = step.with || {};
-      return (
+    const cachingStep = steps.some(
+      step =>
         String(step.uses || '').startsWith('actions/cache') ||
-        ['cache', 'cache-from'].some(key => key in settings && String(settings[key]) !== 'false')
-      );
-    });
+        Object.entries(step.with || {}).some(
+          ([key, value]) => (key === 'cache' || key === 'cache-from') && String(value) !== 'false'
+        )
+    );
     const cachingInput = ['cache', 'cache-from'].some(name => name in (action.inputs || {}));
     if (cachingStep || cachingInput) {
       features.push('Caching');
     }
 
-    // Auto-detection is what the action documents: its name, its description or an input's
-    // description says it detects something. A comment or a step's text says nothing to a caller.
+    // Auto-detection is what the action documents: its directory, its name, its description or an
+    // input's description says it detects something. A comment or a step's text says nothing to a
+    // caller.
     const documented = [
       actionName,
+      action.name,
       action.description,
       ...Object.values(action.inputs || {}).map(input => input?.description),
     ];
