@@ -78,6 +78,12 @@ When call get_action_inputs "$ACTION_FILE"
 The output should include "token"
 The output should include "labels"
 End
+
+# sync.py runs gh and yq by name from the checkout; on Windows the current directory would come first.
+It "keeps the current directory out of the program search on Windows"
+When call step_value "${PROJECT_ROOT}/sync-labels" "Sync Labels" "env.NoDefaultCurrentDirectoryInExePath"
+The output should equal "1"
+End
 End
 
 Context "when testing input requirements"

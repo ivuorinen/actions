@@ -339,7 +339,9 @@ lint-shell: ## Lint shell scripts
 		echo "  or: apt-get install shellcheck"; \
 		exit 1; \
 	fi
-	@if find . -name "*.sh" -not -path "./_tests/*" -not -path "./.venv/*" -not -path "./.worktrees/*" -exec shellcheck -x {} +; then \
+	@# A ShellSpec spec file is its DSL, not a shell script: shellcheck reads its It and When lines
+	@# as commands. ShellSpec parses each one when the tests run.
+	@if find . -name "*.sh" -not -name "*.spec.sh" -not -path "./.venv/*" -not -path "./.worktrees/*" -exec shellcheck -x {} +; then \
 		echo "$(GREEN)✅ Shell linting passed$(RESET)"; \
 	else \
 		echo "$(RED)❌ Shell linting issues found$(RESET)" | tee -a $(LOG_FILE); \

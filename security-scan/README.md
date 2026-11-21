@@ -49,12 +49,12 @@ jobs:
 
 ## 📤 Outputs
 
-| Parameter              | Description                                  |
-| ---------------------- | -------------------------------------------- |
-| `critical_issues`      | Number of critical security issues found     |
-| `has_gitleaks_results` | Whether Gitleaks scan produced valid results |
-| `has_trivy_results`    | Whether Trivy scan produced valid results    |
-| `total_issues`         | Total number of security issues found        |
+| Parameter              | Description                                                                                                         |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `critical_issues`      | Number of critical security issues found; empty instead of 0 when a scanner that was to run left no report to count |
+| `has_gitleaks_results` | Whether Gitleaks scan produced valid results                                                                        |
+| `has_trivy_results`    | Whether Trivy scan produced valid results                                                                           |
+| `total_issues`         | Total number of security issues found; empty when a scanner that was to run left no report to count                 |
 
 ## 🔐 Permissions
 

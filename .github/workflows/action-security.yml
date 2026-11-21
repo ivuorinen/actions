@@ -77,13 +77,15 @@ jobs:
           script: |-
             const { repo, owner } = context.repo;
             const critical = process.env.CRITICAL_ISSUES;
+            // Empty when a scanner left no report to count; the critical count is then a floor.
             const total = process.env.TOTAL_ISSUES;
+            const outOf = total ? `(out of ${total} total)` : '(not every scanner left a report, so there is no total)';
             const trivyStatus = process.env.HAS_TRIVY_RESULTS === 'true' ? 'Completed' : 'Skipped/Failed';
             const gitleaksStatus = process.env.HAS_GITLEAKS_RESULTS === 'true' ? 'Completed' : 'Skipped/Failed';
 
             const body = `🚨 Critical security issues found in GitHub Actions
 
-            ${critical} critical security issues (out of ${total} total) were found during the security scan.
+            ${critical} critical security issues ${outOf} were found during the security scan.
 
             ### Scan Results
             - Trivy: ${trivyStatus}

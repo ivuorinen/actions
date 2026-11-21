@@ -13,9 +13,7 @@ on:
       - 'sync-labels/labels.yml'
   schedule:
     - cron: '34 5 * * *' # Run every day at 05:34 AM UTC
-  workflow_call:
   workflow_dispatch:
-  merge_group:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}

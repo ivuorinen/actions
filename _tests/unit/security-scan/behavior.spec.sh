@@ -17,7 +17,6 @@ before() {
   harness_reset
   export INPUT_ACTIONLINT_ENABLED="true"
   export INPUT_GITLEAKS_CONFIG=".gitleaks.toml"
-  export RUN_ACTIONLINT="true"
   export RUN_TRIVY="true"
   export RUN_GITLEAKS="true"
   export HAS_TRIVY="false"
@@ -33,7 +32,7 @@ BeforeEach 'before'
 
 after() {
   unset INPUT_ACTIONLINT_ENABLED INPUT_GITLEAKS_CONFIG
-  unset RUN_ACTIONLINT RUN_TRIVY RUN_GITLEAKS HAS_TRIVY HAS_GITLEAKS
+  unset RUN_TRIVY RUN_GITLEAKS HAS_TRIVY HAS_GITLEAKS
   unset GITHUB_EVENT_NAME GITHUB_EVENT_PATH SCAN_DIR
   shellspec_cleanup_test_env "security-scan-behavior-$$"
   harness_reset
@@ -48,8 +47,9 @@ run_verify() {
   sh -c "$(step_value "$ACTION_DIR" 'Verify SARIF files' run)"
 }
 
+# The Analyze Results step's script, run from the workspace as the step runs it.
 run_analyze() {
-  node -e "$(step_value "$ACTION_DIR" 'Analyze Results' run)"
+  sh -c "$(step_value "$ACTION_DIR" 'Analyze Results' run)"
 }
 
 # The step order on a run where the Gitleaks step exits 0 without scanning.
@@ -274,6 +274,18 @@ The stdout should include "::error::Gitleaks could not read the whole history"
 The stderr should include "ERR [git] fatal: unrecognized argument"
 End
 
+# Gitleaks writes a valid report of what it read before git log failed.
+It "removes the report Gitleaks still writes after an error, so verification does not accept it"
+history
+write_gitleaks_report 0
+fake_tool gitleaks 0 "$(printf '3:07PM ERR [git] fatal: unrecognized argument: --remerge-diff\n')"
+When call run_gitleaks
+The status should be failure
+The stdout should include "::error::Gitleaks could not read the whole history"
+The stderr should include "ERR [git] fatal: unrecognized argument"
+Assert no_path results.sarif
+End
+
 It "does not take a warning or a found leak for an error"
 history
 fake_tool gitleaks 1 "$(printf '3:07PM WRN exhaustive rename detection was skipped due to too many files.\n3:07PM WRN leaks found: 1\n')"
@@ -440,6 +452,17 @@ The stdout should include "::notice::No workflow files in .github/workflows"
 Assert no_path "${RUNNER_TEMP}/actionlint.args"
 End
 
+It "skips with a warning when .github is a symlink, whose workflows lie elsewhere"
+mkdir -p "${RUNNER_TEMP}/elsewhere/workflows"
+touch "${RUNNER_TEMP}/elsewhere/workflows/ci.yml"
+ln -s "${RUNNER_TEMP}/elsewhere" .github
+fake_tool actionlint
+When call run_actionlint
+The status should be success
+The stdout should include "::warning::.github is a symlink - actionlint does not follow it"
+Assert no_path "${RUNNER_TEMP}/actionlint.args"
+End
+
 It "fails the step when actionlint reports errors"
 mkdir -p .github/workflows
 touch .github/workflows/ci.yml
@@ -524,7 +547,7 @@ End
 Context "when analyzing reports"
 It "counts every Gitleaks result as critical and fails"
 write_gitleaks_report 2
-export HAS_GITLEAKS="true"
+export HAS_GITLEAKS="true" RUN_TRIVY="false"
 When call run_analyze
 The status should be failure
 The stdout should include "gitleaks: 2 total, 2 critical issues"
@@ -535,7 +558,7 @@ End
 
 It "passes on a clean Gitleaks report"
 write_gitleaks_report 0
-export HAS_GITLEAKS="true"
+export HAS_GITLEAKS="true" RUN_TRIVY="false"
 When call run_analyze
 The status should be success
 The stdout should include "gitleaks: 0 total, 0 critical issues"
@@ -543,33 +566,89 @@ Assert expect_output total_issues "0"
 Assert expect_output critical_issues "0"
 End
 
+It "adds up both scanners' reports"
+write_gitleaks_report 0
+write_trivy_report
+export HAS_GITLEAKS="true" HAS_TRIVY="true"
+When call run_analyze
+The status should be failure
+The stdout should include "trivy: 2 total, 1 critical issues"
+The stdout should include "gitleaks: 0 total, 0 critical issues"
+The stderr should include "Found 1 critical security issues"
+Assert expect_output total_issues "2"
+Assert expect_output critical_issues "1"
+End
+
 It "does not read results.sarif unless verification accepted it"
 write_gitleaks_report 2
+export RUN_TRIVY="false"
 When call run_analyze
 The status should be success
-Assert expect_output total_issues "0"
-Assert expect_output critical_issues "0"
+The stdout should not include "gitleaks: 2 total"
 End
 
 It "does not count a report under any other name"
 write_gitleaks_report 2 gitleaks-report.sarif
-export HAS_GITLEAKS="true"
+export HAS_GITLEAKS="true" RUN_TRIVY="false"
 When call run_analyze
 The status should be success
 The stdout should include "No results file found for gitleaks"
-Assert expect_output total_issues "0"
-Assert expect_output critical_issues "0"
+The stdout should not include "gitleaks: 2 total"
 End
 
 It "keeps deciding Trivy's critical count by level"
 write_trivy_report
-export HAS_TRIVY="true"
+export HAS_TRIVY="true" RUN_GITLEAKS="false"
 When call run_analyze
 The status should be failure
 The stdout should include "trivy: 2 total, 1 critical issues"
 The stderr should include "Found 1 critical security issues"
 Assert expect_output total_issues "2"
 Assert expect_output critical_issues "1"
+End
+
+# A caller that gates on critical_issues == '0' must not pass on a scan that did not happen.
+It "writes no totals when a scanner that was to run left no report to count"
+write_gitleaks_report 0
+export HAS_GITLEAKS="true"
+When call run_analyze
+The status should be success
+The stdout should include "::warning::No issue totals: trivy left no report to count"
+Assert no_output_key total_issues
+Assert no_output_key critical_issues
+End
+
+It "writes no totals when verification accepted a report it then cannot find"
+write_gitleaks_report 0 gitleaks-report.sarif
+export HAS_GITLEAKS="true" RUN_TRIVY="false"
+When call run_analyze
+The status should be success
+The stdout should include "::warning::No issue totals: gitleaks left no report to count"
+Assert no_output_key total_issues
+Assert no_output_key critical_issues
+End
+
+It "writes no totals when the job stopped before check-configs chose the scanners"
+export RUN_TRIVY="" RUN_GITLEAKS=""
+When call run_analyze
+The status should be success
+The stdout should include "::warning::No issue totals: trivy and gitleaks left no report to count"
+Assert no_output_key total_issues
+Assert no_output_key critical_issues
+End
+
+# A caller that opens an issue on critical findings still sees the ones the other reports hold.
+It "writes the critical findings it counted, and no total, when a scanner left no report"
+write_gitleaks_report 2
+export HAS_GITLEAKS="true"
+When call run_analyze
+The status should be failure
+The stdout should include "gitleaks: 2 total, 2 critical issues"
+The stdout should include "::warning::No issue totals: trivy left no report to count"
+The stderr should include "Found 2 critical security issues"
+Assert no_output_key total_issues
+Assert expect_output critical_issues "2"
+The contents of file "$GITHUB_STEP_SUMMARY" should include "- Critical Issues: at least 2"
 End
 End
 
@@ -617,6 +696,12 @@ End
 It "passes actionlint the config check-configs chose"
 When call step_value "$ACTION_DIR" "Run actionlint" "env.ACTIONLINT_CONFIG"
 The output should equal "\${{ steps.check-configs.outputs.actionlint_config }}"
+End
+
+# The step runs git by name from the checkout; on Windows the current directory would come first.
+It "keeps the current directory out of the search for git in the inline gitleaks:allow step"
+When call step_value "$ACTION_DIR" "Comment on inline gitleaks:allow comments" "env.NoDefaultCurrentDirectoryInExePath"
+The output should equal "1"
 End
 End
 

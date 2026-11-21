@@ -289,6 +289,19 @@ Assert test ! -e .github/actionlint.yaml
 Assert test ! -e .github/actionlint.yml
 End
 
+It "deletes nothing where a .github symlink points on $1"
+mkdir -p "${RUNNER_TEMP}/elsewhere"
+printf 'keep\n' >"${RUNNER_TEMP}/elsewhere/actionlint.yaml"
+ln -s "${RUNNER_TEMP}/elsewhere" .github
+git add .github
+git commit -q -m "link .github"
+HEAD_SHA=$(git rev-parse HEAD)
+"$1"
+When call run_check_configs
+The status should be success
+The contents of file "${RUNNER_TEMP}/elsewhere/actionlint.yaml" should equal "keep"
+End
+
 It "exports the configs the base tree marks export-ignore on $1"
 base_file .gitattributes "/.* export-ignore"
 base_file .gitleaks.toml 'title = "base"'
