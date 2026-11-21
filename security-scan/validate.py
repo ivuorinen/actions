@@ -133,6 +133,11 @@ def check_github_token(value: str) -> str | None:
     return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
+def check_jactionlint_profile(value: str) -> str | None:
+    """Rule profile for jactionlint: correctness, or default with its other rules."""
+    return _enum(value, "correctness", "default")
+
+
 def check_opaque_token(value: str) -> str | None:
     """Token whose format its issuer owns (npm, Docker Hub): rejects only what cannot be one.
 
@@ -189,6 +194,7 @@ CHECKS = {
     "actionlint-enabled": check_boolean,
     "gitleaks-config": check_file_path,
     "gitleaks-license": check_opaque_token,
+    "jactionlint-profile": check_jactionlint_profile,
     "token": check_github_token,
     "trivy-scanners": check_scanner_list,
     "trivy-severity": check_severity_enum,

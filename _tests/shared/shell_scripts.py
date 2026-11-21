@@ -221,8 +221,9 @@ def workflow_scripts(text: str):
 def steps_scripts(steps, run_shell: str | None):
     """Yield (script, language, line_of) for each sh or bash script a list of steps runs. A
     run step without a shell of its own runs run_shell, a shell name or a template such as
-    `bash -e {0}`. When run_shell is None, no shell can be told for such a step, and it raises
-    ParseError rather than leave the step unread."""
+    `bash -e {0}`. When run_shell is None, or the shell is an expression such as
+    `${{ matrix.shell }}` that only the run resolves, no shell can be told for such a step, and
+    it raises ParseError rather than leave the step unread."""
     if not isinstance(steps, yaml.SequenceNode):
         return
     for step in steps.value:
@@ -245,6 +246,12 @@ def steps_scripts(steps, run_shell: str | None):
                 )
                 raise ParseError(message)
             continue
+        if "${{" in chosen and any(isinstance(script, yaml.ScalarNode) for script in scripts):
+            message = (
+                f"line {step.start_mark.line + 1}: the shell this step runs is an expression "
+                f"({chosen}), which only the run resolves; name a literal shell"
+            )
+            raise ParseError(message)
         words = chosen.split()
         name = words[0].rsplit("/", 1)[-1] if words else ""
         if name not in SHELLS:

@@ -6,13 +6,22 @@ on:
   push:
     branches:
       - main
+    # The actions and the workflows the scan lints, and the configs it reads. One glob covers every config
+    # name jactionlint takes (jactionlint.yaml, jactionlint.yml, actionlint.yaml, actionlint.yml): a filter
+    # must match a file that exists, which action-validator checks.
     paths:
       - '**/action.yml'
       - 'security-scan/**'
+      - '.github/workflows/**'
+      - '.github/*actionlint.y*ml'
+      - '.gitleaks.toml'
   pull_request:
     paths:
       - '**/action.yml'
       - 'security-scan/**'
+      - '.github/workflows/**'
+      - '.github/*actionlint.y*ml'
+      - '.gitleaks.toml'
   merge_group:
 
 concurrency:

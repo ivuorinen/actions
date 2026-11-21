@@ -91,7 +91,7 @@ Every action includes explicit permissions comments documenting required GitHub 
 ### 6. Third-Party Tools
 
 - Third-party actions, such as `oven-sh/setup-bun`, are pinned to a full commit SHA.
-- security-scan runs Gitleaks, Trivy and actionlint from their release archives.
+- security-scan runs Gitleaks, Trivy and jactionlint from their release archives.
 - docker-build's image scan runs Trivy from its release archive.
 - An archive is installed only when its SHA-256 matches the digest pinned in the action's `tools.sha256`. A checksums
   file from the same release would be replaced along with the archive, so it is not used.

@@ -72,29 +72,29 @@ End
 
 Context "when action-validator is not available"
 It "skips action-validator gracefully without error"
-# PATH holds jq and a stub actionlint but no action-validator; the stub's output shows the
+# PATH holds jq and a stub jactionlint but no action-validator; the stub's output shows the
 # hook reached its action.yml checks.
-When call run_hook_on_path "$(path_with actionlint)" "$(make_input "/myaction/action.yml")"
+When call run_hook_on_path "$(path_with jactionlint)" "$(make_input "/myaction/action.yml")"
 The status should be success
-The output should include "actionlint called"
+The output should include "jactionlint called"
 The output should not include "action-validator"
 The output should not include "not found"
 End
 End
 
-Context "when actionlint is also available"
-It "calls both actionlint and action-validator on action.yml"
+Context "when jactionlint is also available"
+It "calls both jactionlint and action-validator on action.yml"
 TMPBIN=$(mktemp -d)
-printf '#!/bin/sh\nprintf "actionlint called: %%s\n" "$1" >&2\n' >"$TMPBIN/actionlint"
+printf '#!/bin/sh\nprintf "jactionlint called: %%s\n" "$1" >&2\n' >"$TMPBIN/jactionlint"
 printf '#!/bin/sh\nprintf "action-validator called: %%s\n" "$1" >&2\n' >"$TMPBIN/action-validator"
-chmod +x "$TMPBIN/actionlint" "$TMPBIN/action-validator"
+chmod +x "$TMPBIN/jactionlint" "$TMPBIN/action-validator"
 
 input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
 When call printf '%s\n' "$result"
-The output should include "actionlint called"
+The output should include "jactionlint called"
 The output should include "action-validator called"
 End
 End
@@ -103,9 +103,9 @@ Context "when action-validator returns a non-zero exit code"
 It "continues without failing (uses || true)"
 TMPBIN=$(mktemp -d)
 printf '#!/bin/sh\nprintf "validation error\n" >&2\nexit 1\n' >"$TMPBIN/action-validator"
-# A stub actionlint keeps the real one from reporting on a file that does not exist.
-printf '#!/bin/sh\nexit 0\n' >"$TMPBIN/actionlint"
-chmod +x "$TMPBIN/action-validator" "$TMPBIN/actionlint"
+# A stub jactionlint keeps the real one from reporting on a file that does not exist.
+printf '#!/bin/sh\nexit 0\n' >"$TMPBIN/jactionlint"
+chmod +x "$TMPBIN/action-validator" "$TMPBIN/jactionlint"
 
 input=$(make_input "/myaction/action.yml")
 PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" >/dev/null 2>&1
@@ -169,30 +169,30 @@ End
 
 End
 
-Describe "actionlint is called for action.yml files"
+Describe "jactionlint is called for action.yml files"
 
-Context "when actionlint is available"
-It "calls actionlint on action.yml"
+Context "when jactionlint is available"
+It "calls jactionlint on action.yml"
 TMPBIN=$(mktemp -d)
-printf '#!/bin/sh\nprintf "actionlint called: %%s\n" "$1" >&2\n' >"$TMPBIN/actionlint"
-chmod +x "$TMPBIN/actionlint"
+printf '#!/bin/sh\nprintf "jactionlint called: %%s\n" "$1" >&2\n' >"$TMPBIN/jactionlint"
+chmod +x "$TMPBIN/jactionlint"
 
 input=$(make_input "/myaction/action.yml")
 result=$(PATH="$TMPBIN:$PATH" sh "$HOOK" <<<"$input" 2>&1)
 rm -rf "$TMPBIN"
 
 When call printf '%s\n' "$result"
-The output should include "actionlint called"
+The output should include "jactionlint called"
 End
 End
 
-Context "when actionlint is not available"
-It "skips actionlint gracefully"
-# PATH holds jq and a stub action-validator but no actionlint.
+Context "when jactionlint is not available"
+It "skips jactionlint gracefully"
+# PATH holds jq and a stub action-validator but no jactionlint.
 When call run_hook_on_path "$(path_with action-validator)" "$(make_input "/myaction/action.yml")"
 The status should be success
 The output should include "action-validator called"
-The output should not include "actionlint"
+The output should not include "jactionlint"
 The output should not include "not found"
 End
 End

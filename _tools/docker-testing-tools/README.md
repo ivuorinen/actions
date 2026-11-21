@@ -16,20 +16,20 @@ jobs:
 
 ## 📦 Pre-installed Tools
 
-| Tool           | Version          | Purpose                                       |
-| -------------- | ---------------- | --------------------------------------------- |
-| **ShellSpec**  | 0.28.1 (pinned)  | Shell script testing framework                |
-| **shfmt**      | 3.14.1 (pinned)  | Parses run: scripts for the posix-shell tests |
-| **nektos/act** | 0.2.82 (pinned)  | Local GitHub Actions testing                  |
-| **TruffleHog** | 3.99.7 (pinned)  | Secrets detection                             |
-| **actionlint** | 1.7.12 (pinned)  | GitHub Actions linting                        |
-| **Trivy**      | 0.70.0 (pinned)  | Container security scanning                   |
-| **GitHub CLI** | 2.105.0 (pinned) | GitHub API interactions                       |
-| **shellcheck** | repo stable¹     | Shell script linting                          |
-| **jq**         | repo stable¹     | JSON processing                               |
-| **kcov**       | v43 (source)²    | Code coverage for shell scripts               |
-| **Node.js**    | LTS              | JavaScript runtime                            |
-| **Python**     | 3.x              | Python runtime + PyYAML³                      |
+| Tool            | Version          | Purpose                                       |
+| --------------- | ---------------- | --------------------------------------------- |
+| **ShellSpec**   | 0.28.1 (pinned)  | Shell script testing framework                |
+| **shfmt**       | 3.14.1 (pinned)  | Parses run: scripts for the posix-shell tests |
+| **nektos/act**  | 0.2.82 (pinned)  | Local GitHub Actions testing                  |
+| **TruffleHog**  | 3.99.7 (pinned)  | Secrets detection                             |
+| **jactionlint** | 2.6.0 (pinned)   | GitHub Actions linting, an actionlint fork    |
+| **Trivy**       | 0.70.0 (pinned)  | Container security scanning                   |
+| **GitHub CLI**  | 2.105.0 (pinned) | GitHub API interactions                       |
+| **shellcheck**  | repo stable¹     | Shell script linting                          |
+| **jq**          | repo stable¹     | JSON processing                               |
+| **kcov**        | v43 (source)²    | Code coverage for shell scripts               |
+| **Node.js**     | LTS              | JavaScript runtime                            |
+| **Python**      | 3.x              | Python runtime + PyYAML³                      |
 
 A pinned tool comes from its release archive, installed only when the archive's SHA-256 matches the value the
 Dockerfile pins for that version.

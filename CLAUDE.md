@@ -30,7 +30,7 @@
 
 **Auto-formatting**: PostToolUse hooks auto-format files on
 Edit/Write (ruff for .py, shfmt for .sh, prettier for
-.yml/.yaml/.json/.md, actionlint + action-validator for action.yml)
+.yml/.yaml/.json/.md, jactionlint + action-validator for action.yml)
 
 **Blocked edits** (PreToolUse):
 
@@ -124,7 +124,8 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 
 Use `make lint` (not direct calls). Runs: markdownlint-cli2, yaml-lint, shellcheck, ruff, pyright, action-validator,
 editorconfig-checker; each fails the target on a finding.
-`make format` runs prettier, which also formats markdown tables; actionlint runs in pre-commit.
+`make format` runs prettier, which also formats markdown tables; jactionlint runs in pre-commit, with the profile in
+`.github/jactionlint.yaml`.
 
 ### Tests
 
@@ -165,7 +166,7 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
   lock entries; the rest of the lock moves only with them. A third-party action's own installs are its own. A
   version the caller names in an input such as `eslint-version` is not in the lock: it installs unlocked, with
   `--ignore-scripts`, into a prefix of its own, and the input's description says so
-- A release binary an action downloads, such as security-scan's Gitleaks, Trivy and actionlint or docker-build's Trivy,
+- A release binary an action downloads, such as security-scan's Gitleaks, Trivy and jactionlint or docker-build's Trivy,
   has its version in a `*_VERSION` env entry with a Renovate comment. The action's `install_tool.py`, the same file in
   each action, installs it only when the archive matches the digest in the action's `tools.sha256`, so a version bump
   fails the tests until that file holds the new release's digests

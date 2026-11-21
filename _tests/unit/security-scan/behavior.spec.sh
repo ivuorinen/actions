@@ -119,11 +119,20 @@ octopus_history() {
   RANGE="${base}..${octopus}"
 }
 
-# run_actionlint [CONFIG]: run the actionlint step with the stand-in and the config
-# check-configs would pass, none by default.
-run_actionlint() {
-  ACTIONLINT="${RUNNER_TEMP}/actionlint" ACTIONLINT_CONFIG="${1:-}" \
-    sh -c "$(step_value "$ACTION_DIR" 'Run actionlint' run)"
+# run_jactionlint [CONFIG] [PROFILE]: run the jactionlint step with the stand-in, the config
+# check-configs would pass and the jactionlint-profile input, correctness by default.
+run_jactionlint() {
+  JACTIONLINT="${RUNNER_TEMP}/jactionlint" JACTIONLINT_CONFIG="${1:-${RUNNER_TEMP}/jactionlint.yaml}" \
+    PROFILE="${2:-correctness}" sh -c "$(step_value "$ACTION_DIR" 'Run jactionlint' run)"
+}
+
+# linted_in_copy: the stand-in ran in a new directory of the step's own under RUNNER_TEMP, a copy
+# outside the repository, which holds no .git.
+linted_in_copy() {
+  case "$(recorded jactionlint cwd)" in
+  "${RUNNER_TEMP}"/security-scan-jactionlint.*) [ ! -e "$(recorded jactionlint cwd)/.git" ] ;;
+  *) return 1 ;;
+  esac
 }
 
 # $1 is the result count. Results carry no `level`, matching gitleaks' SARIF writer.
@@ -403,71 +412,124 @@ The status should be failure
 End
 End
 
-Context "when running actionlint"
-It "checks the workflows without the shellcheck and pyflakes integrations"
+Context "when running jactionlint"
+It "lints a copy of the workflows outside the repository, without shellcheck and pyflakes"
 mkdir -p .github/workflows
-touch .github/workflows/ci.yml
-fake_tool actionlint
-When call run_actionlint
+printf 'name: ci\n' >.github/workflows/ci.yml
+fake_tool jactionlint
+When call run_jactionlint
 The status should be success
-Assert test "$(recorded actionlint args)" = "$(lines -shellcheck= -pyflakes= .github/workflows/ci.yml)"
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
+  --config-file "${RUNNER_TEMP}/jactionlint.yaml" .github/workflows/ci.yml)"
+Assert linted_in_copy
+The contents of file "$(recorded jactionlint cwd)/.github/workflows/ci.yml" should equal "name: ci"
 End
 
-It "passes the config check-configs chose"
+# jactionlint would take an empty --profile as the config's profile, or its own default profile.
+It "runs the correctness profile when the profile input is blank"
 mkdir -p .github/workflows
 touch .github/workflows/ci.yml
-fake_tool actionlint
-When call run_actionlint "${RUNNER_TEMP}/actionlint.yaml"
+fake_tool jactionlint
+When call run_jactionlint "${RUNNER_TEMP}/jactionlint.yaml" " "
 The status should be success
-Assert test "$(recorded actionlint args)" = "$(lines -shellcheck= -pyflakes= -config-file \
-  "${RUNNER_TEMP}/actionlint.yaml" .github/workflows/ci.yml)"
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
+  --config-file "${RUNNER_TEMP}/jactionlint.yaml" .github/workflows/ci.yml)"
 End
 
-It "checks only regular files, never what a symlink points to"
+It "passes the config check-configs chose and the profile input"
 mkdir -p .github/workflows
 touch .github/workflows/ci.yml
+fake_tool jactionlint
+When call run_jactionlint "${RUNNER_TEMP}/base.yaml" default
+The status should be success
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile default \
+  --config-file "${RUNNER_TEMP}/base.yaml" .github/workflows/ci.yml)"
+End
+
+# jactionlint would read a local action through a symlink or a .. path out of the repository.
+It "copies no local action a workflow names, so jactionlint reads none"
+mkdir -p .github/workflows act
+printf 'name: act\n' >act/action.yml
+printf 'jobs: {a: {steps: [{uses: ./act}]}}\n' >.github/workflows/ci.yml
+fake_tool jactionlint
+When call run_jactionlint
+The status should be success
+Assert linted_in_copy
+Assert no_path "$(recorded jactionlint cwd)/act"
+End
+
+# Outside the repository jactionlint would read the baseline relative to the copy, where it is missing.
+It "applies no baseline the config names, and copies none"
+mkdir -p .github/workflows
+touch .github/workflows/ci.yml
+printf 'baseline: auto\n' >.github/jactionlint.yaml
+printf '{"entries": []}\n' >.github/jactionlint-baseline.json
+fake_tool jactionlint
+When call run_jactionlint "${PWD}/.github/jactionlint.yaml"
+The status should be success
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
+  --config-file "${PWD}/.github/jactionlint.yaml" .github/workflows/ci.yml)"
+Assert no_path "$(recorded jactionlint cwd)/.github/jactionlint-baseline.json"
+End
+
+It "lints the regular .yml and .yaml files directly in .github/workflows, never a symlink or a subdirectory"
+mkdir -p .github/workflows/sub
+touch .github/workflows/ci.yml .github/workflows/release.yaml .github/workflows/sub/nested.yml
 printf 'secret\n' >"${RUNNER_TEMP}/outside.yml"
 ln -s "${RUNNER_TEMP}/outside.yml" .github/workflows/link.yml
-fake_tool actionlint
-When call run_actionlint
+fake_tool jactionlint
+When call run_jactionlint
 The status should be success
-Assert test "$(recorded actionlint args)" = "$(lines -shellcheck= -pyflakes= .github/workflows/ci.yml)"
+Assert test "$(recorded jactionlint args)" = "$(lines --shellcheck= --pyflakes= --no-online --no-baseline --profile correctness \
+  --config-file "${RUNNER_TEMP}/jactionlint.yaml" .github/workflows/ci.yml .github/workflows/release.yaml)"
+Assert no_path "$(recorded jactionlint cwd)/.github/workflows/link.yml"
 End
 
 It "skips with a notice when the repository has no workflows"
-fake_tool actionlint
-When call run_actionlint
+fake_tool jactionlint
+When call run_jactionlint
 The status should be success
 The stdout should include "::notice::No workflow files in .github/workflows"
-Assert no_path "${RUNNER_TEMP}/actionlint.args"
+Assert no_path "${RUNNER_TEMP}/jactionlint.args"
 End
 
 It "skips with a notice when .github/workflows holds only symlinks"
 mkdir -p .github/workflows
 ln -s "${RUNNER_TEMP}/outside.yml" .github/workflows/link.yml
-fake_tool actionlint
-When call run_actionlint
+fake_tool jactionlint
+When call run_jactionlint
 The status should be success
 The stdout should include "::notice::No workflow files in .github/workflows"
-Assert no_path "${RUNNER_TEMP}/actionlint.args"
+Assert no_path "${RUNNER_TEMP}/jactionlint.args"
 End
 
 It "skips with a warning when .github is a symlink, whose workflows lie elsewhere"
 mkdir -p "${RUNNER_TEMP}/elsewhere/workflows"
 touch "${RUNNER_TEMP}/elsewhere/workflows/ci.yml"
 ln -s "${RUNNER_TEMP}/elsewhere" .github
-fake_tool actionlint
-When call run_actionlint
+fake_tool jactionlint
+When call run_jactionlint
 The status should be success
-The stdout should include "::warning::.github is a symlink - actionlint does not follow it"
-Assert no_path "${RUNNER_TEMP}/actionlint.args"
+The stdout should include "::warning::.github is a symlink - jactionlint does not follow it"
+Assert no_path "${RUNNER_TEMP}/jactionlint.args"
 End
 
-It "fails the step when actionlint reports errors"
+It "skips with a warning when .github/workflows is a symlink"
+mkdir -p "${RUNNER_TEMP}/elsewhere" .github
+touch "${RUNNER_TEMP}/elsewhere/ci.yml"
+ln -s "${RUNNER_TEMP}/elsewhere" .github/workflows
+fake_tool jactionlint
+When call run_jactionlint
+The status should be success
+The stdout should include "::warning::.github/workflows is a symlink - jactionlint does not follow it"
+Assert no_path "${RUNNER_TEMP}/jactionlint.args"
+End
+
+It "fails the step when jactionlint reports findings"
 mkdir -p .github/workflows
 touch .github/workflows/ci.yml
-fake_tool actionlint 1
-When call run_actionlint
+fake_tool jactionlint 1
+When call run_jactionlint
 The status should be failure
 End
 End
@@ -655,7 +717,7 @@ End
 # These conditions and references only take effect on a runner.
 Context "when wiring the steps together"
 Parameters
-"Run actionlint" "steps.install-tools.outputs.actionlint" ACTIONLINT
+"Run jactionlint" "steps.install-tools.outputs.jactionlint" JACTIONLINT
 "Run Gitleaks" "steps.install-tools.outputs.gitleaks" GITLEAKS
 "Run Trivy vulnerability scanner" "steps.install-tools.outputs.trivy" TRIVY
 End
@@ -693,9 +755,14 @@ It "restores no Trivy database from a cache"
 The contents of file "${ACTION_DIR}/action.yml" should not include "actions/cache@"
 End
 
-It "passes actionlint the config check-configs chose"
-When call step_value "$ACTION_DIR" "Run actionlint" "env.ACTIONLINT_CONFIG"
-The output should equal "\${{ steps.check-configs.outputs.actionlint_config }}"
+It "passes jactionlint the config check-configs chose"
+When call step_value "$ACTION_DIR" "Run jactionlint" "env.JACTIONLINT_CONFIG"
+The output should equal "\${{ steps.check-configs.outputs.jactionlint_config }}"
+End
+
+It "passes jactionlint the profile input"
+When call step_value "$ACTION_DIR" "Run jactionlint" "env.PROFILE"
+The output should equal "\${{ inputs.jactionlint-profile }}"
 End
 
 # The step runs git by name from the checkout; on Windows the current directory would come first.

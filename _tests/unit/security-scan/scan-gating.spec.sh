@@ -43,10 +43,16 @@ write_event() {
   jq -n --arg base "$BASE" --arg head "$HEAD_SHA" "$1" >"$GITHUB_EVENT_PATH"
 }
 
-pull_request() {
-  export GITHUB_EVENT_NAME="pull_request"
+# pull_request_event NAME: the event NAME with the pull request payload pull_request and the
+# review events carry.
+pull_request_event() {
+  export GITHUB_EVENT_NAME="$1"
   write_event '{pull_request: {base: {sha: $base}, head: {sha: $head}}}'
 }
+
+pull_request() { pull_request_event pull_request; }
+pull_request_review() { pull_request_event pull_request_review; }
+pull_request_review_comment() { pull_request_event pull_request_review_comment; }
 
 merge_group() {
   export GITHUB_EVENT_NAME="merge_group"
@@ -128,6 +134,14 @@ Assert expect_output run_gitleaks "true"
 Assert expect_output gitleaks_range "${BASE}..${HEAD_SHA}"
 End
 
+It "scans from the base to the head of a pull request on its review events"
+pull_request_review
+When call run_check_configs
+The status should be success
+The stdout should not include "whole history"
+Assert expect_output gitleaks_range "${BASE}..${HEAD_SHA}"
+End
+
 It "scans from the base to the head of a merge group"
 merge_group
 When call run_check_configs
@@ -156,6 +170,7 @@ Describe "on a pull request or merge group naming a commit the clone lacks"
 Parameters
 pull_request '{pull_request: {base: {sha: "1111111111111111111111111111111111111111"}, head: {sha: $head}}}'
 pull_request '{pull_request: {base: {sha: "HEAD~1 --all"}, head: {sha: $head}}}'
+pull_request_review_comment '{pull_request: {base: {sha: "1111111111111111111111111111111111111111"}, head: {sha: $head}}}'
 merge_group '{merge_group: {base_sha: $base, head_sha: "2222222222222222222222222222222222222222"}}'
 End
 
@@ -191,9 +206,12 @@ End
 End
 End
 
+# A pull request's review events check out its merge commit, as pull_request does.
 Describe "the configuration on a pull request or merge group"
 Parameters
 pull_request
+pull_request_review
+pull_request_review_comment
 merge_group
 End
 
@@ -262,44 +280,31 @@ Assert test ! -L .gitleaksignore
 The contents of file "${RUNNER_TEMP}/outside" should equal "keep"
 End
 
-It "gives actionlint the base commit's config on $1"
+It "gives jactionlint the base commit's config on $1"
 base_file .github/actionlint.yaml "self-hosted-runner: {labels: [base]}"
 commit_file .github/actionlint.yaml "self-hosted-runner: {labels: [pull-request]}"
 "$1"
 When call run_check_configs
 The status should be success
-Assert output_file_holds actionlint_config "self-hosted-runner: {labels: [base]}"
+Assert output_file_holds jactionlint_config "self-hosted-runner: {labels: [base]}"
 End
 
-It "gives actionlint an empty config when the base commit has none on $1"
-commit_file .github/actionlint.yml "self-hosted-runner: {labels: [pull-request]}"
+# jactionlint's own order: .github/jactionlint.yaml, jactionlint.yml, actionlint.yaml, actionlint.yml.
+It "takes the base commit's jactionlint config before its actionlint config on $1"
+base_file .github/actionlint.yaml "self-hosted-runner: {labels: [actionlint]}"
+base_file .github/jactionlint.yml "self-hosted-runner: {labels: [jactionlint]}"
 "$1"
 When call run_check_configs
 The status should be success
-Assert output_file_holds actionlint_config ""
+Assert output_file_holds jactionlint_config "self-hosted-runner: {labels: [jactionlint]}"
 End
 
-It "removes the checkout's actionlint configs, which actionlint parses whatever it is given, on $1"
-commit_file .github/actionlint.yaml "self-hosted-runner: {labels: [pull-request]}"
-commit_file .github/actionlint.yml "self-hosted-runner: {labels: [pull-request]}"
+It "gives jactionlint an empty config when the base commit has none on $1"
+commit_file .github/jactionlint.yaml "self-hosted-runner: {labels: [pull-request]}"
 "$1"
 When call run_check_configs
 The status should be success
-Assert test ! -e .github/actionlint.yaml
-Assert test ! -e .github/actionlint.yml
-End
-
-It "deletes nothing where a .github symlink points on $1"
-mkdir -p "${RUNNER_TEMP}/elsewhere"
-printf 'keep\n' >"${RUNNER_TEMP}/elsewhere/actionlint.yaml"
-ln -s "${RUNNER_TEMP}/elsewhere" .github
-git add .github
-git commit -q -m "link .github"
-HEAD_SHA=$(git rev-parse HEAD)
-"$1"
-When call run_check_configs
-The status should be success
-The contents of file "${RUNNER_TEMP}/elsewhere/actionlint.yaml" should equal "keep"
+Assert output_file_holds jactionlint_config ""
 End
 
 It "exports the configs the base tree marks export-ignore on $1"
@@ -356,8 +361,69 @@ The status should be success
 The stdout should not include "::warning::"
 Assert expect_output scan_dir "$PWD"
 Assert expect_output gitleaks_config ".gitleaks.toml"
-Assert no_output actionlint_config
+Assert output_file_holds jactionlint_config ""
 Assert no_output base_sha
+End
+
+# jactionlint runs on a copy of the workflows outside the repository, so it is told which config.
+It "passes the checkout's jactionlint config"
+commit_file .github/actionlint.yaml "self-hosted-runner: {labels: [actionlint]}"
+commit_file .github/jactionlint.yaml "self-hosted-runner: {labels: [jactionlint]}"
+When call run_check_configs
+The status should be success
+The stdout should include "::notice::Gitleaks scans the whole history on this push event"
+The stdout should include "::warning::Gitleaks config not found"
+Assert expect_output jactionlint_config "${PWD}/.github/jactionlint.yaml"
+Assert output_file_holds jactionlint_config "self-hosted-runner: {labels: [jactionlint]}"
+End
+
+# jactionlint's order: .github/jactionlint.yaml, jactionlint.yml, actionlint.yaml, actionlint.yml.
+Describe "the config name jactionlint takes first"
+Parameters
+jactionlint.yaml jactionlint.yml
+actionlint.yaml actionlint.yml
+End
+
+It "passes $1 before $2"
+commit_file ".github/$2" "self-hosted-runner: {labels: [second]}"
+commit_file ".github/$1" "self-hosted-runner: {labels: [first]}"
+When call run_check_configs
+The status should be success
+The stdout should include "::notice::Gitleaks scans the whole history on this push event"
+The stdout should include "::warning::Gitleaks config not found"
+Assert expect_output jactionlint_config "${PWD}/.github/$1"
+End
+End
+
+It "passes an actionlint.yml when it is the only config"
+commit_file .github/actionlint.yml "self-hosted-runner: {labels: [only]}"
+When call run_check_configs
+The status should be success
+The stdout should include "::notice::Gitleaks scans the whole history on this push event"
+The stdout should include "::warning::Gitleaks config not found"
+Assert output_file_holds jactionlint_config "self-hosted-runner: {labels: [only]}"
+End
+
+It "passes no config that is a symlink"
+printf 'outside\n' >"${RUNNER_TEMP}/outside.yaml"
+mkdir -p .github
+ln -s "${RUNNER_TEMP}/outside.yaml" .github/jactionlint.yaml
+When call run_check_configs
+The status should be success
+The stdout should include "::notice::Gitleaks scans the whole history on this push event"
+The stdout should include "::warning::Gitleaks config not found"
+Assert output_file_holds jactionlint_config ""
+End
+
+It "passes no config from under a .github that is a symlink"
+mkdir -p "${RUNNER_TEMP}/elsewhere"
+printf 'outside\n' >"${RUNNER_TEMP}/elsewhere/jactionlint.yaml"
+ln -s "${RUNNER_TEMP}/elsewhere" .github
+When call run_check_configs
+The status should be success
+The stdout should include "::notice::Gitleaks scans the whole history on this push event"
+The stdout should include "::warning::Gitleaks config not found"
+Assert output_file_holds jactionlint_config ""
 End
 
 It "leaves the checkout's .gitleaksignore in place"

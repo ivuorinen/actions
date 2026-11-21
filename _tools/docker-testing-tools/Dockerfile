@@ -11,8 +11,8 @@ ARG KCOV_VERSION=43
 ARG KCOV_COMMIT=a39874f938ce13f7a65f253120d1ec946b349ffe
 # renovate: datasource=github-releases depName=trufflesecurity/trufflehog extractVersion=^v(?<version>.+)$
 ARG TRUFFLEHOG_VERSION=3.99.7
-# renovate: datasource=github-releases depName=rhysd/actionlint extractVersion=^v(?<version>.+)$
-ARG ACTIONLINT_VERSION=1.7.12
+# renovate: datasource=github-releases depName=jdx/jactionlint extractVersion=^v(?<version>.+)$
+ARG JACTIONLINT_VERSION=2.6.0
 # renovate: datasource=github-releases depName=nektos/act extractVersion=^v(?<version>.+)$
 ARG ACT_VERSION=0.2.82
 # renovate: datasource=github-releases depName=aquasecurity/trivy extractVersion=^v(?<version>.+)$
@@ -108,7 +108,7 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Version pinning for security and reproducibility (inherit from global ARGs)
 ARG TRUFFLEHOG_VERSION
-ARG ACTIONLINT_VERSION
+ARG JACTIONLINT_VERSION
 ARG ACT_VERSION
 ARG TRIVY_VERSION
 ARG GH_VERSION
@@ -124,14 +124,14 @@ RUN set -eux \
   && case "${arch}" in \
     amd64) \
       trufflehog_sha256="bdbea0508e439b144f49de14e775908de5f902f3d14ea7ae8354bae72b0b72ef"; \
-      actionlint_sha256="8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8"; \
+      jactionlint_sha256="d5400967b8f0d3a5ae9a4cee21f56400a50eb3f05d0cbb4ef17184f17f0760c8"; \
       act_arch="x86_64"; act_sha256="76645c0bbe4bb69a8f0ba3caefa681b2f4c04babd4679c67861af9a276a3561f"; \
       trivy_arch="64bit"; trivy_sha256="8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9"; \
       gh_sha256="79e7ab5db738c48777b696e374f8b428f0647debfb424f44d2f426370407fe2f"; \
       shfmt_sha256="76e77641faa025814b77f153b29796b8e6fa2fca03e0c76a691608b86c7ea7bf" ;; \
     arm64) \
       trufflehog_sha256="3060f7c9f18c70afdc432984cacabdd1e9103729b5d5fee7fb6755a90d1c59d4"; \
-      actionlint_sha256="325e971b6ba9bfa504672e29be93c24981eeb1c07576d730e9f7c8805afff0c6"; \
+      jactionlint_sha256="c726185a85f26d09aa94ea556509a19827979074b35d65f357f3a4947573e934"; \
       act_arch="arm64"; act_sha256="ebf375e700f6f2c139fe3c5508af2ec85032a75e7d29f6a388a58c0fab76e951"; \
       trivy_arch="ARM64"; trivy_sha256="2f6bb988b553a1bbac6bdd1ce890f5e412439564e17522b88a4541b4f364fc8d"; \
       gh_sha256="b1278c75107423d818f1937fd92cafc9e5e9b606631568f68d7fb816f5885a02"; \
@@ -150,8 +150,8 @@ RUN set -eux \
   && echo "=== Downloading and verifying standalone tools ===" \
   && fetch "https://github.com/trufflesecurity/trufflehog/releases/download/v${TRUFFLEHOG_VERSION}/trufflehog_${TRUFFLEHOG_VERSION}_linux_${arch}.tar.gz" \
     "$trufflehog_sha256" trufflehog.tar.gz \
-  && fetch "https://github.com/rhysd/actionlint/releases/download/v${ACTIONLINT_VERSION}/actionlint_${ACTIONLINT_VERSION}_linux_${arch}.tar.gz" \
-    "$actionlint_sha256" actionlint.tar.gz \
+  && fetch "https://github.com/jdx/jactionlint/releases/download/v${JACTIONLINT_VERSION}/jactionlint_${JACTIONLINT_VERSION}_linux_${arch}.tar.gz" \
+    "$jactionlint_sha256" jactionlint.tar.gz \
   && fetch "https://github.com/nektos/act/releases/download/v${ACT_VERSION}/act_Linux_${act_arch}.tar.gz" \
     "$act_sha256" act.tar.gz \
   && fetch "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-${trivy_arch}.tar.gz" \
@@ -163,19 +163,19 @@ RUN set -eux \
     "$shfmt_sha256" shfmt \
   && echo "=== Installing standalone tools ===" \
   && tar -xzf /tmp/trufflehog.tar.gz -C /tmp trufflehog \
-  && tar -xzf /tmp/actionlint.tar.gz -C /tmp actionlint \
+  && tar -xzf /tmp/jactionlint.tar.gz -C /tmp jactionlint \
   && tar -xzf /tmp/act.tar.gz -C /tmp act \
   && tar -xzf /tmp/trivy.tar.gz -C /tmp trivy \
   && tar -xzf /tmp/gh.tar.gz -C /tmp "gh_${GH_VERSION}_linux_${arch}/bin/gh" \
-  && install -m 0755 /tmp/trufflehog /tmp/actionlint /tmp/act /tmp/trivy /tmp/shfmt /usr/local/bin/ \
+  && install -m 0755 /tmp/trufflehog /tmp/jactionlint /tmp/act /tmp/trivy /tmp/shfmt /usr/local/bin/ \
   && install -m 0755 "/tmp/gh_${GH_VERSION}_linux_${arch}/bin/gh" /usr/local/bin/gh \
-  && rm -rf /tmp/*.tar.gz /tmp/trufflehog /tmp/actionlint /tmp/act /tmp/trivy /tmp/shfmt "/tmp/gh_${GH_VERSION}_linux_${arch}" \
+  && rm -rf /tmp/*.tar.gz /tmp/trufflehog /tmp/jactionlint /tmp/act /tmp/trivy /tmp/shfmt "/tmp/gh_${GH_VERSION}_linux_${arch}" \
   # Verify all installations
   && echo "=== Verifying tool installations ===" \
   && trivy --version \
   && gh --version \
   && trufflehog --version \
-  && actionlint --version \
+  && jactionlint --version \
   && act --version \
   && shfmt --version \
   && test -f /bin/sh && test -f /bin/bash && echo "✓ Shell binaries intact" \
@@ -267,7 +267,7 @@ RUN set -eux; \
   && kcov --version \
   && trivy --version \
   && trufflehog --version \
-  && actionlint --version \
+  && jactionlint --version \
   && act --version \
   && gh --version \
   && node --version \

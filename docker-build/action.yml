@@ -154,7 +154,8 @@ outputs:
       DEPRECATED, always empty: buildx reports no SBOM location. The SBOM is an attestation on the pushed image;
       read it with docker buildx imagetools inspect IMAGE --format "{{ json .SBOM.SPDX }}", or for a multi-platform
       image --format '{{ json (index .SBOM "linux/amd64").SPDX }}'.
-    value: ''
+    # An output's value cannot be an empty string in the action metadata syntax.
+    value: ${{ '' }}
 
 runs:
   using: composite

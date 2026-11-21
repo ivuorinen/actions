@@ -49,6 +49,9 @@ jobs:
           make docs
 
       - name: Check for action README drift
+        # bash with pipefail: under the default shell a failing find would leave the
+        # pipeline's status at 0 and the check would pass.
+        shell: bash
         run: |
           set -eu
           # Only generated action READMEs (dirs that contain an action.yml) are
