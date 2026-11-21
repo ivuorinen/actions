@@ -330,9 +330,10 @@ CURL_LONG_OPTIONS = CURL_LONG_VALUES | {
 def curl_long_option(word: str) -> tuple[str, bool]:
     """Return the long option a word names, as curl resolves it, and whether curl expands
     {{variables}} in its value: --expand-NAME is NAME with expansion, and a name that is no
-    option of its own stands for the one option it is an unambiguous prefix of."""
+    option of its own stands for the one option it is an unambiguous prefix of. curl compares
+    the name without regard to case (--TLSv1.0 is --tlsv1.0), but not the --expand- prefix."""
     expanded = word.startswith("--expand-")
-    name = "--" + word.removeprefix("--expand-") if expanded else word
+    name = ("--" + word.removeprefix("--expand-") if expanded else word).lower()
     if name not in CURL_LONG_OPTIONS:
         matches = [option for option in CURL_LONG_OPTIONS if option.startswith(name)]
         name = matches[0] if len(matches) == 1 else name

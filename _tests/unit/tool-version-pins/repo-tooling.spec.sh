@@ -200,7 +200,10 @@ printf '%s\n' "runs:" "  using: composite" "  steps:" "    - shell: sh" "      r
   "        curl --proto '=https' --tlsv1.2 --expand-proto '{{scheme}}' https://example.com/tool -o tool" \
   "        curl --expand-proto '=https' --tlsv1.2 https://example.com/tool -o tool" \
   "        curl --proto '=https' --tlsv1.2 --user-ag '-sS1' https://example.com/tool -o tool" \
-  "        curl --proto '=https' --tlsv1.2 --head https://example.com/tool" >"${TREE}/action.yml"
+  "        curl --proto '=https' --tlsv1.2 --head https://example.com/tool" \
+  "        curl --proto '=https' --tlsv1.2 --TLSv1.0 https://example.com/tool -o tool" \
+  "        curl --PROTO '=https' --TLSV1.2 https://example.com/tool -o tool" \
+  "        curl --proto '=https' --tlsv1.2 --expand-PROTO '=http' http://example.com/tool -o tool" >"${TREE}/action.yml"
 When call fetches_without_tls "${TREE}/action.yml"
 The output should include "action.yml:6: curl -fsSL https://example.com/tool -o tool"
 The output should include "action.yml:7: curl -fsSL \$... -o tool"
@@ -215,7 +218,9 @@ The output should include "action.yml:21: curl --proto =https --user-agent --tls
 The output should include "action.yml:22: curl --proto==https --tlsv1.2 "
 The output should include "action.yml:23: curl --proto =https --tlsv1.2 --expand-proto =http "
 The output should include "action.yml:24: curl --proto =https --tlsv1.2 --expand-proto {{scheme}} "
-The lines of output should equal 13
+The output should include "action.yml:28: curl --proto =https --tlsv1.2 --TLSv1.0 "
+The output should include "action.yml:30: curl --proto =https --tlsv1.2 --expand-PROTO =http "
+The lines of output should equal 15
 End
 
 # A run step without a shell runs pwsh on a Windows runner, which is not read as bash, and sh in
