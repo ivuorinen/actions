@@ -77,7 +77,7 @@ jobs:
         # digest. On its schedule, Renovate raises a reviewable pull request that moves the
         # digest to the newest rebuild; .github/renovate.json lets that update through.
         if: github.event_name == 'pull_request'
-        uses: docker://owasp/dependency-check-action:latest@sha256:4e7e1d48b860b7c84566667e1be86af398a8a7020534887a17cc0884d33882f7
+        uses: docker://owasp/dependency-check-action:latest@sha256:5422d3a56a8c37dd020414b257bca81a01c3ce99557e0c065821cd5973ebdaf3
         with:
           args: >-
             --project "PR Security Analysis" --scan . --format JSON --out /github/workspace/reports --noupdate
