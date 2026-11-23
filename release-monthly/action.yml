@@ -12,9 +12,9 @@ branding:
 
 inputs:
   token:
-    description: 'GitHub token with permission to create releases.'
-    required: true
-    default: ${{ github.token }}
+    description: 'GitHub token with permission to create releases. Defaults to the workflow token.'
+    required: false
+    default: ''
   dry-run:
     description: 'Run in dry-run mode without creating the release (lowercase true or false).'
     required: false
@@ -56,7 +56,7 @@ runs:
     - name: Checkout Repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        token: ${{ inputs.token }}
+        token: ${{ inputs.token || github.token }}
         fetch-depth: 0 # Fetch all history for tag comparison
         persist-credentials: false
 
@@ -65,7 +65,7 @@ runs:
       id: create-release
       shell: sh
       env:
-        GH_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ inputs.token || github.token }}
         INPUT_PREFIX: ${{ inputs.prefix }}
         INPUT_DRY_RUN: ${{ inputs.dry-run }}
       run: |
@@ -235,7 +235,7 @@ runs:
       shell: sh
       env:
         RELEASE_TAG: ${{ steps.create-release.outputs.release_tag }}
-        GH_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ inputs.token || github.token }}
       run: |-
         set -eu
 

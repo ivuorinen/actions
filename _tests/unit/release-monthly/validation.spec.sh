@@ -12,9 +12,9 @@ It "accepts valid GitHub token with correct format"
 When call validate_input_python "release-monthly" "token" "ghp_123456789012345678901234567890123456"
 The status should be success
 End
-It "rejects empty token"
+It "accepts an empty token, which falls back to the job token"
 When call validate_input_python "release-monthly" "token" ""
-The status should be failure
+The status should be success
 End
 It "rejects injection in token"
 When call validate_input_python "release-monthly" "token" "token; rm -rf /"
@@ -99,14 +99,15 @@ Context "when passing the token to gh"
 # gh reads GH_TOKEN (or an exported GITHUB_TOKEN). A plain shell assignment is
 # not exported, so the token must arrive through the step's env block, and only
 # on the steps that run gh.
+# An empty token, the default, falls back to the job token, as in the other actions.
 It "sets GH_TOKEN on the Create Release step"
 When call step_value "$ACTION_DIR" create-release env.GH_TOKEN
-The output should equal '${{ inputs.token }}'
+The output should equal '${{ inputs.token || github.token }}'
 End
 
 It "sets GH_TOKEN on the Verify Release step"
 When call step_value "$ACTION_DIR" "Verify Release" env.GH_TOKEN
-The output should equal '${{ inputs.token }}'
+The output should equal '${{ inputs.token || github.token }}'
 End
 
 It "does not assign GITHUB_TOKEN in a shell script"
@@ -123,10 +124,6 @@ End
 End
 
 Context "when validating security"
-It "validates token is required"
-When call validate_input_python "release-monthly" "token" ""
-The status should be failure
-End
 
 It "validates prefix format"
 When call validate_input_python "release-monthly" "prefix" "invalid;prefix"

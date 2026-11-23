@@ -16,6 +16,8 @@ Sourced automatically by `_tests/unit/spec_helper.sh`.
   (`bash -c`, unless the step sets `shell`). Retries are not simulated.
 - `list_unguarded_retry_commands <root>` — print `<action>: <step-name>` for each
   multi-line retry `command:` in `<root>/*/action.yml` not beginning with `set -eu`.
+- `list_retry_steps_without_bash <root>` — print `<action>: <step-name>` for each
+  retry step in `<root>/*/action.yml` whose `with: shell` is not `bash`.
 - `mock_command <cmd> <argv-glob> <stdout> [exit=0]` — register a shell stub
   for an external command. Glob is `fnmatch` against the joined argv. First
   registered glob that matches wins.

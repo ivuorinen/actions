@@ -205,13 +205,32 @@ Assert expect_output run_gitleaks "true"
 Assert expect_output gitleaks_config "security/custom.toml"
 End
 
-It "still runs Gitleaks when the config file is missing"
+It "still runs Gitleaks, on its default rules, when the default config file is missing"
 When call run_check_configs
 The status should be success
-The stdout should include "::warning::"
-The stdout should include "default rules"
+The stdout should include "whole history"
+The stdout should not include "::warning::"
 Assert expect_output run_gitleaks "true"
 Assert no_output_key gitleaks_config
+End
+
+# A mistyped path would otherwise scan with the default rules.
+It "fails on a gitleaks-config other than the default that does not exist"
+export INPUT_GITLEAKS_CONFIG="security/custom.toml"
+When call run_check_configs
+The status should be failure
+The stdout should include "::error::gitleaks-config security/custom.toml does not exist"
+Assert no_output_key gitleaks_config
+End
+
+# The validator takes an empty value as unset, so it means the default here too.
+It "takes an empty gitleaks-config as the default"
+touch .gitleaks.toml
+export INPUT_GITLEAKS_CONFIG=""
+When call run_check_configs
+The status should be success
+The stdout should include "whole history"
+Assert expect_output gitleaks_config ".gitleaks.toml"
 End
 End
 

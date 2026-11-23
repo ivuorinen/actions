@@ -181,6 +181,17 @@ The line 3 of output should equal "."
 The line 4 of output should equal "(no BIOME_BINARY)"
 End
 
+# Biome exits 1 for problems it could not fix and for a run that failed alike, so fix mode
+# cannot keep what it changed, as eslint-lint does on its exit status 1.
+It "fails the fix step on Biome's exit status 1, whatever it changed"
+printf '%s\n' '#!/bin/sh' 'exit 1' >"$dir/biome"
+mock_command git "diff --name-only" "a.js"
+When call run_step "${ACTION_DIR}" "fix"
+The status should equal 1
+The stdout should include "::error::Biome fix failed with exit status 1"
+Assert expect_output status "failure"
+End
+
 # A report already in the checkout is not this run's result; the upload takes only the report
 # the check step names in sarif_file.
 It "replaces a report left in the checkout and names the one it wrote"

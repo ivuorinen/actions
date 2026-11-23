@@ -12,14 +12,14 @@ branding:
 
 inputs:
   pre-commit-config:
-    description: 'pre-commit configuration file'
+    description: 'pre-commit configuration file (empty: .pre-commit-config.yaml)'
     required: false
     default: '.pre-commit-config.yaml'
   base-branch:
     description: 'Base branch name (for example main); only files changed since it diverged from HEAD are checked, and the full history is fetched'
     required: false
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Stays in git config after checkout. Defaults to the workflow token.'
     required: false
     default: ''
   commit_user:
@@ -100,14 +100,14 @@ runs:
       uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/pre-commit
-        key: pre-commit-3|${{ runner.arch }}|${{ env.pythonLocation }}|${{ hashFiles(inputs.pre-commit-config) }}
+        key: pre-commit-3|${{ runner.arch }}|${{ env.pythonLocation }}|${{ hashFiles(inputs.pre-commit-config || '.pre-commit-config.yaml') }}
 
     - name: Run pre-commit
       id: pre-commit
       shell: sh
       env:
         BASE_BRANCH: ${{ inputs.base-branch }}
-        CONFIG_FILE: ${{ inputs.pre-commit-config }}
+        CONFIG_FILE: ${{ inputs.pre-commit-config || '.pre-commit-config.yaml' }}
       run: |
         set -eu
 
@@ -138,11 +138,22 @@ runs:
 
         # -m runs the pinned install whatever else is on PATH. -P keeps the checkout off
         # sys.path, so a pre_commit directory in it cannot replace the pinned module.
-        python3 -P -m pre_commit run --show-diff-on-failure --color=always --config "$CONFIG_FILE" "$@"
+        status=0
+        python3 -P -m pre_commit run --show-diff-on-failure --color=always --config "$CONFIG_FILE" "$@" || status=$?
+
+        # Fixes are pushed only after a run that finished, as eslint-lint commits them. pre-commit
+        # exits 1 when a hook failed or changed files, and for a fatal error such as an invalid
+        # config, which comes before any hook runs. 3 (an unexpected error) and 130 (an
+        # interrupt) can stop a hook halfway, so nothing is pushed then.
+        if [ "$status" -eq 0 ] || [ "$status" -eq 1 ]; then
+          printf 'finished=%s\n' "true" >> "$GITHUB_OUTPUT"
+        fi
+        exit "$status"
 
     - name: Push pre-commit fixes
       id: push-fixes
-      if: always() && steps.pre-commit.outcome != 'skipped' # Push changes even when pre-commit fails
+      # Also after the hooks failed, which is when they leave fixes to push.
+      if: always() && steps.pre-commit.outputs.finished == 'true'
       uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
       with:
         commit_message: 'style(pre-commit): autofix'

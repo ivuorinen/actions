@@ -16,9 +16,9 @@ branding:
 
 inputs:
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
-    default: ${{ github.token }}
+    default: ''
   username:
     description: 'GitHub username for commits'
     required: false
@@ -77,7 +77,7 @@ runs:
     - name: Checkout Repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        token: ${{ inputs.token }}
+        token: ${{ inputs.token || github.token }}
         persist-credentials: false
 
     - name: Verify Working Directory
@@ -110,7 +110,7 @@ runs:
       uses: calibreapp/image-actions@9d037c06280028c110ff61c433ad4dc7d33c3c43 # 1.5.0
       with:
         compressOnly: true
-        githubToken: ${{ inputs.token }}
+        githubToken: ${{ inputs.token || github.token }}
         jpegQuality: ${{ inputs.image-quality }}
         pngQuality: ${{ inputs.png-quality }}
         ignorePaths: ${{ inputs.ignore-paths }}
@@ -120,7 +120,7 @@ runs:
       if: steps.calibre.outputs.markdown != ''
       uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
       with:
-        token: ${{ inputs.token }}
+        token: ${{ inputs.token || github.token }}
         title: 'chore: compress images'
         branch-suffix: timestamp
         commit-message: 'chore: compress images'

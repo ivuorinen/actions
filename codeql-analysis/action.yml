@@ -57,9 +57,9 @@ inputs:
     default: ''
 
   token:
-    description: 'GitHub token for API access'
+    description: 'GitHub token for checking out the repository. Defaults to the workflow token.'
     required: false
-    default: ${{ github.token }}
+    default: ''
 
   working-directory:
     description: 'Working directory for the analysis'
@@ -162,7 +162,7 @@ runs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         ref: ${{ inputs.checkout-ref || github.sha }}
-        token: ${{ inputs.token }}
+        token: ${{ inputs.token || github.token }}
         persist-credentials: false
 
     - name: Set analysis category

@@ -22,7 +22,9 @@ Create `<action-name>/action.yml` following the existing action patterns:
 
 - Use `composite` runs type
 - Include `set -eu` in shell scripts (POSIX sh, not bash)
-- Use `${{ github.token }}` for token defaults
+- Give a token input `default: ''` and read it as `${{ inputs.token || github.token }}`, so an empty value gets
+  the job token; its description ends with "Defaults to the workflow token.", after "Stays in git config after
+  checkout." when a checkout persists it
 - Pin all external action references to SHA commits
 - Pin internal action references using `ivuorinen/actions/action-name@<SHA>`
 - Add `id:` to steps whose outputs are referenced

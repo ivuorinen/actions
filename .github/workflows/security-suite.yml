@@ -42,16 +42,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           PR_BASE_REPO: ${{ github.event.pull_request.base.repo.full_name }}
           PR_BASE_REF: ${{ github.event.pull_request.base.ref }}
+          # The token stays off the command line, where any process can read argv: the empty
+          # helper drops any configured one, and the next answers git's credential request from
+          # the environment.
+          GIT_CONFIG_COUNT: '2'
+          GIT_CONFIG_KEY_0: credential.helper
+          GIT_CONFIG_VALUE_0: ''
+          GIT_CONFIG_KEY_1: credential.helper
+          GIT_CONFIG_VALUE_1: '!f() { test "$1" = get || return 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
         run: |
           set -eu
           # Fetch the base ref from base repository with authentication (works for private repos and forked PRs)
           # Using ref instead of SHA because git fetch requires ref names, not raw commit IDs
-          # Use authenticated URL to avoid 403/404 on private repositories
+          # Authenticate to avoid 403/404 on private repositories
           # Fetch full history: a shallow base tip has no merge base with the PR
           # head, which breaks the base...HEAD diff below once the base branch
           # moves ahead and stops TruffleHog from resolving its scan range.
           git fetch --no-tags \
-            "https://x-access-token:${GH_TOKEN}@github.com/${PR_BASE_REPO}" \
+            "https://github.com/${PR_BASE_REPO}" \
             "${PR_BASE_REF}:refs/remotes/origin-base/${PR_BASE_REF}"
           # Record the base commit for diffing without checking it out
           # Keep PR head checked out so scanners analyze the new changes

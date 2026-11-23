@@ -29,20 +29,20 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter     | Description                                                                           | Required | Default                     |
-| ------------- | ------------------------------------------------------------------------------------- | -------- | --------------------------- |
-| `email`       | GitHub email for commits                                                              | ❌       | `github-actions@github.com` |
-| `max-retries` | Maximum number of retry attempts for pip install operations (1-10, must not be empty) | ❌       | `3`                         |
-| `token`       | GitHub token for authentication                                                       | ❌       | -                           |
-| `username`    | GitHub username for commits                                                           | ❌       | `github-actions`            |
+| Parameter     | Description                                                                                          | Required | Default                     |
+| ------------- | ---------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
+| `email`       | GitHub email for commits                                                                             | ❌       | `github-actions@github.com` |
+| `max-retries` | Maximum number of retry attempts for pip install operations (1-10, must not be empty)                | ❌       | `3`                         |
+| `token`       | GitHub token for authentication. Stays in git config after checkout. Defaults to the workflow token. | ❌       | -                           |
+| `username`    | GitHub username for commits                                                                          | ❌       | `github-actions`            |
 
 ## 📤 Outputs
 
-| Parameter       | Description                        |
-| --------------- | ---------------------------------- |
-| `files_changed` | Number of files changed by linting |
-| `lint_status`   | Linting status (success/failure)   |
-| `sarif_path`    | Path to SARIF report file          |
+| Parameter       | Description                                                                                       |
+| --------------- | ------------------------------------------------------------------------------------------------- |
+| `files_changed` | Number of files changed by linting                                                                |
+| `lint_status`   | Linting status (success/failure)                                                                  |
+| `sarif_path`    | Path to SARIF report file (empty when there were no Ansible files or ansible-lint did not finish) |
 
 ## 🔐 Permissions
 

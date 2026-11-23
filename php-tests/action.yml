@@ -39,7 +39,9 @@ inputs:
     required: false
     default: '3'
   token:
-    description: 'GitHub token for checkout and private Composer packages. Plugins, scripts and tests never get it, so plugin-placed private packages fail with --no-cache or --prefer-source'
+    description: >-
+      GitHub token for checkout and private Composer packages. Plugins, scripts and tests never get it, so plugin-placed
+      private packages fail with --no-cache or --prefer-source. Defaults to the workflow token.
     required: false
     default: ''
   username:
@@ -328,7 +330,8 @@ runs:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
         retry_wait_seconds: 30
-        shell: sh
+        # nick-fields/retry runs PowerShell on Windows unless told otherwise, and refuses sh there.
+        shell: bash
         command: |
           set -eu
           set -f
@@ -347,7 +350,8 @@ runs:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
         retry_wait_seconds: 30
-        shell: sh
+        # nick-fields/retry runs PowerShell on Windows unless told otherwise, and refuses sh there.
+        shell: bash
         command: |
           set -eu
           set -f

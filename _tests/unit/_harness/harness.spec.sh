@@ -199,6 +199,15 @@ The status should be success
 The output should equal "retry-step: Unguarded"
 End
 
+It "names every retry step that does not run bash"
+When call list_retry_steps_without_bash "${FIXTURES}"
+The status should be success
+The lines of output should equal 4
+The line 1 of output should equal "retry-step: Unguarded"
+The line 4 of output should equal "retry-step: Expression"
+The output should not include "retry-step: Bash"
+End
+
 It "names the unguarded commands of every action under the root"
 mkdir -p scan-root/a scan-root/b
 cp "${FIXTURES}/retry-step/action.yml" scan-root/a/
@@ -279,6 +288,24 @@ When call run_all_owned_steps "${FIXTURES}/event-payload"
 The status should be success
 The output should include "ran-on-action"
 The output should not include "ran-gated"
+End
+End
+
+# validation_core.py --validate answers as a generated validate.py does.
+Describe "validation_core.py --validate"
+validate_core() {
+  uv run --locked "${PROJECT_ROOT}/_tests/shared/validation_core.py" --validate "${PROJECT_ROOT}/go-lint" token "$1"
+}
+
+It "refuses a value of only whitespace, as the generated runner does"
+When call validate_core " "
+The status should be failure
+The stderr should include "is only whitespace: leave the input out for its default"
+End
+
+It "takes an empty value as unset"
+When call validate_core ""
+The status should be success
 End
 End
 End

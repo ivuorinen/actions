@@ -232,6 +232,12 @@ def main() -> None:
         if input_name in REQUIRED and _skip(value):
             errors.append(f"{input_name}: required input is missing")
             continue
+        # The runner applies a default only when the caller leaves the input out, and `||` in an
+        # expression takes any non-empty string as set, so `${{ inputs.x || default }}` and
+        # with: would pass a value of only whitespace on as it is. Empty means unset.
+        if value and _skip(value):
+            errors.append(f"{input_name}: is only whitespace: leave the input out for its default")
+            continue
         # action.yml forwards every input, so only a standalone run leaves a variable unset.
         reason = check(value) if _variable(input_name) in os.environ else None
         if reason is not None:

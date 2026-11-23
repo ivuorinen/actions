@@ -33,12 +33,13 @@ inputs:
     required: false
     default: '.'
   fail-on-error:
-    description: 'Whether to fail the action if linting errors are found (lowercase true or false)'
+    description: 'Fail the workflow when issues are found; a run that could not lint fails either way (lowercase true or false)'
     required: false
     default: 'true'
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Stays in git config after checkout. Defaults to the workflow token.'
     required: false
+    default: ''
   username:
     description: 'GitHub username for commits'
     required: false
@@ -285,16 +286,17 @@ runs:
 
         command -v python >/dev/null 2>&1 || { echo "::error::python is required to convert the flake8 results"; exit 1; }
         error_count=$(python "$ACTION_PATH/flake8_to_sarif.py" "$results_file" "$sarif_file" "$GITHUB_WORKSPACE")
-        printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
 
         # A failure with no results means flake8 did not lint: its config or a plugin
         # failed, or a 'quiet' setting replaced the format. Uploading the empty log
-        # would close the repository's open alerts, so no report is published.
+        # would close the repository's open alerts, so no report is published, and no
+        # count, as in the other lint actions.
         if [ "$flake8_status" -ne 0 ] && [ "$error_count" -eq 0 ]; then
           echo "::error::flake8 exited with status $flake8_status without reporting any results"
           printf 'result=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit 1
         fi
+        printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
         printf 'sarif_file=%s\n' "$sarif_file" >> "$GITHUB_OUTPUT"
 
         if [ "$error_count" -gt 0 ]; then

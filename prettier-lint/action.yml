@@ -12,7 +12,7 @@ branding:
 
 inputs:
   mode:
-    description: 'Mode to run (check or fix)'
+    description: 'Mode to run: check or fix (empty: check)'
     required: false
     default: 'check'
   working-directory:
@@ -46,11 +46,14 @@ inputs:
     required: false
     default: 'true'
   fail-on-error:
-    description: 'Fail workflow if issues are found (check mode only; lowercase true or false)'
+    description: 'Fail the workflow when issues are found; a run that could not lint fails either way (check mode only; lowercase true or false)'
     required: false
     default: 'true'
   max-retries:
-    description: 'Maximum number of retry attempts (1-10, must not be empty)'
+    description: >-
+      Deprecated: has no effect, because the action does not retry its installs. A value set here must still be a
+      number from 1 to 10.
+    deprecationMessage: 'This input has no effect. prettier-lint does not retry its installs.'
     required: false
     default: '3'
   plugins:
@@ -62,7 +65,7 @@ inputs:
     required: false
     default: ''
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only.'
+    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only. Defaults to the workflow token.'
     required: false
     default: ''
   username:
@@ -221,11 +224,11 @@ runs:
             ;;
           "yarn")
             command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
-            if [ -f ".yarnrc.yml" ]; then
-              yarn install --immutable
-            else
-              yarn install --frozen-lockfile
-            fi
+            # The running Yarn decides the flag, as in Install Prettier Plugins: a Yarn 2+ project needs no .yarnrc.yml.
+            case "$(yarn --version)" in
+              1.*) yarn install --frozen-lockfile ;;
+              *) yarn install --immutable ;;
+            esac
             ;;
           "bun")
             command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
@@ -459,7 +462,7 @@ runs:
         printf 'bin=%s\n' "$bin" >> "$GITHUB_OUTPUT"
 
     - name: Run Prettier Check
-      if: inputs.mode == 'check'
+      if: (inputs.mode || 'check') == 'check'
       id: check
       shell: sh
       working-directory: ${{ inputs.working-directory }}
@@ -559,17 +562,19 @@ runs:
           files_checked="0"
         fi
 
+        # Unformatted files are for fail-on-error to decide about. Prettier failing to check fails
+        # the step either way, with no counts, as in eslint-lint: they would count a check that
+        # did not finish.
+        if [ -n "$tool_error" ]; then
+          echo "::error::Prettier could not check the files (exit status $prettier_exit_code; see its [error] lines above)"
+          exit "$prettier_exit_code"
+        fi
+
         printf 'files_checked=%s\n' "$files_checked" >> "$GITHUB_OUTPUT"
         printf 'unformatted_files=%s\n' "$unformatted_files" >> "$GITHUB_OUTPUT"
 
         echo "✅ Prettier check completed: $unformatted_files unformatted files out of $files_checked checked"
 
-        # Unformatted files are for fail-on-error to decide about. Prettier failing to check fails
-        # the step either way. The counts above are written first, as eslint-lint writes its own.
-        if [ -n "$tool_error" ]; then
-          echo "::error::Prettier could not check the files (exit status $prettier_exit_code; see its [error] lines above)"
-          exit "$prettier_exit_code"
-        fi
         if [ "$FAIL_ON_ERROR" = "true" ]; then
           exit "$prettier_exit_code"
         fi

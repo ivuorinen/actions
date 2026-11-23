@@ -30,10 +30,10 @@ jobs:
 
 | Parameter     | Description                                                                                              | Required | Default |
 | ------------- | -------------------------------------------------------------------------------------------------------- | -------- | ------- |
-| `destination` | Build destination directory.                                                                             | ❌       | `./bin` |
+| `destination` | Build destination directory (empty: ./bin).                                                              | ❌       | `./bin` |
 | `go-version`  | Go version to use.                                                                                       | ❌       | -       |
 | `max-retries` | Maximum number of retry attempts for each of go mod download and go mod verify (1-10, must not be empty) | ❌       | `3`     |
-| `token`       | GitHub token for authentication                                                                          | ❌       | -       |
+| `token`       | GitHub token for authentication. Defaults to the workflow token.                                         | ❌       | -       |
 
 ## 📤 Outputs
 

@@ -26,7 +26,6 @@ jobs:
           email: 'github-actions@github.com'
           fail-on-error: 'true'
           format: 'sarif'
-          max-retries: '3'
           terraform-version: '1.5.7'
           tflint-version: 'v0.65.0'
           token: '${{ github.token }}'
@@ -36,19 +35,19 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                                                                                                                          | Required | Default                     |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
-| `auto-fix`          | Automatically fix issues when possible (lowercase true or false)                                                                                     | ❌       | `true`                      |
-| `config-file`       | Path to TFLint config file, relative to working-directory. TFLint's own config lookup and built-in rules apply when this path is not a regular file. | ❌       | `.tflint.hcl`               |
-| `email`             | GitHub email for commits                                                                                                                             | ❌       | `github-actions@github.com` |
-| `fail-on-error`     | Fail workflow if issues are found (lowercase true or false)                                                                                          | ❌       | `true`                      |
-| `format`            | Output format (compact, json, checkstyle, junit, sarif)                                                                                              | ❌       | `sarif`                     |
-| `max-retries`       | Maximum number of retry attempts (1-10, must not be empty)                                                                                           | ❌       | `3`                         |
-| `terraform-version` | Terraform version to use (empty: the version pinned in this action, "latest": the newest release)                                                    | ❌       | -                           |
-| `tflint-version`    | TFLint version to use (empty: the version pinned in this action, "latest": the newest release)                                                       | ❌       | -                           |
-| `token`             | GitHub token for authentication. Stays in git config after checkout only when auto-fix is true.                                                      | ❌       | -                           |
-| `username`          | GitHub username for commits                                                                                                                          | ❌       | `github-actions`            |
-| `working-directory` | Directory containing Terraform files                                                                                                                 | ❌       | `.`                         |
+| Parameter           | Description                                                                                                                                                                        | Required | Default                     |
+| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
+| `auto-fix`          | Automatically fix issues when possible (lowercase true or false)                                                                                                                   | ❌       | `true`                      |
+| `config-file`       | Path to TFLint config file, relative to working-directory. Without the default file, TFLint's own config lookup and built-in rules apply; a path other than the default must exist | ❌       | `.tflint.hcl`               |
+| `email`             | GitHub email for commits                                                                                                                                                           | ❌       | `github-actions@github.com` |
+| `fail-on-error`     | Fail the workflow when issues are found; a run that could not lint fails either way (lowercase true or false)                                                                      | ❌       | `true`                      |
+| `format`            | Output format (compact, json, checkstyle, junit, sarif)                                                                                                                            | ❌       | `sarif`                     |
+| `max-retries`       | Deprecated: has no effect, because the action does not retry its installs. A value set here must still be a number from 1 to 10.                                                   | ❌       | `3`                         |
+| `terraform-version` | Terraform version to use (empty: the version pinned in this action, "latest": the newest release)                                                                                  | ❌       | -                           |
+| `tflint-version`    | TFLint version to use (empty: the version pinned in this action, "latest": the newest release)                                                                                     | ❌       | -                           |
+| `token`             | GitHub token for authentication. Stays in git config after checkout only when auto-fix is true. Defaults to the workflow token.                                                    | ❌       | -                           |
+| `username`          | GitHub username for commits                                                                                                                                                        | ❌       | `github-actions`            |
+| `working-directory` | Directory containing Terraform files                                                                                                                                               | ❌       | `.`                         |
 
 ## 📤 Outputs
 
@@ -89,7 +88,6 @@ permissions:
     email: 'github-actions@github.com'
     fail-on-error: 'true'
     format: 'sarif'
-    max-retries: '3'
     terraform-version: '1.5.7'
     tflint-version: 'v0.65.0'
     token: '${{ github.token }}'
@@ -111,7 +109,6 @@ permissions:
     email: 'github-actions@github.com'
     fail-on-error: 'true'
     format: 'sarif'
-    max-retries: '3'
     terraform-version: '1.5.7'
     tflint-version: 'v0.65.0'
     token: '${{ github.token }}'

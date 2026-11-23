@@ -272,6 +272,17 @@ When call run_module
 The status should be success
 Assert test "$(call_names)" = "$(printf 'listComments\ncreateComment')"
 End
+
+# Gitleaks reads a root .gitleaks.toml only when it is given no other config.
+It "does not count a root .gitleaks.toml when gitleaks-config names another path"
+export GITLEAKS_CONFIG="security/gitleaks.toml"
+in_base .gitleaks.toml 'title = "base"'
+in_pr app.txt "$(printf 'one\nvalue # gitleaks:allow')"
+When call run_module
+The status should be success
+The output should include "keeps no Gitleaks config or ignore file"
+Assert test "$(jq length "$CALLS")" -eq 0
+End
 End
 
 Describe "the one comment"

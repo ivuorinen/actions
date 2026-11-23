@@ -304,7 +304,7 @@ elif fact == "steps-splitting-args-unsafely":
         if "COMPOSER_ARGS" in step.get("env", {}):
             options = step["with"]
             words = ("set -f", "set -- $COMPOSER_ARGS", '"$@"')
-            if options.get("shell") != "sh" or not all(word in options["command"] for word in words):
+            if options.get("shell") != "bash" or not all(word in options["command"] for word in words):
                 print(step["name"])
 PY
 }
@@ -326,7 +326,8 @@ run_install_step() {
   return "$status"
 }
 
-It "splits the options under POSIX sh, without globbing, in every step that receives them"
+# bash, the shell retry runs on every runner, splits an unquoted expansion as sh does.
+It "splits the options under bash, without globbing, in every step that receives them"
 When call composer_step_fact steps-splitting-args-unsafely
 The output should equal ""
 End

@@ -31,7 +31,7 @@ jobs:
 | ---------------- | ----------------------------------------------------------------------------------------------- | -------- | ------- |
 | `dotnet-version` | Version of .NET SDK to use.                                                                     | ❌       | -       |
 | `project`        | Project or solution file, relative to the workspace. Empty uses the one in the repository root. | ❌       | -       |
-| `token`          | GitHub token for authentication                                                                 | ❌       | -       |
+| `token`          | GitHub token for authentication. Defaults to the workflow token.                                | ❌       | -       |
 
 ## 📤 Outputs
 

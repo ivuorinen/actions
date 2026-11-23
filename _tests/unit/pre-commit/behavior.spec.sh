@@ -86,12 +86,52 @@ The status should be success
 The stdout should include "hooks ran"
 End
 
-It "fails the step when a hook fails"
+# The validator takes an empty value as unset; passed on, it would run pre-commit with --config "".
+It "takes an empty pre-commit-config as the default"
+export INPUT_PRE_COMMIT_CONFIG=""
+mock_command python3 "${RUN_PREFIX} --config .pre-commit-config.yaml --all-files" "hooks ran"
+
+When call run_step "${ACTION_DIR}" "pre-commit"
+The status should be success
+The stdout should include "hooks ran"
+End
+
+It "fails the step when a hook fails, and leaves its fixes to push"
 mock_command python3 "${RUN_PREFIX} *" "hook failed" 1
 
 When call run_step "${ACTION_DIR}" "pre-commit"
 The status should be failure
 The stdout should include "hook failed"
+Assert expect_output finished true
+End
+
+It "marks a clean run as finished"
+mock_command python3 "${RUN_PREFIX} *" "hooks ran"
+
+When call run_step "${ACTION_DIR}" "pre-commit"
+The status should be success
+The stdout should include "hooks ran"
+Assert expect_output finished true
+End
+
+# 3 an unexpected error, 130 an interrupt: either can stop a hook halfway.
+Parameters
+3
+130
+End
+
+It "pushes nothing after exit status $1"
+mock_command python3 "${RUN_PREFIX} *" "stopped" "$1"
+
+When call run_step "${ACTION_DIR}" "pre-commit"
+The status should equal "$1"
+The stdout should include "stopped"
+The contents of file "$GITHUB_OUTPUT" should not include "finished="
+End
+
+It "pushes fixes only after a run that finished"
+When call step_value "${ACTION_DIR}" push-fixes if
+The output should equal "always() && steps.pre-commit.outputs.finished == 'true'"
 End
 
 It "does not expand glob characters against the workspace"
@@ -139,7 +179,7 @@ The status should be success
 End
 
 It "keys the cache on the architecture, the interpreter and the config file in use"
-When call grep -Fq 'key: pre-commit-3|${{ runner.arch }}|${{ env.pythonLocation }}|${{ hashFiles(inputs.pre-commit-config) }}' "$ACTION_FILE"
+When call grep -Fq 'key: pre-commit-3|${{ runner.arch }}|${{ env.pythonLocation }}|${{ hashFiles(inputs.pre-commit-config || '"'"'.pre-commit-config.yaml'"'"') }}' "$ACTION_FILE"
 The status should be success
 End
 

@@ -23,7 +23,7 @@ inputs:
     required: false
     default: ''
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
     default: ''
 
@@ -178,7 +178,7 @@ runs:
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
-        # Windows defaults to PowerShell, which cannot read this expansion, and retry refuses sh there.
+        # nick-fields/retry runs PowerShell on Windows unless told otherwise, and refuses sh there.
         shell: bash
         # --locked-mode fails on a stale lock file instead of rewriting it. A project with
         # no lock file restores as before.

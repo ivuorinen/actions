@@ -108,15 +108,16 @@ End
 
 Describe "lockfile-strict install"
 Parameters
-# files to create         command   arguments that must reach it
-"package-lock.json" "npm" "ci"
-"pnpm-lock.yaml" "pnpm" "install --frozen-lockfile"
-"yarn.lock .yarnrc.yml" "yarn" "install --immutable"
-"yarn.lock" "yarn" "install --frozen-lockfile"
-"bun.lockb" "bun" "install --frozen-lockfile"
+# files to create   command   arguments that must reach it   yarn --version
+"package-lock.json" "npm" "ci" "-"
+"pnpm-lock.yaml" "pnpm" "install --frozen-lockfile" "-"
+"yarn.lock" "yarn" "install --frozen-lockfile" "1.22.22"
+"yarn.lock" "yarn" "install --immutable" "4.18.1"
+"bun.lockb" "bun" "install --frozen-lockfile" "-"
 End
 
-It "runs $2 $3 for $1"
+# The running Yarn picks the flag; a Yarn 4 project needs no .yarnrc.yml.
+It "runs $2 $3 for $1 (yarn --version: $4)"
 # The harness ignores working-directory, so validate.py is looked up in the
 # workspace. validation.spec.sh covers the real validator.
 : >validate.py
@@ -124,6 +125,7 @@ printf '{"name":"pkg","version":"1.0.0"}\n' >package.json
 for _f in $1; do : >"$_f"; done
 
 mock_command corepack "*" ""
+[ "$4" = "-" ] || mock_command yarn "--version" "$4"
 mock_command "$2" "$3" "ran: $2 $3"
 
 When call run_all_owned_steps "${ACTION_DIR}"

@@ -1159,6 +1159,11 @@ def test_only_ascii_whitespace_is_blank():
     assert kit.CHECKS["docker_image_name"]("\N{NO-BREAK SPACE}") is not None
 
 
+def test_the_public_blank_rule_is_the_one_the_checks_use():
+    # The test harness imports is_blank; the generated validators inline _skip.
+    assert kit.is_blank is kit._skip
+
+
 @pytest.mark.parametrize("check", ["boolean", "numeric_range_1_10", "positive_integer"])
 def test_version_shaped_values_are_refused(check):
     # These are compared or counted in shell, so neither SemVer form means anything to them.

@@ -25,27 +25,32 @@ inputs:
     required: false
     default: '.'
   config-file:
-    description: "Path to TFLint config file, relative to working-directory. TFLint's own config lookup and built-in rules apply when this path is not a regular file."
+    description: >-
+      Path to TFLint config file, relative to working-directory. Without the default file, TFLint's own config lookup
+      and built-in rules apply; a path other than the default must exist
     required: false
     default: '.tflint.hcl'
   fail-on-error:
-    description: 'Fail workflow if issues are found (lowercase true or false)'
+    description: 'Fail the workflow when issues are found; a run that could not lint fails either way (lowercase true or false)'
     required: false
     default: 'true'
+  max-retries:
+    description: >-
+      Deprecated: has no effect, because the action does not retry its installs. A value set here must still be a
+      number from 1 to 10.
+    deprecationMessage: 'This input has no effect. terraform-lint-fix does not retry its installs.'
+    required: false
+    default: '3'
   auto-fix:
     description: 'Automatically fix issues when possible (lowercase true or false)'
     required: false
     default: 'true'
-  max-retries:
-    description: 'Maximum number of retry attempts (1-10, must not be empty)'
-    required: false
-    default: '3'
   format:
     description: 'Output format (compact, json, checkstyle, junit, sarif)'
     required: false
     default: 'sarif'
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout only when auto-fix is true.'
+    description: 'GitHub token for authentication. Stays in git config after checkout only when auto-fix is true. Defaults to the workflow token.'
     required: false
     default: ''
   username:
@@ -144,7 +149,7 @@ runs:
         VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
       run: |
         set -eu
-        cd "$VALIDATED_WORKING_DIR"
+        cd -- "$VALIDATED_WORKING_DIR"
         echo "Validating Terraform file syntax..."
         command -v terraform >/dev/null 2>&1 || { echo "::error::terraform is required to check the formatting"; exit 1; }
         find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
@@ -185,19 +190,25 @@ runs:
       shell: sh
       env:
         VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
-        VALIDATED_CONFIG: ${{ inputs.config-file }}
+        # An empty config-file is the default, as the input's own default.
+        VALIDATED_CONFIG: ${{ inputs.config-file || '.tflint.hcl' }}
         TFLINT_PLUGIN_DIR: ${{ steps.plugin-dir.outputs.dir }}
       run: |
         set -eu
 
-        cd "$VALIDATED_WORKING_DIR"
+        cd -- "$VALIDATED_WORKING_DIR"
 
-        # Install the plugins of the config that Run TFLint reads
+        # Install the plugins of the config that Run TFLint reads. The default config may be
+        # absent, and TFLint then uses its own lookup and built-in rules; any other path must be
+        # there, rather than TFLint linting with rules the caller did not name.
         command -v tflint >/dev/null 2>&1 || { echo "::error::tflint is required to install its plugins"; exit 1; }
         if [ -f "$VALIDATED_CONFIG" ]; then
           tflint --init --config "$VALIDATED_CONFIG"
-        else
+        elif [ "$VALIDATED_CONFIG" = ".tflint.hcl" ]; then
           tflint --init
+        else
+          echo "::error::config-file $VALIDATED_CONFIG does not exist"
+          exit 1
         fi
 
     - name: Run TFLint
@@ -206,9 +217,8 @@ runs:
       shell: sh
       env:
         VALIDATED_WORKING_DIR: ${{ inputs.working-directory }}
-        VALIDATED_CONFIG: ${{ inputs.config-file }}
+        VALIDATED_CONFIG: ${{ inputs.config-file || '.tflint.hcl' }}
         VALIDATED_FORMAT: ${{ inputs.format }}
-        VALIDATED_FAIL: ${{ inputs.fail-on-error }}
         TFLINT_PLUGIN_DIR: ${{ steps.plugin-dir.outputs.dir }}
       run: |
         set -eu
@@ -216,7 +226,6 @@ runs:
         WORKING_DIRECTORY="$VALIDATED_WORKING_DIR"
         CONFIG_FILE="$VALIDATED_CONFIG"
         FORMAT="$VALIDATED_FORMAT"
-        FAIL_ON_ERROR="$VALIDATED_FAIL"
 
         cd -- "$WORKING_DIRECTORY"
 
@@ -236,26 +245,38 @@ runs:
 
         # Run TFLint with configured format
         tflint_output="$reports_dir/tflint.$FORMAT"
-        if ! tflint "$@" > "$tflint_output"; then
-          # TFLint marks an error differently in each format, and in junit and compact the
-          # case differs between lint issues and configuration errors.
-          case "$FORMAT" in
-            json) error_pattern='"severity": *"error"' ;;
-            checkstyle) error_pattern='severity="error"' ;;
-            junit) error_pattern='type="[Ee]rror"' ;;
-            compact) error_pattern=': [Ee]rror - ' ;;
-            *) error_pattern='"level": *"error"' ;;
-          esac
-          error_count=$(grep -oE "$error_pattern" "$tflint_output" | wc -l | tr -d ' ')
-          printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
+        tflint_status=0
+        tflint "$@" > "$tflint_output" || tflint_status=$?
 
-          if [ "$FAIL_ON_ERROR" = "true" ]; then
-            echo "::error::Found $error_count linting errors"
-            exit 1
-          fi
+        # TFLint exits 2 when it found issues and 1 when it could not lint, as with a bad config
+        # or a missing plugin. That fails the step whatever fail-on-error says, with no report to
+        # upload: an incomplete one would close the alerts of the issues it did not see.
+        if [ "$tflint_status" -ne 0 ] && [ "$tflint_status" -ne 2 ]; then
+          cat "$tflint_output" >&2
+          echo "::error::TFLint failed with exit status $tflint_status"
+          exit "$tflint_status"
         fi
 
+        # TFLint marks an error differently in each format, and in junit and compact the case
+        # differs between lint issues and configuration errors. A finished run's report is counted
+        # whatever its status: with force set in the TFLint config, it exits 0 with findings.
+        case "$FORMAT" in
+          json) error_pattern='"severity": *"error"' ;;
+          checkstyle) error_pattern='severity="error"' ;;
+          junit) error_pattern='type="[Ee]rror"' ;;
+          compact) error_pattern=': [Ee]rror - ' ;;
+          *) error_pattern='"level": *"error"' ;;
+        esac
+        error_count=$(grep -oE "$error_pattern" "$tflint_output" | wc -l | tr -d ' ')
+
+        printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
         printf 'sarif_file=%s\n' "$tflint_output" >> "$GITHUB_OUTPUT"
+
+        # Issues end the job in Fail on Issues, after the formatting fixes are committed and the
+        # report is uploaded; failing here would skip both.
+        if [ "$tflint_status" -eq 2 ]; then
+          printf 'issues=%s\n' "true" >> "$GITHUB_OUTPUT"
+        fi
 
     - name: Run Terraform Format
       if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true'
@@ -301,12 +322,24 @@ runs:
         commit_user_email: ${{ inputs.email }}
         file_pattern: '*.tf *.tfvars'
 
+    # Also after a formatting or commit step failed. Run TFLint names a report only after a run
+    # that finished: an incomplete one must not close open alerts.
     - name: Upload SARIF Report
-      if: steps.check-files.outputs.found == 'true' && inputs.format == 'sarif'
+      if: always() && steps.check-files.outputs.found == 'true' && inputs.format == 'sarif' && steps.lint.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         sarif_file: ${{ steps.lint.outputs.sarif_file }}
         category: terraform-lint
+
+    - name: Fail on Issues
+      if: steps.lint.outputs.issues == 'true' && inputs.fail-on-error == 'true'
+      shell: sh
+      env:
+        ERROR_COUNT: ${{ steps.lint.outputs.error_count }}
+      run: |
+        set -eu
+        echo "::error::TFLint found issues ($ERROR_COUNT at error level)"
+        exit 1
 
     - name: Cleanup
       id: cleanup

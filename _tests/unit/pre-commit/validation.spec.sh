@@ -175,10 +175,11 @@ End
 End
 
 Context "when validation fails before the checkout"
-# The push step uses always() so fixes land even when hooks fail. Without a checkout
-# it would only add a misleading "Not a git repository" error to the validation one.
+# The push step uses always() so fixes land even when hooks fail. It also needs the run step's
+# finished output, which a run that never started leaves unset: without a checkout it would
+# only add a misleading "Not a git repository" error to the validation one.
 It "skips the push step because the hooks never ran"
-When call grep -E "^ +if: always\(\) && steps\.pre-commit\.outcome != 'skipped'( +#.*)?$" "$ACTION_FILE"
+When call grep -E "^ +if: always\(\) && steps\.pre-commit\.outputs\.finished == 'true'$" "$ACTION_FILE"
 The status should be success
 The lines of output should equal 1
 End

@@ -119,6 +119,11 @@ End
 End
 
 Context "when testing input requirements"
+It "warns callers that set max-retries, which has no effect"
+When call yq -r '.inputs."max-retries".deprecationMessage' "$ACTION_FILE"
+The output should include "has no effect"
+End
+
 It "has all inputs as optional"
 When call uv run --locked "_tests/shared/validation_core.py" --property "$ACTION_FILE" "" "all_optional"
 The output should equal "none"
@@ -166,9 +171,16 @@ The status should be failure
 End
 
 It "ends cd options before the working directory"
-When call grep -c 'cd -- "$WORKING_DIRECTORY"' terraform-lint-fix/action.yml
+When call grep -E -c 'cd -- "\$(VALIDATED_)?WORKING_DIR' terraform-lint-fix/action.yml
 The status should be success
-The output should equal 3
+The output should equal 5
+End
+
+# The steps name the directory WORKING_DIRECTORY or VALIDATED_WORKING_DIR.
+It "has no cd into the working directory without --"
+When call grep -E -c 'cd "\$(VALIDATED_)?WORKING_DIR' terraform-lint-fix/action.yml
+The status should be failure
+The output should equal 0
 End
 End
 End

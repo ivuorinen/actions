@@ -15,7 +15,7 @@ inputs:
     description: 'Go version to use.'
     required: false
   destination:
-    description: 'Build destination directory.'
+    description: 'Build destination directory (empty: ./bin).'
     required: false
     default: './bin'
   max-retries:
@@ -23,7 +23,7 @@ inputs:
     required: false
     default: '3'
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
     default: ''
 
@@ -39,7 +39,7 @@ outputs:
     value: ${{ steps.detect-go-version.outputs.detected-version }}
   binary_path:
     description: 'Path to built binaries'
-    value: ${{ inputs.destination }}
+    value: ${{ inputs.destination || './bin' }}
   coverage_path:
     description: 'Path to coverage report'
     value: 'coverage.out'
@@ -185,7 +185,7 @@ runs:
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
-        # nick-fields/retry runs PowerShell on Windows unless told otherwise.
+        # nick-fields/retry runs PowerShell on Windows unless told otherwise, and refuses sh there.
         shell: bash
         command: |
           set -eu
@@ -199,6 +199,7 @@ runs:
       with:
         timeout_minutes: 10
         max_attempts: ${{ inputs.max-retries }}
+        # nick-fields/retry runs PowerShell on Windows unless told otherwise, and refuses sh there.
         shell: bash
         command: |
           set -eu
@@ -209,7 +210,7 @@ runs:
       id: build
       shell: sh
       env:
-        DESTINATION: ${{ inputs.destination }}
+        DESTINATION: ${{ inputs.destination || './bin' }}
       run: |
         set -eu
         echo "Building Go project..."
@@ -310,6 +311,6 @@ runs:
       with:
         name: go-build-artifacts
         path: |
-          ${{ inputs.destination }}/*
+          ${{ inputs.destination || './bin' }}/*
           coverage.out
         if-no-files-found: ignore

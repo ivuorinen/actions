@@ -317,7 +317,7 @@ SPECS: dict[str, ActionSpec] = {
         "detected_version": "is_detected_version",
     },
     "release-monthly": {
-        "required": ["token"],
+        "required": [],
         "checks": {
             "dry-run": "boolean",
             "prefix": "prefix",

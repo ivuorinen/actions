@@ -38,7 +38,7 @@ jobs:
 | `package-version` | The version to publish: X.Y.Z or vX.Y.Z, optionally with -prerelease and +build. Must match package.json.                                                                                                                                                                | ❌       | `${{ github.event.release.tag_name }}` |
 | `registry-url`    | Registry URL for publishing. Must be https:// (http:// only for localhost or 127.0.0.1), with no credentials, query, or fragment.                                                                                                                                        | ❌       | `https://registry.npmjs.org/`          |
 | `scope`           | Package scope to use.                                                                                                                                                                                                                                                    | ❌       | `@ivuorinen`                           |
-| `token`           | GitHub token for authentication                                                                                                                                                                                                                                          | ❌       | -                                      |
+| `token`           | GitHub token for authentication. Defaults to the workflow token.                                                                                                                                                                                                         | ❌       | -                                      |
 
 ## 📤 Outputs
 

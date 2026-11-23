@@ -96,4 +96,11 @@ The stdout should include "Building package in ./-cmd..."
 Assert expect_argv go build "-ldflags=-s -w" -o "${PWD}/out/-cmd" ./-cmd
 End
 End
+
+# The validator takes an empty destination as unset; passed on, it would run mkdir -p -- "".
+It "reads an empty destination as the default in the build, its output and the upload"
+When call yq -r '.outputs.binary_path.value, (.runs.steps[] | (.env.DESTINATION, .with.path) | select(. != null))' "${ACTION_DIR}/action.yml"
+The output should include "\${{ inputs.destination || './bin' }}"
+The output should not include "\${{ inputs.destination }}"
+End
 End

@@ -31,7 +31,7 @@ inputs:
     required: false
     default: ${{ github.event.release.tag_name }}
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
     default: ''
 
@@ -170,11 +170,11 @@ runs:
             ;;
           "yarn")
             command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
-            if [ -f ".yarnrc.yml" ]; then
-              yarn install --immutable
-            else
-              yarn install --frozen-lockfile
-            fi
+            # The running Yarn decides the flag: a Yarn 2+ project needs no .yarnrc.yml.
+            case "$(yarn --version)" in
+              1.*) yarn install --frozen-lockfile ;;
+              *) yarn install --immutable ;;
+            esac
             ;;
           "bun")
             command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }

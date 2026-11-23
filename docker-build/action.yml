@@ -28,7 +28,7 @@ inputs:
     required: false
     default: 'linux/amd64,linux/arm64,linux/arm/v7,linux/arm/v6'
   dockerfile:
-    description: 'Path to the Dockerfile, relative to the workspace. Remote sources are rejected.'
+    description: 'Path to the Dockerfile, relative to the workspace (empty: Dockerfile). Remote sources are rejected.'
     required: false
     default: 'Dockerfile'
   context:
@@ -54,7 +54,7 @@ inputs:
     required: false
     default: '3'
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
     default: ''
   buildx-version:
@@ -120,8 +120,9 @@ inputs:
     default: 'false'
   sbom-format:
     description: >-
-      DEPRECATED, has no effect: BuildKit SBOM attestations are always SPDX JSON, so only spdx-json is accepted.
-      The SBOM and provenance attestations are attached only when push is true.
+      Deprecated: has no effect, because BuildKit SBOM attestations are always SPDX JSON. A value set here must still
+      be spdx-json. The SBOM and provenance attestations are attached only when push is true.
+    deprecationMessage: 'This input has no effect. BuildKit SBOM attestations are always SPDX JSON.'
     required: false
     default: 'spdx-json'
 
@@ -151,9 +152,9 @@ outputs:
     value: ${{ steps.sign.outputs.signature }}
   sbom-location:
     description: >-
-      DEPRECATED, always empty: buildx reports no SBOM location. The SBOM is an attestation on the pushed image;
-      read it with docker buildx imagetools inspect IMAGE --format "{{ json .SBOM.SPDX }}", or for a multi-platform
-      image --format '{{ json (index .SBOM "linux/amd64").SPDX }}'.
+      Deprecated: always empty, because buildx reports no SBOM location. The SBOM is an attestation on the pushed
+      image; read it with docker buildx imagetools inspect IMAGE --format "{{ json .SBOM.SPDX }}", or for a
+      multi-platform image --format '{{ json (index .SBOM "linux/amd64").SPDX }}'.
     # An output's value cannot be an empty string in the action metadata syntax.
     value: ${{ '' }}
 
@@ -206,7 +207,7 @@ runs:
     - name: Check Dockerfile Exists
       shell: sh
       env:
-        DOCKERFILE: ${{ inputs.dockerfile }}
+        DOCKERFILE: ${{ inputs.dockerfile || 'Dockerfile' }}
       run: |
         set -eu
         if [ ! -f "$DOCKERFILE" ]; then
@@ -326,7 +327,8 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         INPUT_BUILD_CONTEXTS: ${{ inputs.build-contexts }}
         INPUT_CONTEXT: ${{ inputs.context }}
-        INPUT_DOCKERFILE: ${{ inputs.dockerfile }}
+        # The file the build reads: an empty dockerfile is the default.
+        INPUT_DOCKERFILE: ${{ inputs.dockerfile || 'Dockerfile' }}
         INPUT_SECRETS: ${{ inputs.secrets }}
       run: |
         set -eu
@@ -385,7 +387,7 @@ runs:
         CACHE_EXPORT: ${{ inputs.cache-export }}
         CACHE_MODE: ${{ inputs.cache-mode }}
         DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-        DOCKERFILE: ${{ inputs.dockerfile }}
+        DOCKERFILE: ${{ inputs.dockerfile || 'Dockerfile' }}
         CONTEXT: ${{ inputs.context }}
       run: |
         set -eu

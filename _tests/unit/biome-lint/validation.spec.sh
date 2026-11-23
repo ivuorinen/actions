@@ -227,4 +227,10 @@ When call validate_input_python "biome-lint" "username" "\$(whoami)"
 The status should be failure
 End
 End
+
+# An empty mode passes validation as unset, so the check step runs for it, as for its default.
+It "runs the check step for an empty mode"
+When call yq -r '.runs.steps[] | select(.id == "check") | .if' "$ACTION_FILE"
+The output should start with "(inputs.mode || 'check') == 'check'"
+End
 End

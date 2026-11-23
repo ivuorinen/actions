@@ -26,9 +26,9 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter | Description                     | Required | Default |
-| --------- | ------------------------------- | -------- | ------- |
-| `token`   | GitHub token for authentication | ❌       | -       |
+| Parameter | Description                                                      | Required | Default |
+| --------- | ---------------------------------------------------------------- | -------- | ------- |
+| `token`   | GitHub token for authentication. Defaults to the workflow token. | ❌       | -       |
 
 ## 📤 Outputs
 

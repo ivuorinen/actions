@@ -278,6 +278,11 @@ When call validate_input_python "prettier-lint" "max-retries" "abc"
 The status should be failure
 End
 
+It "warns callers that set max-retries, which has no effect"
+When call yq -r '.inputs."max-retries".deprecationMessage' "$ACTION_FILE"
+The output should include "has no effect"
+End
+
 It "rejects retry count with command injection"
 When call validate_input_python "prettier-lint" "max-retries" "3; echo"
 The status should be failure
@@ -510,5 +515,11 @@ When call grep -F '"$@" -- "$FILE_PATTERN" || prettier_exit_code=$?' prettier-li
 The status should be success
 The output should include '-- "$FILE_PATTERN"'
 End
+End
+
+# An empty mode passes validation as unset, so the check step runs for it, as for its default.
+It "runs the check step for an empty mode"
+When call yq -r '.runs.steps[] | select(.id == "check") | .if' "$ACTION_FILE"
+The output should start with "(inputs.mode || 'check') == 'check'"
 End
 End

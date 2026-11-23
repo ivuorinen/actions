@@ -4,6 +4,8 @@
 # `[ ! -f path ]` is true for a dangling symlink, so writing the default config to
 # the configured path follows the link to wherever the repository points it. The
 # default config therefore lives in $RUNNER_TEMP, and the workspace is only read.
+# Without .golangci.yml, the other names golangci-lint documents count as the
+# repository's config; a config-file other than the default must exist.
 #
 # The mocks match golangci-lint's exact argv, so an unexpected config path or an
 # unsupported flag matches no glob, the dispatcher exits 127, and the step fails.
@@ -99,12 +101,56 @@ The status should be success
 The path "$DEFAULT_CONFIG" should not be exist
 Assert expect_output config_file ".golangci.yml"
 End
+
+It "keeps a config-file other than the default"
+printf 'run:\n  tests: false\n' >custom.yml
+export INPUT_CONFIG_FILE="custom.yml"
+When call run_step "${ACTION_DIR}" "config"
+The status should be success
+The path "$DEFAULT_CONFIG" should not be exist
+Assert expect_output config_file "custom.yml"
+End
+
+# The validator takes an empty value as unset, so it means the default here too.
+It "takes an empty config-file as the default"
+printf 'run:\n  tests: false\n' >.golangci.yml
+export INPUT_CONFIG_FILE=""
+When call run_step "${ACTION_DIR}" "config"
+The status should be success
+Assert expect_output config_file ".golangci.yml"
+End
+
+# A mistyped path would otherwise lint with the built-in default.
+It "fails on a config-file other than the default that does not exist"
+export INPUT_CONFIG_FILE="custom.yml"
+When call run_step "${ACTION_DIR}" "config"
+The status should be failure
+The stdout should include "::error::config-file custom.yml does not exist"
+The path "$DEFAULT_CONFIG" should not be exist
+End
+
+# golangci-lint documents four names for its config; the default input names only one.
+Describe "a config under another name golangci-lint documents"
+Parameters
+".golangci.yaml"
+".golangci.toml"
+".golangci.json"
+End
+
+It "uses the repository's $1 when .golangci.yml is absent"
+: >"$1"
+When call run_step "${ACTION_DIR}" "config"
+The status should be success
+The path "$DEFAULT_CONFIG" should not be exist
+Assert expect_output config_file "$1"
+End
+End
 End
 
 Describe "Run golangci-lint"
 It "lints with the default config when the repository has a dangling symlink"
 ln -s "$OUTSIDE_TARGET" .golangci.yml
-mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --new --output.sarif.path=${REPORT} ./..." ""
+mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --issues-exit-code=1 --new --output.sarif.path=${REPORT} ./..." ""
 When call run_config_then_lint
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -113,7 +159,7 @@ End
 
 It "lints with the repository's own config when it has one"
 printf 'run:\n  tests: false\n' >.golangci.yml
-mock_command golangci-lint "run --config .golangci.yml --timeout 5m --new --output.sarif.path=${REPORT} ./..." ""
+mock_command golangci-lint "run --config .golangci.yml --timeout 5m --issues-exit-code=1 --new --output.sarif.path=${REPORT} ./..." ""
 When call run_config_then_lint
 The status should be success
 The stdout should include "Running golangci-lint"
@@ -122,10 +168,53 @@ End
 
 It "passes no cache flag when caching is disabled, as golangci-lint has none"
 export INPUT_CACHE="false"
-mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --new --output.sarif.path=${REPORT} ./..." ""
+mock_command golangci-lint "run --config ${DEFAULT_CONFIG} --timeout 5m --issues-exit-code=1 --new --output.sarif.path=${REPORT} ./..." ""
 When call run_config_then_lint
 The status should be success
 The stdout should include "Running golangci-lint"
+End
+
+Describe "exit status"
+# A repository's run.issues-exit-code would otherwise decide which status means issues.
+It "pins the exit status for found issues to 1"
+When call step_value "${ACTION_DIR}" lint run
+The output should include 'set -- --config "$CONFIG_FILE" --timeout "$TIMEOUT" --issues-exit-code=1'
+End
+
+It "passes on issues with fail-on-error off, and names the report"
+export INPUT_FAIL_ON_ERROR="false"
+mock_command golangci-lint "run *" "" 1
+When call run_config_then_lint
+The status should be success
+The stdout should include "Running golangci-lint"
+The contents of file "$GITHUB_OUTPUT" should include "sarif_file="
+End
+
+It "fails on issues with fail-on-error on, after naming the report"
+mock_command golangci-lint "run *" "" 1
+When call run_config_then_lint
+The status should be failure
+The stdout should include "::error::golangci-lint found 0 issues"
+The contents of file "$GITHUB_OUTPUT" should include "sarif_file="
+End
+
+# 3 failure, 4 timeout, 5 no Go files, 7 an error was logged: golangci-lint did not finish.
+Parameters
+3
+4
+5
+7
+End
+
+It "fails on exit status $1 even with fail-on-error off, and names no report"
+export INPUT_FAIL_ON_ERROR="false"
+mock_command golangci-lint "run *" "" "$1"
+When call run_config_then_lint
+The status should be failure
+The stdout should include "::error::golangci-lint failed with exit status $1"
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+The contents of file "$GITHUB_OUTPUT" should not include "analyzed_files="
+End
 End
 End
 End

@@ -152,7 +152,8 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 ### Core Requirements
 
-- All actions SHA-pinned (external + internal), use `${{ github.token }}`, POSIX shell (`set -eu`)
+- All actions SHA-pinned (external + internal), token inputs `default: ''` read as `${{ inputs.token || github.token }}`,
+  POSIX shell (`set -eu`)
 - EditorConfig: `indent_size = 2`, `charset = utf-8`, `end_of_line = lf`, `max_line_length = 200`.
   editorconfig-checker enforces `.editorconfig` in pre-commit, `make lint` and MegaLinter; generated action READMEs
   and the findings ledger are exempt from the line length only. An action.yml description longer than 200 characters
@@ -170,6 +171,9 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
   has its version in a `*_VERSION` env entry with a Renovate comment. The action's `install_tool.py`, the same file in
   each action, installs it only when the archive matches the digest in the action's `tools.sha256`, so a version bump
   fails the tests until that file holds the new release's digests
+- A lint action commits fixes, writes counts and names a report to upload only after a run its tool finished, as
+  the tool's exit status shows; a run that did not finish fails the step whatever fail-on-error says. Issues that
+  remain end the job only after the fixes are committed and the report is uploaded
 - Required error handling, POSIX-compliant scripts
 
 ### Action References

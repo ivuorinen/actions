@@ -81,6 +81,13 @@ When call step_value "$ACTION_DIR" "Upload SARIF Report" with.sarif_file
 The output should equal '${{ steps.lint.outputs.sarif_file }}'
 End
 
+# Run TFLint names a report only after a run that finished; the upload also runs after a
+# formatting or commit step failed.
+It "uploads after a failed step, but only a report the lint step named"
+When call step_value "$ACTION_DIR" "Upload SARIF Report" if
+The output should equal "always() && steps.check-files.outputs.found == 'true' && inputs.format == 'sarif' && steps.lint.outputs.sarif_file != ''"
+End
+
 It "validates syntax inside working-directory"
 When call syntax_scenario
 The line 1 of output should equal "root file checked: no"

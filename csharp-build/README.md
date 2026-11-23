@@ -33,7 +33,7 @@ jobs:
 | `dotnet-version` | Version of .NET SDK to use.                                                                     | ❌       | -       |
 | `max-retries`    | Maximum number of retry attempts for dotnet restore operations (1-10, must not be empty)        | ❌       | `3`     |
 | `project`        | Project or solution file, relative to the workspace. Empty uses the one in the repository root. | ❌       | -       |
-| `token`          | GitHub token for authentication                                                                 | ❌       | -       |
+| `token`          | GitHub token for authentication. Defaults to the workflow token.                                | ❌       | -       |
 
 ## 📤 Outputs
 

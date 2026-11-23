@@ -98,7 +98,7 @@ before_lint() {
 }
 BeforeEach 'before_lint'
 
-BASE="run --config .golangci.yml --timeout 5m"
+BASE="run --config .golangci.yml --timeout 5m --issues-exit-code=1"
 
 It "passes only flags v2 has when caching is on"
 mock_command golangci-lint "${BASE} --output.sarif.path=${REPORTS}/golangci-lint.sarif ./..." "{}"
@@ -204,8 +204,8 @@ It "fails without a count when golangci-lint could not run"
 mock_command golangci-lint "${BASE} --output.sarif.path=${REPORTS}/golangci-lint.sarif ./..." "" 3
 When call run_step "${ACTION_DIR}" "lint"
 The status should be failure
-The stdout should include "::error::golangci-lint exited with 3, 0 issues found"
-Assert expect_output error_count "0"
+The stdout should include "::error::golangci-lint failed with exit status 3"
+The contents of file "$GITHUB_OUTPUT" should not include "error_count="
 End
 End
 

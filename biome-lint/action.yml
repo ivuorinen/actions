@@ -13,11 +13,11 @@ branding:
 
 inputs:
   mode:
-    description: 'Mode to run (check or fix)'
+    description: 'Mode to run: check or fix (empty: check)'
     required: false
     default: 'check'
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only.'
+    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only. Defaults to the workflow token.'
     required: false
     default: ''
   username:
@@ -33,7 +33,7 @@ inputs:
     required: false
     default: '3'
   fail-on-error:
-    description: 'Whether to fail the action if linting errors are found (check mode only; lowercase true or false)'
+    description: 'Fail the workflow when issues are found; a run that could not lint fails either way (check mode only; lowercase true or false)'
     required: false
     default: 'true'
 
@@ -137,7 +137,7 @@ runs:
         exit 1
 
     - name: Run Biome Check
-      if: inputs.mode == 'check'
+      if: (inputs.mode || 'check') == 'check'
       id: check
       shell: sh
       env:
@@ -229,7 +229,7 @@ runs:
         fi
 
     - name: Upload SARIF Report
-      if: always() && inputs.mode == 'check' && steps.check.outputs.sarif_file != ''
+      if: always() && (inputs.mode || 'check') == 'check' && steps.check.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         sarif_file: biome-report.sarif
@@ -265,7 +265,11 @@ runs:
         # Count changed files using git diff
         files_changed=$(git diff --name-only | wc -l | tr -d ' ')
 
-        # In fix mode, success means biome exited 0 (fixed everything), regardless of files changed
+        # Fix mode commits what the tool fixed only when its exit status shows the run finished,
+        # as eslint-lint does. ESLint tells problems it could not fix (1) from a failed run (2);
+        # Biome exits 1 for both, and also for an invalid config or no files to check. The check
+        # step tells them apart by the SARIF report Biome writes only for findings, but fix mode
+        # asks for no report, so any non-zero status fails the step and nothing is committed.
         if [ "$biome_exit_code" -eq 0 ]; then
           status="success"
           if [ "$files_changed" -eq 0 ]; then
@@ -275,7 +279,7 @@ runs:
           fi
         else
           status="failure"
-          echo "❌ Biome fix failed with exit code $biome_exit_code"
+          echo "::error::Biome fix failed with exit status $biome_exit_code"
         fi
 
         printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"

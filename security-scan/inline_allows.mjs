@@ -6,8 +6,9 @@
 //
 // actions/github-script imports it and calls run({ github, context, core }). check-configs
 // supplies BASE_SHA and HEAD_SHA, commits it has checked exist in the clone, and
-// GITLEAKS_CONFIG is the gitleaks-config input. The comment names a file and a line, never
-// the line's text, which holds the secret the comment allows.
+// GITLEAKS_CONFIG is the gitleaks-config input, .gitleaks.toml when that is empty. The
+// comment names a file and a line, never the line's text, which holds the secret the comment
+// allows.
 
 import { execFileSync } from 'node:child_process';
 
@@ -149,7 +150,9 @@ async function ownComment(github, comments) {
 export default async function run({ github, context, core }) {
   const base = process.env.BASE_SHA;
   const head = process.env.HEAD_SHA;
-  const configs = [process.env.GITLEAKS_CONFIG, '.gitleaks.toml', '.gitleaksignore'].filter(Boolean);
+  // GITLEAKS_CONFIG is the config Gitleaks scans with, a root .gitleaks.toml when the caller
+  // names no other; check-configs has failed already when a named one is not in the base commit.
+  const configs = [process.env.GITLEAKS_CONFIG, '.gitleaksignore'].filter(Boolean);
   if (!configs.some(file => inCommit(base, file))) {
     core.info('The base branch keeps no Gitleaks config or ignore file, so inline gitleaks:allow comments are not listed');
     return;
