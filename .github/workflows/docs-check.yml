@@ -4,6 +4,8 @@ name: Docs Drift Check
 
 on:
   pull_request:
+    # Every input of make docs: the actions, the READMEs, the tooling, and what the generator
+    # and its post-processing read (the input examples come from _validation/).
     paths:
       - '**/action.yml'
       - '**/README.md'
@@ -11,6 +13,11 @@ on:
       - package.json
       - package-lock.json
       - Makefile
+      - .gh-action-readme.yaml
+      - .prettierrc.yml
+      - _tools/fix-generated-readme.py
+      - _validation/kit.py
+      - _validation/spec.py
 
 permissions: {}
 
@@ -56,10 +63,12 @@ jobs:
           set -eu
           # Only generated action READMEs (dirs that contain an action.yml) are
           # gated; formatting drift in other docs is out of scope for this check.
+          # git status also names a README the pull request deleted, which make docs
+          # wrote back as an untracked file; git diff would pass it.
           drift=$(find . -mindepth 2 -maxdepth 2 -name action.yml \
             | sed 's|/action.yml|/README.md|' \
             | while IFS= read -r readme; do
-                git diff --quiet -- "$readme" || printf '%s\n' "$readme"
+                [ -z "$(git status --porcelain -- "$readme")" ] || printf '%s\n' "$readme"
               done)
           if [ -n "$drift" ]; then
             echo "::error::Action README(s) are out of date. Run 'make docs' and commit the result." >&2
