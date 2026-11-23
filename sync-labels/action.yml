@@ -27,9 +27,9 @@ inputs:
     required: false
     default: 'true'
   token:
-    description: 'GitHub token for authentication (use a PAT for cross-repo sync)'
+    description: 'GitHub token for authentication (use a PAT for cross-repo sync). Defaults to the workflow token.'
     required: false
-    default: ${{ github.token }}
+    default: ''
 
 outputs:
   created:
@@ -78,7 +78,7 @@ runs:
         INPUT_LABELS: ${{ inputs.labels }}
         INPUT_REPOSITORY: ${{ inputs.repository }}
         INPUT_PRUNE: ${{ inputs.prune }}
-        GH_TOKEN: ${{ inputs.token }}
+        GH_TOKEN: ${{ inputs.token || github.token }}
       run: |
         set -eu
         command -v gh >/dev/null 2>&1 || { echo "::error::gh CLI is required to sync labels"; exit 1; }

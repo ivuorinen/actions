@@ -51,7 +51,7 @@ jobs:
 | `push`               | Whether to push the image (lowercase true or false)                                                         | ❌       | `true`                    |
 | `registry`           | Registry to publish to (dockerhub, github, or both)                                                         | ❌       | `both`                    |
 | `tags`               | Comma-separated list of tags with no spaces (e.g., latest,v1.0.0)                                           | ❌       | `latest`                  |
-| `token`              | GitHub token for authentication (for GitHub registry)                                                       | ❌       | -                         |
+| `token`              | GitHub token for authentication (for GitHub registry). Defaults to the workflow token.                      | ❌       | -                         |
 
 ## 📤 Outputs
 

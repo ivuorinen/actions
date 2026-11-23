@@ -6,6 +6,7 @@
 #   run_all_owned_steps <action-dir>   -- execute every run: step in order
 #   run_retry_step <action-dir> <step-name> -- execute a nick-fields/retry step's command once
 #   list_unguarded_retry_commands <root>    -- name multi-line retry commands lacking set -eu
+#   list_retry_steps_without_bash <root>    -- name retry steps whose with: shell is not bash
 #   mock_command <cmd> <argv-glob> <stdout> [exit-code]
 #   expect_output <key> <value>        -- the value GitHub stores for <key> in $GITHUB_OUTPUT is <value>
 #   expect_argv <cmd> <arg>...         -- exact, consecutive argv entries of a mocked call
@@ -102,6 +103,10 @@ list_unguarded_retry_commands() {
   _harness_python "$(_harness_py)" list-unguarded-retry-commands "$1"
 }
 
+list_retry_steps_without_bash() {
+  _harness_python "$(_harness_py)" list-retry-steps-without-bash "$1"
+}
+
 # Compares the value GitHub stores for the key, read by the parser the harness uses for
 # step outputs: the last value written wins, and heredoc bodies are values, not keys.
 # The comparison runs in the harness, so the value never passes through $(...). The `--`
@@ -161,6 +166,6 @@ else:
 PY
 }
 
-export -f run_step run_all_owned_steps run_retry_step list_unguarded_retry_commands
+export -f run_step run_all_owned_steps run_retry_step list_unguarded_retry_commands list_retry_steps_without_bash
 export -f mock_command expect_output expect_argv harness_reset step_value
 export -f _harness_py _harness_ensure_session _harness_execute _harness_python _harness_project_root

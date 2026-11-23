@@ -85,6 +85,29 @@ def test_github_token_check_is_only_used_for_github_tokens(action):
 
 
 @pytest.mark.parametrize("action", ACTIONS)
+def test_github_token_inputs_fall_back_to_the_workflow_token(action):
+    """An empty token takes the job token, so `token: ''` works and the description says so."""
+    text = (REPO_ROOT / action / "action.yml").read_text(encoding="utf-8")
+    inputs = yaml.safe_load(text)["inputs"]
+    for name, check_type in SPECS[action]["checks"].items():
+        if check_type != "github_token":
+            continue
+        assert inputs[name].get("default", "") == "", f"{action}.{name}: default must be ''"
+        assert inputs[name]["description"].rstrip().endswith("Defaults to the workflow token."), (
+            f"{action}.{name}: the description must end with 'Defaults to the workflow token.'"
+        )
+        # The validator reads the raw value; every other use falls back to the job token.
+        direct = [
+            line.strip()
+            for line in text.splitlines()
+            if f"inputs.{name}" in line
+            and not line.strip().startswith("INPUT_")
+            and f"inputs.{name} || github.token" not in line
+        ]
+        assert not direct, f"{action}.{name}: read without `|| github.token`: {direct}"
+
+
+@pytest.mark.parametrize("action", ACTIONS)
 def test_spec_covers_exactly_the_declared_inputs(action):
     assert set(SPECS[action]["checks"]) == declared_inputs(action)
 

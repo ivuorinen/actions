@@ -385,6 +385,7 @@ When call run_step "${ACTION_DIR}" "check"
 The status should equal 1
 The stdout should include "::error::Prettier could not check the files (exit status 1; see its [error] lines above)"
 Assert expect_output status failure
+The contents of file "$GITHUB_OUTPUT" should not include "unformatted_files="
 End
 
 # Prettier names each unformatted file on a [warn] line and adds a summary [warn] line.
@@ -407,6 +408,7 @@ When call run_step "${ACTION_DIR}" "check"
 The status should equal 2
 The stdout should include "::error::Prettier could not check the files (exit status 2; see its [error] lines above)"
 Assert expect_output status failure
+The contents of file "$GITHUB_OUTPUT" should not include "unformatted_files="
 End
 
 # The ensure step runs before check and fix mode alike, so it checks each file once for both.

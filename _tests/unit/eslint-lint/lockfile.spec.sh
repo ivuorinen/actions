@@ -124,5 +124,25 @@ When call run_step "${ACTION_DIR}" "install-deps"
 The status should be success
 The stdout should include "Dependencies installed successfully"
 End
+
+# The running Yarn picks the flag; only the expected install call is mocked, so another fails.
+It "installs with --frozen-lockfile under Yarn 1"
+export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"yarn"}}}'
+mock_command yarn "--version" "1.22.22"
+mock_command yarn "install --frozen-lockfile" ""
+When call run_step "${ACTION_DIR}" "install-deps"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
+
+# No .yarnrc.yml: a Yarn 4 project can pin Yarn through packageManager alone.
+It "installs with --immutable under Yarn 2+, without a .yarnrc.yml"
+export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"yarn"}}}'
+mock_command yarn "--version" "4.18.1"
+mock_command yarn "install --immutable" ""
+When call run_step "${ACTION_DIR}" "install-deps"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
 End
 End

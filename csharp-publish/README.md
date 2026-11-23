@@ -38,7 +38,7 @@ jobs:
 | `max-retries`    | Maximum number of retry attempts for dependency restoration (1-10, must not be empty)           | ❌       | `3`     |
 | `namespace`      | GitHub namespace for the package (user or organization). Required, no default.                  | ✅       | -       |
 | `project`        | Project or solution file, relative to the workspace. Empty uses the one in the repository root. | ❌       | -       |
-| `token`          | GitHub token with package write permissions                                                     | ❌       | -       |
+| `token`          | GitHub token with package write permissions. Defaults to the workflow token.                    | ❌       | -       |
 
 ## 📤 Outputs
 

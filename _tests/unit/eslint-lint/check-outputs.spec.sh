@@ -64,7 +64,8 @@ End
 
 # A report committed to the checkout is not this run's result: when ESLint fails before
 # writing one, the counts and the upload must not read the old file. Exit status 2 is ESLint
-# failing to lint, which fails the step even when fail-on-error is off.
+# failing to lint, which fails the step even when fail-on-error is off, with no counts and no
+# report named, as in go-lint and terraform-lint-fix.
 It "ignores a report left in the checkout when ESLint writes none"
 printf '%s\n' "$REPORT" >eslint-results.sarif
 export FAKE_ESLINT_EXIT=2 INPUT_FAIL_ON_ERROR="false"
@@ -72,10 +73,18 @@ When call run_step "${ACTION_DIR}" "check"
 The status should equal 2
 The stdout should include "::error::ESLint failed with exit status 2"
 The path "eslint-results.sarif" should not be exist
-Assert expect_output files_checked 0
-Assert expect_output error_count 0
-Assert expect_output sarif_file ""
+The contents of file "$GITHUB_OUTPUT" should not include "error_count="
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
 Assert expect_output status failure
+End
+
+# ESLint can leave a partial report when it fails partway; uploaded, it would close open alerts.
+It "names no report ESLint wrote before it failed"
+export FAKE_ESLINT_EXIT=2 INPUT_FAIL_ON_ERROR="false" FAKE_REPORT="$REPORT"
+When call run_step "${ACTION_DIR}" "check"
+The status should equal 2
+The stdout should include "::error::ESLint failed with exit status 2"
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
 End
 
 It "lets fail-on-error off pass lint problems, which exit with status 1"
@@ -110,7 +119,7 @@ End
 # a substring match would also pass one that joins the guard with ||.
 It "uploads only a report the check step wrote"
 When call step_value "$ACTION_DIR" "Upload SARIF Report" if
-The output should equal "always() && inputs.mode == 'check' && inputs.report-format == 'sarif' && steps.check.outputs.sarif_file != ''"
+The output should equal "always() && (inputs.mode || 'check') == 'check' && inputs.report-format == 'sarif' && steps.check.outputs.sarif_file != ''"
 End
 
 # The harness does not evaluate action outputs, so this reads the mapping.

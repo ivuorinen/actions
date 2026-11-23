@@ -189,6 +189,26 @@ def test_required_input_of_unicode_spaces_is_checked_not_missing():
     assert "npm_token: " in result.stdout
 
 
+def _optional_inputs(action: str) -> list[str]:
+    return sorted(set(SPECS[action]["checks"]) - set(SPECS[action]["required"]))
+
+
+# `${{ inputs.x || default }}` takes a non-empty string as set, and the runner applies a default
+# only when the caller leaves the input out, so a value of only whitespace would reach the step.
+@pytest.mark.parametrize("action", [a for a in ACTIONS if _optional_inputs(a)])
+def test_whitespace_only_optional_input_is_refused(action):
+    name = _optional_inputs(action)[0]
+    result = _run(action, {**_satisfying_required(action), _env_name(name): " \t\n"})
+    assert result.returncode == 1
+    assert f"::error::{action}: {name}: is only whitespace" in result.stdout
+
+
+# Empty is what an explicit `token: ''` passes, and `inputs.token || github.token` then takes
+# the job token.
+def test_empty_token_is_unset():
+    assert _run("go-lint", {"INPUT_TOKEN": ""}).returncode == 0
+
+
 def test_invalid_input_is_rejected_with_annotation():
     result = _run("docker-build", {"INPUT_TAG": "bad tag", "INPUT_MAX_RETRIES": "999"})
     assert result.returncode == 1

@@ -103,6 +103,21 @@ class ActionParser:
                     unguarded.append(f"{action_file.parent.name}: {raw.get('name')}")
         return unguarded
 
+    @staticmethod
+    def list_retry_steps_without_bash(root: Path) -> list[str]:
+        """Name each retry step under `root` whose `with: shell` is not bash.
+
+        The commands are POSIX sh scripts. nick-fields/retry runs PowerShell on Windows unless
+        told otherwise, and refuses sh there, so bash is the one shell that runs them
+        on every runner.
+        """
+        return [
+            f"{action_file.parent.name}: {raw.get('name')}"
+            for action_file in sorted(Path(root).glob("*/action.yml"))
+            for raw in ActionParser._retry_steps(action_file.parent)
+            if str((raw.get("with") or {}).get("shell", "")) != "bash"
+        ]
+
 
 class UnsupportedExpressionError(ValueError):
     """Raised when an expression uses a construct the harness does not implement."""
@@ -591,8 +606,13 @@ def main(argv: list[str] | None = None) -> int:
     p_list = sub.add_parser("list-run-steps")
     p_list.add_argument("action_dir")
 
-    p_unguarded = sub.add_parser("list-unguarded-retry-commands")
-    p_unguarded.add_argument("root")
+    # The static checks over every action's retry steps, each printing one entry per line.
+    retry_checks = {
+        "list-unguarded-retry-commands": ActionParser.list_unguarded_retry_commands,
+        "list-retry-steps-without-bash": ActionParser.list_retry_steps_without_bash,
+    }
+    for name in retry_checks:
+        sub.add_parser(name).add_argument("root")
 
     p_output = sub.add_parser("expect-output")
     p_output.add_argument("file")
@@ -621,8 +641,8 @@ def main(argv: list[str] | None = None) -> int:
             print(step_id)
         return 0
 
-    if args.command == "list-unguarded-retry-commands":
-        for entry in ActionParser.list_unguarded_retry_commands(Path(args.root)):
+    if args.command in retry_checks:
+        for entry in retry_checks[args.command](Path(args.root)):
             print(entry)
         return 0
 

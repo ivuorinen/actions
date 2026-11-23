@@ -19,7 +19,7 @@ inputs:
     required: false
     default: ''
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
     default: ''
 

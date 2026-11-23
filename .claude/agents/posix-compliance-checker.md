@@ -5,6 +5,11 @@ You check all shell code in this repository for POSIX compliance.
 All shell in this monorepo must be POSIX sh (not bash). This subagent finds bash-isms
 and non-POSIX constructs that will break on strict POSIX shells.
 
+The one exception, which `.claude/rules/posix-shell.md` states: the `_tests/` tree is bash on
+purpose (ShellSpec idioms such as `local` and `export -f`). A `nick-fields/retry` step names
+`shell: bash`, because retry runs PowerShell on Windows unless told otherwise, and refuses `sh`
+there, but its `command:` is still POSIX sh and is checked like any other script.
+
 ## When to use
 
 Run when adding or modifying shell code in action.yml `run:` blocks or .sh scripts,

@@ -1,9 +1,10 @@
 #!/usr/bin/env shellspec
 # Behavior tests for terraform-lint-fix's config handling.
 #
-# The action reads the configured TFLint config when it resolves to a regular file
-# and otherwise lets TFLint fall back to its own lookup. It generates no config, so
-# a dangling symlink committed at the configured path is never a write target.
+# The action reads the configured TFLint config when it resolves to a regular file.
+# Without the default file it lets TFLint fall back to its own lookup; any other
+# configured path must exist. It generates no config, so a dangling symlink committed
+# at the configured path is never a write target.
 #
 # The mocks match tflint's exact argv, so an unexpected --config or a flag or
 # argument TFLint does not accept matches no glob, the dispatcher exits 127, and
@@ -53,6 +54,31 @@ export INPUT_WORKING_DIRECTORY="infra"
 mock_command tflint "--init --config .tflint.hcl" ""
 When call run_step "${ACTION_DIR}" "init"
 The status should be success
+End
+
+It "installs the plugins of a config-file other than the default"
+printf 'config {\n}\n' >custom.hcl
+export INPUT_CONFIG_FILE="custom.hcl"
+mock_command tflint "--init --config custom.hcl" ""
+When call run_step "${ACTION_DIR}" "init"
+The status should be success
+End
+
+# The validator takes an empty value as unset, so it means the default here too.
+It "takes an empty config-file as the default"
+export INPUT_CONFIG_FILE=""
+mock_command tflint "--init" ""
+When call run_step "${ACTION_DIR}" "init"
+The status should be success
+End
+
+# A mistyped path would otherwise lint with TFLint's own lookup and built-in rules.
+It "fails on a config-file other than the default that does not exist"
+export INPUT_CONFIG_FILE="custom.hcl"
+mock_command tflint "--init" ""
+When call run_step "${ACTION_DIR}" "init"
+The status should be failure
+The stdout should include "::error::config-file custom.hcl does not exist"
 End
 End
 
@@ -108,6 +134,46 @@ export INPUT_WORKING_DIRECTORY="infra"
 mock_command tflint "--config .tflint.hcl --format sarif --no-color" ""
 When call run_step "${ACTION_DIR}" "lint"
 The status should be success
+End
+
+It "reports zero errors and the report when TFLint finds nothing"
+mock_command tflint "--format sarif --no-color" '{"runs": []}'
+When call run_step "${ACTION_DIR}" "lint"
+The status should be success
+Assert expect_output error_count "0"
+Assert sarif_file_is_in_reports_dir
+End
+
+# Issues leave the step to finish: the formatting fixes are committed and the report uploaded
+# before Fail on Issues ends the job.
+It "finishes on issues, names the report and marks them for Fail on Issues"
+mock_command tflint "--format sarif --no-color" '{"level": "error"}' 2
+When call run_step "${ACTION_DIR}" "lint"
+The status should be success
+Assert expect_output error_count "1"
+Assert expect_output issues true
+Assert sarif_file_is_in_reports_dir
+End
+
+It "fails the job on issues only when fail-on-error is true, after the fixes and the upload"
+When call yq -r '.runs.steps[] | select(.name == "Run Terraform Format" or .name == "Commit Fixes" or .name == "Upload SARIF Report" or .name == "Fail on Issues") | .name' "${ACTION_DIR}/action.yml"
+The line 4 of output should equal "Fail on Issues"
+End
+
+It "takes the issues the lint step marked, and fail-on-error, as the condition to fail"
+When call step_value "${ACTION_DIR}" "Fail on Issues" if
+The output should equal "steps.lint.outputs.issues == 'true' && inputs.fail-on-error == 'true'"
+End
+
+# Exit status 1 means TFLint could not lint; its report holds the error, not the findings.
+It "fails when TFLint could not lint, even with fail-on-error off, and names no report"
+export INPUT_FAIL_ON_ERROR="false"
+mock_command tflint "--format sarif --no-color" "Failed to load configurations" 1
+When call run_step "${ACTION_DIR}" "lint"
+The status should be failure
+The stdout should include "::error::TFLint failed with exit status 1"
+The stderr should include "Failed to load configurations"
+The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
 End
 End
 

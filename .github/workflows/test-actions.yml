@@ -74,8 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: write
-      security-events: write
+      security-events: write # Upload SARIF report
     timeout-minutes: 10
 
     steps:
@@ -158,7 +157,6 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: write
     timeout-minutes: 20
     if: github.event.inputs.test-type != 'unit'
 
@@ -220,8 +218,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      actions: write
-      issues: write
+      # The coverage comment on the pull request; the comment API takes either permission.
       pull-requests: write
     timeout-minutes: 15
     needs:
@@ -254,7 +251,9 @@ jobs:
         if: github.event_name == 'pull_request'
         shell: sh
         run: |
+          set -eu
           if [ -f _tests/coverage/summary.json ]; then
+            command -v jq >/dev/null 2>&1 || { echo "::error::jq is required to read the coverage summary"; exit 1; }
             coverage=$(jq -r '.coverage_percent' _tests/coverage/summary.json)
             tested_actions=$(jq -r '.tested_actions' _tests/coverage/summary.json)
             total_actions=$(jq -r '.total_actions' _tests/coverage/summary.json)
@@ -336,9 +335,9 @@ jobs:
   test-summary:
     name: Test Summary
     runs-on: ubuntu-latest
+    # download-artifact reads this run's artifacts with the runner's own token, not GITHUB_TOKEN.
     permissions:
       contents: read
-      actions: read # Required to download artifacts
     needs:
       - unit-tests
       - validation-tests

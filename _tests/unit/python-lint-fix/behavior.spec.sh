@@ -230,6 +230,7 @@ The status should be failure
 Assert expect_output result failure
 The contents of file "$RUN_LOG" should include "without reporting any results"
 The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+The contents of file "$GITHUB_OUTPUT" should not include "error_count="
 End
 End
 

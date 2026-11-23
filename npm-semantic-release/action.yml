@@ -18,9 +18,9 @@ inputs:
     description: 'NPM token for publishing, in any format the registry issues. Must not contain whitespace or control characters.'
     required: true
   github_token:
-    description: 'GitHub token for creating releases, tags, and PR comments.'
+    description: 'GitHub token for creating releases, tags, and PR comments. Defaults to the workflow token.'
     required: false
-    default: ${{ github.token }}
+    default: ''
   scope:
     description: 'Package scope to use.'
     required: false
@@ -73,7 +73,7 @@ runs:
     - name: Checkout Repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
-        token: ${{ inputs.github_token }}
+        token: ${{ inputs.github_token || github.token }}
         fetch-depth: 0
         persist-credentials: false
 
@@ -198,11 +198,11 @@ runs:
             ;;
           "yarn")
             command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
-            if [ -f ".yarnrc.yml" ]; then
-              yarn install --immutable
-            else
-              yarn install --frozen-lockfile
-            fi
+            # The running Yarn decides the flag: a Yarn 2+ project needs no .yarnrc.yml.
+            case "$(yarn --version)" in
+              1.*) yarn install --frozen-lockfile ;;
+              *) yarn install --immutable ;;
+            esac
             ;;
           "bun")
             command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
@@ -223,7 +223,7 @@ runs:
         semantic_version: ${{ env.SEMANTIC_RELEASE_VERSION }}
         extra_plugins: ${{ inputs.extra_plugins || format('conventional-changelog-conventionalcommits@{0}', env.CONVENTIONAL_COMMITS_VERSION) }}
       env:
-        GITHUB_TOKEN: ${{ inputs.github_token }}
+        GITHUB_TOKEN: ${{ inputs.github_token || github.token }}
         NPM_TOKEN: ${{ inputs.npm_token }}
         # renovate: datasource=npm depName=semantic-release
         SEMANTIC_RELEASE_VERSION: '25.0.9'

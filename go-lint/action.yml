@@ -25,7 +25,9 @@ inputs:
     required: false
     default: ''
   config-file:
-    description: 'Path to golangci-lint config file, relative to working-directory. A built-in default is used when this path is not a regular file.'
+    description: >-
+      Path to golangci-lint config file, relative to working-directory. Without the default file, a .golangci.yaml,
+      .golangci.toml or .golangci.json there is used, else a built-in default; a path other than the default must exist
     required: false
     default: '.golangci.yml'
   timeout:
@@ -37,7 +39,7 @@ inputs:
     required: false
     default: 'true'
   fail-on-error:
-    description: 'Fail workflow if issues are found (lowercase true or false)'
+    description: 'Fail the workflow when issues are found; a run that could not lint fails either way (lowercase true or false)'
     required: false
     default: 'true'
   report-format:
@@ -45,7 +47,7 @@ inputs:
     required: false
     default: 'sarif'
   max-retries:
-    description: 'Maximum number of retry attempts (1-10, must not be empty)'
+    description: 'Maximum number of attempts to install golangci-lint (1-10, must not be empty)'
     required: false
     default: '3'
   only-new-issues:
@@ -63,7 +65,7 @@ inputs:
     description: 'Comma-separated list of linters to disable'
     required: false
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
     default: ''
 
@@ -158,7 +160,11 @@ runs:
         path: |
           ~/.cache/golangci-lint
           ~/.cache/go-build
-        key: ${{ runner.os }}-golangci-${{ steps.golangci-version.outputs.version }}-${{ hashFiles('go.sum', inputs.config-file) }}
+        # The module and every config golangci-lint can read, in working-directory, where it runs.
+        key: >-
+          ${{ runner.os }}-golangci-${{ steps.golangci-version.outputs.version }}-${{
+          hashFiles(format('{0}/go.sum', inputs.working-directory), format('{0}/.golangci.*', inputs.working-directory),
+          format('{0}/{1}', inputs.working-directory, inputs.config-file || '.golangci.yml')) }}
         restore-keys: |
           ${{ runner.os }}-golangci-${{ steps.golangci-version.outputs.version }}-
 
@@ -202,12 +208,28 @@ runs:
       shell: sh
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
-        CONFIG_FILE: ${{ inputs.config-file }}
+        # An empty config-file is the default, as the input's own default.
+        CONFIG_FILE: ${{ inputs.config-file || '.golangci.yml' }}
         TIMEOUT: ${{ inputs.timeout }}
       run: |
         set -eu
 
         cd -- "$WORKING_DIRECTORY"
+
+        # The default name stands for each name golangci-lint documents for its config file, so
+        # a repository's .golangci.yaml, .toml or .json is its config too. A path other than the
+        # default must exist, rather than golangci-lint linting with rules the caller did not name.
+        if [ ! -f "$CONFIG_FILE" ] && [ "$CONFIG_FILE" = ".golangci.yml" ]; then
+          for name in .golangci.yaml .golangci.toml .golangci.json; do
+            if [ -f "$name" ]; then
+              CONFIG_FILE=$name
+              break
+            fi
+          done
+        elif [ ! -f "$CONFIG_FILE" ]; then
+          echo "::error::config-file $CONFIG_FILE does not exist"
+          exit 1
+        fi
 
         # Without a config, write the default to $RUNNER_TEMP. The configured path is
         # never a write target: this test is also true for a dangling symlink.
@@ -271,8 +293,10 @@ runs:
         reports_dir=$(mktemp -d "$RUNNER_TEMP/go-lint.XXXXXX")
         printf 'reports_dir=%s\n' "$reports_dir" >> "$GITHUB_OUTPUT"
 
-        # Build golangci-lint args as positional parameters
-        set -- --config "$CONFIG_FILE" --timeout "$TIMEOUT"
+        # Build golangci-lint args as positional parameters. The exit status for found issues is
+        # pinned to 1, which a repository's run.issues-exit-code could otherwise move: the step
+        # tells found issues from a run that did not finish by it.
+        set -- --config "$CONFIG_FILE" --timeout "$TIMEOUT" --issues-exit-code=1
 
         # Prepare new issues flag
         if [ "$ONLY_NEW_ISSUES" = "true" ]; then
@@ -319,10 +343,21 @@ runs:
         GOLANGCI_LINT_CACHE="$HOME/.cache/golangci-lint" \
         golangci-lint run "$@" || exit_code=$?
 
-        # Count errors regardless of exit code or fail-on-error setting. A run that could not
-        # start leaves no report, which grep -s reads as no matches. A text report has one line
-        # per issue ending in the linter's name, followed by source lines.
-        if [ "$exit_code" -ne 0 ]; then
+        # Count analyzed files
+        analyzed_files=$(find . -type f -name "*.go" -not -path "./vendor/*" -not -path "./.git/*" | wc -l)
+        printf 'analyzed_files=%s\n' "$analyzed_files" >> "$GITHUB_OUTPUT"
+
+        # golangci-lint exits 1 when it found issues. Any other non-zero status means it did not
+        # finish linting (3 failure, 4 timeout, 5 no Go files, 7 an error was logged), so the
+        # step fails whatever fail-on-error says, with no issue count and no report to upload:
+        # an incomplete one would close the alerts of the issues it did not see.
+        if [ "$exit_code" -gt 1 ]; then
+          echo "::error::golangci-lint failed with exit status ${exit_code}"
+          exit "$exit_code"
+        fi
+
+        # A text report has one line per issue ending in the linter's name, followed by source lines.
+        if [ "$exit_code" -eq 1 ]; then
           case "$REPORT_FORMAT" in
             json) issue_pattern='"FromLinter":' ;;
             sarif) issue_pattern='"level": *"error"' ;;
@@ -331,21 +366,18 @@ runs:
           error_count=$(grep -Eos "$issue_pattern" "$result_file" | wc -l | tr -d ' ')
         fi
 
-        # Always write outputs before any conditional exit
+        # Written before fail-on-error can end the step, so the upload still gets the report.
         printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
-
-        # Count analyzed files
-        analyzed_files=$(find . -type f -name "*.go" -not -path "./vendor/*" -not -path "./.git/*" | wc -l)
-        printf 'analyzed_files=%s\n' "$analyzed_files" >> "$GITHUB_OUTPUT"
         printf 'sarif_file=%s\n' "$result_file" >> "$GITHUB_OUTPUT"
 
-        if [ "$FAIL_ON_ERROR" = "true" ] && [ "$exit_code" -ne 0 ]; then
-          echo "::error::golangci-lint exited with ${exit_code}, ${error_count} issues found"
-          exit "$exit_code"
+        if [ "$FAIL_ON_ERROR" = "true" ] && [ "$exit_code" -eq 1 ]; then
+          echo "::error::golangci-lint found ${error_count} issues"
+          exit 1
         fi
 
     - name: Upload Lint Results
-      # The output is empty when the lint step never got far enough to write a report.
+      # Also after the lint step failed on issues: it names the report first. It names none when
+      # golangci-lint did not finish linting, whose incomplete report must not close open alerts.
       if: always() && inputs.report-format == 'sarif' && steps.lint.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:

@@ -257,6 +257,16 @@ The status should be success
 Assert output_file_holds gitleaks_config "$(printf '[extend]\nuseDefault = true')"
 End
 
+# The changes' copy is never read, and a mistyped path would scan with the default rules.
+It "fails on a gitleaks-config other than the default that only the changes add on $1"
+export INPUT_GITLEAKS_CONFIG="security/gitleaks.toml"
+commit_file security/gitleaks.toml 'title = "pull request"'
+"$1"
+When call run_check_configs
+The status should be failure
+The stdout should include "::error::gitleaks-config security/gitleaks.toml does not exist in the base commit"
+End
+
 It "removes the checkout's .gitleaksignore, which Gitleaks would read whatever it is told, on $1"
 base_file .gitleaksignore "base:file.txt:generic-api-key:1"
 commit_file .gitleaksignore "pull-request:file.txt:generic-api-key:2"
@@ -372,7 +382,6 @@ commit_file .github/jactionlint.yaml "self-hosted-runner: {labels: [jactionlint]
 When call run_check_configs
 The status should be success
 The stdout should include "::notice::Gitleaks scans the whole history on this push event"
-The stdout should include "::warning::Gitleaks config not found"
 Assert expect_output jactionlint_config "${PWD}/.github/jactionlint.yaml"
 Assert output_file_holds jactionlint_config "self-hosted-runner: {labels: [jactionlint]}"
 End
@@ -390,7 +399,6 @@ commit_file ".github/$1" "self-hosted-runner: {labels: [first]}"
 When call run_check_configs
 The status should be success
 The stdout should include "::notice::Gitleaks scans the whole history on this push event"
-The stdout should include "::warning::Gitleaks config not found"
 Assert expect_output jactionlint_config "${PWD}/.github/$1"
 End
 End
@@ -400,7 +408,6 @@ commit_file .github/actionlint.yml "self-hosted-runner: {labels: [only]}"
 When call run_check_configs
 The status should be success
 The stdout should include "::notice::Gitleaks scans the whole history on this push event"
-The stdout should include "::warning::Gitleaks config not found"
 Assert output_file_holds jactionlint_config "self-hosted-runner: {labels: [only]}"
 End
 
@@ -411,7 +418,6 @@ ln -s "${RUNNER_TEMP}/outside.yaml" .github/jactionlint.yaml
 When call run_check_configs
 The status should be success
 The stdout should include "::notice::Gitleaks scans the whole history on this push event"
-The stdout should include "::warning::Gitleaks config not found"
 Assert output_file_holds jactionlint_config ""
 End
 
@@ -422,7 +428,6 @@ ln -s "${RUNNER_TEMP}/elsewhere" .github
 When call run_check_configs
 The status should be success
 The stdout should include "::notice::Gitleaks scans the whole history on this push event"
-The stdout should include "::warning::Gitleaks config not found"
 Assert output_file_holds jactionlint_config ""
 End
 
@@ -431,14 +436,15 @@ commit_file .gitleaksignore "repository:file.txt:generic-api-key:1"
 write_event '{before: $base, after: $head}'
 When call run_check_configs
 The status should be success
-The stdout should include "::warning::Gitleaks config not found"
 The contents of file .gitleaksignore should equal "repository:file.txt:generic-api-key:1"
 End
 
-It "warns and passes no config when the Gitleaks config does not exist"
+# Gitleaks then uses its default rules, the usual case for a repository without a config.
+It "passes no config, and warns of nothing, when the default Gitleaks config does not exist"
 When call run_check_configs
 The status should be success
-The stdout should include "::warning::Gitleaks config not found"
+The stdout should include "::notice::Gitleaks scans the whole history on this push event"
+The stdout should not include "::warning::"
 Assert no_output gitleaks_config
 End
 End

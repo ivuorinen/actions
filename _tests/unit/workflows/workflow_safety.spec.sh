@@ -197,6 +197,38 @@ When call pull_request_path_filters
 The status should be success
 The output should equal "[]"
 End
+
+# Any process in the job can read a command's arguments, so a URL must not carry a
+# credential; git takes one from a credential helper instead. The pattern takes a variable or
+# an expression before the @ of the host part, as the user or the password, quoted or not.
+CREDENTIAL_IN_URL='://[^/[:space:]"]*"?[$][^/[:space:]@]*([[:space:]][^/@]*)?@'
+
+It "keep credentials out of URLs on the command line"
+When call grep -E -n -- "$CREDENTIAL_IN_URL" .github/workflows/*.yml .github/actions/*/action.yml ./*/action.yml _tests/integration/workflows/*.yml
+The status should be failure
+The output should equal ""
+End
+
+# The check above passes when nothing matches, so the pattern must match the forms it is for.
+urls_with_credentials() {
+  printf '%s\n' \
+    'https://x-access-token:${GH_TOKEN}@github.com/o/r' \
+    'https://$TOKEN@github.com/o/r' \
+    'https://u:${{ secrets.T }}@github.com/o/r' \
+    'https://"$TOKEN"@github.com/o/r' \
+    'https://github.com/${REPO}' \
+    'https://${HOST}/path' \
+    'https://example.com/$VAR' |
+    grep -E -- "$CREDENTIAL_IN_URL"
+}
+
+It "catches a credential in each form, and no plain URL"
+When call urls_with_credentials
+The lines of output should equal 4
+The output should not include 'https://github.com/${REPO}'
+The output should not include 'https://${HOST}/path'
+The output should not include 'https://example.com/$VAR'
+End
 End
 
 Describe "the run: block scanner"

@@ -27,11 +27,16 @@ env vars, masks those inputs, and exits non-zero with `::error::` annotations on
 
 ## Contract every check follows
 
-- **Empty or whitespace-only** value → accepted (inputs are optional unless listed in
-  `REQUIRED`). `boolean` and `numeric_range_1_10` refuse it: those inputs all declare a default,
-  so blank means the caller passed it, and the steps reading them would otherwise quietly skip
-  their work. An `INPUT_*` variable that is unset is not checked; `action.yml` forwards every
-  input, so that only happens when a validator runs standalone.
+- **Empty** value → accepted (inputs are optional unless listed in `REQUIRED`). `boolean`,
+  `numeric_range_1_10`, `report_format` and `golangci_report_format` refuse it: those inputs all
+  declare a default, so blank means the caller passed it, and the steps reading them would
+  otherwise quietly skip their work. An `INPUT_*` variable that is unset is not checked;
+  `action.yml` forwards every input, so that only happens when a validator runs standalone.
+- **Whitespace-only, non-empty** value → refused by the runner before any check. GitHub applies
+  an input's default only when the caller leaves it out, and `${{ inputs.x || default }}` takes
+  any non-empty string as set, so the value would reach a step or `with:` unchanged. The checks
+  themselves (`_skip`) still treat it as blank; the test harness's `validate_input`
+  (`_tests/shared/validation_core.py`) refuses it as the runner does.
 - **Everything else** → checked as literal data, exactly as the action will use it. The runner
   expands `${{ … }}` before `validate.py` reads `INPUT_*` and never expands `$VAR` in an input,
   so no check skips either as a reference. A value that still contains one passes only where

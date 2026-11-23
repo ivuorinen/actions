@@ -143,7 +143,7 @@ def check_github_token(value: str) -> str | None:
 
 def check_numeric_range_1_10(value: str) -> str | None:
     """Integer in [1, 10] (retry counts); blank is refused, see the module contract."""
-    if value.strip() == "":
+    if _skip(value):
         return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
 
@@ -218,6 +218,12 @@ def main() -> None:
         value = _input(input_name)
         if input_name in REQUIRED and _skip(value):
             errors.append(f"{input_name}: required input is missing")
+            continue
+        # The runner applies a default only when the caller leaves the input out, and `||` in an
+        # expression takes any non-empty string as set, so `${{ inputs.x || default }}` and
+        # with: would pass a value of only whitespace on as it is. Empty means unset.
+        if value and _skip(value):
+            errors.append(f"{input_name}: is only whitespace: leave the input out for its default")
             continue
         # action.yml forwards every input, so only a standalone run leaves a variable unset.
         reason = check(value) if _variable(input_name) in os.environ else None

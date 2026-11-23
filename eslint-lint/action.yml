@@ -13,7 +13,7 @@ branding:
 
 inputs:
   mode:
-    description: 'Mode to run (check or fix)'
+    description: 'Mode to run: check or fix (empty: check)'
     required: false
     default: 'check'
   working-directory:
@@ -44,7 +44,7 @@ inputs:
     required: false
     default: '0'
   fail-on-error:
-    description: 'Fail workflow if issues are found (check mode only; lowercase true or false)'
+    description: 'Fail the workflow when issues are found; a run that could not lint fails either way (check mode only; lowercase true or false)'
     required: false
     default: 'true'
   report-format:
@@ -52,11 +52,14 @@ inputs:
     required: false
     default: 'sarif'
   max-retries:
-    description: 'Maximum number of retry attempts (1-10, must not be empty)'
+    description: >-
+      Deprecated: has no effect, because the action does not retry its installs. A value set here must still be a
+      number from 1 to 10.
+    deprecationMessage: 'This input has no effect. eslint-lint does not retry its installs.'
     required: false
     default: '3'
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only.'
+    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only. Defaults to the workflow token.'
     required: false
     default: ''
   username:
@@ -223,11 +226,11 @@ runs:
             ;;
           "yarn")
             command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
-            if [ -f ".yarnrc.yml" ]; then
-              yarn install --immutable
-            else
-              yarn install --frozen-lockfile
-            fi
+            # The running Yarn decides the flag, as in Ensure ESLint: a Yarn 2+ project needs no .yarnrc.yml.
+            case "$(yarn --version)" in
+              1.*) yarn install --frozen-lockfile ;;
+              *) yarn install --immutable ;;
+            esac
             ;;
           "bun")
             command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
@@ -410,7 +413,7 @@ runs:
         printf 'formatter=%s\n' "$formatter" >> "$GITHUB_OUTPUT"
 
     - name: Run ESLint Check
-      if: inputs.mode == 'check'
+      if: (inputs.mode || 'check') == 'check'
       id: check
       shell: sh
       working-directory: ${{ inputs.working-directory }}
@@ -471,6 +474,16 @@ runs:
         eslint_exit_code=0
         "$@" || eslint_exit_code=$?
 
+        # Exit status 1 means lint problems, which fail-on-error decides about. Any other, such as
+        # 2 for a bad configuration or a crash, means ESLint did not lint, so the step fails
+        # either way, with no counts and no report to upload: an incomplete one would close the
+        # alerts of the issues it did not see.
+        if [ "$eslint_exit_code" -gt 1 ]; then
+          echo "::error::ESLint failed with exit status $eslint_exit_code"
+          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+          exit "$eslint_exit_code"
+        fi
+
         # Parse results
         if [ "$REPORT_FORMAT" = "sarif" ] && [ -f eslint-results.sarif ]; then
           command -v jq >/dev/null 2>&1 || {
@@ -505,13 +518,6 @@ runs:
 
         echo "✅ ESLint check completed: $error_count errors, $warning_count warnings"
 
-        # Exit status 1 means lint problems, which fail-on-error decides about. Any other, such as
-        # 2 for a bad configuration or a crash, means ESLint did not lint, so the step fails
-        # either way.
-        if [ "$eslint_exit_code" -gt 1 ]; then
-          echo "::error::ESLint failed with exit status $eslint_exit_code"
-          exit "$eslint_exit_code"
-        fi
         if [ "$FAIL_ON_ERROR" = "true" ]; then
           exit "$eslint_exit_code"
         fi
@@ -519,7 +525,7 @@ runs:
     # Only a report the check step wrote: when an earlier step fails, the check step is skipped,
     # so a report already in the checkout was never removed.
     - name: Upload SARIF Report
-      if: always() && inputs.mode == 'check' && inputs.report-format == 'sarif' && steps.check.outputs.sarif_file != ''
+      if: always() && (inputs.mode || 'check') == 'check' && inputs.report-format == 'sarif' && steps.check.outputs.sarif_file != ''
       uses: github/codeql-action/upload-sarif@33d7b85da1a04171e211befe2c739303b9a4c066 # v4.39.3
       with:
         sarif_file: ${{ inputs.working-directory }}/eslint-results.sarif
@@ -557,9 +563,11 @@ runs:
           set -- "$@" --config "$CONFIG_FILE"
         fi
 
-        # Exit status 1 means problems remain that --fix could not fix; what it fixed is still
-        # committed. Any other failure, such as 2 for a bad configuration or a crash, means
-        # ESLint fixed nothing it can vouch for, so the step fails.
+        # Fix mode commits what the tool fixed only when its exit status shows the run finished,
+        # as biome-lint does. Exit status 1 means problems remain that --fix could not fix; what
+        # it fixed is still committed. Any other failure, such as 2 for a bad configuration or a
+        # crash, means ESLint fixed nothing it can vouch for, so the step fails. Biome exits 1 for
+        # both cases, so biome-lint's fix mode fails on any non-zero status.
         eslint_exit_code=0
         "$@" || eslint_exit_code=$?
         if [ "$eslint_exit_code" -gt 1 ]; then

@@ -14,7 +14,10 @@ Shared contract:
 
 *   the ``_skip`` gate, applied first by nearly every check, accepts an empty value or one
     of ASCII whitespace only: inputs are optional unless the action marks them required (the
-    generated runner enforces "required" on its own, before calling the check);
+    generated runner enforces "required" on its own, before calling the check). The runner
+    also refuses a non-empty value of only whitespace before any check: the default applies
+    only when the caller leaves an input out, and ``${{ inputs.x || default }}`` takes any
+    non-empty string as set, so such a value would reach a step or ``with:`` unchanged;
 *   a check judges the value exactly as the action will use it. The runner has expanded
     every ``${{ ... }}`` before ``validate.py`` reads ``INPUT_*``, and it never expands
     ``$VAR`` in an input, so neither form is a reference here: both are literal data. Matches
@@ -53,6 +56,15 @@ def _skip(value: str) -> bool:
     those would skip its check while the step went on to use it.
     """
     return value.strip(" \t\n\v\f\r") == ""
+
+
+# The blank rule under a public name, for code that imports the kit rather than a generated
+# validator, such as the test harness's validation_core.py.
+is_blank = _skip
+
+# Why a non-empty value of only whitespace is refused (see the module contract). generate.py
+# writes it into each validator's runner, and validation_core.py gives the same reason.
+WHITESPACE_ONLY_REASON = "is only whitespace: leave the input out for its default"
 
 
 def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> list[str]:
@@ -914,7 +926,7 @@ def check_mode_enum(value: str) -> str | None:
 
 def check_report_format(value: str) -> str | None:
     """Lint/report output format. A blank is refused for the reason in the module contract."""
-    if not value.strip():
+    if _skip(value):
         return "must not be blank: leave the input out for its default"
     return _enum(
         value,
@@ -942,7 +954,7 @@ def check_golangci_report_format(value: str) -> str | None:
     colored-line-number format, so go-lint writes text for them. A blank is refused for the
     reason in the module contract.
     """
-    if not value.strip():
+    if _skip(value):
         return "must not be blank: leave the input out for its default"
     return _enum(
         value, "colored-line-number", "github-actions", "json", "line-number", "sarif", "text"
@@ -1128,7 +1140,7 @@ def check_positive_integer(value: str) -> str | None:
 
 def check_numeric_range_1_10(value: str) -> str | None:
     """Integer in [1, 10] (retry counts); blank is refused, see the module contract."""
-    if value.strip() == "":
+    if _skip(value):
         return "must be an integer between 1 and 10"
     return _int_in_range(value, 1, 10)
 

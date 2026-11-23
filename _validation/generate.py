@@ -103,6 +103,12 @@ def main() -> None:
         if input_name in REQUIRED and _skip(value):
             errors.append(f"{input_name}: required input is missing")
             continue
+        # The runner applies a default only when the caller leaves the input out, and `||` in an
+        # expression takes any non-empty string as set, so `${{ inputs.x || default }}` and
+        # with: would pass a value of only whitespace on as it is. Empty means unset.
+        if value and _skip(value):
+            errors.append(f"{input_name}: @WHITESPACE_ONLY_REASON@")
+            continue
         # action.yml forwards every input, so only a standalone run leaves a variable unset.
         reason = check(value) if _variable(input_name) in os.environ else None
         if reason is not None:
@@ -183,7 +189,8 @@ def render(action: str) -> str:
     masked_names = ", ".join(f'"{name}"' for name in masked_inputs)
     blocks.append(f"MASKED_INPUTS: list[str] = [{masked_names}]")
 
-    blocks.append(_RUNNER.rstrip())
+    # The reason text lives in the kit, which validation_core.py also reads.
+    blocks.append(_RUNNER.replace("@WHITESPACE_ONLY_REASON@", kit.WHITESPACE_ONLY_REASON).rstrip())
     entry = _DETECTED_VERSION_ENTRY.format(rule=detected_rule) if detected_rule else _ENTRY
     blocks.append(entry.rstrip())
     return "\n\n\n".join(blocks) + "\n"

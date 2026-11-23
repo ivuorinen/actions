@@ -86,4 +86,70 @@ When call printf '%s\n' "$commit_block"
 The output should include "add_options: '-u'"
 The output should include "file_pattern: '. :(exclude)ansible-lint.sarif'"
 End
+
+Describe "Run ansible-lint"
+before_lint() {
+  mock_command git "diff --name-only" "site.yml"
+}
+BeforeEach 'before_lint'
+
+It "commits and uploads after a clean run"
+mock_command ansible-lint "--write --format sarif" '{"runs": []}'
+When call run_step "${ACTION_DIR}" "lint"
+The status should be success
+Assert expect_output status success
+Assert expect_output finished true
+Assert expect_output files_changed 1
+End
+
+# Violations --write could not fix: what it fixed is still committed and the findings uploaded,
+# and Fail on Violations ends the job.
+It "finishes, with a failure status, when violations remain"
+mock_command ansible-lint "--write --format sarif" '{"runs": []}' 2
+When call run_step "${ACTION_DIR}" "lint"
+The status should be success
+Assert expect_output status failure
+Assert expect_output finished true
+End
+
+# 3 invalid config, 4 lock timeout, 5 no files matched, 1 a crash: ansible-lint did not finish.
+Parameters
+1
+3
+4
+5
+End
+
+It "fails on exit status $1, with nothing to commit or upload"
+mock_command ansible-lint "--write --format sarif" "" "$1"
+When call run_step "${ACTION_DIR}" "lint"
+The status should equal "$1"
+The stdout should include "::error::ansible-lint failed with exit status $1"
+Assert expect_output status failure
+The contents of file "$GITHUB_OUTPUT" should not include "finished="
+End
+End
+
+It "writes the report in place of a symlink a branch commits at its path"
+mock_command git "diff --name-only" ""
+mock_command ansible-lint "--write --format sarif" '{"runs": []}'
+printf 'kept\n' >"${SHELLSPEC_TEST_TEMP_DIR}/target"
+ln -s "${SHELLSPEC_TEST_TEMP_DIR}/target" ansible-lint.sarif
+When call run_step "${ACTION_DIR}" "lint"
+The status should be success
+The path ansible-lint.sarif should not be symlink
+The contents of file "${SHELLSPEC_TEST_TEMP_DIR}/target" should equal "kept"
+End
+
+It "commits, uploads and fails on violations only after a run that finished"
+When call yq -r '.runs.steps[] | select(.name == "Commit Fixes" or .name == "Upload SARIF Report" or .name == "Fail on Violations") | .if' "${ACTION_DIR}/action.yml"
+The line 1 of output should equal "steps.check-files.outputs.files_found == 'true' && steps.lint.outputs.finished == 'true'"
+The line 2 of output should equal "steps.check-files.outputs.files_found == 'true' && steps.lint.outputs.finished == 'true'"
+The line 3 of output should equal "steps.lint.outputs.finished == 'true' && steps.lint.outputs.status == 'failure'"
+End
+
+It "names the report in sarif_path only after a run that finished"
+When call yq -r '.outputs.sarif_path.value' "${ACTION_DIR}/action.yml"
+The output should equal "\${{ steps.lint.outputs.finished == 'true' && 'ansible-lint.sarif' || '' }}"
+End
 End

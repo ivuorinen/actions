@@ -30,8 +30,9 @@ inputs:
     required: false
   gitleaks-config:
     description: >-
-      Path to the Gitleaks config file. If it does not exist, Gitleaks uses a root .gitleaks.toml or its default
-      rules. On a pull request or merge group the file is read from the base commit.
+      Path to the Gitleaks config file. Without the default file, Gitleaks uses its default rules; a path other than
+      the default must exist. On a pull request, its review events or a merge group the file is read from the base
+      commit: a config under another name must be on the base branch, or the scan of a pull request fails.
     required: false
     default: '.gitleaks.toml'
   trivy-severity:
@@ -66,7 +67,7 @@ inputs:
   token:
     description: >-
       GitHub token for checking out the repository and, on a pull request, for the inline gitleaks:allow comment.
-      Defaults to the workflow token
+      Defaults to the workflow token.
     required: false
     default: ''
 
@@ -119,7 +120,8 @@ runs:
       shell: sh
       env:
         ACTIONLINT_ENABLED: ${{ inputs.actionlint-enabled }}
-        GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
+        # An empty gitleaks-config is the default, as the input's own default.
+        GITLEAKS_CONFIG: ${{ inputs.gitleaks-config || '.gitleaks.toml' }}
       run: |
         set -eu
 
@@ -243,11 +245,13 @@ runs:
 
             # Without --config, Gitleaks falls back to the .gitleaks.toml of the repository it
             # scans, the changes' own, so it always gets one: the base commit's, or its
-            # default rules.
+            # default rules. A path other than the default must be in the base commit, rather
+            # than Gitleaks scanning with rules the caller did not name.
             if [ -f "${scan_dir}/${GITLEAKS_CONFIG}" ]; then
               gitleaks_config=$GITLEAKS_CONFIG
-            elif [ -f "${scan_dir}/.gitleaks.toml" ]; then
-              gitleaks_config=.gitleaks.toml
+            elif [ "$GITLEAKS_CONFIG" != ".gitleaks.toml" ]; then
+              echo "::error::gitleaks-config $GITLEAKS_CONFIG does not exist in the base commit"
+              exit 1
             else
               printf '[extend]\nuseDefault = true\n' >"${configs}/gitleaks.toml"
               gitleaks_config=${configs}/gitleaks.toml
@@ -271,10 +275,13 @@ runs:
               printf 'scan_dir=%s\n' "$PWD"
               printf 'jactionlint_config=%s\n' "$jactionlint_config"
             } >> "$GITHUB_OUTPUT"
+            # Without the default file Gitleaks uses its default rules, as on a pull request, where
+            # the base commit has none; a path other than the default must exist.
             if [ -f "$GITLEAKS_CONFIG" ]; then
               printf 'gitleaks_config=%s\n' "$GITLEAKS_CONFIG" >> "$GITHUB_OUTPUT"
-            else
-              printf '::warning::Gitleaks config not found - using a root .gitleaks.toml if present, otherwise the default rules\n'
+            elif [ "$GITLEAKS_CONFIG" != ".gitleaks.toml" ]; then
+              echo "::error::gitleaks-config $GITLEAKS_CONFIG does not exist"
+              exit 1
             fi
             ;;
         esac
@@ -470,7 +477,7 @@ runs:
         ACTION_PATH: ${{ github.action_path }}
         BASE_SHA: ${{ steps.check-configs.outputs.base_sha }}
         HEAD_SHA: ${{ steps.check-configs.outputs.head_sha }}
-        GITLEAKS_CONFIG: ${{ inputs.gitleaks-config }}
+        GITLEAKS_CONFIG: ${{ inputs.gitleaks-config || '.gitleaks.toml' }}
       with:
         github-token: ${{ inputs.token || github.token }}
         # A file URL, because import() takes no Windows path.

@@ -194,8 +194,12 @@ def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[
     if check_type is None:
         return True, ""
 
-    if input_name in spec["required"] and input_value.strip() == "":
+    # Blank means what it means in the generated runner: ASCII whitespace only.
+    if input_name in spec["required"] and kit.is_blank(input_value):
         return False, f"Required input '{input_name}' cannot be empty"
+    # As the runner: a non-empty value of only whitespace is refused before the check runs.
+    if input_value and kit.is_blank(input_value):
+        return False, kit.WHITESPACE_ONLY_REASON
 
     err = kit.CHECKS[check_type](input_value)
     return err is None, err or ""

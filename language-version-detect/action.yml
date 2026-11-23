@@ -20,7 +20,7 @@ inputs:
     description: 'Default version to use if no version is detected'
     required: false
   token:
-    description: 'GitHub token for authentication'
+    description: 'GitHub token for authentication. Defaults to the workflow token.'
     required: false
     default: ''
 

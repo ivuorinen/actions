@@ -640,4 +640,13 @@ The status should be success
 The output should include "Build attempt 1 of 1"
 The contents of file "${GITHUB_OUTPUT}" should not include "injected"
 End
+
+# The validator takes an empty dockerfile as unset; each step that reads the file takes the default.
+It "reads an empty dockerfile as the default in every step that uses the file"
+When call yq -r '.runs.steps[] | (.env.DOCKERFILE, (select(.name == "Check Build Paths") | .env.INPUT_DOCKERFILE)) | select(. != null)' "${ACTION_DIR}/action.yml"
+The lines of output should equal 3
+The line 1 of output should equal "\${{ inputs.dockerfile || 'Dockerfile' }}"
+The line 2 of output should equal "\${{ inputs.dockerfile || 'Dockerfile' }}"
+The line 3 of output should equal "\${{ inputs.dockerfile || 'Dockerfile' }}"
+End
 End
