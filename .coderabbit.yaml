@@ -7,3 +7,18 @@ reviews:
   auto_approvals:
     enabled: true
     allow_author_approval: false
+  # Generated files are not reviewed: their sources are. CI fails when a committed copy differs
+  # from what the generator writes (Validation Tests for the validators, Docs Drift Check for the
+  # READMEs), and the branch ruleset does not require those checks, so a merge waits for them.
+  # The plan's per-review file limit counts only the files these filters leave, so a change that
+  # regenerates every validator still gets a review. Exclusions only: an include pattern would
+  # turn the list into an allowlist. _validation/tests/test_spec.py fails if a pattern starts to
+  # match a hand-written file.
+  path_filters:
+    # Each action's validator, generated from _validation/ (make update-validators).
+    - '!*/validate.py'
+    # Each action's README, generated from its action.yml (make docs). The pattern matches every
+    # top-level directory not starting with _ or a dot, which today are the actions; a hand-written
+    # README in a new one, such as docs/, would be skipped too. The READMEs of _tests/,
+    # _validation/ and the deeper directories, and the repository README, stay in review.
+    - '![!_.]*/README.md'
