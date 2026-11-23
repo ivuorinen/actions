@@ -1,7 +1,7 @@
 # Makefile for GitHub Actions repository
 # Provides organized task management
 
-.PHONY: help all docs update-catalog update-validators update-validators-dry format lint check clean precommit \
+.PHONY: help all docs update-catalog update-validators format lint check clean precommit \
 	check-local-refs fix-local-refs fix-local-refs-dry release release-dry release-prep release-tag release-undo \
 	format-markdown format-yaml-json format-python \
 	lint-markdown lint-yaml lint-shell lint-python lint-actions lint-editorconfig \
@@ -33,7 +33,7 @@ UNAME_S := $(shell uname -s)
 
 # gh-action-readme — generates each action's README.md from its action.yml.
 # Pinned rather than tracking "latest": `make docs` output is gated by
-# .github/workflows/docs-check.yml, so an unpinned generator would let an
+# .github/workflows/generated-files.yml, so an unpinned generator would let an
 # upstream release turn that gate red on an unrelated PR. Renovate bumps the
 # version below. Each platform's archive digest is pinned here rather than read
 # from the release's checksums.txt, which would be replaced along with an
@@ -170,15 +170,6 @@ update-validators: ## Regenerate every action's self-contained validate.py
 		exit 1; \
 	fi
 	@echo "$(GREEN)✅ Validators regenerated$(RESET)"
-
-update-validators-dry: ## Verify every validate.py is current (fails if stale)
-	@echo "$(BLUE)🔍 Checking validators are up to date...$(RESET)"
-	@if command -v python3 >/dev/null 2>&1; then \
-		python3 _validation/generate.py --check; \
-	else \
-		echo "$(RED)❌ python3 not found$(RESET)"; \
-		exit 1; \
-	fi
 
 format: format-markdown format-yaml-json format-python ## Format all files
 	@echo "$(GREEN)✅ All files formatted$(RESET)"
@@ -540,12 +531,16 @@ test-python-coverage: ## Run the validation tests with coverage
 		exit 1; \
 	fi
 
-test-update-validators: ## Verify every generated validate.py is current (fails if stale)
+test-update-validators: ## Verify every validate.py is generated from the spec and current
 	@echo "$(BLUE)🔧 Checking generated validators are up to date...$(RESET)"
+	@if ! command -v python3 >/dev/null 2>&1; then \
+		echo "$(RED)❌ python3 not found$(RESET)"; \
+		exit 1; \
+	fi
 	@if python3 _validation/generate.py --check; then \
 		echo "$(GREEN)✅ Validators are current$(RESET)"; \
 	else \
-		echo "$(RED)❌ Validators are stale — run 'make update-validators'$(RESET)"; \
+		echo "$(RED)❌ Validator check failed — see the error above$(RESET)"; \
 		exit 1; \
 	fi
 

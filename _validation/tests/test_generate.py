@@ -25,6 +25,20 @@ MASK_COMMAND = "::add-mask::"
 VALID_TOKEN = "ghp_" + "a" * 36
 
 
+# CodeRabbit skips every top-level validate.py, in any case (.coderabbit.yaml), so --check fails
+# on one the spec does not produce: it would otherwise go unreviewed.
+def test_check_names_a_validator_the_spec_does_not_generate(tmp_path, monkeypatch):
+    for name in ("docker-build/validate.py", "docs/validate.py", "go-lint/Validate.py"):
+        (tmp_path / name).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / name).write_text("", encoding="utf-8")
+    monkeypatch.setattr(generate, "ROOT", tmp_path)
+    assert generate.stray_validators() == ["docs/validate.py", "go-lint/Validate.py"]
+
+
+def test_repository_has_no_validator_the_spec_does_not_generate():
+    assert generate.stray_validators() == []
+
+
 @pytest.mark.parametrize("action", ACTIONS)
 def test_committed_validator_matches_generator(action):
     committed = (REPO_ROOT / action / "validate.py").read_text(encoding="utf-8")

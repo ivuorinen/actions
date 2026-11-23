@@ -1,0 +1,113 @@
+---
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+name: Generated Files
+
+# CodeRabbit skips the files .coderabbit.yaml filters out as generated, so these checks stand in
+# for that review: each file it skips must be one the generator writes, and must match what the
+# generator writes. They are meant to be the branch ruleset's required checks, and a required
+# check must report on every pull request, so neither job has a paths filter: a filtered one
+# never reports, and the pull request it skipped could never merge. merge_group is here as in the
+# other gating workflows; GitHub offers merge queues to organization repositories only.
+on:
+  pull_request:
+  merge_group:
+
+permissions: {}
+
+jobs:
+  validators-drift:
+    name: Validator drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check each validator against the generator
+        run: |
+          set -eu
+          # generate.py is stdlib-only: it rebuilds each validate.py in memory from
+          # _validation/ and fails on any that differs from the committed copy, and on a
+          # top-level validate.py, in any case, that the spec does not generate.
+          command -v python3 >/dev/null 2>&1 || { echo "::error::python3 is required to check the validators"; exit 1; }
+          python3 _validation/generate.py --check
+
+  docs-drift:
+    name: Action README drift
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Install pinned tooling
+        # No package in the lock needs an install script.
+        run: |
+          set -eu
+          command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install the tooling"; exit 1; }
+          npm ci --ignore-scripts
+
+      - name: Regenerate action documentation
+        run: |
+          set -eu
+          # npm ci installed the pinned prettier, which also formats the tables.
+          # `make docs` additionally downloads the pinned, checksum-verified
+          # gh-action-readme binary, generates each action README and formats it
+          # in place, so its output is the committed style and this gate stays
+          # reproducible.
+          make docs
+
+      - name: Check for action README drift
+        # bash with pipefail: under the default shell a failing find would leave the
+        # pipeline's status at 0 and the check would pass.
+        shell: bash
+        run: |
+          set -eu
+          # Only generated action READMEs (dirs that contain an action.yml) are
+          # gated; formatting drift in other docs is out of scope for this check.
+          # git status also names a README the pull request deleted, which make docs
+          # wrote back as an untracked file; git diff would pass it.
+          drift=$(find . -mindepth 2 -maxdepth 2 -name action.yml \
+            | sed 's|/action.yml|/README.md|' \
+            | while IFS= read -r readme; do
+                [ -z "$(git status --porcelain -- "$readme")" ] || printf '%s\n' "$readme"
+              done)
+          if [ -n "$drift" ]; then
+            echo "::error::Action README(s) are out of date. Run 'make docs' and commit the result." >&2
+            printf 'Stale: %s\n' "$drift" >&2
+            exit 1
+          fi
+          echo "All action READMEs are up to date."
+
+      - name: Check that review skips only generated READMEs
+        # CodeRabbit skips each README, in any case, directly inside a top-level directory not
+        # starting with _ or a dot. Only an action's README.md is generated and compared above;
+        # any other such file would go unreviewed and unchecked.
+        run: |
+          set -eu
+          command -v git >/dev/null 2>&1 || { echo "::error::git is required to list the tracked files"; exit 1; }
+          unchecked=$(git -c core.quotePath=false ls-files \
+            | awk -F/ 'NF == 2 && tolower($2) == "readme.md" && $1 !~ /^[_.]/' \
+            | while IFS= read -r readme; do
+                dir=${readme%/*}
+                if [ "$readme" != "$dir/README.md" ] || [ ! -f "$dir/action.yml" ]; then
+                  printf '%s\n' "$readme"
+                fi
+              done)
+          if [ -n "$unchecked" ]; then
+            echo "::error::CodeRabbit skips these as generated, but they are not an action's README.md." >&2
+            printf 'Unchecked: %s\n' "$unchecked" >&2
+            exit 1
+          fi
+          echo "Every README the review skips is an action's generated README.md."

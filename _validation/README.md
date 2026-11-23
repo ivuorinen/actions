@@ -74,7 +74,9 @@ an input named like a credential uses another check type.
 3. Review `git diff '*/validate.py'`.
 
 Never hand-edit a generated `<action>/validate.py` — a PreToolUse hook blocks it, and
-`python3 _validation/generate.py --check` fails CI if any committed validator is stale.
+`python3 _validation/generate.py --check` fails CI if any committed validator is stale. It
+also fails on a top-level `validate.py`, in any case, that the spec does not generate:
+CodeRabbit skips every such file as generated, so that check stands in for its review.
 
 ## How an action runs it
 
@@ -126,5 +128,5 @@ Run it from the action directory, not the checkout: a checkout's `.python-versio
 ```sh
 make test-python              # pytest _validation/tests (kit + drift + coverage)
 make update-validators        # regenerate all validators
-python3 _validation/generate.py --check   # fail if any committed validator is stale
+python3 _validation/generate.py --check   # fail if a validator is stale or not generated
 ```
