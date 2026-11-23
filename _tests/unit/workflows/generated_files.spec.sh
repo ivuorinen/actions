@@ -70,6 +70,18 @@ The status should be failure
 The stderr should include "Stale: ./act/README.md"
 End
 
+# The pull request also ignored the README, so the file make docs wrote back is ignored.
+It "names a README the pull request deleted and ignored, which make docs wrote back"
+setup_repo
+git -C "$repo" rm -q --cached -- act/README.md
+printf 'act/README.md\n' >"$repo/.gitignore"
+git -C "$repo" add -- .gitignore
+git -C "$repo" -c user.email=test@example.com -c user.name=test commit -q -m "delete and ignore README"
+When call run_drift
+The status should be failure
+The stderr should include "Stale: ./act/README.md"
+End
+
 # Both jobs are meant to be required checks, and a required check that a paths filter skips
 # never reports, so the pull request it skipped could never merge.
 It "runs on every pull request and in the merge queue, with no paths filter"
