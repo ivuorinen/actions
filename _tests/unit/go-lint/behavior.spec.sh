@@ -213,6 +213,7 @@ When call run_config_then_lint
 The status should be failure
 The stdout should include "::error::golangci-lint failed with exit status $1"
 The contents of file "$GITHUB_OUTPUT" should not include "sarif_file="
+The contents of file "$GITHUB_OUTPUT" should not include "analyzed_files="
 End
 End
 End

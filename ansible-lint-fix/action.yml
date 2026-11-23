@@ -149,19 +149,19 @@ runs:
         lint_exit_code=0
         ansible-lint --write --format sarif > ansible-lint.sarif || lint_exit_code=$?
 
-        # Count files changed by linting
-        files_changed=$(git diff --name-only | wc -l | tr -d '[:space:]')
-        printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"
-
         # ansible-lint exits 2 when violations remain after --write. Any other non-zero status
         # means it did not finish (3 invalid config, 4 lock timeout, 5 no files matched, 1 a
-        # crash), so the step fails with nothing committed and no report uploaded: an incomplete
-        # one would close the alerts of the issues it did not see.
+        # crash), so the step fails with no count, nothing committed and no report uploaded: an
+        # incomplete one would close the alerts of the issues it did not see.
         if [ "$lint_exit_code" -ne 0 ] && [ "$lint_exit_code" -ne 2 ]; then
           echo "::error::ansible-lint failed with exit status $lint_exit_code"
           printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
           exit "$lint_exit_code"
         fi
+
+        # Count files changed by linting
+        files_changed=$(git diff --name-only | wc -l | tr -d '[:space:]')
+        printf 'files_changed=%s\n' "$files_changed" >> "$GITHUB_OUTPUT"
 
         # It finished, so what it fixed is committed and its report uploaded, as eslint-lint
         # does; Fail on Violations then ends the job when violations remain.

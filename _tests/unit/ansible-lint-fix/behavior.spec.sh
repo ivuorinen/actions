@@ -127,6 +127,7 @@ The status should equal "$1"
 The stdout should include "::error::ansible-lint failed with exit status $1"
 Assert expect_output status failure
 The contents of file "$GITHUB_OUTPUT" should not include "finished="
+The contents of file "$GITHUB_OUTPUT" should not include "files_changed="
 End
 End
 

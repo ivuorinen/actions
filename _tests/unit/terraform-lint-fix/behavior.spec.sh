@@ -165,6 +165,16 @@ When call step_value "${ACTION_DIR}" "Fail on Issues" if
 The output should equal "steps.lint.outputs.issues == 'true' && inputs.fail-on-error == 'true'"
 End
 
+# With force set in the TFLint config, a run with findings exits 0: its report is still counted,
+# and Fail on Issues stays out of it, as force asks.
+It "counts the errors in the report of a run that exits 0 with findings"
+mock_command tflint "--format sarif --no-color" '{"level": "error"}'
+When call run_step "${ACTION_DIR}" "lint"
+The status should be success
+Assert expect_output error_count "1"
+The contents of file "$GITHUB_OUTPUT" should not include "issues="
+End
+
 # Exit status 1 means TFLint could not lint; its report holds the error, not the findings.
 It "fails when TFLint could not lint, even with fail-on-error off, and names no report"
 export INPUT_FAIL_ON_ERROR="false"

@@ -258,18 +258,16 @@ runs:
         fi
 
         # TFLint marks an error differently in each format, and in junit and compact the case
-        # differs between lint issues and configuration errors.
-        error_count=0
-        if [ "$tflint_status" -eq 2 ]; then
-          case "$FORMAT" in
-            json) error_pattern='"severity": *"error"' ;;
-            checkstyle) error_pattern='severity="error"' ;;
-            junit) error_pattern='type="[Ee]rror"' ;;
-            compact) error_pattern=': [Ee]rror - ' ;;
-            *) error_pattern='"level": *"error"' ;;
-          esac
-          error_count=$(grep -oE "$error_pattern" "$tflint_output" | wc -l | tr -d ' ')
-        fi
+        # differs between lint issues and configuration errors. A finished run's report is counted
+        # whatever its status: with force set in the TFLint config, it exits 0 with findings.
+        case "$FORMAT" in
+          json) error_pattern='"severity": *"error"' ;;
+          checkstyle) error_pattern='severity="error"' ;;
+          junit) error_pattern='type="[Ee]rror"' ;;
+          compact) error_pattern=': [Ee]rror - ' ;;
+          *) error_pattern='"level": *"error"' ;;
+        esac
+        error_count=$(grep -oE "$error_pattern" "$tflint_output" | wc -l | tr -d ' ')
 
         printf 'error_count=%s\n' "$error_count" >> "$GITHUB_OUTPUT"
         printf 'sarif_file=%s\n' "$tflint_output" >> "$GITHUB_OUTPUT"
