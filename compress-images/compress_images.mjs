@@ -18,7 +18,7 @@
 
 import { createRequire } from 'node:module';
 import { randomBytes } from 'node:crypto';
-import { appendFileSync, chmodSync, closeSync, constants, fstatSync, lstatSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { appendFileSync, chmodSync, closeSync, constants, fstatSync, openSync, readdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -41,7 +41,7 @@ export function splitPatterns(value) {
     let depth = 0;
     let start = 0;
     for (let index = 0; index < value.length; index += 1) {
-      const char = value[index];
+      const char = value.charAt(index);
       if (globs && (char === '{' || char === '}')) {
         depth = char === '{' ? depth + 1 : Math.max(depth - 1, 0);
       } else if (depth === 0 && char === ',') {
@@ -88,10 +88,10 @@ export function formatSize(bytes) {
 const escapeData = text => text.replace(/%/g, '%25').replace(/\r/g, '%0D').replace(/\n/g, '%0A');
 const escapeProperty = text => escapeData(text).replace(/:/g, '%3A').replace(/,/g, '%2C');
 
-// A file name as a Markdown code span for a table cell: nothing in it renders as a link or as
-// HTML, and an escaped pipe cannot end the cell.
+// A file name as a Markdown code span: nothing in it renders as a link or as HTML. The report
+// lists the names rather than putting them in a table, so a pipe needs no escape.
 export function codeSpan(name) {
-  const text = name.replace(/[\r\n]+/g, ' ').replace(/\|/g, '\\|');
+  const text = name.replace(/[\r\n]+/g, ' ');
   const longest = Math.max(0, ...(text.match(/`+/g) ?? []).map(run => run.length));
   const fence = '`'.repeat(longest + 1);
   const pad = text.startsWith('`') || text.endsWith('`') ? ' ' : '';
@@ -109,9 +109,7 @@ export function report(compressed, unchanged, unreadable) {
     '',
     `Compression reduced images by **${percent(before, after)}%**, saving **${formatSize(before - after)}**.`,
     '',
-    '| Filename | Before | After | Improvement |',
-    '| -------- | ------ | ----- | ----------- |',
-    ...compressed.map(image => `| ${codeSpan(image.name)} | ${formatSize(image.before)} | ${formatSize(image.after)} | ${percent(image.before, image.after)}% |`),
+    ...compressed.map(image => `- ${codeSpan(image.name)}: ${formatSize(image.before)} to ${formatSize(image.after)}, ${percent(image.before, image.after)}% smaller`),
   ];
   if (unchanged > 0) {
     lines.push('', `${unchanged} ${unchanged === 1 ? 'image' : 'images'} did not require optimisation.`);
@@ -122,15 +120,20 @@ export function report(compressed, unchanged, unreadable) {
   return `${lines.join('\n')}\n`;
 }
 
-// The bytes of the regular file the walk found at file, read without following a link, with
-// its mode; null when the path is now something else.
+// The bytes and mode of the regular file at file, read through one descriptor, with no check of
+// the path before it: null when the path is now a link (O_NOFOLLOW refuses it) or not a regular
+// file. O_NONBLOCK keeps a FIFO swapped in from blocking the open.
 function readFound(file) {
-  const seen = lstatSync(file);
-  if (!seen.isFile()) return null;
-  const descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  let descriptor;
+  try {
+    descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
+  } catch (error) {
+    if (error.code === 'ELOOP') return null;
+    throw error;
+  }
   try {
     const opened = fstatSync(descriptor);
-    if (!opened.isFile() || opened.dev !== seen.dev || opened.ino !== seen.ino) return null;
+    if (!opened.isFile()) return null;
     return { data: readFileSync(descriptor), mode: opened.mode & 0o7777 };
   } finally {
     closeSync(descriptor);

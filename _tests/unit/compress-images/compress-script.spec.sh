@@ -91,7 +91,7 @@ When call run_script
 The status should be success
 The stdout should include "1 compressed, 0 unchanged, 0 unreadable"
 The result of function output_compressed should equal "true"
-The result of function report_text should include '| `big.png` | 19.5 KB | 9.8 KB | 50.0% |'
+The result of function report_text should include '- `big.png`: 19.5 KB to 9.8 KB, 50.0% smaller'
 The result of function report_text should include "Compression reduced images by **50.0%**, saving **9.8 KB**."
 Assert test "$(size_of big.png)" -eq 10000
 End
@@ -198,16 +198,17 @@ The stdout should include "1 compressed, 0 unchanged, 1 unreadable"
 The result of function report_text should include "1 image could not be read; see the step log."
 End
 
-# A code span shows the name as text: a pipe is escaped, and HTML or a link does not render.
-It "keeps a file name from breaking the report table, or adding HTML or a link"
-image 'a|<b>.png' 20000
+# A code span shows the name as text: HTML or a link does not render, and in a list a pipe or
+# backslash needs no escape.
+It "keeps a file name from adding HTML or a link to the report"
+image 'a|<b>\c.png' 20000
 image '[x](https:evil.example).png' 20000
-export STUB_SIZES='{"a|<b>.png": 1, "[x](https:evil.example).png": 1}'
+export STUB_SIZES='{"a|<b>\\c.png": 1, "[x](https:evil.example).png": 1}'
 When call run_script
 The status should be success
 The stdout should include "2 compressed"
-The result of function report_text should include '`a\|<b>.png`'
-The result of function report_text should include '`[x](https:evil.example).png`'
+The result of function report_text should include '- `a|<b>\c.png`: '
+The result of function report_text should include '- `[x](https:evil.example).png`: '
 End
 
 It "fences a file name holding a backtick with a longer run of them"
