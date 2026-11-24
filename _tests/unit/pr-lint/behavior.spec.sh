@@ -154,6 +154,17 @@ The stdout should not include "installed anyway"
 End
 End
 
+# Bun's binary lockfile holds the URL as a plain string among NUL bytes.
+It "stops the bun install for a binary bun.lockb"
+printf 'bun-lockfile\0\0\001lib@github:acme/lib#0123abc\0\0' >bun.lockb
+mock_command bun "*" "installed anyway"
+
+When call run_install_node "bun"
+The status should be failure
+The stdout should include "::error::bun.lockb names a Git dependency"
+The stdout should not include "installed anyway"
+End
+
 It "installs a lockfile of registry archives"
 printf '%s\n' '"resolved": "https://registry.npmjs.org/lib/-/lib-1.0.0.tgz"' >package-lock.json
 mock_command npm "ci --ignore-scripts" ""

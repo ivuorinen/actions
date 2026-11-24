@@ -136,10 +136,23 @@ export function isAnimatedPng(data) {
   return false;
 }
 
+// Whether an AVIF is an image sequence: its ftyp box names the avis brand, as major or compatible
+// brand. libvips counts only top-level image items as pages, so a sequence with a still primary
+// image reads as one page.
+export function isAvifSequence(data) {
+  if (data.length < 16 || data.toString('latin1', 4, 8) !== 'ftyp') return false;
+  const end = Math.min(data.readUInt32BE(0), data.length);
+  for (let offset = 8; offset + 4 <= end; offset += 4) {
+    if (offset !== 12 && data.toString('latin1', offset, offset + 4) === 'avis') return true;
+  }
+  return false;
+}
+
 // Whether an image has more than one frame. sharp reads only the first unless told otherwise, so
 // the compressed file would be a still image; an animation is left as it is.
 async function isAnimated(sharp, data, format) {
   if (format === 'png') return isAnimatedPng(data);
+  if (format === 'avif' && isAvifSequence(data)) return true;
   const { pages = 1 } = await sharp(data).metadata();
   return pages > 1;
 }

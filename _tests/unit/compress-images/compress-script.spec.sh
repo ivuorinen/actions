@@ -28,7 +28,9 @@ module.exports = (input, made = {}) => {
       return {
         async toBuffer() {
           fs.appendFileSync(process.env.STUB_LOG, `${JSON.stringify({ name, format, options, made })}\n`);
-          if (name === process.env.STUB_FAIL) throw new Error('Input file contains unsupported image format');
+          if (process.env.STUB_FAIL && name === process.env.STUB_FAIL) {
+            throw new Error('Input file contains unsupported image format');
+          }
           const size = JSON.parse(process.env.STUB_SIZES || '{}')[name] ?? input.length;
           return { data: Buffer.alloc(size, 7), info: { size } };
         },
@@ -225,6 +227,20 @@ The status should be success
 The stdout should include "0 compressed, 0 unchanged, 0 unreadable, 2 animated"
 Assert test "$(size_of anim.webp)" -eq 20000
 Assert test "$(size_of seq.avif)" -eq 20000
+End
+
+# libvips counts only top-level image items, so a sequence with a still primary image reads as
+# one page; the avis brand in its ftyp box marks it.
+It "leaves an AVIF image sequence as it is, and still compresses a still AVIF"
+printf '\0\0\0\030ftypavif\0\0\0\0mif1avis' >seq.avif
+head -c 20000 /dev/zero >>seq.avif
+printf '\0\0\0\030ftypavif\0\0\0\0mif1miaf' >still.avif
+head -c 20000 /dev/zero >>still.avif
+When call run_script
+The status should be success
+The stdout should include "0 compressed, 1 unchanged, 0 unreadable, 1 animated"
+The stdout should include "Left seq.avif as it is: an animation"
+Assert test "$(size_of seq.avif)" -eq 20024
 End
 
 # libvips reads only the default image of an APNG: an acTL chunk before the image data marks one.

@@ -13,8 +13,9 @@ printf 'Installing dependencies using %s...\n' "$PACKAGE_MANAGER"
 # A package manager builds a Git dependency from its repository, running its install and pack
 # scripts, whatever flags the outer install has: Yarn 2+, for one, runs a full install and a
 # pack in the clone. Such a dependency cannot install without scripts, so a lockfile that names
-# one stops the install.
-for lockfile in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock; do
+# one stops the install. Bun's binary bun.lockb holds the same URLs as plain strings, which grep
+# matches in a binary file too.
+for lockfile in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb; do
   if [ -f "$lockfile" ] && grep -E -q 'git\+[a-z]+://|git://|#commit=|type: git|(github|gitlab|bitbucket):' "$lockfile"; then
     echo "::error::$lockfile names a Git dependency, which is built from its repository with its scripts; the dependencies install only without scripts"
     exit 1
