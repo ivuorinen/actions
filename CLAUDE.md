@@ -112,7 +112,7 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 | `make test-update-validators`    | the check that each `validate.py` is generated and fresh |
 | `make test-coverage`             | tests with coverage reporting                            |
 
-**Validation**: `make update-validators`, then `make test-update-validators`
+**Validation**: `make update-validators` regenerates every `validate.py`.
 
 **Versioning**:
 
