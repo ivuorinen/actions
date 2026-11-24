@@ -336,12 +336,28 @@ Parameters
 'echo ${BASH_VERSION}'
 'pid=${BASHPID}'
 'src=${BASH_SOURCE:-$0}'
+'length=${#RANDOM}'
 End
 It "blocks $1"
 input=$(make_input "/script.sh" "$1")
 When call hook_run "$HOOK" "$input"
 The output should include '"permissionDecision":"deny"'
 The output should include "BASH_SOURCE are bash-only"
+End
+End
+
+# Only the whole name is bash-only: a longer POSIX name that starts with one is not.
+Context "when a longer name starts with a bash-only one"
+Parameters
+'seed=${RANDOM_SEED}'
+'seed=$RANDOM_SEED'
+'v=$BASH_VERSIONS'
+'p=${BASHPID2:-0}'
+End
+It "allows $1"
+input=$(make_input "/script.sh" "$1")
+When call hook_run "$HOOK" "$input"
+The output should equal ""
 End
 End
 
