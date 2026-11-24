@@ -9,8 +9,6 @@ from __future__ import annotations
 
 from pathlib import Path
 import re
-import shutil
-import subprocess
 
 import kit
 import pytest
@@ -303,29 +301,12 @@ def test_no_action_uses_the_old_validate_inputs_action():
     assert offenders == []
 
 
-def test_review_filters_skip_only_generated_files():
+def test_review_filters_are_the_ones_the_required_checks_cover():
     """.coderabbit.yaml keeps each action's validator and README out of CodeRabbit's review.
 
-    What its patterns match must stay generated: a hand-written file there would go unreviewed.
-    Minimatch matches the names case-insensitively, and only tracked files reach a review.
+    The Generated Files workflow's required checks cover exactly these patterns: generate.py
+    --check fails on a top-level validate.py the spec does not generate, and the README job on a
+    skipped README that is not an action's generated one. A new pattern needs its own check there.
     """
     config = yaml.safe_load((REPO_ROOT / ".coderabbit.yaml").read_text(encoding="utf-8"))
     assert config["reviews"]["path_filters"] == ["!*/validate.py", "![!_.]*/README.md"]
-    git = shutil.which("git")
-    assert git, "git is required to list the tracked files"
-    tracked = subprocess.run(
-        [git, "ls-files"], cwd=REPO_ROOT, capture_output=True, text=True, check=True
-    ).stdout.splitlines()
-    top_level = [Path(name) for name in tracked if name.count("/") == 1]
-    validators = {p.parent.name for p in top_level if p.name.lower() == "validate.py"}
-    assert validators == set(SPECS), f"not generated from the spec: {validators - set(SPECS)}"
-    hand_written = [
-        str(p)
-        for p in top_level
-        if p.name.lower() == "readme.md"
-        and p.parent.name[0] not in "_."
-        and not (REPO_ROOT / p.parent / "action.yml").is_file()
-    ]
-    assert not hand_written, (
-        f"the review filter would skip these hand-written READMEs: {hand_written}"
-    )

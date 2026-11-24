@@ -11,12 +11,13 @@ This is the codegen behind ``make update-validators``. For each action in ``spec
 
 Because every pattern is defined once in ``kit.py`` and copied verbatim, the per-action
 validators stay self-contained *and* never drift: ``--check`` regenerates in memory and
-fails if any committed file differs (used by CI and ``tests/test_generate.py``).
+fails if any committed file differs, or if a top-level ``validate.py`` is not one the spec
+generates (used by CI and ``tests/test_generate.py``).
 
 Usage::
 
     python3 _validation/generate.py            # write every validate.py
-    python3 _validation/generate.py --check     # verify committed files are up to date
+    python3 _validation/generate.py --check     # verify every validate.py is generated and current
     python3 _validation/generate.py --action X  # (re)generate a single action
 """
 
@@ -201,6 +202,20 @@ def target(action: str) -> Path:
     return ROOT / action / "validate.py"
 
 
+def stray_validators() -> list[str]:
+    """Return each top-level ``validate.py``, in any case, that the spec does not generate.
+
+    CodeRabbit skips every such file as generated (``.coderabbit.yaml``), so one the spec does not
+    produce would go unreviewed; ``--check`` fails on it as it fails on a stale one.
+    """
+    return sorted(
+        f"{entry.parent.name}/{entry.name}"
+        for entry in ROOT.glob("*/*")
+        if entry.name.lower() == "validate.py"
+        and (entry.name != "validate.py" or entry.parent.name not in SPECS)
+    )
+
+
 def main() -> int:
     """Generate every validator, or with ``--check`` verify the committed files are current."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -226,12 +241,20 @@ def main() -> int:
             path.write_text(content, encoding="utf-8")
 
     if args.check:
+        stray = [] if args.action else stray_validators()
+        if stray:
+            sys.stderr.write(
+                "::error::not generated from _validation/spec.py: "
+                + ", ".join(stray)
+                + " — add the action to the spec, or remove the file\n",
+            )
         if drifted:
             sys.stderr.write(
                 "::error::validate.py out of date for: "
                 + ", ".join(drifted)
                 + " — run `make update-validators`\n",
             )
+        if stray or drifted:
             return 1
         sys.stdout.write(f"validators up to date ({len(actions)} actions)\n")
     else:

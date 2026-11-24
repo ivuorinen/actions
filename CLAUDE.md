@@ -101,18 +101,18 @@ Repository (release-monthly, sync-labels, stale, compress-images, codeql-analysi
 
 **Testing**:
 
-| Target                           | Runs                                       |
-| -------------------------------- | ------------------------------------------ |
-| `make test-python`               | validation kit and generator tests         |
-| `make test-python-coverage`      | the same, with coverage                    |
-| `make test-actions`              | ShellSpec unit and integration tests       |
-| `make test-unit`                 | unit tests only                            |
-| `make test-integration`          | integration tests only                     |
-| `make test-action ACTION=<name>` | one action's tests                         |
-| `make test-update-validators`    | the check that each `validate.py` is fresh |
-| `make test-coverage`             | tests with coverage reporting              |
+| Target                           | Runs                                                     |
+| -------------------------------- | -------------------------------------------------------- |
+| `make test-python`               | validation kit and generator tests                       |
+| `make test-python-coverage`      | the same, with coverage                                  |
+| `make test-actions`              | ShellSpec unit and integration tests                     |
+| `make test-unit`                 | unit tests only                                          |
+| `make test-integration`          | integration tests only                                   |
+| `make test-action ACTION=<name>` | one action's tests                                       |
+| `make test-update-validators`    | the check that each `validate.py` is generated and fresh |
+| `make test-coverage`             | tests with coverage reporting                            |
 
-**Validation**: `make update-validators`, `make update-validators-dry`
+**Validation**: `make update-validators` regenerates every `validate.py`.
 
 **Versioning**:
 
@@ -208,7 +208,8 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 **CalVer Support**: YYYY.MM.PATCH, YYYY.MM.DD, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, YYYY-MM-DD
 
-**Maintenance**: edit `_validation/spec.py` or `kit.py` → `make update-validators` → review `git diff '*/validate.py'`. CI's `generate.py --check` fails if a committed validator is stale.
+**Maintenance**: edit `_validation/spec.py` or `kit.py` → `make update-validators` → review `git diff '*/validate.py'`.
+CI's `generate.py --check` fails if a committed validator is stale, or if a `validate.py` is not one the spec generates.
 
 ---
 
