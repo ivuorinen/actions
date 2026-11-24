@@ -460,7 +460,7 @@ CASES: dict[str, dict[str, list[str]]] = {
             "subdir/",
             "Dockerfile",
             "./docker/Dockerfile.prod",
-            "_tools/docker-testing-tools",
+            "build/docker-context",
             # '@' or a github.com directory is only remote in the forms buildx recognises
             "packages/@scope/app",
             "app@1.2.3/Dockerfile",

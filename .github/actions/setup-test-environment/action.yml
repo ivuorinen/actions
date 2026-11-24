@@ -113,8 +113,7 @@ runs:
           pkg-config \
           zlib1g-dev
 
-        # v43, as the docker-testing-tools image builds: v42 asks for CMake below 3.5, which
-        # CMake 4 on the runner image no longer accepts.
+        # v43: v42 asks for CMake below 3.5, which CMake 4 on the runner image no longer accepts.
         echo "Building kcov from source..."
         # A new directory of this step's own, which nothing else on the machine can fill
         # before the build, as it could a fixed path in /tmp.

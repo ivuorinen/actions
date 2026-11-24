@@ -174,87 +174,6 @@ shellspec_validate_action_output() {
   fi
 }
 
-# Validate an input by running the action's own self-contained validate.py
-# (generated from the canonical _validation/ kit) for input validation testing
-shellspec_test_input_validation() {
-  local action_dir="$1"
-  local input_name="$2"
-  local test_value="$3"
-  local expected_result="${4:-success}"
-
-  # Get the action name from the directory
-  local action_name
-  action_name=$(basename "$action_dir")
-
-  # Set up environment for Python validation
-  local temp_output_file
-  temp_output_file=$(mktemp)
-
-  # Capture original INPUT_ACTION_TYPE state to restore after test
-  local original_action_type_set=false
-  local original_action_type_value=""
-  if [[ -n "${INPUT_ACTION_TYPE+x}" ]]; then
-    original_action_type_set=true
-    original_action_type_value="$INPUT_ACTION_TYPE"
-  fi
-
-  # Set environment variables for the validation script
-  # Only set INPUT_ACTION_TYPE if we're not testing the action input
-  if [[ "$input_name" != "action" ]]; then
-    export INPUT_ACTION_TYPE="$action_name"
-  fi
-
-  # Set default values for commonly required inputs to avoid validation failures
-  # when testing only one input at a time
-  setup_default_inputs "$action_name" "$input_name"
-
-  # Convert input name to uppercase and replace dashes with underscores
-  local input_var_name
-  input_var_name="INPUT_${input_name//-/_}"
-  input_var_name="$(echo "$input_var_name" | tr '[:lower:]' '[:upper:]')"
-  export "$input_var_name"="$test_value"
-  export GITHUB_OUTPUT="$temp_output_file"
-
-  # Run the action's own self-contained validator (generated from the
-  # canonical _validation/ kit) and capture its exit code. It is pure stdlib,
-  # so plain python3 suffices — no PyYAML/uv needed.
-  local exit_code
-  if python3 "${PROJECT_ROOT}/${action_name}/validate.py" >/dev/null 2>&1; then
-    exit_code=0
-  else
-    exit_code=1
-  fi
-
-  # Determine the actual result based on exit code
-  local actual_result
-  if [[ $exit_code -eq 0 ]]; then
-    actual_result="success"
-  else
-    actual_result="failure"
-  fi
-
-  # Clean up
-  rm -f "$temp_output_file" 2>/dev/null || true
-  unset "$input_var_name"
-
-  # Clean up default inputs
-  cleanup_default_inputs "$action_name" "$input_name"
-
-  # Restore original INPUT_ACTION_TYPE state
-  if [[ "$original_action_type_set" == "true" ]]; then
-    export INPUT_ACTION_TYPE="$original_action_type_value"
-  else
-    unset INPUT_ACTION_TYPE
-  fi
-
-  # Return based on expected result
-  if [[ $actual_result == "$expected_result" ]]; then
-    return 0
-  else
-    return 1
-  fi
-}
-
 # Test environment setup that works with ShellSpec
 shellspec_setup_test_env() {
   local test_name="${1:-shellspec-test}"
@@ -305,12 +224,7 @@ shellspec_cleanup_test_env() {
 
 # Export functions for use in specs
 export -f shellspec_validate_action_output
-export -f shellspec_setup_test_env shellspec_cleanup_test_env shellspec_test_input_validation
-
-# Create alias for backward compatibility (override framework version)
-test_input_validation() {
-  shellspec_test_input_validation "$@"
-}
+export -f shellspec_setup_test_env shellspec_cleanup_test_env
 
 # Export all framework functions for backward compatibility
 export -f setup_test_env cleanup_test_env create_mock_repo
@@ -318,7 +232,7 @@ export -f create_mock_node_repo
 export -f validate_action_output check_required_tools
 export -f log_info log_success log_warning log_error
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name
-export -f test_action_outputs test_external_usage test_input_validation
+export -f test_action_outputs
 
 # Quiet wrapper for validate_action_yml in tests
 validate_action_yml_quiet() {

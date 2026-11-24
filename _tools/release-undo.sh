@@ -3,9 +3,8 @@
 set -eu
 
 # Source shared utilities
-# shellcheck source=_tools/shared.sh
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-# shellcheck disable=SC1091
+# shellcheck source=_tools/shared.sh
 . "$SCRIPT_DIR/shared.sh"
 
 # Check git availability

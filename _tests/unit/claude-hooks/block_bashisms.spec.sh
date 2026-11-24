@@ -330,6 +330,21 @@ The output should include "BASH_SOURCE"
 End
 End
 
+Context "when content braces the variable name"
+Parameters
+'num=${RANDOM}'
+'echo ${BASH_VERSION}'
+'pid=${BASHPID}'
+'src=${BASH_SOURCE:-$0}'
+End
+It "blocks $1"
+input=$(make_input "/script.sh" "$1")
+When call hook_run "$HOOK" "$input"
+The output should include '"permissionDecision":"deny"'
+The output should include "BASH_SOURCE are bash-only"
+End
+End
+
 End
 
 Describe "herestring detection <<<"

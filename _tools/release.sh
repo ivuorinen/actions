@@ -11,55 +11,54 @@ TAG_ONLY=false
 
 while [ $# -gt 0 ]; do
   case "$1" in
-    --dry-run)
-      DRY_RUN=true
-      shift
-      ;;
-    --yes|--no-confirm)
-      SKIP_CONFIRM=true
-      shift
-      ;;
-    --prep-only)
-      PREP_ONLY=true
-      shift
-      ;;
-    --tag-only)
-      TAG_ONLY=true
-      shift
-      ;;
-    --help|-h)
-      printf 'Usage: %s [OPTIONS] VERSION\n' "$0"
-      printf '\n'
-      printf 'Options:\n'
-      printf '  --dry-run        Show what would happen without making changes\n'
-      printf '  --yes            Skip confirmation prompt\n'
-      printf '  --no-confirm     Alias for --yes\n'
-      printf '  --prep-only      Pre-flight prep only (no tags)\n'
-      printf '  --tag-only       Only create tags (assumes prep done)\n'
-      printf '  --help, -h       Show this help message\n'
-      printf '\n'
-      printf 'Examples:\n'
-      printf '  %s v2025.11.01\n' "$0"
-      printf '  %s --dry-run v2025.11.01\n' "$0"
-      printf '  %s --yes v2025.11.01\n' "$0"
-      exit 0
-      ;;
-    -*)
-      printf 'Unknown option: %s\n' "$1" >&2
-      printf 'Use --help for usage information\n' >&2
-      exit 1
-      ;;
-    *)
-      VERSION="$1"
-      shift
-      ;;
+  --dry-run)
+    DRY_RUN=true
+    shift
+    ;;
+  --yes | --no-confirm)
+    SKIP_CONFIRM=true
+    shift
+    ;;
+  --prep-only)
+    PREP_ONLY=true
+    shift
+    ;;
+  --tag-only)
+    TAG_ONLY=true
+    shift
+    ;;
+  --help | -h)
+    printf 'Usage: %s [OPTIONS] VERSION\n' "$0"
+    printf '\n'
+    printf 'Options:\n'
+    printf '  --dry-run        Show what would happen without making changes\n'
+    printf '  --yes            Skip confirmation prompt\n'
+    printf '  --no-confirm     Alias for --yes\n'
+    printf '  --prep-only      Pre-flight prep only (no tags)\n'
+    printf '  --tag-only       Only create tags (assumes prep done)\n'
+    printf '  --help, -h       Show this help message\n'
+    printf '\n'
+    printf 'Examples:\n'
+    printf '  %s v2025.11.01\n' "$0"
+    printf '  %s --dry-run v2025.11.01\n' "$0"
+    printf '  %s --yes v2025.11.01\n' "$0"
+    exit 0
+    ;;
+  -*)
+    printf 'Unknown option: %s\n' "$1" >&2
+    printf 'Use --help for usage information\n' >&2
+    exit 1
+    ;;
+  *)
+    VERSION="$1"
+    shift
+    ;;
   esac
 done
 
 # Source shared utilities
-# shellcheck source=_tools/shared.sh
 SCRIPT_DIR=$(cd "$(dirname "$0")" && pwd)
-# shellcheck disable=SC1091
+# shellcheck source=_tools/shared.sh
 . "$SCRIPT_DIR/shared.sh"
 
 if [ -z "$VERSION" ]; then
@@ -187,7 +186,7 @@ fi
 # Exit early if --prep-only
 if [ "$PREP_ONLY" = "true" ]; then
   # Write current SHA so --tag-only can verify it later
-  printf '%s\n' "$current_sha" > ".release-prepared-sha"
+  printf '%s\n' "$current_sha" >".release-prepared-sha"
   msg_item "Wrote prepared SHA to .release-prepared-sha"
   printf '\n'
   msg_done "Preparation complete (--prep-only mode)"

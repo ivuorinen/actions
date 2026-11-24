@@ -59,7 +59,7 @@ This repository includes several security-focused workflows:
 
 1. **PR Security Analysis** (`security-suite.yml`)
    - Runs OWASP Dependency Check, Opengrep static analysis and a TruffleHog secret scan on pull requests that change a
-     `package.json`, `package-lock.json`, `Dockerfile`, or a `.py`, `.js`, `.yml` or `.yaml` file; a pull request that
+     `package.json`, `package-lock.json`, or a `.py`, `.js`, `.yml` or `.yaml` file; a pull request that
      changes only other files, such as shell scripts, gets none of them
    - Posts a summary comment on the pull request
    - Fails on a critical finding, or when a scanner did not finish

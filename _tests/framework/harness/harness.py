@@ -38,7 +38,7 @@ class ActionParser:
             return yaml.safe_load(f)
 
     @staticmethod
-    def _steps(action_dir: Path) -> list[dict]:
+    def steps(action_dir: Path) -> list[dict]:
         data = ActionParser._load(action_dir)
         runs = data.get("runs") or {}
         return list(runs.get("steps") or [])
@@ -46,12 +46,12 @@ class ActionParser:
     @staticmethod
     def list_run_steps(action_dir: Path) -> list[str]:
         return [
-            raw["id"] for raw in ActionParser._steps(action_dir) if "run" in raw and raw.get("id")
+            raw["id"] for raw in ActionParser.steps(action_dir) if "run" in raw and raw.get("id")
         ]
 
     @staticmethod
     def get_step(action_dir: Path, step_id: str) -> Step:
-        for raw in ActionParser._steps(action_dir):
+        for raw in ActionParser.steps(action_dir):
             if raw.get("id") == step_id:
                 return Step(
                     id=raw["id"],
@@ -67,7 +67,7 @@ class ActionParser:
     def _retry_steps(action_dir: Path) -> list[dict]:
         return [
             raw
-            for raw in ActionParser._steps(action_dir)
+            for raw in ActionParser.steps(action_dir)
             if str(raw.get("uses", "")).startswith(RETRY_ACTION)
         ]
 
@@ -476,10 +476,6 @@ def _read_appended_bytes(path: Path, offset: int) -> bytes:
         return handle.read()
 
 
-def _raw_steps(action_dir: Path) -> list[dict]:
-    return ActionParser._steps(action_dir)  # noqa: SLF001 — harness-internal view of parsed steps
-
-
 def _run_owned(
     action_dir: Path,
     session: Path,
@@ -490,7 +486,7 @@ def _run_owned(
     steps_ctx: dict = context["steps"]
     step_output_index = 0
 
-    for raw in _raw_steps(action_dir):
+    for raw in ActionParser.steps(action_dir):
         step_output_index += 1
         if "uses" in raw:
             continue

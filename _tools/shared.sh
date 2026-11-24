@@ -2,16 +2,11 @@
 # Shared functions and utilities for _tools/ scripts
 # This file is sourced by other scripts, not executed directly
 
-# Colors (exported for use by sourcing scripts)
-# shellcheck disable=SC2034
+# Colors, for the functions here and the scripts that source this file
 RED='\033[0;31m'
-# shellcheck disable=SC2034
 GREEN='\033[0;32m'
-# shellcheck disable=SC2034
 BLUE='\033[0;34m'
-# shellcheck disable=SC2034
 YELLOW='\033[1;33m'
-# shellcheck disable=SC2034
 NC='\033[0m' # No Color
 
 # Validate CalVer version format: vYYYY.MM.DD (zero-padded)
@@ -172,12 +167,12 @@ prompt_confirmation() {
   fi
 
   case "$response" in
-    [yY]|[yY][eE][sS])
-      return 0
-      ;;
-    *)
-      return 1
-      ;;
+  [yY] | [yY][eE][sS])
+    return 0
+    ;;
+  *)
+    return 1
+    ;;
   esac
 }
 
