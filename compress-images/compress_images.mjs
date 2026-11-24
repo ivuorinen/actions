@@ -65,7 +65,7 @@ export function findImages(root, ignore) {
       if (ignore.some(pattern => path.matchesGlob(child, pattern))) continue;
       if (entry.isDirectory()) {
         if (entry.name !== '.git') walk(child);
-      } else if (entry.isFile() && FORMATS.has(path.extname(entry.name))) {
+      } else if (entry.isFile() && FORMATS.has(path.extname(entry.name).toLowerCase())) {
         found.push(child);
       }
     }
@@ -100,7 +100,7 @@ export function codeSpan(name) {
 
 const percent = (before, after) => (((before - after) / before) * 100).toFixed(1);
 
-export function report(compressed, unchanged, unreadable) {
+export function report(compressed, unchanged, unreadable, animated = 0) {
   if (compressed.length === 0) return '';
   const before = compressed.reduce((sum, image) => sum + image.before, 0);
   const after = compressed.reduce((sum, image) => sum + image.after, 0);
@@ -114,10 +114,34 @@ export function report(compressed, unchanged, unreadable) {
   if (unchanged > 0) {
     lines.push('', `${unchanged} ${unchanged === 1 ? 'image' : 'images'} did not require optimisation.`);
   }
+  if (animated > 0) {
+    lines.push('', `${animated} animated ${animated === 1 ? 'image was' : 'images were'} left as ${animated === 1 ? 'it is' : 'they are'}.`);
+  }
   if (unreadable > 0) {
     lines.push('', `${unreadable} ${unreadable === 1 ? 'image' : 'images'} could not be read; see the step log.`);
   }
   return `${lines.join('\n')}\n`;
+}
+
+// Whether a PNG is an APNG animation: an acTL chunk comes before its first IDAT. libvips reads
+// only the default image of one, so compressing it would drop the animation.
+export function isAnimatedPng(data) {
+  let offset = 8;
+  while (offset + 8 <= data.length) {
+    const type = data.toString('latin1', offset + 4, offset + 8);
+    if (type === 'acTL') return true;
+    if (type === 'IDAT') return false;
+    offset += data.readUInt32BE(offset) + 12;
+  }
+  return false;
+}
+
+// Whether an image has more than one frame. sharp reads only the first unless told otherwise, so
+// the compressed file would be a still image; an animation is left as it is.
+async function isAnimated(sharp, data, format) {
+  if (format === 'png') return isAnimatedPng(data);
+  const { pages = 1 } = await sharp(data).metadata();
+  return pages > 1;
 }
 
 // The bytes and mode of the regular file at file, read through one descriptor, with no check of
@@ -163,16 +187,23 @@ export async function compress({ sharp, root, label, ignore, imageQuality, pngQu
   const compressed = [];
   let unchanged = 0;
   let unreadable = 0;
+  let animated = 0;
   for (const relative of findImages(root, ignore)) {
     const file = path.join(root, relative);
     const name = path.posix.join(label, relative);
-    const format = FORMATS.get(path.extname(relative));
+    const format = FORMATS.get(path.extname(relative).toLowerCase());
     let found;
     let result;
     try {
       found = readFound(file);
       if (found === null) continue;
-      result = await sharp(found.data).toFormat(format, options.get(format)).toBuffer({ resolveWithObject: true });
+      if (await isAnimated(sharp, found.data, format)) {
+        console.log(escapeData(`Left ${name} as it is: an animation, which sharp would flatten to one frame`));
+        animated += 1;
+        continue;
+      }
+      // sharp drops the EXIF orientation from what it writes, so it rotates the pixels first.
+      result = await sharp(found.data, { autoOrient: true }).toFormat(format, options.get(format)).toBuffer({ resolveWithObject: true });
     } catch (error) {
       console.log(`::warning file=${escapeProperty(name)}::${escapeData(`Could not compress ${name}: ${error.message}`)}`);
       unreadable += 1;
@@ -190,14 +221,14 @@ export async function compress({ sharp, root, label, ignore, imageQuality, pngQu
     }
   }
   compressed.sort((a, b) => b.before - b.after - (a.before - a.after) || a.name.localeCompare(b.name));
-  return { compressed, unchanged, unreadable };
+  return { compressed, unchanged, unreadable, animated };
 }
 
 async function main() {
   const env = process.env;
   const sharp = createRequire(path.join(env.TOOLS, 'package.json'))('sharp');
   const label = path.posix.normalize(env.WORKING_DIRECTORY.split(path.sep).join('/'));
-  const { compressed, unchanged, unreadable } = await compress({
+  const { compressed, unchanged, unreadable, animated } = await compress({
     sharp,
     root: path.resolve(env.WORKING_DIRECTORY),
     label: label === '.' ? '' : label,
@@ -206,8 +237,8 @@ async function main() {
     pngQuality: Number(env.PNG_QUALITY),
   });
   const delimiter = randomBytes(16).toString('hex');
-  appendFileSync(env.GITHUB_OUTPUT, `images_compressed=${compressed.length > 0}\n` + `compression_report<<${delimiter}\n${report(compressed, unchanged, unreadable)}${delimiter}\n`);
-  console.log(`${compressed.length} compressed, ${unchanged} unchanged, ${unreadable} unreadable`);
+  appendFileSync(env.GITHUB_OUTPUT, `images_compressed=${compressed.length > 0}\n` + `compression_report<<${delimiter}\n${report(compressed, unchanged, unreadable, animated)}${delimiter}\n`);
+  console.log(`${compressed.length} compressed, ${unchanged} unchanged, ${unreadable} unreadable, ${animated} animated`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {

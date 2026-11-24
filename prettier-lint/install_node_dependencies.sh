@@ -8,40 +8,28 @@
 # no flag to skip plugins, and ignoring yarnPath breaks projects that pin Yarn with it.
 set -eu
 
-# A repository with no package.json has nothing to install, and a frozen install fails for it;
-# a lint tool then comes from the action's own lockfile.
-if [ ! -f package.json ]; then
-  printf 'No package.json: no dependencies to install\n'
-  exit 0
-fi
-
 printf 'Installing dependencies using %s...\n' "$PACKAGE_MANAGER"
+
+# A package manager builds a Git dependency from its repository, running its install and pack
+# scripts, whatever flags the outer install has: Yarn 2+, for one, runs a full install and a
+# pack in the clone. Such a dependency cannot install without scripts, so a lockfile that names
+# one stops the install.
+for lockfile in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock; do
+  if [ -f "$lockfile" ] && grep -E -q 'git\+[a-z]+://|git://|#commit=|type: git|(github|gitlab|bitbucket):' "$lockfile"; then
+    echo "::error::$lockfile names a Git dependency, which is built from its repository with its scripts; the dependencies install only without scripts"
+    exit 1
+  fi
+done
 
 case "$PACKAGE_MANAGER" in
 pnpm)
-  # pnpm compares the lockfile's pnpmfileChecksum even with the pnpmfile ignored, so a
-  # lockfile recording one fails a frozen install. Only for that error, install without the
-  # frozen check; that drops the checksum, so put the lockfile back for the steps that lint
-  # or commit the tree.
+  # Frozen: a lockfile that does not match the manifest or the settings fails the install,
+  # rather than resolving the dependencies again.
   command -v pnpm >/dev/null 2>&1 || {
     echo "::error::pnpm is required to install dependencies"
     exit 1
   }
-  pnpm_status=0
-  pnpm_output=$(pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile 2>&1) || pnpm_status=$?
-  printf '%s\n' "$pnpm_output"
-  if [ "$pnpm_status" -ne 0 ]; then
-    case "$pnpm_output" in
-    *ERR_PNPM_LOCKFILE_CONFIG_MISMATCH*) ;;
-    *) exit "$pnpm_status" ;;
-    esac
-    command -v git >/dev/null 2>&1 || {
-      echo "::error::git is required to restore pnpm-lock.yaml after the unfrozen install"
-      exit 1
-    }
-    pnpm install --no-frozen-lockfile --ignore-scripts --ignore-pnpmfile
-    git checkout -- pnpm-lock.yaml
-  fi
+  pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile
   ;;
 yarn)
   command -v yarn >/dev/null 2>&1 || {
@@ -65,6 +53,13 @@ bun)
   bun install --frozen-lockfile --ignore-scripts
   ;;
 npm | *)
+  # A repository with no package.json has nothing to install, and npm ci fails for it; a lint
+  # tool then comes from the action's own lockfile. pnpm, Yarn and Bun can install a workspace
+  # without a root manifest, so they run regardless.
+  if [ ! -f package.json ]; then
+    printf 'No package.json: no dependencies to install\n'
+    exit 0
+  fi
   command -v npm >/dev/null 2>&1 || {
     echo "::error::npm is required to install dependencies"
     exit 1

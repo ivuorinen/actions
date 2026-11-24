@@ -3,9 +3,10 @@
 # working-directory with sharp and writes the action's outputs. They run the script as the
 # Compress Images step does, from a scratch workspace, with a stand-in sharp in TOOLS. The
 # script hands sharp the bytes it read, and each test image begins with its own name, so the
-# stand-in knows which file it has: it logs each call to STUB_LOG, gives each file the output
-# size STUB_SIZES maps its name to (its own size otherwise), and cannot read the file STUB_FAIL
-# names.
+# stand-in knows which file it has: it logs each encode, with the options sharp was made with,
+# to STUB_LOG, gives each file the output size STUB_SIZES maps its name to (its own size
+# otherwise) and the frame count STUB_PAGES maps it to (one otherwise), and cannot read the
+# file STUB_FAIL names.
 
 Describe "compress-images compress_images.mjs"
 SCRIPT="${PROJECT_ROOT}/compress-images/compress_images.mjs"
@@ -17,28 +18,33 @@ before() {
   printf '%s\n' '{"name": "tools", "private": true}' >"${TOOLS}/package.json"
   cat >"${TOOLS}/node_modules/sharp/index.js" <<'JS'
 const fs = require('node:fs');
-module.exports = (input) => ({
-  toFormat(format, options) {
-    return {
-      async toBuffer() {
-        const name = input.toString('utf8').split('\0')[0];
-        fs.appendFileSync(process.env.STUB_LOG, `${JSON.stringify({ name, format, options })}\n`);
-        if (name === process.env.STUB_FAIL) throw new Error('Input file contains unsupported image format');
-        const size = JSON.parse(process.env.STUB_SIZES || '{}')[name] ?? input.length;
-        return { data: Buffer.alloc(size, 7), info: { size } };
-      },
-    };
-  },
-});
+module.exports = (input, made = {}) => {
+  const name = input.toString('utf8').split('\0')[0];
+  return {
+    async metadata() {
+      return { pages: JSON.parse(process.env.STUB_PAGES || '{}')[name] ?? 1 };
+    },
+    toFormat(format, options) {
+      return {
+        async toBuffer() {
+          fs.appendFileSync(process.env.STUB_LOG, `${JSON.stringify({ name, format, options, made })}\n`);
+          if (name === process.env.STUB_FAIL) throw new Error('Input file contains unsupported image format');
+          const size = JSON.parse(process.env.STUB_SIZES || '{}')[name] ?? input.length;
+          return { data: Buffer.alloc(size, 7), info: { size } };
+        },
+      };
+    },
+  };
+};
 JS
-  export TOOLS STUB_LOG="${SHELLSPEC_TEST_TEMP_DIR}/sharp.log" STUB_SIZES='{}' STUB_FAIL=""
+  export TOOLS STUB_LOG="${SHELLSPEC_TEST_TEMP_DIR}/sharp.log" STUB_SIZES='{}' STUB_PAGES='{}' STUB_FAIL=""
   : >"$STUB_LOG"
   export WORKING_DIRECTORY="." IMAGE_QUALITY="85" PNG_QUALITY="95" IGNORE_PATHS="node_modules/**,dist/**,build/**"
 }
 BeforeEach 'before'
 
 after() {
-  unset TOOLS STUB_LOG STUB_SIZES STUB_FAIL WORKING_DIRECTORY IMAGE_QUALITY PNG_QUALITY IGNORE_PATHS
+  unset TOOLS STUB_LOG STUB_SIZES STUB_PAGES STUB_FAIL WORKING_DIRECTORY IMAGE_QUALITY PNG_QUALITY IGNORE_PATHS
   shellspec_cleanup_test_env "compress-images-script-$$"
 }
 AfterEach 'after'
@@ -181,10 +187,58 @@ export IMAGE_QUALITY="70" PNG_QUALITY="60"
 When call run_script
 The status should be success
 The stdout should include "0 compressed, 4 unchanged, 0 unreadable"
-The contents of file "$STUB_LOG" should include '{"name":"a.jpg","format":"jpeg","options":{"quality":70,"progressive":false,"chromaSubsampling":"4:4:4"}}'
-The contents of file "$STUB_LOG" should include '{"name":"b.png","format":"png","options":{"quality":60,"compressionLevel":9}}'
-The contents of file "$STUB_LOG" should include '{"name":"c.webp","format":"webp","options":{"quality":85,"smartSubsample":true}}'
-The contents of file "$STUB_LOG" should include '{"name":"d.avif","format":"avif","options":{"quality":75}}'
+The contents of file "$STUB_LOG" should include '"name":"a.jpg","format":"jpeg","options":{"quality":70,"progressive":false,"chromaSubsampling":"4:4:4"}'
+The contents of file "$STUB_LOG" should include '"name":"b.png","format":"png","options":{"quality":60,"compressionLevel":9}'
+The contents of file "$STUB_LOG" should include '"name":"c.webp","format":"webp","options":{"quality":85,"smartSubsample":true}'
+The contents of file "$STUB_LOG" should include '"name":"d.avif","format":"avif","options":{"quality":75}'
+End
+
+# sharp drops the EXIF orientation from what it writes, so a rotated photo would turn sideways
+# unless its pixels are rotated first.
+It "makes sharp rotate each image by its EXIF orientation before encoding it"
+image photo.jpg 100
+When call run_script
+The status should be success
+The stdout should include "1 unchanged"
+The contents of file "$STUB_LOG" should include '"name":"photo.jpg","format":"jpeg"'
+The contents of file "$STUB_LOG" should include '"made":{"autoOrient":true}'
+End
+
+It "compresses an image whose extension is in capitals"
+image PHOTO.JPG 20000
+image icon.PNG 20000
+export STUB_SIZES='{"PHOTO.JPG": 1, "icon.PNG": 1}'
+When call run_script
+The status should be success
+The stdout should include "2 compressed"
+The contents of file "$STUB_LOG" should include '"name":"PHOTO.JPG","format":"jpeg"'
+The contents of file "$STUB_LOG" should include '"name":"icon.PNG","format":"png"'
+End
+
+# sharp reads one frame unless told otherwise, so the smaller file would be a still image.
+It "leaves an animated WebP or AVIF as it is"
+image anim.webp 20000
+image seq.avif 20000
+export STUB_PAGES='{"anim.webp": 3, "seq.avif": 2}' STUB_SIZES='{"anim.webp": 1, "seq.avif": 1}'
+When call run_script
+The status should be success
+The stdout should include "0 compressed, 0 unchanged, 0 unreadable, 2 animated"
+Assert test "$(size_of anim.webp)" -eq 20000
+Assert test "$(size_of seq.avif)" -eq 20000
+End
+
+# libvips reads only the default image of an APNG: an acTL chunk before the image data marks one.
+It "leaves an animated PNG as it is, and reports it"
+printf 'anim.png\0\0\0\0acTL' >anim.png
+head -c 20000 /dev/zero >>anim.png
+image still.png 20000
+export STUB_SIZES='{"anim.png": 1, "still.png": 1}'
+When call run_script
+The status should be success
+The stdout should include "1 compressed, 0 unchanged, 0 unreadable, 1 animated"
+The stdout should include "Left anim.png as it is: an animation"
+The result of function report_text should include "1 animated image was left as it is."
+Assert test "$(size_of anim.png)" -eq 20016
 End
 
 It "skips an image it cannot read, with a warning, and compresses the rest"
