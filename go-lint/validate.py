@@ -47,26 +47,6 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
-def _strip_v(version: str) -> str:
-    """Return version without one leading ``v`` or ``V``."""
-    return version[1:] if version[:1] in ("v", "V") else version
-
-
-def _is_semver(core: str) -> bool:
-    """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
-    full = (
-        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
-        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
-        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
-        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
-    )
-    return bool(
-        re.fullmatch(full, core)
-        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
-        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
-    )
-
-
 def _enum(value: str, *allowed: str) -> str | None:
     """Accept ``value`` iff it is exactly one of ``allowed`` (case-sensitive)."""
     if _skip(value) or value in allowed:
@@ -85,6 +65,26 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
     if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
+
+
+def _strip_v(version: str) -> str:
+    """Return version without one leading ``v`` or ``V``."""
+    return version[1:] if version[:1] in ("v", "V") else version
+
+
+def _is_semver(core: str) -> bool:
+    """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
+    full = (
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
+        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    )
+    return bool(
+        re.fullmatch(full, core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
+    )
 
 
 def _shell_meta_error(value: str) -> str | None:

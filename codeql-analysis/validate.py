@@ -54,14 +54,6 @@ def _enum(value: str, *allowed: str) -> str | None:
     return "must be one of: " + ", ".join(allowed)
 
 
-def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> list[str]:
-    """Return the comma-split items of value not in allowed (optionally case-folded)."""
-    items = _split_items(value)
-    if fold:
-        items = [item.lower() for item in items]
-    return [item for item in items if item and item not in allowed]
-
-
 def _int_in_range(value: str, low: int, high: int) -> str | None:
     """Accept ``value`` iff it is plain digits within ``[low, high]``.
 
@@ -73,6 +65,14 @@ def _int_in_range(value: str, low: int, high: int) -> str | None:
     if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
         return None
     return f"must be an integer between {low} and {high}"
+
+
+def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> list[str]:
+    """Return the comma-split items of value not in allowed (optionally case-folded)."""
+    items = _split_items(value)
+    if fold:
+        items = [item.lower() for item in items]
+    return [item for item in items if item and item not in allowed]
 
 
 def _file_path_error(value: str, *, spaces: bool = False) -> str | None:

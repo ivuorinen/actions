@@ -8,6 +8,7 @@ library, and behaves correctly when executed on its own.
 from __future__ import annotations
 
 import ast
+import inspect
 import os
 from pathlib import Path
 import subprocess
@@ -23,6 +24,29 @@ ACTIONS = sorted(SPECS)
 STDLIB_IMPORTS = {"__future__", "os", "re", "sys", "json", "urllib", "urllib.parse"}
 MASK_COMMAND = "::add-mask::"
 VALID_TOKEN = "ghp_" + "a" * 36
+
+
+# The helpers come from kit itself, so a helper a new check calls reaches the validators: a
+# hand-kept list once left a new brace helper out, and the validators failed with a NameError.
+def test_a_check_gets_every_helper_it_calls_directly_or_through_another():
+    needed = generate._needed_helpers([inspect.getsource(kit.check_path_list)])
+    # _brace_group only through _brace_expansions
+    assert {
+        "_skip",
+        "_shell_meta_error",
+        "_split_items",
+        "_brace_expansions",
+        "_brace_group",
+    } <= set(needed)
+
+
+def test_every_private_kit_function_is_a_helper_candidate():
+    private = {
+        name
+        for name, obj in vars(kit).items()
+        if name.startswith("_") and not name.startswith("__") and inspect.isfunction(obj)
+    }
+    assert set(generate._HELPERS) == private
 
 
 # CodeRabbit skips every top-level validate.py, in any case (.coderabbit.yaml), so --check fails

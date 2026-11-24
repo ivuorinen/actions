@@ -32,6 +32,11 @@ Sourced automatically by `_tests/unit/spec_helper.sh`.
   JSON, for `run_step`, which runs one step without its predecessors:
   `export HARNESS_STEP_OUTPUTS='{"build":{"outputs":{"digest":"sha256:abc"}}}'`.
   `harness_reset` clears it.
+- `HARNESS_MOCK_WRITES_OPTION` and `HARNESS_MOCK_WRITES_CONTENT` — with both set, a
+  mocked command that matches and exits 0 writes the content to the path of each
+  `OPTION=PATH` argument, as a tool writes a file a step named with `mktemp`:
+  `export HARNESS_MOCK_WRITES_OPTION=--metadata-file HARNESS_MOCK_WRITES_CONTENT='{}'`.
+  `harness_reset` clears both.
 
 ## Example
 

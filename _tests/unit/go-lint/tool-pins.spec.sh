@@ -210,18 +210,22 @@ End
 End
 
 Describe "Prepare Configuration"
+# written_config: the default config the step wrote, at the path it published.
+written_config() {
+  cat "$(sed -n 's/^config_file=//p' "$GITHUB_OUTPUT")"
+}
+
 It "writes a default config in the v2 format"
 export INPUT_WORKING_DIRECTORY="." INPUT_CONFIG_FILE=".golangci.yml" INPUT_TIMEOUT="5m"
-default_config="${RUNNER_TEMP}/golangci-lint-default.yml"
 When call run_step "${ACTION_DIR}" "config"
 The status should be success
 The stdout should include "Creating default"
-The contents of file "$default_config" should include 'version: "2"'
-The contents of file "$default_config" should include "default: all"
-The contents of file "$default_config" should include "timeout: 5m"
-The contents of file "$default_config" should not include "enable-all"
-The contents of file "$default_config" should not include "linters-settings"
-The contents of file "$default_config" should not include "deadline"
+The result of function written_config should include 'version: "2"'
+The result of function written_config should include "default: all"
+The result of function written_config should include "timeout: 5m"
+The result of function written_config should not include "enable-all"
+The result of function written_config should not include "linters-settings"
+The result of function written_config should not include "deadline"
 End
 End
 End

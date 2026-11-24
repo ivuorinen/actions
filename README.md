@@ -33,7 +33,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |  📦  | [`ansible-lint-fix`][ansible-lint-fix]               | Linting    | Lints and fixes Ansible playbooks, commits changes, and uplo... | Token auth, Outputs                          |
 |  ✅  | [`biome-lint`][biome-lint]                           | Linting    | Run Biome linter in check or fix mode                           | Token auth, Outputs                          |
 |  🛡️  | [`codeql-analysis`][codeql-analysis]                 | Repository | Run CodeQL security analysis for a single language with conf... | Token auth, Outputs                          |
-|  🖼️  | [`compress-images`][compress-images]                 | Repository | Compress images on demand (workflow_dispatch), and at 11pm e... | Token auth, Outputs                          |
+|  🖼️  | [`compress-images`][compress-images]                 | Repository | Compress the images in a repository with sharp and open a pu... | Token auth, Outputs                          |
 |  📝  | [`csharp-build`][csharp-build]                       | Build      | Builds and tests C# projects.                                   | Caching, Token auth, Outputs                 |
 |  📝  | [`csharp-lint-check`][csharp-lint-check]             | Linting    | Runs linters like StyleCop or dotnet-format for C# code styl... | Caching, Token auth, Outputs                 |
 |  📦  | [`csharp-publish`][csharp-publish]                   | Publishing | Publishes a C# project to GitHub Packages.                      | Caching, Token auth, Outputs                 |
@@ -107,7 +107,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | Action                                  | Description                                           | Languages                                               | Features            |
 | :-------------------------------------- | :---------------------------------------------------- | :------------------------------------------------------ | :------------------ |
 | 🛡️ [`codeql-analysis`][codeql-analysis] | Run CodeQL security analysis for a single language... | JavaScript, TypeScript, Python, Java, C#, C++, Go, Ruby | Token auth, Outputs |
-| 🖼️ [`compress-images`][compress-images] | Compress images on demand (workflow_dispatch), and... | Images, PNG, JPEG                                       | Token auth, Outputs |
+| 🖼️ [`compress-images`][compress-images] | Compress the images in a repository with sharp and... | Images, PNG, JPEG                                       | Token auth, Outputs |
 | 📦 [`release-monthly`][release-monthly] | Creates a release for the current month, increment... | GitHub Actions                                          | Token auth, Outputs |
 | 📦 [`stale`][stale]                     | A GitHub Action to close stale issues and pull req... | GitHub Actions                                          | Token auth, Outputs |
 | 🏷️ [`sync-labels`][sync-labels]         | Sync GitHub labels declaratively from a YAML/JSON ... | YAML, GitHub                                            | Token auth, Outputs |

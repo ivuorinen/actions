@@ -28,6 +28,13 @@ def _skip(value: str) -> bool:
     return value.strip(" \t\n\v\f\r") == ""
 
 
+def _enum(value: str, *allowed: str) -> str | None:
+    """Accept ``value`` iff it is exactly one of ``allowed`` (case-sensitive)."""
+    if _skip(value) or value in allowed:
+        return None
+    return "must be one of: " + ", ".join(allowed)
+
+
 def _is_semver(core: str) -> bool:
     """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
     full = (
@@ -41,13 +48,6 @@ def _is_semver(core: str) -> bool:
         or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
         or re.fullmatch(r"(0|[1-9][0-9]*)", core)
     )
-
-
-def _enum(value: str, *allowed: str) -> str | None:
-    """Accept ``value`` iff it is exactly one of ``allowed`` (case-sensitive)."""
-    if _skip(value) or value in allowed:
-        return None
-    return "must be one of: " + ", ".join(allowed)
 
 
 def check_github_token(value: str) -> str | None:

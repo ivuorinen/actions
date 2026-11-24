@@ -53,12 +53,13 @@
       "automerge": false
     },
     {
-      "description": "biome-lint, eslint-lint and prettier-lint install these npm locks with npm ci and run them on callers' code, so a bump needs a person to look at it.",
+      "description": "biome-lint, compress-images, eslint-lint and prettier-lint install these npm locks with npm ci and run them on callers' code or images, so a bump needs a person to look at it.",
       "matchManagers": [
         "npm"
       ],
       "matchFileNames": [
         "biome-lint/package.json",
+        "compress-images/package.json",
         "eslint-lint/package.json",
         "prettier-lint/package.json"
       ],

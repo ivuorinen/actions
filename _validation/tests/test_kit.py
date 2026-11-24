@@ -692,6 +692,9 @@ CASES: dict[str, dict[str, list[str]]] = {
             "src/{a,-b}.js",
             "src/{a,-b{c,d}}.js",
             "**/*.{js,ts},src/{a,b}.md",
+            "{src,lib}/**/*.ts",
+            "{,src/}*.md",
+            "a/~b",
         ],
         "invalid": [
             "a;b",
@@ -706,6 +709,20 @@ CASES: dict[str, dict[str, list[str]]] = {
             # an unclosed or unmatched brace groups nothing, so -b is a separate item
             "{a,-b",
             "a},-b",
+            # a tool in fix mode writes to what the globs match, so each stays in the workspace
+            "/etc/passwd",
+            "src,/etc/*",
+            "~/x",
+            "{/etc,src}/x",
+            "{src,{lib,/etc}}/x",
+            "{,/}etc",
+            "{~,a}/x",
+            # .. built from braces: each expansion is checked, not only the raw text
+            "{.,a}./x",
+            ".{.,}/x",
+            "src/{a,.}./x",
+            # more expansions than a list of paths needs
+            "{a,b}" * 9,
         ],
     },
     "email": {
@@ -1081,7 +1098,8 @@ CASES: dict[str, dict[str, list[str]]] = {
         "valid": ["1", "10", "5"],
         "invalid": ["0", "11", "abc", *NOT_SHELL_INTEGERS],
     },
-    "numeric_range_0_100": {"valid": ["0", "100", "50"], "invalid": ["101", "-1"]},
+    # sharp refuses a quality of 0
+    "numeric_range_1_100": {"valid": ["1", "100", "50"], "invalid": ["0", "101", "-1"]},
     "numeric_range_1_128": {"valid": ["1", "128"], "invalid": ["0", "129"]},
     "numeric_range_256_32768": {"valid": ["256", "32768"], "invalid": ["255", "32769"]},
     "numeric_range_0_10000": {"valid": ["0", "10000"], "invalid": ["10001", "-1"]},
@@ -1224,9 +1242,15 @@ def test_scalar_checks_judge_the_value_as_given(check):
 
 
 @pytest.mark.parametrize("value", ["+5", "1_0", "٣", "5\n", "1" * 5000])
-@pytest.mark.parametrize("check", ["positive_integer", "numeric_range_1_10", "numeric_range_0_100"])
+@pytest.mark.parametrize("check", ["positive_integer", "numeric_range_1_10", "numeric_range_1_100"])
 def test_integer_checks_accept_only_ascii_digits(check, value):
     assert kit.CHECKS[check](value) is not None
+
+
+# The expansion is iterative: deep nesting gets a reason, not a RecursionError traceback.
+def test_path_list_reasons_about_deeply_nested_braces():
+    assert kit.check_path_list("{" * 2000 + "a" + "}" * 2000) is None
+    assert kit.check_path_list("{" * 2000 + "/a" + "}" * 2000) is not None
 
 
 @pytest.mark.parametrize(

@@ -50,10 +50,36 @@ github_env_is_empty() {
   [ ! -s "$GITHUB_ENV" ]
 }
 
-It "publishes a plugin directory under RUNNER_TEMP as a step output"
+# published_dir: the dir output the step wrote, or nothing.
+published_dir() {
+  sed -n 's/^dir=//p' "$GITHUB_OUTPUT"
+}
+
+# A new directory under RUNNER_TEMP, made empty by mktemp, as a step output.
+plugin_dir_is_new() {
+  dir=$(published_dir)
+  case "$dir" in
+  "${RUNNER_TEMP}/terraform-lint-fix-plugins."??????) ;;
+  *) return 1 ;;
+  esac
+  [ -d "$dir" ] && [ -z "$(ls -A "$dir")" ]
+}
+
+It "publishes a new, empty plugin directory under RUNNER_TEMP as a step output"
 When call run_step "${ACTION_DIR}" "plugin-dir"
 The status should be success
-Assert expect_output dir "${RUNNER_TEMP}/tflint-plugins"
+Assert plugin_dir_is_new
+End
+
+# A fixed path could be made, and filled with plugin executables, by another job on
+# the machine before TFLint loads them.
+It "uses another directory on each run"
+run_step "${ACTION_DIR}" "plugin-dir"
+first=$(published_dir)
+: >"$GITHUB_OUTPUT"
+When call run_step "${ACTION_DIR}" "plugin-dir"
+The status should be success
+Assert test "$(published_dir)" != "$first"
 End
 
 # GITHUB_ENV would reach the caller's steps after this action, and override a
@@ -74,11 +100,11 @@ End
 
 Describe "Cleanup"
 It "removes only the plugin directory of the action"
-mkdir -p "${HOME}/.tflint.d/plugins" "${RUNNER_TEMP}/tflint-plugins"
-export TFLINT_PLUGIN_DIR="${RUNNER_TEMP}/tflint-plugins"
+mkdir -p "${HOME}/.tflint.d/plugins" "${RUNNER_TEMP}/terraform-lint-fix-plugins.abc123"
+export HARNESS_STEP_OUTPUTS="{\"plugin-dir\":{\"outputs\":{\"dir\":\"${RUNNER_TEMP}/terraform-lint-fix-plugins.abc123\"}}}"
 When call run_step "${ACTION_DIR}" "cleanup"
 The status should be success
-The path "${RUNNER_TEMP}/tflint-plugins" should not be exist
+The path "${RUNNER_TEMP}/terraform-lint-fix-plugins.abc123" should not be exist
 The path "${HOME}/.tflint.d/plugins" should be directory
 End
 

@@ -802,10 +802,57 @@ def check_file_extensions(value: str) -> str | None:
     return None
 
 
-def check_path_list(value: str) -> str | None:
-    """Comma-separated paths/globs — blocks injection characters, ``..`` and a leading ``-``.
+def _brace_group(text: str) -> tuple[int, int, list[str]] | None:
+    """Return the start, end and top-level alternatives of the first closed brace group, or None.
 
-    A comma inside braces belongs to the glob (``src/{a,-b}.js``), so it does not separate items.
+    An unclosed brace groups nothing and stays literal, so the search moves on past it.
+    """
+    for start, char in enumerate(text):
+        if char != "{":
+            continue
+        depth, begin, alternatives = 0, start + 1, []
+        for index in range(start, len(text)):
+            if text[index] == "{":
+                depth += 1
+            elif text[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    alternatives.append(text[begin:index])
+                    return start, index, alternatives
+            elif text[index] == "," and depth == 1:
+                alternatives.append(text[begin:index])
+                begin = index + 1
+    return None
+
+
+def _brace_expansions(item: str, limit: int = 256) -> list[str] | None:
+    """Return each brace expansion of a glob item, or None when it has more than ``limit``.
+
+    ``{/etc,src}/x`` expands to ``/etc/x`` and ``src/x``, and ``{.,a}./x`` to ``../x`` and
+    ``a./x``. The expansion is iterative, so however deep the braces nest, it cannot exhaust
+    the stack.
+    """
+    done, pending = [], [item]
+    while pending:
+        text = pending.pop()
+        group = _brace_group(text)
+        if group is None:
+            done.append(text)
+        else:
+            start, end, alternatives = group
+            pending.extend(text[:start] + alt + text[end + 1 :] for alt in alternatives)
+        if len(done) + len(pending) > limit:
+            return None
+    return done
+
+
+def check_path_list(value: str) -> str | None:
+    """Comma-separated paths/globs below the workspace.
+
+    Blocks injection characters, a leading ``-``, and ``..`` or an absolute or ``~`` path in
+    any brace expansion (``{/etc,src}``, ``{.,a}./x``): a tool in fix mode writes to what the
+    globs match. A comma inside braces belongs to the glob (``src/{a,-b}.js``), so it does not
+    separate items.
     """
     if _skip(value):
         return None
@@ -816,10 +863,16 @@ def check_path_list(value: str) -> str | None:
             continue
         if item.startswith("-"):
             return f"must not start with -: {item}"
-        if ".." in item:
-            return f"path traversal (..) is not allowed: {item}"
         if not re.fullmatch(r"[a-zA-Z0-9_\-./*?\[\]{},@~+]+", item):
             return f"invalid path or glob: {item}"
+        expansions = _brace_expansions(item)
+        if expansions is None:
+            return f"too many brace expansions: {item}"
+        for expanded in expansions:
+            if expanded.startswith(("/", "~")):
+                return f"must be relative to the workspace, without ~: {item}"
+            if ".." in expanded:
+                return f"path traversal (..) is not allowed: {item}"
     return None
 
 
@@ -1145,9 +1198,9 @@ def check_numeric_range_1_10(value: str) -> str | None:
     return _int_in_range(value, 1, 10)
 
 
-def check_numeric_range_0_100(value: str) -> str | None:
-    """Integer in [0, 100] (e.g. image quality percentage)."""
-    return _int_in_range(value, 0, 100)
+def check_numeric_range_1_100(value: str) -> str | None:
+    """Integer in [1, 100] (image quality, which sharp takes from 1)."""
+    return _int_in_range(value, 1, 100)
 
 
 def check_numeric_range_1_128(value: str) -> str | None:
@@ -1354,7 +1407,7 @@ EXAMPLES = {
     "node_version": "20",
     "npm_spec_list": "@semantic-release/git@10.0.1",
     "numeric_range_0_10000": "0",
-    "numeric_range_0_100": "80",
+    "numeric_range_1_100": "80",
     "numeric_range_1_10": "3",
     "numeric_range_1_128": "2",
     "numeric_range_256_32768": "4096",

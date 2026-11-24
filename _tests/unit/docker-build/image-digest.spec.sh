@@ -38,20 +38,19 @@ after() {
 AfterEach 'after'
 
 Describe "build step"
-# The step reads a fixed path in RUNNER_TEMP; the mocked docker writes nothing, so the
-# fixture stands in for what buildx writes, which has no trailing newline.
-METADATA_FILE_NAME="docker-build-metadata.json"
+# The mocked docker writes this fixture at the --metadata-file the step names, as buildx
+# writes it, with no trailing newline.
 write_metadata() {
-  {
+  export HARNESS_MOCK_WRITES_OPTION="--metadata-file"
+  HARNESS_MOCK_WRITES_CONTENT=$(
     printf '{"buildx.build.ref":"b/b0/abc",'
     printf '"containerimage.descriptor":{"mediaType":"application/vnd.oci.image.index.v1+json","digest":"%s","size":1609},' "$DIGEST"
     printf '"containerimage.digest":"%s","image.name":"%s:1.0.0"}' "$DIGEST" "$IMAGE"
-  } >"${RUNNER_TEMP}/${METADATA_FILE_NAME}"
+  )
+  export HARNESS_MOCK_WRITES_CONTENT
 }
-remove_metadata() { rm -f "${RUNNER_TEMP}/${METADATA_FILE_NAME}"; }
 seed_image_name() { export HARNESS_STEP_OUTPUTS='{"image-name":{"outputs":{"name":"ghcr.io/acme/app"}}}'; }
 Before 'write_metadata' 'seed_image_name'
-After 'remove_metadata'
 
 # The runner fails the step unless a line equal to the delimiter closes the value.
 metadata_output_is_closed() {
@@ -80,10 +79,39 @@ The stdout should include "Build attempt 1 of 1"
 Assert metadata_output_is_closed
 End
 
+# A fixed path could be linked elsewhere by another job on the machine first, and buildx
+# would write through the link.
+It "never writes the metadata through a link at a fixed path"
+export INPUT_PUSH="true"
+mock_command docker "buildx build *--push*" ""
+printf 'untouched' >"${SHELLSPEC_TEST_TEMP_DIR}/victim"
+ln -s "${SHELLSPEC_TEST_TEMP_DIR}/victim" "${RUNNER_TEMP}/docker-build-metadata.json"
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The stdout should include "Build attempt 1 of 1"
+Assert expect_output digest "$DIGEST"
+The contents of file "${SHELLSPEC_TEST_TEMP_DIR}/victim" should equal "untouched"
+End
+
+no_metadata_left() {
+  [ -z "$(find "$RUNNER_TEMP" -name 'docker-build-metadata.*' -print)" ]
+}
+
+It "removes its metadata directory when the step ends"
+export INPUT_PUSH="true"
+mock_command docker "buildx build *--push*" ""
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The stdout should include "Build attempt 1 of 1"
+Assert no_metadata_left
+End
+
 It "fails a push when buildx recorded no digest, rather than reporting one it does not have"
 export INPUT_PUSH="true"
 mock_command docker "buildx build *--push*" ""
-printf '%s\n' '{"buildx.build.ref":"b/b0/abc"}' >"${RUNNER_TEMP}/${METADATA_FILE_NAME}"
+export HARNESS_MOCK_WRITES_CONTENT='{"buildx.build.ref":"b/b0/abc"}'
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be failure

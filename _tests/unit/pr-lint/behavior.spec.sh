@@ -69,13 +69,26 @@ End
 
 Describe "Node dependency install"
 # run_step resolves ${{ steps.* }} to empty, so the step's PACKAGE_MANAGER is
-# fixed in a temporary copy of the action to reach each branch. A mock only
-# answers its exact argv: any other flags fail with an unregistered-call error.
+# fixed in a temporary copy of the action, with the install script beside it, to
+# reach each branch, in a repository with a package.json. A mock only answers its
+# exact argv: any other flags fail with an unregistered-call error.
 run_install_node() {
   mkdir -p .action
   sed -E "s/^( +PACKAGE_MANAGER:).*/\1 $1/" "${ACTION_DIR}/action.yml" >.action/action.yml
+  cp "${ACTION_DIR}/install_node_dependencies.sh" .action/
+  [ -f package.json ] || printf '%s\n' '{"name": "app"}' >package.json
   run_step "${PWD}/.action" "install-node"
 }
+
+# The other package managers fail without one as well, and nothing is mocked here.
+It "installs nothing for a repository with no package.json"
+mkdir -p .action
+sed -E "s/^( +PACKAGE_MANAGER:).*/\1 pnpm/" "${ACTION_DIR}/action.yml" >.action/action.yml
+cp "${ACTION_DIR}/install_node_dependencies.sh" .action/
+When call run_step "${PWD}/.action" "install-node"
+The status should be success
+The stdout should include "No package.json: no dependencies to install"
+End
 
 Describe "without a version probe"
 Parameters

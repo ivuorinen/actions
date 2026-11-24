@@ -220,6 +220,33 @@ The line 2 of output should equal "b: Unguarded"
 End
 End
 
+Describe "writes-file fixture"
+It "has a mocked command write the content at an OPTION=PATH argument"
+export HARNESS_MOCK_WRITES_OPTION="--out" HARNESS_MOCK_WRITES_CONTENT="written"
+mock_command gh "report *" ""
+When call run_step "${FIXTURES}/writes-file" "write"
+The status should be success
+Assert expect_output content written
+End
+
+It "writes nothing without HARNESS_MOCK_WRITES_OPTION"
+mock_command gh "report *" ""
+When call run_step "${FIXTURES}/writes-file" "write"
+The status should be success
+Assert expect_output content none
+End
+
+# A tool that fails has written nothing to read.
+It "writes nothing when the mocked call fails"
+export HARNESS_MOCK_WRITES_OPTION="--out" HARNESS_MOCK_WRITES_CONTENT="written"
+mock_command gh "report *" "" 1
+When call run_step "${FIXTURES}/writes-file" "write"
+The status should be success
+Assert expect_output content none
+Assert expect_output status 1
+End
+End
+
 Describe "step-outputs fixture"
 It "resolves an earlier step's output from HARNESS_STEP_OUTPUTS in run_step"
 export HARNESS_STEP_OUTPUTS='{"first":{"outputs":{"flag":"seeded"}}}'

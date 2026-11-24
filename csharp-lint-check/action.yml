@@ -176,10 +176,27 @@ runs:
         report_dir=$(mktemp -d)
         trap 'rm -rf "$report_dir"' EXIT
 
-        # --verify-no-changes exits 0 when clean and 2 when files would be reformatted.
         command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to check the formatting"; exit 1; }
+
+        # Restore in locked mode first, as csharp-build does, so a packages.lock.json that no
+        # longer matches the projects fails here. The implicit restore of dotnet format does
+        # not run in locked mode, so format runs without it.
+        if ! dotnet restore ${PROJECT:+"$PROJECT"} --locked-mode; then
+          echo "::error::dotnet restore --locked-mode failed"
+          exit 1
+        fi
+
+        # --verify-no-changes exits 0 when clean and 2 when files would be reformatted; any
+        # other status is a run that did not finish, with no counts to report.
         status=0
-        dotnet format ${PROJECT:+"$PROJECT"} --verify-no-changes --report "$report_dir" || status=$?
+        dotnet format ${PROJECT:+"$PROJECT"} --verify-no-changes --no-restore --report "$report_dir" || status=$?
+        case "$status" in
+          0 | 2) ;;
+          *)
+            echo "::error::dotnet format failed with exit code $status"
+            exit 1
+            ;;
+        esac
 
         errors_count=0
         if [ -f "$report_dir/format-report.json" ]; then
@@ -192,8 +209,5 @@ runs:
 
         if [ "$status" -eq 2 ]; then
           echo "::error::Code formatting issues found ($errors_count). Run 'dotnet format' to fix them."
-          exit 1
-        elif [ "$status" -ne 0 ]; then
-          echo "::error::dotnet format failed with exit code $status"
           exit 1
         fi

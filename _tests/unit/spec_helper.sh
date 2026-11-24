@@ -204,10 +204,11 @@ shellspec_setup_test_env() {
 }
 
 # docker-build's build step reads the digest of a push from the metadata file buildx
-# writes in RUNNER_TEMP. A mocked docker writes none, so a spec that runs a push writes
-# this stand-in for the one key the step reads.
+# writes at its --metadata-file, a new path under RUNNER_TEMP. A spec that runs a push
+# has the mocked docker write this stand-in there, for the one key the step reads.
 write_docker_build_metadata() {
-  printf '%s\n' '{"containerimage.digest":"sha256:fixture"}' >"${RUNNER_TEMP}/docker-build-metadata.json"
+  export HARNESS_MOCK_WRITES_OPTION="--metadata-file"
+  export HARNESS_MOCK_WRITES_CONTENT='{"containerimage.digest":"sha256:fixture"}'
 }
 
 # Test environment cleanup for ShellSpec
