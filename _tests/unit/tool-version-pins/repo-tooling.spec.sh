@@ -10,7 +10,6 @@ ROOT="${PROJECT_ROOT}"
 REPO_COMMANDS="${ROOT}/_tests/unit/tool-version-pins/repo_commands.py"
 SETUP_ENV="${ROOT}/.github/actions/setup-test-environment/action.yml"
 SECURITY_SUITE="${ROOT}/.github/workflows/security-suite.yml"
-DOCKERFILE="${ROOT}/_tools/docker-testing-tools/Dockerfile"
 # A shell pattern for a SHA-256 digest: 64 hexadecimal digits.
 HEX64=$(printf '[0-9a-f]%.0s' $(seq 64))
 
@@ -252,7 +251,7 @@ The error should include "runs-on is an expression"
 End
 
 It "downloads over HTTPS and TLS 1.2 only"
-When call fetches_without_tls "$SETUP_ENV" "$SECURITY_SUITE" "$DOCKERFILE" "${ROOT}/Makefile" "${ROOT}/_tests/run-tests.sh"
+When call fetches_without_tls "$SETUP_ENV" "$SECURITY_SUITE" "${ROOT}/Makefile" "${ROOT}/_tests/run-tests.sh"
 The output should equal ""
 End
 
@@ -278,7 +277,7 @@ The output should equal ""
 End
 
 It "trusts no checksums file from a release"
-When call uncommented 'checksums\.txt' "$SETUP_ENV" "$DOCKERFILE"
+When call uncommented 'checksums\.txt' "$SETUP_ENV"
 The output should equal ""
 End
 End
@@ -448,13 +447,9 @@ When call unbumped "${TREE}/action.yml"
 The output should include "TOOL_VERSION"
 End
 
-It "lets Renovate bump each version the test environment, the security workflow and the testing image pin"
-When call unbumped "$SETUP_ENV" "$SECURITY_SUITE" "$DOCKERFILE"
+It "lets Renovate bump each version the test environment and the security workflow pin"
+When call unbumped "$SETUP_ENV" "$SECURITY_SUITE"
 The output should equal ""
-End
-
-It "reads the testing image's versions with Renovate's Dockerfile manager"
-The contents of file "${ROOT}/.github/renovate.json" should include '"customManagers:dockerfileVersions"'
 End
 End
 
@@ -509,7 +504,7 @@ PY
 
 It "updates the digests of the images pinned on a re-pushed tag, through a reviewed pull request"
 When call digest_updates
-The output should equal "catthehacker/ubuntu owasp/dependency-check-action ubuntu timestamp-optional reviewed"
+The output should equal "catthehacker/ubuntu owasp/dependency-check-action timestamp-optional reviewed"
 End
 
 # unpinned_docker_steps FILE...: "FILE: USES" for each docker:// uses value in FILE, as YAML reads
@@ -559,35 +554,5 @@ The output should match pattern "docker steps: [1-9]*"
 The lines of output should equal 1
 End
 
-It "updates the BuildKit image build-testing-image.yml pins"
-When call managed_pins
-The output should match pattern "*.github/workflows/build-testing-image.yml moby/buildkit v*@sha256:*"
-End
-
-# buildx runs the BuildKit daemon privileged; an empty buildkitd-flags restores setup-buildx's
-# defaults, which allow insecure entitlements.
-build_testing_buildx() {
-  _harness_python - "${ROOT}/.github/workflows/build-testing-image.yml" "$1" <<'PY'
-import sys
-
-import yaml
-
-steps = yaml.safe_load(open(sys.argv[1], encoding="utf-8"))["jobs"]["build-and-push"]["steps"]
-value = next(s for s in steps if s.get("name") == "Set up Docker Buildx")
-for key in sys.argv[2].split("."):
-    value = value.get(key, "") if isinstance(value, dict) else ""
-print(value)
-PY
-}
-
-It "runs build-testing-image.yml's BuildKit from the pinned image"
-When call build_testing_buildx with.driver-opts
-The output should equal 'image=moby/buildkit:${{ env.BUILDKIT_IMAGE_TAG }}'
-End
-
-It "gives build-testing-image.yml's BuildKit daemon flags that keep setup-buildx's insecure defaults off"
-When call build_testing_buildx with.buildkitd-flags
-The output should equal '--oci-worker=auto'
-End
 End
 End

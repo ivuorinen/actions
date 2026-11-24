@@ -75,9 +75,9 @@ if printf '%s\n' "$CHECKABLE" | grep -qE '(^|[[:space:]])read[[:space:]]+-[pa]';
   REASON="${REASON}read -p/-a are bash-only. Use printf+read or positional parsing. "
 fi
 
-# --- Bash-only variables ---
-# shellcheck disable=SC2016
-if printf '%s\n' "$CHECKABLE" | grep -qE '\$(RANDOM|BASH_VERSION|BASHPID|BASH_SOURCE)'; then
+# --- Bash-only variables: bare, braced, or a braced length (${#RANDOM}); the whole name only, so
+# a longer POSIX name such as RANDOM_SEED passes ---
+if printf '%s\n' "$CHECKABLE" | grep -qE '[$]([{]#?)?(RANDOM|BASH_VERSION|BASHPID|BASH_SOURCE)([^A-Za-z0-9_]|$)'; then
   REASON="${REASON}\$RANDOM/\$BASH_VERSION/\$BASHPID/\$BASH_SOURCE are bash-only. "
 fi
 

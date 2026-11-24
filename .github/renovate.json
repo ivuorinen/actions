@@ -2,16 +2,14 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "github>ivuorinen/renovate-config",
-    "customManagers:biomeVersions",
-    "customManagers:dockerfileVersions"
+    "customManagers:biomeVersions"
   ],
   "customManagers": [
     {
       "customType": "regex",
-      "description": "Digest-pinned image tags: YAML env keys in action.yml files and build-testing-image.yml, a shell variable in run-tests.sh. githubActionsVersions has no digest group.",
+      "description": "Digest-pinned image tags: YAML env keys in action.yml files, a shell variable in run-tests.sh. githubActionsVersions has no digest group.",
       "managerFilePatterns": [
         "/(^|/)action\\.ya?ml$/",
-        "/^\\.github/workflows/build-testing-image\\.yml$/",
         "/^_tests/run-tests\\.sh$/"
       ],
       "matchStrings": [
@@ -78,8 +76,7 @@
       "description": "Images pinned on a re-pushed tag move only by digest. The preset disables those outside github-actions, and a tag without a timestamp would wait for minimumReleaseAge forever.",
       "matchDepNames": [
         "catthehacker/ubuntu",
-        "owasp/dependency-check-action",
-        "ubuntu"
+        "owasp/dependency-check-action"
       ],
       "matchUpdateTypes": [
         "digest"

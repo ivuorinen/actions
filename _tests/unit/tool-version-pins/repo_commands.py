@@ -5,8 +5,8 @@ old TLS, an npm install that runs the packages' install scripts, or a fixed path
     repo_commands.py fetches|unlocked|insecure-downloads|install-scripts|fixed-tmp FILE...
 
 shfmt parses each script FILE runs as the shell reads it: a Makefile's recipes and the
-$(shell ...) calls make runs, a package.json's scripts, an action's or a workflow's run steps, a
-Dockerfile's RUN instructions, or a whole shell script. Quoting, escapes, comments, command
+$(shell ...) calls make runs, a package.json's scripts, an action's or a workflow's run steps,
+or a whole shell script. Quoting, escapes, comments, command
 substitutions and the scripts a shell runs therefore count as they do when the shell runs them.
 Prints "FILE:WHERE: COMMAND" for each match, WHERE being a line or a script's name, and exits 2
 when shfmt cannot parse a file.
@@ -682,28 +682,6 @@ def make_script(text: str) -> tuple[str, list[int]]:
     return "\n".join(script), origin
 
 
-def dockerfile_scripts(text: str):
-    """Yield (script, origin) for each RUN instruction in shell form in a Dockerfile: its lines
-    and continuations, without the comment lines Docker drops from them or flags such as
-    --mount, and the Dockerfile line each line of the script comes from."""
-    lines = text.split("\n")
-    index = 0
-    while index < len(lines):
-        match = re.match(r"\s*RUN\s+(.*)", lines[index], re.IGNORECASE)
-        index += 1
-        if not match:
-            continue
-        body, origin = [match.group(1)], [index]
-        while body[-1].endswith("\\") and index < len(lines):
-            if not re.match(r"\s*#", lines[index]):
-                body.append(lines[index])
-                origin.append(index + 1)
-            index += 1
-        script = re.sub(r"^(?:--\S+\s+)+", "", "\n".join(body))
-        if not script.startswith("["):
-            yield script, origin
-
-
 def scripts(path: Path):
     """Yield (script, language, line_of) for each script FILE runs."""
     text = path.read_text(encoding="utf-8")
@@ -713,9 +691,6 @@ def scripts(path: Path):
     elif path.name == "Makefile":
         script, origin = make_script(text)
         yield script, "posix", lambda line: origin[line - 1]
-    elif path.name == "Dockerfile":
-        for script, origin in dockerfile_scripts(text):
-            yield script, "bash", lambda line, origin=origin: origin[line - 1]
     elif path.suffix in (".yml", ".yaml"):
         root = yaml.safe_load(text)
         if isinstance(root, dict) and "runs" in root:

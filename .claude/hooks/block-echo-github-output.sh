@@ -25,6 +25,5 @@ if [ -z "$NEW_CONTENT" ]; then
 fi
 
 if printf '%s' "$NEW_CONTENT" | grep -q 'echo.*>>.*GITHUB_OUTPUT'; then
-  # shellcheck disable=SC2016
-  deny 'Use printf with format-string separation for GITHUB_OUTPUT, as in printf '\''key=%s\n'\'' "$value" >> "$GITHUB_OUTPUT", not echo.'
+  deny "Use printf with format-string separation for GITHUB_OUTPUT, as in printf 'key=%s\n' \"\$value\" >> \"\$GITHUB_OUTPUT\", not echo."
 fi

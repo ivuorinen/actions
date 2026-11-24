@@ -19,7 +19,7 @@ from pathlib import Path
 import sys
 from typing import Any
 
-import yaml  # pylint: disable=import-error
+import yaml
 
 # Delegate input validation to the canonical per-action validation kit
 # (_validation/kit.py + _validation/spec.py) — the single source of truth that
@@ -29,8 +29,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_validation"))
 # The harness runs many of these CLI processes in parallel; skipping .pyc writes for
 # kit/spec avoids a cold-cache bytecode-compile race on the first run.
 sys.dont_write_bytecode = True
-import kit  # pylint: disable=import-error,wrong-import-position
-from spec import SPECS  # pylint: disable=import-error,wrong-import-position
+import kit
+from spec import SPECS
 
 # Default value for unknown items (used by ActionFileParser)
 DEFAULT_UNKNOWN = "Unknown"

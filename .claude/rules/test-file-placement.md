@@ -8,6 +8,5 @@ Place validation Python tests under `_validation/tests/` (the pytest
 suite is co-located with the Python module by design — this is not an exception
 to invent ad-hoc paths for other components).
 Never create test files outside these three locations.
-Test fixtures and data files that are not themselves tests
-(e.g., `_tools/docker-testing-tools/test-files/`) belong with their tool/
+Test fixtures and data files that are not themselves tests belong with their tool/
 infrastructure and are not governed by this rule.

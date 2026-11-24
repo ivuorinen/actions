@@ -76,8 +76,6 @@ in hook commands
 
 **Testing**: `_tests/README.md` (ShellSpec framework, test patterns, running tests)
 
-**Docker Tools**: `_tools/docker-testing-tools/README.md` (CI setup, pre-built testing image)
-
 **See**: `_tools/` for helper scripts (`fix-local-action-refs.py`, `release.sh`, `release-undo.sh`, `shared.sh`)
 
 ## Repository Structure

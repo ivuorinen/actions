@@ -22,11 +22,13 @@ from pathlib import Path
 import re
 import sys
 
-REPO_ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(REPO_ROOT / "_validation"))
+# kit and spec are stdlib-only modules in _validation/, which is no package.
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_validation"))
 
-import kit  # noqa: E402  (path set above; stdlib-only module)
-from spec import SPECS  # noqa: E402
+import kit
+from spec import SPECS
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
 
 # actions/checkout v4 resolved to its immutable commit. The themes emit the
 # mutable `@v4` tag; this repo pins every external action to a full SHA and the
