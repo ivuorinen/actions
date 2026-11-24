@@ -138,12 +138,22 @@ export function isAnimatedPng(data) {
 
 // Whether an AVIF is an image sequence: its ftyp box names the avis brand, as major or compatible
 // brand. libvips counts only top-level image items as pages, so a sequence with a still primary
-// image reads as one page.
+// image reads as one page. As in any ISO-BMFF box, a size of 1 means a 64-bit size follows the
+// type, so the brands start 8 bytes later, and a size of 0 means the box runs to the file's end.
 export function isAvifSequence(data) {
   if (data.length < 16 || data.toString('latin1', 4, 8) !== 'ftyp') return false;
-  const end = Math.min(data.readUInt32BE(0), data.length);
-  for (let offset = 8; offset + 4 <= end; offset += 4) {
-    if (offset !== 12 && data.toString('latin1', offset, offset + 4) === 'avis') return true;
+  let size = data.readUInt32BE(0);
+  let brands = 8;
+  if (size === 1) {
+    size = Number(data.readBigUInt64BE(8));
+    brands = 16;
+  } else if (size === 0) {
+    size = data.length;
+  }
+  const end = Math.min(size, data.length);
+  // The major brand, then the minor version, which is no brand, then the compatible brands.
+  for (let offset = brands; offset + 4 <= end; offset += 4) {
+    if (offset !== brands + 4 && data.toString('latin1', offset, offset + 4) === 'avis') return true;
   }
   return false;
 }

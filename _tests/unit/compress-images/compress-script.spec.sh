@@ -243,6 +243,19 @@ The stdout should include "Left seq.avif as it is: an animation"
 Assert test "$(size_of seq.avif)" -eq 20024
 End
 
+# A box size of 1 means a 64-bit size follows the type, moving the brands 8 bytes on; a size of 0
+# means the box runs to the end of the file.
+It "finds the avis brand in an ftyp box with a 64-bit size or one that runs to the end"
+printf '\0\0\0\001ftyp\0\0\0\0\0\0\0\040avif\0\0\0\0mif1avis' >large.avif
+head -c 20000 /dev/zero >>large.avif
+printf '\0\0\0\0ftypavif\0\0\0\0mif1avis' >open.avif
+When call run_script
+The status should be success
+The stdout should include "0 compressed, 0 unchanged, 0 unreadable, 2 animated"
+The stdout should include "Left large.avif as it is: an animation"
+The stdout should include "Left open.avif as it is: an animation"
+End
+
 # libvips reads only the default image of an APNG: an acTL chunk before the image data marks one.
 It "leaves an animated PNG as it is, and reports it"
 printf 'anim.png\0\0\0\0acTL' >anim.png
