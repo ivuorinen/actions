@@ -170,6 +170,53 @@ The stdout should include "::error::bun.lockb names a Git dependency"
 The stdout should not include "installed anyway"
 End
 
+# Yarn runs an exec: dependency's generator while it fetches, and to resolve one the lockfile
+# lacks, so a lockfile or any manifest of the repository that names one stops the install.
+Describe "an exec: dependency"
+It "stops the install for one in yarn.lock"
+printf '%s\n' '"generated@exec:./generate.js::locator=app%40workspace%3A.":' \
+  '  resolution: "generated@exec:./generate.js#./generate.js::hash=0123&locator=app%40workspace%3A."' >yarn.lock
+mock_command yarn "*" "installed anyway"
+
+When call run_install_node "yarn"
+The status should be failure
+The stdout should include "::error::yarn.lock names an exec: dependency"
+The stdout should not include "installed anyway"
+End
+
+It "stops the install for one only the manifest names"
+printf '%s\n' '{"name": "app", "dependencies": {"generated": "exec:./generate.js"}}' >package.json
+mock_command yarn "*" "installed anyway"
+
+When call run_install_node "yarn"
+The status should be failure
+The stdout should include "::error::./package.json names an exec: dependency"
+The stdout should not include "installed anyway"
+End
+
+It "stops the install for one a workspace's manifest names"
+mkdir -p packages/a
+printf '%s\n' '{"name": "a", "dependencies": {"generated": "exec:./generate.js"}}' >packages/a/package.json
+mock_command yarn "*" "installed anyway"
+
+When call run_install_node "yarn"
+The status should be failure
+The stdout should include "::error::./packages/a/package.json names an exec: dependency"
+The stdout should not include "installed anyway"
+End
+
+# An installed package's manifest is not the repository's: it was resolved from a lockfile.
+It "installs when only an installed package's manifest names one"
+mkdir -p node_modules/x
+printf '%s\n' '{"name": "x", "dependencies": {"generated": "exec:./generate.js"}}' >node_modules/x/package.json
+mock_command npm "ci --ignore-scripts" ""
+
+When call run_install_node "npm"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
+End
+
 # Archives install without a build: a registry tarball, one whose package name holds .git, and a
 # release archive deeper in a Git host than an owner and a repository.
 Describe "a lockfile of archives"
