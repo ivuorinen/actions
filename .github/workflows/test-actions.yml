@@ -22,7 +22,7 @@ on:
       - 'pyproject.toml'
       - 'uv.lock'
       # The README catalog generator, and the root npm lock setup-test-environment installs.
-      - 'generate_listing.cjs'
+      - 'generate_listing.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/actions/setup-test-environment/**'
@@ -44,7 +44,7 @@ on:
       - 'Makefile'
       - 'pyproject.toml'
       - 'uv.lock'
-      - 'generate_listing.cjs'
+      - 'generate_listing.mjs'
       - 'package.json'
       - 'package-lock.json'
       - '.github/actions/setup-test-environment/**'

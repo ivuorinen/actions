@@ -4,8 +4,8 @@
   "private": true,
   "description": "GitHub Actions monorepo with reusable actions",
   "scripts": {
-    "generate-catalog": "node generate_listing.cjs",
-    "update-catalog": "node generate_listing.cjs --update",
+    "generate-catalog": "node generate_listing.mjs",
+    "update-catalog": "node generate_listing.mjs --update",
     "lint": "npm run lint:markdown && npm run lint:yaml",
     "lint:markdown": "markdownlint-cli2 '**/*.md' '#node_modules'",
     "lint:yaml": "yaml-lint '**/*.yml' '**/*.yaml'",

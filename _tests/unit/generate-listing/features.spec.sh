@@ -1,11 +1,11 @@
 #!/usr/bin/env shellspec
-# Unit tests for the feature columns generate_listing.cjs writes into the README catalog.
+# Unit tests for the feature columns generate_listing.mjs writes into the README catalog.
 #
 # A feature has to come from what an action does or documents, read from its parsed
 # action.yml: a comment, a step's text or a setting that turns a cache off says nothing.
 
-Describe "generate_listing.cjs features"
-GENERATOR="${PROJECT_ROOT}/generate_listing.cjs"
+Describe "generate_listing.mjs features"
+GENERATOR="${PROJECT_ROOT}/generate_listing.mjs"
 FIX_ROOT="${SHELLSPEC_TMPBASE}/generate-listing"
 
 # write_action NAME: an action whose action.yml is read from stdin.
@@ -14,10 +14,25 @@ write_action() {
   cat >"$FIX_ROOT/$1/action.yml"
 }
 
-# features DIR: the features the catalog lists for the action in DIR, comma separated.
+# features DIR: the features the catalog lists for the action in DIR, comma separated. They are
+# its Key Features cell in the quick reference the generator prints for the directory DIR is in,
+# where "-" stands for none. It fails when the generator fails or lists no such action.
 features() {
-  node -e 'console.log(require(process.argv[1]).getActionDetails(process.argv[2]).features.join(","))' \
-    "$GENERATOR" "$1"
+  local name catalog
+  name=$(basename "$1")
+  catalog=$(cd "$(dirname "$1")" && node "$GENERATOR") || return 1
+  printf '%s\n' "$catalog" | awk -F'|' -v action="[\`$name\`][$name]" '
+    { gsub(/^ +| +$/, "", $3) }
+    $3 == action {
+      found = 1
+      gsub(/^ +| +$/, "", $6)
+      if ($6 == "-") $6 = ""
+      gsub(/, /, ",", $6)
+      print $6
+      exit
+    }
+    END { if (!found) exit 1 }
+  '
 }
 
 It "lists neither feature for a comment, step text or a cache turned off"
@@ -40,6 +55,7 @@ runs:
         no-cache: true
 EOF
 When call features "$FIX_ROOT/quiet"
+The status should be success
 The output should equal ""
 End
 

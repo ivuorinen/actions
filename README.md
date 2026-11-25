@@ -44,7 +44,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |  📝  | [`go-lint`][go-lint]                                 | Linting    | Run golangci-lint with advanced configuration, caching, and ... | Caching, Token auth, Outputs                 |
 |  📝  | [`language-version-detect`][language-version-detect] | Setup      | DEPRECATED: This action is deprecated. Inline version detect... | Auto-detection, Token auth, Outputs          |
 |  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Token auth, Outputs                          |
-|  📦  | [`npm-semantic-release`][npm-semantic-release]       | Other      | Runs semantic-release for automated npm versioning and publi... | Outputs                                      |
+|  📦  | [`npm-semantic-release`][npm-semantic-release]       | Publishing | Runs semantic-release for automated npm versioning and publi... | Outputs                                      |
 |  ✅  | [`php-tests`][php-tests]                             | Testing    | Run PHPUnit tests with optional Laravel setup and Composer d... | Caching, Auto-detection, Token auth, Outputs |
 |  ✅  | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests. Refuses pull_request_... | Caching, Token auth, Outputs                 |
 |  📦  | [`pre-commit`][pre-commit]                           | Linting    | Runs pre-commit on the repository and pushes the fixes back ... | Caching, Token auth, Outputs                 |
@@ -93,13 +93,14 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | 📦 [`docker-build`][docker-build] | Builds a Docker image for multiple architectures w... | Docker    | Caching, Auto-detection, Token auth, Outputs |
 | 📦 [`go-build`][go-build]         | Builds the Go project.                                | Go        | Caching, Token auth, Outputs                 |
 
-#### 🚀 Publishing (3 actions)
+#### 🚀 Publishing (4 actions)
 
-| Action                                | Description                                           | Languages    | Features                     |
-| :------------------------------------ | :---------------------------------------------------- | :----------- | :--------------------------- |
-| 📦 [`csharp-publish`][csharp-publish] | Publishes a C# project to GitHub Packages.            | C#, .NET     | Caching, Token auth, Outputs |
-| ☁️ [`docker-publish`][docker-publish] | Simple wrapper to publish Docker images to GitHub ... | Docker       | Caching, Token auth, Outputs |
-| 📦 [`npm-publish`][npm-publish]       | Publishes the package to the NPM registry with con... | Node.js, npm | Token auth, Outputs          |
+| Action                                            | Description                                           | Languages    | Features                     |
+| :------------------------------------------------ | :---------------------------------------------------- | :----------- | :--------------------------- |
+| 📦 [`csharp-publish`][csharp-publish]             | Publishes a C# project to GitHub Packages.            | C#, .NET     | Caching, Token auth, Outputs |
+| ☁️ [`docker-publish`][docker-publish]             | Simple wrapper to publish Docker images to GitHub ... | Docker       | Caching, Token auth, Outputs |
+| 📦 [`npm-publish`][npm-publish]                   | Publishes the package to the NPM registry with con... | Node.js, npm | Token auth, Outputs          |
+| 📦 [`npm-semantic-release`][npm-semantic-release] | Runs semantic-release for automated npm versioning... | Node.js, npm | Outputs                      |
 
 #### 📦 Repository (5 actions)
 
@@ -169,7 +170,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | Laravel              | [`php-tests`][php-tests]                                                                                                                                           |
 | Markdown             | [`prettier-lint`][prettier-lint]                                                                                                                                   |
 | Multiple Languages   | [`pre-commit`][pre-commit]                                                                                                                                         |
-| Node.js              | [`language-version-detect`][language-version-detect], [`npm-publish`][npm-publish]                                                                                 |
+| Node.js              | [`language-version-detect`][language-version-detect], [`npm-publish`][npm-publish], [`npm-semantic-release`][npm-semantic-release]                                 |
 | PHP                  | [`language-version-detect`][language-version-detect], [`php-tests`][php-tests]                                                                                     |
 | PNG                  | [`compress-images`][compress-images]                                                                                                                               |
 | Python               | [`codeql-analysis`][codeql-analysis], [`language-version-detect`][language-version-detect], [`pre-commit`][pre-commit], [`python-lint-fix`][python-lint-fix]       |
@@ -177,7 +178,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | Terraform            | [`terraform-lint-fix`][terraform-lint-fix]                                                                                                                         |
 | TypeScript           | [`biome-lint`][biome-lint], [`codeql-analysis`][codeql-analysis], [`eslint-lint`][eslint-lint], [`prettier-lint`][prettier-lint]                                   |
 | YAML                 | [`ansible-lint-fix`][ansible-lint-fix], [`prettier-lint`][prettier-lint], [`sync-labels`][sync-labels]                                                             |
-| npm                  | [`npm-publish`][npm-publish]                                                                                                                                       |
+| npm                  | [`npm-publish`][npm-publish], [`npm-semantic-release`][npm-semantic-release]                                                                                       |
 
 ### Action Usage
 

@@ -4,7 +4,9 @@ name: Generated Files
 
 # CodeRabbit skips the files .coderabbit.yaml filters out as generated, so these checks stand in
 # for that review: each file it skips must be one the generator writes, and must match what the
-# generator writes. They are meant to be the branch ruleset's required checks, and a required
+# generator writes. The action catalog in README.md, which the review reads, is checked the same
+# way, since nothing else compares it with the generator. They are meant to be the branch
+# ruleset's required checks, and a required
 # check must report on every pull request, so neither job has a paths filter: a filtered one
 # never reports, and the pull request it skipped could never merge. merge_group is here as in the
 # other gating workflows; GitHub offers merge queues to organization repositories only.
@@ -113,3 +115,19 @@ jobs:
             exit 1
           fi
           echo "Every README the review skips is an action's generated README.md."
+
+      - name: Check the README action catalog
+        # The catalog between README.md's LISTING markers is what generate_listing.mjs writes,
+        # formatted by the pinned prettier, as `make update-catalog` and `make format` leave it.
+        run: |
+          set -eu
+          command -v npx >/dev/null 2>&1 || { echo "::error::npx is required to format the catalog"; exit 1; }
+          command -v git >/dev/null 2>&1 || { echo "::error::git is required to compare the catalog"; exit 1; }
+          make update-catalog
+          npx --no-install prettier --write README.md
+          if ! git diff --quiet -- README.md; then
+            echo "::error::The action catalog in README.md is out of date. Run 'make update-catalog' and commit the result." >&2
+            git diff -- README.md >&2
+            exit 1
+          fi
+          echo "The action catalog in README.md is up to date."
