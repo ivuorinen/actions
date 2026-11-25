@@ -188,6 +188,54 @@ The stdout should include "Dependencies installed successfully"
 End
 End
 
+# A registry package's funding links and deprecation message can name a repository on a Git
+# host; they say nothing about where the package comes from.
+Describe "a registry lockfile whose metadata links to a Git host"
+# This repository's own locks hold GitHub funding links.
+Parameters
+"package-lock.json"
+"eslint-lint/package-lock.json"
+"prettier-lint/package-lock.json"
+End
+
+It "installs from this repository's $1"
+cp "${PROJECT_ROOT}/$1" package-lock.json
+mock_command npm "ci --ignore-scripts" ""
+
+When call run_install_node "npm"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
+End
+
+It "installs despite deprecation messages naming a repository"
+cat >package-lock.json <<'EOF'
+{
+  "packages": {
+    "node_modules/lib": {
+      "version": "1.0.0",
+      "resolved": "https://registry.npmjs.org/lib/-/lib-1.0.0.tgz",
+      "deprecated": "Moved to https://github.com/acme/lib",
+      "funding": {
+        "url": "https://github.com/sponsors/acme"
+      }
+    }
+  }
+}
+EOF
+cat >pnpm-lock.yaml <<'EOF'
+packages:
+  lib@1.0.0:
+    resolution: {integrity: sha512-0123}
+    deprecated: Moved to https://github.com/acme/lib
+EOF
+mock_command npm "ci --ignore-scripts" ""
+
+When call run_install_node "npm"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
+
 Describe "Corepack settings from the checkout"
 Parameters
 "Install Package Manager (Fallback)"

@@ -22,8 +22,21 @@ printf 'Installing dependencies using %s...\n' "$PACKAGE_MANAGER"
 git_ref='git\+[a-z]+://|git://|ssh://|https?://[^[:space:]"#]*\.git([#"[:space:]]|$)'
 git_ref="$git_ref"'|https?://(github\.com|gitlab\.com|bitbucket\.(com|org))/[^/[:space:]"#]+/[^/[:space:]"#]+([#"[:space:]]|$)'
 git_ref="$git_ref"'|#commit=|type: git|(github|gitlab|bitbucket):'
+
+# references LOCKFILE: the lines of LOCKFILE that can say where a dependency comes from. An npm
+# lock also holds each package's funding links and deprecation message, and a pnpm lock its
+# deprecation message, which can name a repository on a Git host for a registry package; npm
+# names a dependency's source only in its resolved and version fields.
+references() {
+  case "$1" in
+  package-lock.json | npm-shrinkwrap.json) grep -E '"(resolved|version)": "' "$1" ;;
+  pnpm-lock.yaml) grep -E -v '^[[:space:]]*deprecated:' "$1" ;;
+  *) cat "$1" ;;
+  esac
+}
+
 for lockfile in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb; do
-  if [ -f "$lockfile" ] && grep -E -q "$git_ref" "$lockfile"; then
+  if [ -f "$lockfile" ] && references "$lockfile" | grep -E -q "$git_ref"; then
     echo "::error::$lockfile names a Git dependency, which is built from its repository with its scripts; the dependencies install only without scripts"
     exit 1
   fi
