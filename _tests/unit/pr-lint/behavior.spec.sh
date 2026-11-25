@@ -170,109 +170,6 @@ The stdout should include "::error::bun.lockb names a Git dependency"
 The stdout should not include "installed anyway"
 End
 
-# Yarn runs an exec: dependency's generator while it fetches, and to resolve one the lockfile
-# lacks, so a lockfile or any manifest of the repository that names one stops the install.
-Describe "an exec: dependency"
-# run_install_yarn: the install script run as the step runs it, for Yarn 4, with the real node
-# reading the manifests, which the harness would answer with a mock. A stub yarn reports the
-# version and echoes any other call.
-run_install_yarn() {
-  mkdir -p .stub
-  printf '%s\n' '#!/bin/sh' 'if [ "$1" = --version ]; then echo 4.9.2; else echo "yarn ran: $*"; fi' >.stub/yarn
-  chmod +x .stub/yarn
-  [ -f package.json ] || printf '%s\n' '{"name": "app"}' >package.json
-  PACKAGE_MANAGER=yarn PATH="$PWD/.stub:$PATH" sh "${ACTION_DIR}/install_node_dependencies.sh"
-}
-
-It "stops the install for one in yarn.lock"
-printf '%s\n' '"generated@exec:./generate.js::locator=app%40workspace%3A.":' \
-  '  resolution: "generated@exec:./generate.js#./generate.js::hash=0123&locator=app%40workspace%3A."' >yarn.lock
-
-When call run_install_yarn
-The status should be failure
-The stdout should include "::error::yarn.lock names an exec: dependency"
-The stdout should not include "yarn ran: install"
-End
-
-# Each manifest is read as JSON, so a value counts once decoded: minified, after a line break,
-# or written with a \u escape.
-Describe "one only the manifest names"
-Parameters
-'{"name": "app", "dependencies": {"generated": "exec:./generate.js"}}'
-'{"name":"app","dependencies":{"generated":"exec:./generate.js"}}'
-'{"name": "app", "devDependencies": {"generated": "\u0065xec:./generate.js"}}'
-'{"name": "app", "resolutions": {"generated": "exec:./generate.js"}}'
-End
-
-It "stops the install for $1"
-printf '%s\n' "$1" >package.json
-
-When call run_install_yarn
-The status should be failure
-The stdout should include "::error::./package.json names an exec: dependency"
-The stdout should not include "yarn ran: install"
-End
-End
-
-It "stops the install for one whose value follows a line break"
-printf '{"name": "app", "dependencies": {"generated":\n  "exec:./generate.js"}}\n' >package.json
-
-When call run_install_yarn
-The status should be failure
-The stdout should include "::error::./package.json names an exec: dependency"
-The stdout should not include "yarn ran: install"
-End
-
-# A key is no dependency source, and a manifest Yarn cannot parse resolves nothing.
-Describe "a manifest naming no exec: dependency"
-Parameters
-'{"name": "app", "scripts": {"exec:lint": "eslint ."}}'
-'{"name":"app","scripts":{"lint":"eslint .","exec:lint":"eslint ."}}'
-'{"name": "app", "dependencies": {"generated": "exec:./generate.js"'
-End
-
-It "installs for $1"
-printf '%s\n' "$1" >package.json
-
-When call run_install_yarn
-The status should be success
-The stdout should include "yarn ran: install --immutable --mode=skip-build"
-The stdout should include "Dependencies installed successfully"
-End
-End
-
-It "stops the install for one a workspace's manifest names"
-mkdir -p packages/a
-printf '%s\n' '{"name": "a", "dependencies": {"generated": "exec:./generate.js"}}' >packages/a/package.json
-
-When call run_install_yarn
-The status should be failure
-The stdout should include "::error::./packages/a/package.json names an exec: dependency"
-The stdout should not include "yarn ran: install"
-End
-
-# A check that could not run is no pass: the harness's node fails here, as a broken one would.
-It "stops the install when the manifests cannot be read"
-mock_command node "*" "" 1
-mock_command yarn "*" "installed anyway"
-
-When call run_install_node "yarn"
-The status should be failure
-The stdout should include "::error::The manifests could not be read for exec: dependencies"
-The stdout should not include "installed anyway"
-End
-
-# An installed package's manifest is not the repository's: it was resolved from a lockfile.
-It "installs when only an installed package's manifest names one"
-mkdir -p node_modules/x
-printf '%s\n' '{"name": "x", "dependencies": {"generated": "exec:./generate.js"}}' >node_modules/x/package.json
-
-When call run_install_yarn
-The status should be success
-The stdout should include "yarn ran: install --immutable --mode=skip-build"
-End
-End
-
 # Archives install without a build: a registry tarball, one whose package name holds .git, and a
 # release archive deeper in a Git host than an owner and a repository.
 Describe "a lockfile of archives"
@@ -364,10 +261,7 @@ Parameters
 "10.0.0" "install --immutable --mode=skip-build"
 End
 
-# The harness answers node, which reads the manifests for exec: dependencies, with a mock that
-# finds none; "an exec: dependency" runs the real one.
 It "uses the flags yarn $1 understands"
-mock_command node "*" ""
 mock_command yarn "--version" "$1"
 mock_command yarn "$2" ""
 
@@ -386,7 +280,6 @@ Parameters
 End
 
 It "refuses yarn $1, which cannot skip builds"
-mock_command node "*" ""
 mock_command yarn "--version" "$1"
 
 When call run_install_node "yarn"

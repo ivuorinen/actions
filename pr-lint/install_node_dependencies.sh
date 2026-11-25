@@ -4,8 +4,12 @@
 # repository. pr-lint, eslint-lint and prettier-lint each ship this file unchanged, as their
 # specs check, and run it with sh.
 #
-# Yarn's yarnPath and plugins settings still load code from the checkout: `yarn install` has
-# no flag to skip plugins, and ignoring yarnPath breaks projects that pin Yarn with it.
+# What it keeps from running is third-party code: the dependencies' lifecycle scripts, and the
+# builds of Git dependencies. The repository's own code runs in these lint steps anyway, as the
+# lint tools load its config files, so code from the checkout is not refused here: Yarn's
+# yarnPath and plugins settings load it, as does an exec: dependency, whose generator Yarn runs
+# whatever the install flags. `yarn install` has no flag to skip plugins, and ignoring yarnPath
+# breaks projects that pin Yarn with it.
 set -eu
 
 printf 'Installing dependencies using %s...\n' "$PACKAGE_MANAGER"
@@ -59,49 +63,6 @@ yarn)
     echo "::error::yarn is required to install dependencies"
     exit 1
   }
-  command -v node >/dev/null 2>&1 || {
-    echo "::error::node is required to read the manifests"
-    exit 1
-  }
-  # Yarn 2+ fetches an exec: dependency by running its generator script from the checkout, which
-  # no install flag skips, and it runs the generator to resolve one the lockfile lacks before
-  # --immutable can fail the install. So yarn.lock and every manifest in the checkout are read;
-  # installed packages and Yarn's own files are not the repository's manifests. Each manifest is
-  # parsed as JSON, as Yarn reads it, so a value is checked once decoded, however it is written.
-  # find reads a pair of braces anywhere in the script as its placeholder, so the script has none,
-  # and a find or node that fails stops the install rather than passing the check.
-  exec_source=
-  if [ -f yarn.lock ] && grep -E -q '@exec:' yarn.lock; then
-    exec_source=yarn.lock
-  else
-    exec_found=$(find . \( -name node_modules -o -name .git -o -name .yarn \) -prune -o \
-      -name package.json -type f -exec node -e '
-const fs = require("node:fs");
-const fields = ["dependencies", "devDependencies", "optionalDependencies", "peerDependencies", "resolutions"];
-const execSpec = spec => typeof spec === "string" && spec.trim().startsWith("exec:");
-for (const file of process.argv.slice(1)) {
-  let manifest;
-  try {
-    manifest = JSON.parse(fs.readFileSync(file, "utf8"));
-  } catch {
-    // Yarn cannot read it either, so it resolves nothing from it.
-    continue;
-  }
-  if (fields.some(field => Object.values(manifest?.[field] || []).some(execSpec))) {
-    console.log(file);
-    break;
-  }
-}' {} +) || {
-      echo "::error::The manifests could not be read for exec: dependencies"
-      exit 1
-    }
-    # Each batch find hands node names its first match, if any.
-    exec_source=$(printf '%s\n' "$exec_found" | head -n 1)
-  fi
-  if [ -n "$exec_source" ]; then
-    echo "::error::$exec_source names an exec: dependency, which Yarn builds by running its generator script; the dependencies install only without scripts"
-    exit 1
-  fi
   # The running Yarn decides the flags, so a Yarn 2+ project needs no .yarnrc.yml: each
   # generation names its frozen-lockfile and script-skipping flags differently. Yarn 2.4.0 added
   # --skip-builds, and 2.0 to 2.3 have no way to install without builds.
