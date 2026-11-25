@@ -143,6 +143,8 @@ Parameters
 "yarn" "yarn.lock" '  resolved "https://example.org/lib.git#0123abc"'
 "yarn" "yarn.lock" '"lib@https://github.com/acme/lib":'
 "npm" "package-lock.json" '"resolved": "ssh://git@example.org/acme/lib.git#0123abc"'
+"npm" "package-lock.json" '{"packages":{"node_modules/lib":{"version":"1.0.0","resolved":"git+https://example.com/team/lib.git#abcdef"}}}'
+"npm" "package-lock.json" '"resolved" : "git+https://example.com/team/lib.git#abcdef"'
 "bun" "bun.lock" '    "lib": ["lib@github:acme/lib#0123abc", {}],'
 End
 
@@ -175,6 +177,7 @@ Parameters
 "package-lock.json" '"resolved": "https://registry.npmjs.org/lib/-/lib-1.0.0.tgz"'
 "package-lock.json" '"resolved": "https://registry.npmjs.org/x.github/-/x.github-1.0.0.tgz"'
 "package-lock.json" '"resolved": "https://github.com/acme/lib/archive/v1.0.0.tar.gz"'
+"package-lock.json" '{"packages":{"node_modules/lib":{"version":"1.0.0","resolved":"https://registry.npmjs.org/lib/-/lib-1.0.0.tgz","funding":{"url":"https://github.com/sponsors/acme"}}}}'
 "yarn.lock" '  resolved "https://registry.yarnpkg.com/lib/-/lib-1.0.0.tgz#0123abc"'
 End
 

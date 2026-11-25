@@ -26,10 +26,12 @@ git_ref="$git_ref"'|#commit=|type: git|(github|gitlab|bitbucket):'
 # references LOCKFILE: the lines of LOCKFILE that can say where a dependency comes from. An npm
 # lock also holds each package's funding links and deprecation message, and a pnpm lock its
 # deprecation message, which can name a repository on a Git host for a registry package; npm
-# names a dependency's source only in its resolved and version fields.
+# names a dependency's source only in its resolved and version fields. Splitting the JSON at
+# its commas and braces puts each field on a line of its own, however npm formatted the file:
+# format-package-lock=false writes it on one line.
 references() {
   case "$1" in
-  package-lock.json | npm-shrinkwrap.json) grep -E '"(resolved|version)": "' "$1" ;;
+  package-lock.json | npm-shrinkwrap.json) tr ',{}' '[\n*]' <"$1" | grep -E '"(resolved|version)"[[:space:]]*:' ;;
   pnpm-lock.yaml) grep -E -v '^[[:space:]]*deprecated:' "$1" ;;
   *) cat "$1" ;;
   esac
