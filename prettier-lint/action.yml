@@ -38,7 +38,7 @@ inputs:
     required: false
     default: '.prettierignore'
   file-pattern:
-    description: 'Files to include (glob pattern)'
+    description: 'Files to include (a glob pattern relative to working-directory; no absolute or ~ path, and no .., also none a brace expands to)'
     required: false
     default: '**/*.{js,jsx,ts,tsx,css,scss,json,md,yaml,yml}'
   cache:
@@ -154,8 +154,13 @@ runs:
       with:
         node-version: '24'
 
+    # Every step that runs corepack or a pnpm or yarn shim sets COREPACK_ENV_FILE: otherwise
+    # Corepack takes settings, such as the registry it fetches the package manager from and
+    # whether it checks its signature, from a .corepack.env in the checkout.
     - name: Enable Corepack
       shell: sh
+      env:
+        COREPACK_ENV_FILE: '0'
       run: |
         set -eu
         command -v corepack >/dev/null 2>&1 || { echo "::error::corepack is required to enable the package manager"; exit 1; }
@@ -165,6 +170,7 @@ runs:
       id: install-pm
       shell: sh
       env:
+        COREPACK_ENV_FILE: '0'
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         # renovate: datasource=npm depName=pnpm
         PNPM_VERSION: '12.18.0'
@@ -206,53 +212,27 @@ runs:
           ${{ runner.os }}-prettier-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-
           ${{ runner.os }}-prettier-lint-${{ inputs.mode }}-
 
+    # Installed for Prettier to read its plugins and configs, so no install scripts, hooks or
+    # builds run; install_node_dependencies.sh, pr-lint's, says how for each package manager.
     - name: Install Dependencies
       id: install-deps
       if: steps.cache.outputs.cache-hit != 'true'
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        ACTION_PATH: ${{ github.action_path }}
+        # Otherwise Corepack takes settings from a .corepack.env in the checkout.
+        COREPACK_ENV_FILE: '0'
       run: |
         set -eu
-
-        echo "Installing dependencies using $PACKAGE_MANAGER..."
-
-        case "$PACKAGE_MANAGER" in
-          "pnpm")
-            command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to install dependencies"; exit 1; }
-            pnpm install --frozen-lockfile
-            ;;
-          "yarn")
-            command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
-            # The running Yarn decides the flag, as in Install Prettier Plugins: a Yarn 2+ project needs no .yarnrc.yml.
-            case "$(yarn --version)" in
-              1.*) yarn install --frozen-lockfile ;;
-              *) yarn install --immutable ;;
-            esac
-            ;;
-          "bun")
-            command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
-            bun install --frozen-lockfile
-            ;;
-          "npm"|*)
-            # A repository with no package.json has nothing to install, and npm ci would fail
-            # for it; Prettier then comes from this action's lockfile.
-            if [ ! -f package.json ]; then
-              echo "No package.json: no dependencies to install"
-              exit 0
-            fi
-            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
-            npm ci
-            ;;
-        esac
-
-        echo "✅ Dependencies installed successfully"
+        sh "$ACTION_PATH/install_node_dependencies.sh"
 
     - name: Install Prettier Plugins
       id: install-plugins
       if: inputs.plugins != ''
       shell: sh
       env:
+        COREPACK_ENV_FILE: '0'
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         PLUGINS: ${{ inputs.plugins }}
       run: |
@@ -323,6 +303,7 @@ runs:
       env:
         ACTION_PATH: ${{ github.action_path }}
         CONFIG_FILE: ${{ inputs.config-file }}
+        COREPACK_ENV_FILE: '0'
         IGNORE_FILE: ${{ inputs.ignore-file }}
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
         REQUESTED_VERSION: ${{ inputs.prettier-version }}
@@ -467,6 +448,7 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        COREPACK_ENV_FILE: '0'
         PRETTIER_BIN: ${{ steps.ensure-prettier.outputs.bin }}
         PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
         CONFIG_FILE: ${{ inputs.config-file }}
@@ -585,6 +567,7 @@ runs:
       shell: sh
       working-directory: ${{ inputs.working-directory }}
       env:
+        COREPACK_ENV_FILE: '0'
         PRETTIER_BIN: ${{ steps.ensure-prettier.outputs.bin }}
         PRETTIER_COMMAND: ${{ steps.ensure-prettier.outputs.command }}
         CONFIG_FILE: ${{ inputs.config-file }}

@@ -47,12 +47,24 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
-def _npm_tarball(item: str) -> bool:
-    """Whether npm reads a package spec as a tarball on disk rather than a registry package.
+def _enum(value: str, *allowed: str) -> str | None:
+    """Accept ``value`` iff it is exactly one of ``allowed`` (case-sensitive)."""
+    if _skip(value) or value in allowed:
+        return None
+    return "must be one of: " + ", ".join(allowed)
 
-    It does for one ending in .tgz, .tar.gz or .tar (npm-package-arg's isFilespec).
+
+def _int_in_range(value: str, low: int, high: int) -> str | None:
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
     """
-    return re.search(r"\.(?:tgz|tar\.gz|tar)$", item, re.IGNORECASE) is not None
+    if _skip(value):
+        return None
+    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
+        return None
+    return f"must be an integer between {low} and {high}"
 
 
 def _strip_v(version: str) -> str:
@@ -73,26 +85,6 @@ def _is_semver(core: str) -> bool:
         or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
         or re.fullmatch(r"(0|[1-9][0-9]*)", core)
     )
-
-
-def _enum(value: str, *allowed: str) -> str | None:
-    """Accept ``value`` iff it is exactly one of ``allowed`` (case-sensitive)."""
-    if _skip(value) or value in allowed:
-        return None
-    return "must be one of: " + ", ".join(allowed)
-
-
-def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is plain digits within ``[low, high]``.
-
-    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
-    integer test errors, and inside a ``while`` condition that error just ends the loop.
-    """
-    if _skip(value):
-        return None
-    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
-        return None
-    return f"must be an integer between {low} and {high}"
 
 
 def _shell_meta_error(value: str) -> str | None:
@@ -126,6 +118,76 @@ def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     if re.fullmatch(f"{chars}( +{chars})*" if spaces else chars, value):
         return None
     return "contains invalid path characters"
+
+
+def _first_brace_pair(text: str) -> tuple[int, int] | None:
+    """Return the start and end of the closed brace pair that opens first, or None.
+
+    One pass pairs each closing brace with the nearest open one before it, so a run of unclosed
+    braces is read once rather than once for each of them.
+    """
+    opened: list[int] = []
+    first: tuple[int, int] | None = None
+    for index, char in enumerate(text):
+        if char == "{":
+            opened.append(index)
+        elif char == "}" and opened:
+            start = opened.pop()
+            if first is None or start < first[0]:
+                first = (start, index)
+    return first
+
+
+def _brace_group(text: str) -> tuple[int, int, list[str]] | None:
+    """Return the start, end and top-level alternatives of the first closed brace group, or None.
+
+    An unclosed brace groups nothing and stays literal.
+    """
+    pair = _first_brace_pair(text)
+    if pair is None:
+        return None
+    start, end = pair
+    # Every brace between the pair is paired too, so depth 0 is the group's own level.
+    depth, begin, alternatives = 0, start + 1, []
+    for index in range(start + 1, end):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+        elif text[index] == "," and depth == 0:
+            alternatives.append(text[begin:index])
+            begin = index + 1
+    alternatives.append(text[begin:end])
+    return start, end, alternatives
+
+
+def _brace_expansions(item: str, limit: int = 256) -> list[str] | None:
+    """Return each brace expansion of a glob item, or None when it has more than ``limit``.
+
+    ``{/etc,src}/x`` expands to ``/etc/x`` and ``src/x``, and ``{.,a}./x`` to ``../x`` and
+    ``a./x``. The expansion is iterative, so however deep the braces nest, it cannot exhaust
+    the stack.
+    """
+    done, pending = [], [item]
+    while pending:
+        text = pending.pop()
+        group = _brace_group(text)
+        if group is None:
+            done.append(text)
+        else:
+            start, end, alternatives = group
+            pending.extend(text[:start] + alt + text[end + 1 :] for alt in alternatives)
+        if len(done) + len(pending) > limit:
+            return None
+    return done
+
+
+def _npm_tarball(item: str) -> bool:
+    """Whether npm reads a package spec as a tarball on disk rather than a registry package.
+
+    It does for one ending in .tgz, .tar.gz or .tar (npm-package-arg's isFilespec).
+    """
+    return re.search(r"\.(?:tgz|tar\.gz|tar)$", item, re.IGNORECASE) is not None
 
 
 def check_boolean(value: str) -> str | None:
@@ -195,9 +257,12 @@ def check_numeric_range_1_10(value: str) -> str | None:
 
 
 def check_path_list(value: str) -> str | None:
-    """Comma-separated paths/globs — blocks injection characters, ``..`` and a leading ``-``.
+    """Comma-separated paths/globs below the workspace.
 
-    A comma inside braces belongs to the glob (``src/{a,-b}.js``), so it does not separate items.
+    Blocks injection characters, a leading ``-``, and ``..`` or an absolute or ``~`` path in
+    any brace expansion (``{/etc,src}``, ``{.,a}./x``): a tool in fix mode writes to what the
+    globs match. A comma inside braces belongs to the glob (``src/{a,-b}.js``), so it does not
+    separate items.
     """
     if _skip(value):
         return None
@@ -208,10 +273,16 @@ def check_path_list(value: str) -> str | None:
             continue
         if item.startswith("-"):
             return f"must not start with -: {item}"
-        if ".." in item:
-            return f"path traversal (..) is not allowed: {item}"
         if not re.fullmatch(r"[a-zA-Z0-9_\-./*?\[\]{},@~+]+", item):
             return f"invalid path or glob: {item}"
+        expansions = _brace_expansions(item)
+        if expansions is None:
+            return f"too many brace expansions: {item}"
+        for expanded in expansions:
+            if expanded.startswith(("/", "~")):
+                return f"must be relative to the workspace, without ~: {item}"
+            if ".." in expanded:
+                return f"path traversal (..) is not allowed: {item}"
     return None
 
 

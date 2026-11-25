@@ -172,17 +172,20 @@ runs:
         tflint_version: ${{ inputs.tflint-version || env.DEFAULT_TFLINT_VERSION }}
 
     # Without a TFLINT_PLUGIN_DIR, TFLint installs plugins under the runner user's home, which
-    # self-hosted runners share between jobs. The Initialize and Run steps get a directory of the
-    # action's own that Cleanup can delete safely; a step output keeps it out of the caller's later
-    # steps. A plugin_dir set in the TFLint config still takes precedence, as TFLint documents, and
-    # those plugins stay where the config put them.
+    # self-hosted runners share between jobs. The Initialize and Run steps get a new directory of
+    # the action's own, with a name nothing could know in advance, so nothing could make it or fill
+    # it with plugin executables before TFLint loads them, as it could a fixed path; Cleanup can
+    # delete it safely, and a step output keeps it out of the caller's later steps. A plugin_dir set in the TFLint config still
+    # takes precedence, as TFLint documents, and those plugins stay where the config put them.
     - name: Isolate TFLint Plugins
       id: plugin-dir
       if: steps.check-files.outputs.found == 'true'
       shell: sh
       run: |
         set -eu
-        printf 'dir=%s\n' "$RUNNER_TEMP/tflint-plugins" >> "$GITHUB_OUTPUT"
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to isolate TFLint plugins"; exit 1; }
+        dir=$(mktemp -d "${RUNNER_TEMP:?}/terraform-lint-fix-plugins.XXXXXX")
+        printf 'dir=%s\n' "$dir" >> "$GITHUB_OUTPUT"
 
     - name: Initialize TFLint
       if: steps.check-files.outputs.found == 'true'
@@ -347,14 +350,16 @@ runs:
       shell: sh
       env:
         REPORTS_DIR: ${{ steps.lint.outputs.reports_dir }}
+        # The directory Isolate TFLint Plugins made, never TFLINT_PLUGIN_DIR: a caller may have set that
+        PLUGIN_DIR: ${{ steps.plugin-dir.outputs.dir }}
       run: |-
         set -eu
 
-        # Remove temporary files; empty when the lint step never ran. Nothing
+        # Remove temporary files; each is empty when its step never ran. Nothing
         # here creates .terraform, so the workspace is left alone.
         if [ -n "$REPORTS_DIR" ]; then
           rm -rf "$REPORTS_DIR"
         fi
-
-        # The path Isolate TFLint Plugins exports, never TFLINT_PLUGIN_DIR: a caller may have set that
-        rm -rf "$RUNNER_TEMP/tflint-plugins"
+        if [ -n "$PLUGIN_DIR" ]; then
+          rm -rf "$PLUGIN_DIR"
+        fi

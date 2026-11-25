@@ -1,0 +1,10 @@
+{
+  "name": "@ivuorinen/actions-compress-images-tools",
+  "version": "1.0.0",
+  "private": true,
+  "description": "The sharp compress-images installs with npm ci to compress the images",
+  "license": "MIT",
+  "dependencies": {
+    "sharp": "0.35.5"
+  }
+}

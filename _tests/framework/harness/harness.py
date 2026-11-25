@@ -293,6 +293,14 @@ for m in mocks:
     if m["command"] != cmd:
         continue
     if fnmatch.fnmatchcase(argv_joined, m["argv_glob"]):
+        # A successful call writes the file a tool would at an OPTION=PATH argument, such as
+        # buildx's --metadata-file, which the step may have named with mktemp.
+        option = os.environ.get("HARNESS_MOCK_WRITES_OPTION", "")
+        if option and int(m.get("exit", 0)) == 0:
+            for arg in sys.argv[3:]:
+                if arg.startswith(option + "="):
+                    with open(arg[len(option) + 1:], "w", encoding="utf-8") as out:
+                        out.write(os.environ.get("HARNESS_MOCK_WRITES_CONTENT", ""))
         sys.stdout.write(m.get("stdout", ""))
         if m.get("stdout") and not m["stdout"].endswith("\\n"):
             sys.stdout.write("\\n")

@@ -64,32 +64,70 @@ The status should be success
 The stdout should include "No package.json: no dependencies to install"
 End
 
-It "installs a repository's npm dependencies with npm ci"
+# Installed for Prettier to read, so the repository's install scripts never run.
+It "installs a repository's npm dependencies with npm ci, without install scripts"
 printf '%s\n' '{"name": "app"}' >package.json
-mock_command npm "ci" ""
+mock_command npm "ci --ignore-scripts" ""
 When call run_step "${ACTION_DIR}" "install-deps"
 The status should be success
 The stdout should include "Dependencies installed successfully"
 End
 
-# The running Yarn picks the flag; only the expected install call is mocked, so another fails.
-It "installs with --frozen-lockfile under Yarn 1"
+# The running Yarn picks the flags; only the expected install call is mocked, so another fails.
+It "installs with --frozen-lockfile under Yarn 1, without install scripts"
+printf '%s\n' '{"name": "app"}' >package.json
 export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"yarn"}}}'
 mock_command yarn "--version" "1.22.22"
-mock_command yarn "install --frozen-lockfile" ""
+mock_command yarn "install --frozen-lockfile --ignore-scripts" ""
 When call run_step "${ACTION_DIR}" "install-deps"
 The status should be success
 The stdout should include "Dependencies installed successfully"
 End
 
 # No .yarnrc.yml: a Yarn 4 project can pin Yarn through packageManager alone.
-It "installs with --immutable under Yarn 2+, without a .yarnrc.yml"
+It "installs with --immutable under Yarn 2+, without a .yarnrc.yml or builds"
+printf '%s\n' '{"name": "app"}' >package.json
 export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"yarn"}}}'
 mock_command yarn "--version" "4.18.1"
-mock_command yarn "install --immutable" ""
+mock_command yarn "install --immutable --mode=skip-build" ""
 When call run_step "${ACTION_DIR}" "install-deps"
 The status should be success
 The stdout should include "Dependencies installed successfully"
+End
+
+It "installs with bun without install scripts"
+printf '%s\n' '{"name": "app"}' >package.json
+export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"bun"}}}'
+mock_command bun "install --frozen-lockfile --ignore-scripts" ""
+When call run_step "${ACTION_DIR}" "install-deps"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
+
+# pr-lint's spec tests every branch of the shared script.
+It "ships pr-lint's install_node_dependencies.sh unchanged"
+When call cmp "${ACTION_DIR}/install_node_dependencies.sh" "${PROJECT_ROOT}/pr-lint/install_node_dependencies.sh"
+The status should be success
+End
+
+End
+
+# Corepack loads a .corepack.env from the checkout in every step that runs corepack or a
+# pnpm or yarn shim, and it can name the registry and turn off the signature check.
+Describe "Corepack settings from the checkout"
+Parameters
+"Enable Corepack"
+"Install Package Manager"
+"Install Dependencies"
+"Install Prettier Plugins"
+"Ensure Prettier"
+"Run Prettier Check"
+"Run Prettier Fix"
+End
+
+It "are ignored in $1"
+When call step_value "$ACTION_DIR" "$1" env.COREPACK_ENV_FILE
+The output should equal "0"
 End
 End
 End

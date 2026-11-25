@@ -47,39 +47,11 @@ def _split_items(value: str, separators: str = ",", *, globs: bool = False) -> l
     return [part.strip(" \t") for part in parts]
 
 
-def _strip_v(version: str) -> str:
-    """Return version without one leading ``v`` or ``V``."""
-    return version[1:] if version[:1] in ("v", "V") else version
-
-
-def _is_semver(core: str) -> bool:
-    """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
-    full = (
-        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
-        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
-        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
-        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
-    )
-    return bool(
-        re.fullmatch(full, core)
-        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
-        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
-    )
-
-
 def _enum(value: str, *allowed: str) -> str | None:
     """Accept ``value`` iff it is exactly one of ``allowed`` (case-sensitive)."""
     if _skip(value) or value in allowed:
         return None
     return "must be one of: " + ", ".join(allowed)
-
-
-def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> list[str]:
-    """Return the comma-split items of value not in allowed (optionally case-folded)."""
-    items = _split_items(value)
-    if fold:
-        items = [item.lower() for item in items]
-    return [item for item in items if item and item not in allowed]
 
 
 def _int_in_range(value: str, low: int, high: int) -> str | None:
@@ -101,6 +73,34 @@ def _is_docker_tag(tag: str) -> bool:
     A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``.
     """
     return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
+
+
+def _strip_v(version: str) -> str:
+    """Return version without one leading ``v`` or ``V``."""
+    return version[1:] if version[:1] in ("v", "V") else version
+
+
+def _is_semver(core: str) -> bool:
+    """Return True if core is a semantic version: X.Y.Z[-pre][+build], or partial X.Y / X."""
+    full = (
+        r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)"
+        r"(?:-(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*)"
+        r"(?:\.(?:0|[1-9][0-9]*|[0-9]*[A-Za-z-][0-9A-Za-z-]*))*)?"
+        r"(?:\+[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?"
+    )
+    return bool(
+        re.fullmatch(full, core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
+        or re.fullmatch(r"(0|[1-9][0-9]*)", core)
+    )
+
+
+def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> list[str]:
+    """Return the comma-split items of value not in allowed (optionally case-folded)."""
+    items = _split_items(value)
+    if fold:
+        items = [item.lower() for item in items]
+    return [item for item in items if item and item not in allowed]
 
 
 def _shell_meta_error(value: str) -> str | None:

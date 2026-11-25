@@ -2,7 +2,7 @@
 
 ![image](https://img.shields.io/badge/icon-image-blue) ![GitHub](https://img.shields.io/badge/GitHub%20Action-%20-blue) ![License](https://img.shields.io/badge/license-MIT-green)
 
-> Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
+> Compress the images in a repository with sharp and open a pull request with the ones that got smaller.
 
 ## 🚀 Quick Start
 
@@ -35,22 +35,22 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                                      | Required | Default                            |
-| ------------------- | ---------------------------------------------------------------- | -------- | ---------------------------------- |
-| `email`             | GitHub email for commits                                         | ❌       | `github-actions@github.com`        |
-| `ignore-paths`      | Paths to ignore during compression (glob patterns)               | ❌       | `node_modules/**,dist/**,build/**` |
-| `image-quality`     | JPEG compression quality (0-100)                                 | ❌       | `85`                               |
-| `png-quality`       | PNG compression quality (0-100)                                  | ❌       | `95`                               |
-| `token`             | GitHub token for authentication. Defaults to the workflow token. | ❌       | -                                  |
-| `username`          | GitHub username for commits                                      | ❌       | `github-actions`                   |
-| `working-directory` | Directory containing images to compress                          | ❌       | `.`                                |
+| Parameter           | Description                                                                                                               | Required | Default                            |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------- | -------- | ---------------------------------- |
+| `email`             | GitHub email for commits                                                                                                  | ❌       | `github-actions@github.com`        |
+| `ignore-paths`      | Paths to ignore during compression (glob patterns, comma-separated, relative to working-directory; no absolute or ~ path) | ❌       | `node_modules/**,dist/**,build/**` |
+| `image-quality`     | JPEG compression quality (1-100)                                                                                          | ❌       | `85`                               |
+| `png-quality`       | PNG compression quality (1-100)                                                                                           | ❌       | `95`                               |
+| `token`             | GitHub token for authentication. Defaults to the workflow token.                                                          | ❌       | -                                  |
+| `username`          | GitHub username for commits                                                                                               | ❌       | `github-actions`                   |
+| `working-directory` | Directory containing images to compress, relative to the workspace                                                        | ❌       | `.`                                |
 
 ## 📤 Outputs
 
-| Parameter            | Description                                  |
-| -------------------- | -------------------------------------------- |
-| `compression_report` | Markdown report of compression results       |
-| `images_compressed`  | Whether any images were compressed (boolean) |
+| Parameter            | Description                                                                |
+| -------------------- | -------------------------------------------------------------------------- |
+| `compression_report` | Markdown report of compression results; empty when no image was compressed |
+| `images_compressed`  | Whether any images were compressed (boolean)                               |
 
 ## 🔐 Permissions
 

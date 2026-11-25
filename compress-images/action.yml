@@ -4,10 +4,10 @@
 #   - pull-requests: write  # Required for creating pull requests
 ---
 #
-# Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).
-# Open a Pull Request if any images can be compressed.
+# Compress the JPEG, PNG, WebP and AVIF images under a directory with sharp, and open a pull
+# request with the files that got smaller.
 name: Compress Images
-description: 'Compress images on demand (workflow_dispatch), and at 11pm every Sunday (schedule).'
+description: 'Compress the images in a repository with sharp and open a pull request with the ones that got smaller.'
 author: Ismo Vuorinen
 
 branding:
@@ -28,29 +28,29 @@ inputs:
     required: false
     default: 'github-actions@github.com'
   working-directory:
-    description: 'Directory containing images to compress'
+    description: 'Directory containing images to compress, relative to the workspace'
     required: false
     default: '.'
   image-quality:
-    description: 'JPEG compression quality (0-100)'
+    description: 'JPEG compression quality (1-100)'
     required: false
     default: '85'
   png-quality:
-    description: 'PNG compression quality (0-100)'
+    description: 'PNG compression quality (1-100)'
     required: false
     default: '95'
   ignore-paths:
-    description: 'Paths to ignore during compression (glob patterns)'
+    description: 'Paths to ignore during compression (glob patterns, comma-separated, relative to working-directory; no absolute or ~ path)'
     required: false
     default: 'node_modules/**,dist/**,build/**'
 
 outputs:
   images_compressed:
     description: 'Whether any images were compressed (boolean)'
-    value: ${{ steps.calibre.outputs.markdown != '' && 'true' || 'false' }}
+    value: ${{ steps.compress.outputs.images_compressed || 'false' }}
   compression_report:
-    description: 'Markdown report of compression results'
-    value: ${{ steps.calibre.outputs.markdown }}
+    description: 'Markdown report of compression results; empty when no image was compressed'
+    value: ${{ steps.compress.outputs.compression_report }}
 
 runs:
   using: composite
@@ -83,7 +83,7 @@ runs:
     - name: Verify Working Directory
       shell: sh
       env:
-        WORKING_DIRECTORY: ${{ inputs.working-directory }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory || '.' }}
       run: |
         set -eu
 
@@ -105,23 +105,43 @@ runs:
             ;;
         esac
 
-    - name: Compress Images
-      id: calibre
-      uses: calibreapp/image-actions@9d037c06280028c110ff61c433ad4dc7d33c3c43 # 1.5.0
+    - name: Setup Node.js
+      uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
-        compressOnly: true
-        githubToken: ${{ inputs.token || github.token }}
-        jpegQuality: ${{ inputs.image-quality }}
-        pngQuality: ${{ inputs.png-quality }}
-        ignorePaths: ${{ inputs.ignore-paths }}
-        workingDirectory: ${{ inputs.working-directory }}
+        node-version: '24'
+
+    # sharp comes from this action's package-lock.json: npm ci installs each package of the
+    # tree at its locked version and integrity hash, with no lifecycle scripts, into a new
+    # prefix under RUNNER_TEMP, outside the checkout, and compress_images.mjs loads it from
+    # there. The step needs no token: it only reads and rewrites files in the checkout.
+    - name: Compress Images
+      id: compress
+      shell: sh
+      env:
+        ACTION_PATH: ${{ github.action_path }}
+        WORKING_DIRECTORY: ${{ inputs.working-directory || '.' }}
+        IMAGE_QUALITY: ${{ inputs.image-quality || '85' }}
+        PNG_QUALITY: ${{ inputs.png-quality || '95' }}
+        IGNORE_PATHS: ${{ inputs.ignore-paths || 'node_modules/**,dist/**,build/**' }}
+      run: |
+        set -eu
+        command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install sharp"; exit 1; }
+        command -v node >/dev/null 2>&1 || { echo "::error::node is required to compress the images"; exit 1; }
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to create the install prefix"; exit 1; }
+        tools=$(mktemp -d "${RUNNER_TEMP:?}/compress-images-tools.XXXXXX")
+        trap 'rm -rf "$tools"' EXIT
+        cp "$ACTION_PATH/package.json" "$ACTION_PATH/package-lock.json" "$tools/"
+        npm ci --prefix "$tools" --ignore-scripts --no-audit --no-fund
+        TOOLS="$tools" node "$ACTION_PATH/compress_images.mjs"
 
     - name: Create New Pull Request If Needed
-      if: steps.calibre.outputs.markdown != ''
+      if: steps.compress.outputs.images_compressed == 'true'
       uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8.1.1
       with:
         token: ${{ inputs.token || github.token }}
         title: 'chore: compress images'
         branch-suffix: timestamp
         commit-message: 'chore: compress images'
-        body: ${{ steps.calibre.outputs.markdown }}
+        author: ${{ format('{0} <{1}>', inputs.username || 'github-actions', inputs.email || 'github-actions@github.com') }}
+        committer: ${{ format('{0} <{1}>', inputs.username || 'github-actions', inputs.email || 'github-actions@github.com') }}
+        body: ${{ steps.compress.outputs.compression_report }}

@@ -91,8 +91,8 @@ SPECS: dict[str, ActionSpec] = {
         "checks": {
             "email": "email",
             "ignore-paths": "path_list",
-            "image-quality": "numeric_range_0_100",
-            "png-quality": "numeric_range_0_100",
+            "image-quality": "numeric_range_1_100",
+            "png-quality": "numeric_range_1_100",
             "token": "github_token",
             "username": "username",
             "working-directory": "file_path",

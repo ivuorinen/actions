@@ -165,6 +165,9 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
   lock entries; the rest of the lock moves only with them. A third-party action's own installs are its own. A
   version the caller names in an input such as `eslint-version` is not in the lock: it installs unlocked, with
   `--ignore-scripts`, into a prefix of its own, and the input's description says so
+- A repository's Node dependencies, which an action installs only for a tool to read, install with no lifecycle
+  scripts, hooks or builds through `install_node_dependencies.sh`, the same file in pr-lint, eslint-lint and
+  prettier-lint
 - A release binary an action downloads, such as security-scan's Gitleaks, Trivy and jactionlint or docker-build's Trivy,
   has its version in a `*_VERSION` env entry with a Renovate comment. The action's `install_tool.py`, the same file in
   each action, installs it only when the archive matches the digest in the action's `tools.sha256`, so a version bump

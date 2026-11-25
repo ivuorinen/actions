@@ -54,20 +54,20 @@ def _enum(value: str, *allowed: str) -> str | None:
     return "must be one of: " + ", ".join(allowed)
 
 
-def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> list[str]:
-    """Return the comma-split items of value not in allowed (optionally case-folded)."""
-    items = _split_items(value)
-    if fold:
-        items = [item.lower() for item in items]
-    return [item for item in items if item and item not in allowed]
-
-
 def _is_docker_tag(tag: str) -> bool:
     """Return True if ``tag`` follows the tag rule of the Distribution reference grammar.
 
     A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``.
     """
     return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
+
+
+def _enum_list(value: str, allowed: tuple[str, ...], *, fold: bool = False) -> list[str]:
+    """Return the comma-split items of value not in allowed (optionally case-folded)."""
+    items = _split_items(value)
+    if fold:
+        items = [item.lower() for item in items]
+    return [item for item in items if item and item not in allowed]
 
 
 def _shell_meta_error(value: str) -> str | None:

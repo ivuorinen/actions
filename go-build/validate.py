@@ -28,6 +28,19 @@ def _skip(value: str) -> bool:
     return value.strip(" \t\n\v\f\r") == ""
 
 
+def _int_in_range(value: str, low: int, high: int) -> str | None:
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
+    if _skip(value):
+        return None
+    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
+        return None
+    return f"must be an integer between {low} and {high}"
+
+
 def _strip_v(version: str) -> str:
     """Return version without one leading ``v`` or ``V``."""
     return version[1:] if version[:1] in ("v", "V") else version
@@ -46,19 +59,6 @@ def _is_semver(core: str) -> bool:
         or re.fullmatch(r"(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)", core)
         or re.fullmatch(r"(0|[1-9][0-9]*)", core)
     )
-
-
-def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is plain digits within ``[low, high]``.
-
-    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
-    integer test errors, and inside a ``while`` condition that error just ends the loop.
-    """
-    if _skip(value):
-        return None
-    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
-        return None
-    return f"must be an integer between {low} and {high}"
 
 
 def _file_path_error(value: str, *, spaces: bool = False) -> str | None:

@@ -43,7 +43,7 @@ SH
 
   (
     cd "$_root/workspace"
-    env HOME="$_root/home" WORKING_DIRECTORY=. CACHE=true REPORTS_DIR="$_reports_dir" \
+    env HOME="$_root/home" WORKING_DIRECTORY=. CACHE=true REPORTS_DIR="$_reports_dir" CONFIG_DIR= \
       sh "$_root/cleanup.sh" >/dev/null 2>&1
   )
   [ -f "$_root/victim/marker" ] && echo "marker survives cleanup: yes" || echo "marker survives cleanup: no"

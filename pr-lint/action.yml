@@ -195,70 +195,20 @@ runs:
         restore-keys: |
           ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-
 
-    # Installed for linters to read, so no scripts have to run. Yarn's yarnPath and
-    # plugins settings still load code from the checkout: `yarn install` has no flag
-    # to skip plugins, and ignoring yarnPath breaks projects that pin Yarn with it.
+    # Installed for linters to read, so no install scripts, hooks or builds run; the shared
+    # install_node_dependencies.sh says how for each package manager.
     - name: Install Node Dependencies
       id: install-node
       if: steps.detect-node.outputs.found == 'true' && steps.node-cache.outputs.cache-hit != 'true'
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
+        ACTION_PATH: ${{ github.action_path }}
         # Otherwise Corepack takes settings from a .corepack.env in the checkout.
         COREPACK_ENV_FILE: '0'
       run: |
         set -eu
-
-        printf 'Installing dependencies using %s...\n' "$PACKAGE_MANAGER"
-
-        case "$PACKAGE_MANAGER" in
-          "pnpm")
-            # pnpm compares the lockfile's pnpmfileChecksum even with the pnpmfile ignored, so
-            # a lockfile recording one fails a frozen install. Only for that error, install
-            # without the frozen check; that drops the checksum, so put the lockfile back
-            # for the steps that lint or commit the tree.
-            command -v pnpm >/dev/null 2>&1 || { echo "::error::pnpm is required to install dependencies"; exit 1; }
-            pnpm_status=0
-            pnpm_output=$(pnpm install --frozen-lockfile --ignore-scripts --ignore-pnpmfile 2>&1) || pnpm_status=$?
-            printf '%s\n' "$pnpm_output"
-            if [ "$pnpm_status" -ne 0 ]; then
-              case "$pnpm_output" in
-                *ERR_PNPM_LOCKFILE_CONFIG_MISMATCH*) ;;
-                *) exit "$pnpm_status" ;;
-              esac
-              command -v git >/dev/null 2>&1 || { echo "::error::git is required to restore pnpm-lock.yaml after the unfrozen install"; exit 1; }
-              pnpm install --no-frozen-lockfile --ignore-scripts --ignore-pnpmfile
-              git checkout -- pnpm-lock.yaml
-            fi
-            ;;
-          "yarn")
-            command -v yarn >/dev/null 2>&1 || { echo "::error::yarn is required to install dependencies"; exit 1; }
-            # Detect Yarn version by checking actual version output: each generation
-            # names its lockfile and script-skipping flags differently.
-            yarn_version=$(yarn --version 2>/dev/null || printf '1.0.0')
-            case "$yarn_version" in
-              1.*)
-                yarn install --frozen-lockfile --ignore-scripts
-                ;;
-              2.*)
-                yarn install --immutable --skip-builds
-                ;;
-              *)
-                yarn install --immutable --mode=skip-build
-                ;;
-            esac
-            ;;
-          "bun")
-            command -v bun >/dev/null 2>&1 || { echo "::error::bun is required to install dependencies"; exit 1; }
-            bun install --frozen-lockfile --ignore-scripts
-            ;;
-          "npm"|*)
-            command -v npm >/dev/null 2>&1 || { echo "::error::npm is required to install dependencies"; exit 1; }
-            npm ci --ignore-scripts
-            ;;
-        esac
-
-        printf '✅ Dependencies installed successfully\n'
+        sh "$ACTION_PATH/install_node_dependencies.sh"
 
     # PHP tests if composer.json exists
     - name: Detect composer.json

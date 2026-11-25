@@ -432,10 +432,15 @@ runs:
         attempt=1
         max_attempts="$MAX_RETRIES"
 
-        # RUNNER_TEMP belongs to this job, so a concurrent build on the same machine cannot replace
-        # the digest read below, as it could in a shared /tmp. The file is read only after a build
-        # succeeds, and buildx rewrites it then, so an earlier attempt's file is never read.
-        metadata_file="$RUNNER_TEMP/docker-build-metadata.json"
+        # A new directory of this step's own, with a name nothing could know in advance, so nothing
+        # could make it or link it elsewhere before buildx writes there, as it could a fixed path.
+        # The file is read only
+        # after a build succeeds, and buildx rewrites it then, so an earlier attempt's file is
+        # never read.
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to hold the build metadata"; exit 1; }
+        metadata_dir=$(mktemp -d "${RUNNER_TEMP:?}/docker-build-metadata.XXXXXX")
+        trap 'rm -rf "$metadata_dir"' EXIT
+        metadata_file="$metadata_dir/metadata.json"
 
         # Whitespace around a value is not part of it: `A=1, B=2`, or the trailing
         # newline of a YAML block scalar.

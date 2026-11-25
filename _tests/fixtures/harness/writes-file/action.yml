@@ -1,0 +1,25 @@
+---
+name: Writes File Fixture
+description: 'Fixture: names a new file for a mocked command to write, then reports what it holds.'
+outputs:
+  content:
+    description: 'what the command wrote, or none'
+    value: ${{ steps.write.outputs.content }}
+
+runs:
+  using: composite
+  steps:
+    - id: write
+      shell: sh
+      run: |
+        set -eu
+        dir=$(mktemp -d)
+        status=0
+        gh report --out="$dir/report.json" || status=$?
+        if [ -f "$dir/report.json" ]; then
+          printf 'content=%s\n' "$(cat "$dir/report.json")" >> "$GITHUB_OUTPUT"
+        else
+          printf 'content=%s\n' "none" >> "$GITHUB_OUTPUT"
+        fi
+        printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+        rm -rf "$dir"

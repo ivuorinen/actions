@@ -231,11 +231,17 @@ runs:
           exit 1
         fi
 
-        # Without a config, write the default to $RUNNER_TEMP. The configured path is
-        # never a write target: this test is also true for a dangling symlink.
+        # Without a config, write the default into a new directory under RUNNER_TEMP, with a name
+        # nothing could know in advance, so nothing could make or fill it first, as it could a
+        # fixed path; golangci-lint
+        # reads the format from the file name, so the directory holds a .yml file. The
+        # configured path is never a write target: this test is also true for a dangling symlink.
         if [ ! -f "$CONFIG_FILE" ]; then
           echo "Creating default golangci-lint configuration..."
-          CONFIG_FILE="$RUNNER_TEMP/golangci-lint-default.yml"
+          command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to write the default configuration"; exit 1; }
+          config_dir=$(mktemp -d "${RUNNER_TEMP:?}/go-lint-config.XXXXXX")
+          printf 'config_dir=%s\n' "$config_dir" >> "$GITHUB_OUTPUT"
+          CONFIG_FILE="$config_dir/golangci-lint-default.yml"
           cat > "$CONFIG_FILE" <<EOF
         version: "2"
 
@@ -385,20 +391,26 @@ runs:
         category: golangci-lint
 
     - name: Cleanup
+      id: cleanup
       if: always()
       shell: sh
       env:
         WORKING_DIRECTORY: ${{ inputs.working-directory }}
         CACHE: ${{ inputs.cache }}
         REPORTS_DIR: ${{ steps.lint.outputs.reports_dir }}
+        CONFIG_DIR: ${{ steps.config.outputs.config_dir }}
       run: |-
         set -eu
 
         cd -- "$WORKING_DIRECTORY"
 
-        # Remove temporary files; empty when the lint step never ran
+        # Remove temporary files; each is empty when its step never ran or, for the
+        # default config, when the repository has its own
         if [ -n "$REPORTS_DIR" ]; then
           rm -rf "$REPORTS_DIR"
+        fi
+        if [ -n "$CONFIG_DIR" ]; then
+          rm -rf "$CONFIG_DIR"
         fi
 
         # Clean cache if not being preserved

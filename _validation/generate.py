@@ -33,28 +33,19 @@ from spec import SPECS
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Preamble helpers in dependency order (a helper's dependencies precede it). Each is emitted
-# only when a selected check (or an already-included helper) references it, so a boolean-only
-# validator stays tiny. Sources are read once here and reused.
-_HELPERS = (
-    "_skip",
-    "_split_items",
-    "_npm_tarball",
-    "_strip_v",
-    "_is_semver",
-    "_enum",
-    "_enum_list",
-    "_int_in_range",
-    "_is_docker_tag",
-    "_shell_meta_error",
-    "_comma_key_value_error",
-    "_file_path_error",
-    "_is_docker_remote_source",
-    "_docker_local_path_error",
-    "_docker_context_runner_path",
-    "_docker_context_source_error",
-    "_docker_entry_error",
-    "_docker_named_sources_error",
+# Preamble helpers: kit's private functions, in kit's source order. Each is emitted only when a
+# selected check (or an included helper) calls it, so a boolean-only validator stays tiny. Taken
+# from kit itself, a helper a new check calls cannot be left out of the validators.
+_HELPERS = tuple(
+    name
+    for _, name in sorted(
+        (obj.__code__.co_firstlineno, name)
+        for name, obj in vars(kit).items()
+        if name.startswith("_")
+        and not name.startswith("__")
+        and inspect.isfunction(obj)
+        and obj.__module__ == kit.__name__
+    )
 )
 _HELPER_SOURCES = {name: inspect.getsource(getattr(kit, name)).strip() for name in _HELPERS}
 
@@ -144,15 +135,19 @@ def _check_name(check_type: str) -> str:
 def _needed_helpers(sources: list[str]) -> list[str]:
     """Return the preamble helpers transitively referenced by the given source blocks.
 
-    ``_HELPERS`` is in dependency order, so one reverse pass settles the set: a helper is
-    included when a check references it directly, or when an already-included helper (a
-    dependent, seen earlier in reverse) references it.
+    A helper is included when a check calls it, or when an included helper does; the set grows
+    until no helper adds another. Every definition runs before any check is called, so the
+    order the helpers are emitted in does not matter for correctness.
     """
-    blob = "\n".join(sources)
+    texts = list(sources)
     needed: set[str] = set()
-    for name in reversed(_HELPERS):
-        if f"{name}(" in blob or any(f"{name}(" in _HELPER_SOURCES[other] for other in needed):
-            needed.add(name)
+    while added := {
+        name
+        for name in _HELPERS
+        if name not in needed and any(f"{name}(" in text for text in texts)
+    }:
+        needed |= added
+        texts.extend(_HELPER_SOURCES[name] for name in added)
     return [name for name in _HELPERS if name in needed]
 
 

@@ -93,6 +93,68 @@ def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     return "contains invalid path characters"
 
 
+def _first_brace_pair(text: str) -> tuple[int, int] | None:
+    """Return the start and end of the closed brace pair that opens first, or None.
+
+    One pass pairs each closing brace with the nearest open one before it, so a run of unclosed
+    braces is read once rather than once for each of them.
+    """
+    opened: list[int] = []
+    first: tuple[int, int] | None = None
+    for index, char in enumerate(text):
+        if char == "{":
+            opened.append(index)
+        elif char == "}" and opened:
+            start = opened.pop()
+            if first is None or start < first[0]:
+                first = (start, index)
+    return first
+
+
+def _brace_group(text: str) -> tuple[int, int, list[str]] | None:
+    """Return the start, end and top-level alternatives of the first closed brace group, or None.
+
+    An unclosed brace groups nothing and stays literal.
+    """
+    pair = _first_brace_pair(text)
+    if pair is None:
+        return None
+    start, end = pair
+    # Every brace between the pair is paired too, so depth 0 is the group's own level.
+    depth, begin, alternatives = 0, start + 1, []
+    for index in range(start + 1, end):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+        elif text[index] == "," and depth == 0:
+            alternatives.append(text[begin:index])
+            begin = index + 1
+    alternatives.append(text[begin:end])
+    return start, end, alternatives
+
+
+def _brace_expansions(item: str, limit: int = 256) -> list[str] | None:
+    """Return each brace expansion of a glob item, or None when it has more than ``limit``.
+
+    ``{/etc,src}/x`` expands to ``/etc/x`` and ``src/x``, and ``{.,a}./x`` to ``../x`` and
+    ``a./x``. The expansion is iterative, so however deep the braces nest, it cannot exhaust
+    the stack.
+    """
+    done, pending = [], [item]
+    while pending:
+        text = pending.pop()
+        group = _brace_group(text)
+        if group is None:
+            done.append(text)
+        else:
+            start, end, alternatives = group
+            pending.extend(text[:start] + alt + text[end + 1 :] for alt in alternatives)
+        if len(done) + len(pending) > limit:
+            return None
+    return done
+
+
 def check_email(value: str) -> str | None:
     """Email address."""
     if _skip(value):
@@ -135,15 +197,18 @@ def check_github_token(value: str) -> str | None:
     return "must be a GitHub token (ghp_/gho_/ghu_/ghs_/ghr_/ghe_/github_pat_)"
 
 
-def check_numeric_range_0_100(value: str) -> str | None:
-    """Integer in [0, 100] (e.g. image quality percentage)."""
-    return _int_in_range(value, 0, 100)
+def check_numeric_range_1_100(value: str) -> str | None:
+    """Integer in [1, 100] (image quality, which sharp takes from 1)."""
+    return _int_in_range(value, 1, 100)
 
 
 def check_path_list(value: str) -> str | None:
-    """Comma-separated paths/globs — blocks injection characters, ``..`` and a leading ``-``.
+    """Comma-separated paths/globs below the workspace.
 
-    A comma inside braces belongs to the glob (``src/{a,-b}.js``), so it does not separate items.
+    Blocks injection characters, a leading ``-``, and ``..`` or an absolute or ``~`` path in
+    any brace expansion (``{/etc,src}``, ``{.,a}./x``): a tool in fix mode writes to what the
+    globs match. A comma inside braces belongs to the glob (``src/{a,-b}.js``), so it does not
+    separate items.
     """
     if _skip(value):
         return None
@@ -154,10 +219,16 @@ def check_path_list(value: str) -> str | None:
             continue
         if item.startswith("-"):
             return f"must not start with -: {item}"
-        if ".." in item:
-            return f"path traversal (..) is not allowed: {item}"
         if not re.fullmatch(r"[a-zA-Z0-9_\-./*?\[\]{},@~+]+", item):
             return f"invalid path or glob: {item}"
+        expansions = _brace_expansions(item)
+        if expansions is None:
+            return f"too many brace expansions: {item}"
+        for expanded in expansions:
+            if expanded.startswith(("/", "~")):
+                return f"must be relative to the workspace, without ~: {item}"
+            if ".." in expanded:
+                return f"path traversal (..) is not allowed: {item}"
     return None
 
 
@@ -177,8 +248,8 @@ ACTION = "compress-images"
 CHECKS = {
     "email": check_email,
     "ignore-paths": check_path_list,
-    "image-quality": check_numeric_range_0_100,
-    "png-quality": check_numeric_range_0_100,
+    "image-quality": check_numeric_range_1_100,
+    "png-quality": check_numeric_range_1_100,
     "token": check_github_token,
     "username": check_username,
     "working-directory": check_file_path,
