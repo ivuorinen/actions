@@ -247,10 +247,11 @@ PY
 }
 
 # nuget_cache_steps ACTION_YML: the conditions of the action's Restore NuGet Packages and Save
-# NuGet Packages steps, one per line, then the restore's key.
+# NuGet Packages steps, one per line, then the restore's key, then each step's path.
 nuget_cache_steps() {
   yq -r '.runs.steps[] | select(.name == "Restore NuGet Packages" or .name == "Save NuGet Packages") | .if' "$1"
   yq -r '.runs.steps[] | select(.name == "Restore NuGet Packages") | .with.key' "$1"
+  yq -r '.runs.steps[] | select(.name == "Restore NuGet Packages" or .name == "Save NuGet Packages") | .with.path' "$1"
 }
 
 # hook_run HOOK INPUT: pipe INPUT, a Claude Code hook's JSON, into the hook script HOOK.

@@ -34,18 +34,37 @@ untrusted_saves() {
   return 0
 }
 
-# setup_caches_on: each setup step whose own cache is not turned off in so many words. setup-go and
-# setup-node keep a cache when the input is left out. (yq's // would read an explicit false as
-# missing, so the value is compared as text.)
+# setup_caches_on [ROOT]: each setup step, in the actions under ROOT (the repository by default),
+# whose own cache is not turned off in so many words. setup-go and setup-node keep a cache when the
+# input is left out, and setup-node's cache input names a package manager to cache for whatever
+# package-manager-cache says. (yq's // would read an explicit false as missing, so the value is
+# compared as text.)
 setup_caches_on() {
-  for action_file in "${PROJECT_ROOT}"/*/action.yml; do
-    action=${action_file#"${PROJECT_ROOT}"/}
+  root=${1:-$PROJECT_ROOT}
+  for action_file in "$root"/*/action.yml; do
+    action=${action_file#"$root"/}
     yq -r '.runs.steps[]
       | select(
           (((.uses // "") | test("^actions/setup-(go|dotnet)@")) and ((.with.cache | tostring) != "false"))
-          or (((.uses // "") | test("^actions/setup-node@")) and ((.with."package-manager-cache" | tostring) != "false")))
+          or (((.uses // "") | test("^actions/setup-node@"))
+            and (((.with."package-manager-cache" | tostring) != "false") or ((.with.cache // "") | tostring) != "")))
       | .uses' "$action_file" | sed "s|^|${action%/action.yml}: |"
   done
+}
+
+# setup_node_fixture WITH...: a root holding one action whose setup-node step has the given
+# `with:` lines, one per argument.
+setup_node_fixture() {
+  root="${SHELLSPEC_TMPBASE}/setup-node-fixture"
+  rm -rf "$root"
+  mkdir -p "$root/sample"
+  {
+    printf 'runs:\n  using: composite\n  steps:\n    - uses: actions/setup-node@0000000000000000000000000000000000000000\n      with:\n'
+    for line in "$@"; do
+      printf '        %s\n' "$line"
+    done
+  } >"$root/sample/action.yml"
+  printf '%s' "$root"
 }
 
 Describe "Actions caches"
@@ -73,6 +92,23 @@ End
 It "are not kept by setup-go, setup-dotnet or setup-node"
 When call setup_caches_on
 The output should equal ""
+End
+
+Describe "a setup-node step"
+It "keeps a cache when its cache input names a package manager, package-manager-cache aside"
+When call setup_caches_on "$(setup_node_fixture 'package-manager-cache: false' 'cache: npm')"
+The output should equal "sample: actions/setup-node@0000000000000000000000000000000000000000"
+End
+
+It "keeps a cache when package-manager-cache is left out"
+When call setup_caches_on "$(setup_node_fixture "node-version: '24'")"
+The output should equal "sample: actions/setup-node@0000000000000000000000000000000000000000"
+End
+
+It "keeps none with package-manager-cache false and no cache input"
+When call setup_caches_on "$(setup_node_fixture 'package-manager-cache: false')"
+The output should equal ""
+End
 End
 
 Describe "the dependency install"

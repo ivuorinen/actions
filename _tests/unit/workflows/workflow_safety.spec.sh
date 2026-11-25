@@ -52,8 +52,9 @@ pinned = re.compile(r"actions/checkout@[0-9a-f]{40}")
 comment = re.compile(r"(?:^|\s)#.*")
 
 
-# set -eu, or bash's set -euo pipefail, which the integration-test workflows may use.
-guard = re.compile(r"set -eu(?:o pipefail)?(?:\s|$)")
+# set -eu, or bash's set -euo pipefail, which the integration-test workflows may use, ended by
+# whitespace, the line's end or a ; before the next command.
+guard = re.compile(r"set -eu(?:o pipefail)?(?:\s|;|$)")
 
 
 def run_blocks(lines):
@@ -321,6 +322,7 @@ Parameters
 "|\n          set -eu\n          make test"
 "|\n          # a note\n\n          set -eu\n          make test"
 "|\n          set -euo pipefail\n          make test"
+"set -eu; make test"
 End
 
 It "$1"
