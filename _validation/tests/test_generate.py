@@ -30,13 +30,14 @@ VALID_TOKEN = "ghp_" + "a" * 36
 # hand-kept list once left a new brace helper out, and the validators failed with a NameError.
 def test_a_check_gets_every_helper_it_calls_directly_or_through_another():
     needed = generate._needed_helpers([inspect.getsource(kit.check_path_list)])
-    # _brace_group only through _brace_expansions
+    # _brace_group only through _brace_expansions, and _first_brace_pair through _brace_group
     assert {
         "_skip",
         "_shell_meta_error",
         "_split_items",
         "_brace_expansions",
         "_brace_group",
+        "_first_brace_pair",
     } <= set(needed)
 
 

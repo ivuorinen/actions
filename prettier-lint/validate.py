@@ -120,12 +120,11 @@ def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     return "contains invalid path characters"
 
 
-def _brace_group(text: str) -> tuple[int, int, list[str]] | None:
-    """Return the start, end and top-level alternatives of the first closed brace group, or None.
+def _first_brace_pair(text: str) -> tuple[int, int] | None:
+    """Return the start and end of the closed brace pair that opens first, or None.
 
-    An unclosed brace groups nothing and stays literal. One pass pairs each closing brace with
-    the nearest open one before it, and the first group is the pair that opens first, so a run
-    of unclosed braces is read once rather than once for each of them.
+    One pass pairs each closing brace with the nearest open one before it, so a run of unclosed
+    braces is read once rather than once for each of them.
     """
     opened: list[int] = []
     first: tuple[int, int] | None = None
@@ -136,9 +135,18 @@ def _brace_group(text: str) -> tuple[int, int, list[str]] | None:
             start = opened.pop()
             if first is None or start < first[0]:
                 first = (start, index)
-    if first is None:
+    return first
+
+
+def _brace_group(text: str) -> tuple[int, int, list[str]] | None:
+    """Return the start, end and top-level alternatives of the first closed brace group, or None.
+
+    An unclosed brace groups nothing and stays literal.
+    """
+    pair = _first_brace_pair(text)
+    if pair is None:
         return None
-    start, end = first
+    start, end = pair
     # Every brace between the pair is paired too, so depth 0 is the group's own level.
     depth, begin, alternatives = 0, start + 1, []
     for index in range(start + 1, end):
