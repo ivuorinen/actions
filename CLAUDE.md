@@ -34,7 +34,7 @@ Edit/Write (ruff for .py, shfmt for .sh, prettier for
 
 **Blocked edits** (PreToolUse):
 
-- `*/validate.py` — auto-generated; edit `_validation/spec.py` or the check's module in `_validation/kit/`, then `make update-validators`
+- `*/validate.py` — generated from `_validation/spec.py` and `_validation/kit/`; regenerate it with `make update-validators`
 - Action `README.md` — auto-generated, use `make docs`
 - `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
 - Bash-isms in .sh/action.yml — blocked, must be POSIX sh.
@@ -209,7 +209,12 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 **CalVer Support**: YYYY.MM.PATCH, YYYY.MM.DD, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, YYYY-MM-DD
 
-**Maintenance**: edit `_validation/spec.py` or a module in `_validation/kit/` → `make update-validators` → review `git diff '*/validate.py'`.
+**Maintenance**:
+
+1. Edit `_validation/spec.py` or a module in `_validation/kit/`.
+2. Run `make update-validators`.
+3. Review `git diff '*/validate.py'`.
+
 CI's `generate.py --check` fails if a committed validator is stale, or if a `validate.py` is not one the spec generates.
 
 ---
