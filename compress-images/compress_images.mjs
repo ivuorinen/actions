@@ -60,6 +60,7 @@ export function splitPatterns(value) {
 export function findImages(root, ignore) {
   const found = [];
   const walk = relative => {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- a directory under root the walk listed
     for (const entry of readdirSync(path.join(root, relative), { withFileTypes: true })) {
       const child = relative ? `${relative}/${entry.name}` : entry.name;
       if (ignore.some(pattern => path.matchesGlob(child, pattern))) continue;
@@ -173,6 +174,7 @@ async function isAnimated(sharp, data, format) {
 function readFound(file) {
   let descriptor;
   try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- an image the walk found under root
     descriptor = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW | constants.O_NONBLOCK);
   } catch (error) {
     if (error.code === 'ELOOP') return null;
@@ -181,6 +183,7 @@ function readFound(file) {
   try {
     const opened = fstatSync(descriptor);
     if (!opened.isFile()) return null;
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- the descriptor opened above, not a path
     return { data: readFileSync(descriptor), mode: opened.mode & 0o7777 };
   } finally {
     closeSync(descriptor);
@@ -191,8 +194,11 @@ function readFound(file) {
 function replace(file, data, mode) {
   const temporary = `${file}.compress-images-${randomBytes(6).toString('hex')}`;
   try {
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- a new name beside an image the walk found
     writeFileSync(temporary, data, { flag: 'wx', mode: 0o600 });
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- the file written just above
     chmodSync(temporary, mode);
+    // eslint-disable-next-line security/detect-non-literal-fs-filename -- that file, over the image it replaces
     renameSync(temporary, file);
   } catch (error) {
     rmSync(temporary, { force: true });
@@ -260,6 +266,7 @@ async function main() {
     pngQuality: Number(env.PNG_QUALITY),
   });
   const delimiter = randomBytes(16).toString('hex');
+  // eslint-disable-next-line security/detect-non-literal-fs-filename -- the step's output file, which the runner names
   appendFileSync(env.GITHUB_OUTPUT, `images_compressed=${compressed.length > 0}\n` + `compression_report<<${delimiter}\n${report(compressed, unchanged, unreadable, animated)}${delimiter}\n`);
   console.log(`${compressed.length} compressed, ${unchanged} unchanged, ${unreadable} unreadable, ${animated} animated`);
 }
