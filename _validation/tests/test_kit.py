@@ -8,6 +8,8 @@ asserted explicitly so a regression cannot pass silently.
 
 from __future__ import annotations
 
+import inspect
+import pkgutil
 import time
 
 import kit
@@ -1034,7 +1036,7 @@ CASES: dict[str, dict[str, list[str]]] = {
         ],
     },
     "timeout_with_unit": {"valid": ["5m", "30s", "500ms", "1h"], "invalid": ["5", "5min", "m5"]},
-    "prefix": {"valid": ["v", "rel-", "a.b_c"], "invalid": ["a b", "a@b", "a:b"]},
+    "prefix": {"valid": ["v", "rel-", "a.b_c"], "invalid": ["a b", "a@b", "a:b", "-v", "--draft"]},
     "json_format": {"valid": ["{}", '{"a": 1}', "[1, 2, 3]"], "invalid": ["{bad", "not json"]},
     "composer_args": {
         "valid": [
@@ -1173,15 +1175,35 @@ def test_blank_value_is_refused(check):
 def test_only_ascii_whitespace_is_blank():
     # The steps test blank with tr -d '[:space:]' in the C locale. A value of only Unicode
     # spaces is not blank there, so it has to be checked here instead of skipped.
-    assert kit._skip(" \t\n\v\f\r")
-    assert not kit._skip("\N{NO-BREAK SPACE}")
-    assert not kit._skip("\x1c")
+    assert kit.common._skip(" \t\n\v\f\r")
+    assert not kit.common._skip("\N{NO-BREAK SPACE}")
+    assert not kit.common._skip("\x1c")
     assert kit.CHECKS["docker_image_name"]("\N{NO-BREAK SPACE}") is not None
 
 
 def test_the_public_blank_rule_is_the_one_the_checks_use():
     # The test harness imports is_blank; the generated validators inline _skip.
-    assert kit.is_blank is kit._skip
+    assert kit.common.is_blank is kit.common._skip
+
+
+def test_every_kit_module_is_gathered():
+    # A module left out of MODULES would leave its checks out of CHECKS and its helpers out of
+    # the validators, with nothing failing to say so.
+    modules = {info.name for info in pkgutil.iter_modules(kit.__path__)}
+    assert modules == {module.__name__.rpartition(".")[2] for module in kit.MODULES}
+
+
+def test_each_check_is_defined_in_one_module():
+    # CHECKS is a dict, so of two modules defining one check name it would keep only one.
+    names = [
+        name
+        for module in kit.MODULES
+        for name, function in vars(module).items()
+        if name.startswith("check_")
+        and inspect.isfunction(function)
+        and function.__module__ == module.__name__
+    ]
+    assert sorted(names) == sorted(f"check_{check}" for check in kit.CHECKS)
 
 
 @pytest.mark.parametrize("check", ["boolean", "numeric_range_1_10", "positive_integer"])
@@ -1251,8 +1273,8 @@ def test_integer_checks_accept_only_ascii_digits(check, value):
 
 # The expansion is iterative: deep nesting gets a reason, not a RecursionError traceback.
 def test_path_list_reasons_about_deeply_nested_braces():
-    assert kit.check_path_list("{" * 2000 + "a" + "}" * 2000) is None
-    assert kit.check_path_list("{" * 2000 + "/a" + "}" * 2000) is not None
+    assert kit.paths.check_path_list("{" * 2000 + "a" + "}" * 2000) is None
+    assert kit.paths.check_path_list("{" * 2000 + "/a" + "}" * 2000) is not None
 
 
 # Each expansion reads a run of unclosed braces once. Rescanning the rest of the text from each
@@ -1260,7 +1282,7 @@ def test_path_list_reasons_about_deeply_nested_braces():
 # second, so the bound only catches that.
 def test_path_list_reads_unclosed_braces_once():
     started = time.perf_counter()
-    assert kit.check_path_list("{" * 2000 + "a" + "}" * 1000) is None
+    assert kit.paths.check_path_list("{" * 2000 + "a" + "}" * 1000) is None
     assert time.perf_counter() - started < 10
 
 
@@ -1277,7 +1299,7 @@ def test_path_list_reads_unclosed_braces_once():
     ],
 )
 def test_brace_expansions_keep_unbalanced_braces_literal(item, expansions):
-    expanded = kit._brace_expansions(item)
+    expanded = kit.paths._brace_expansions(item)
     assert expanded is not None
     assert sorted(expanded) == expansions
 
@@ -1306,20 +1328,27 @@ def test_version_suffixes_match_the_whole_value(check, value, accepted):
 
 
 def test_token_rejects_partial_prefix_only():
-    assert kit.check_github_token("ghp_") is not None
-    assert kit.check_github_token("github_pat_") is not None
+    assert kit.tokens.check_github_token("ghp_") is not None
+    assert kit.tokens.check_github_token("github_pat_") is not None
 
 
 def test_calver_rejects_impossible_dates():
-    assert kit.check_calver_version("2025.02.30") is not None  # Feb 30
-    assert kit.check_calver_version("2024.02.29") is None  # 2024 is a leap year
-    assert kit.check_calver_version("2025.02.29") is not None  # 2025 is not
+    check = kit.versions.check_calver_version
+    assert check("2025.02.30") is not None  # Feb 30
+    assert check("2024.02.29") is None  # 2024 is a leap year
+    assert check("2025.02.29") is not None  # 2025 is not
+    assert check("2000.02.29") is None  # a century divisible by 400 is a leap year
+    assert check("2100.02.29") is not None  # one divisible only by 100 is not
+    assert check("24.02.29") is None  # YY reads as 20YY
+    assert check("2025.04.31") is not None  # April has 30 days
+    assert check("2025.04.30") is None
+    assert check("2025.01.31") is None
 
 
 def test_semver_prerelease_and_build_metadata():
-    assert kit.check_semantic_version("1.0.0-rc.1") is None
-    assert kit.check_semantic_version("2.0.0-rc.1+build.1") is None
-    assert kit.check_semantic_version("1.0.0-") is not None
+    assert kit.versions.check_semantic_version("1.0.0-rc.1") is None
+    assert kit.versions.check_semantic_version("2.0.0-rc.1+build.1") is None
+    assert kit.versions.check_semantic_version("1.0.0-") is not None
 
 
 @pytest.mark.parametrize(
@@ -1335,35 +1364,36 @@ def test_semver_prerelease_and_build_metadata():
     ],
 )
 def test_strict_semver_prerelease_and_build_metadata(value):
-    assert kit.check_strict_semantic_version(value) is None
+    assert kit.versions.check_strict_semantic_version(value) is None
 
 
 def test_docker_tag_list_prerelease_and_build_metadata():
     # `-` is legal in a Docker tag and `+` is not, so the two SemVer suffixes part ways here
-    assert kit.check_docker_tag_list("1.0.0-rc.1") is None
-    assert kit.check_docker_tag_list("latest,v2025.04.05-rc.1") is None
-    assert kit.check_docker_tag_list("1.0.0+build") is not None
-    assert kit.check_docker_tag_list("latest,2025.4.5+sha.abc1234") is not None
+    assert kit.docker.check_docker_tag_list("1.0.0-rc.1") is None
+    assert kit.docker.check_docker_tag_list("latest,v2025.04.05-rc.1") is None
+    assert kit.docker.check_docker_tag_list("1.0.0+build") is not None
+    assert kit.docker.check_docker_tag_list("latest,2025.4.5+sha.abc1234") is not None
 
 
 def test_opaque_token_refuses_line_breaks_behind_an_expression():
     # a value that merely *starts* as an expression must not carry a line to a file sink
-    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}\n") is not None
-    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}\nsecond-line") is not None
-    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}\x00") is not None
+    assert kit.tokens.check_opaque_token("${{ secrets.NPM_TOKEN }}\n") is not None
+    assert kit.tokens.check_opaque_token("${{ secrets.NPM_TOKEN }}\nsecond-line") is not None
+    assert kit.tokens.check_opaque_token("${{ secrets.NPM_TOKEN }}\x00") is not None
 
 
 def test_opaque_token_verdicts_do_not_rely_on_the_expression_bypass(monkeypatch):
     # with `_skip` narrowed to its empty-value half, real tokens still pass, unsafe values
-    # still fail, and a literal expression (which no runner resolved) no longer gets through
-    monkeypatch.setattr(kit, "_skip", lambda value: value.strip() == "")
-    assert kit.check_opaque_token("") is None
-    assert kit.check_opaque_token("   ") is None
-    assert kit.check_opaque_token("npm_" + "a" * 36) is None
-    assert kit.check_opaque_token("dckr_pat_" + "a" * 27) is None
-    assert kit.check_opaque_token("has space") is not None
-    assert kit.check_opaque_token("npm_abc\n") is not None
-    assert kit.check_opaque_token("${{ secrets.NPM_TOKEN }}") is not None
+    # still fail, and a literal expression (which no runner resolved) no longer gets through.
+    # The check reads _skip from its own module, which imports it from common.
+    monkeypatch.setattr(kit.tokens, "_skip", lambda value: value.strip() == "")
+    assert kit.tokens.check_opaque_token("") is None
+    assert kit.tokens.check_opaque_token("   ") is None
+    assert kit.tokens.check_opaque_token("npm_" + "a" * 36) is None
+    assert kit.tokens.check_opaque_token("dckr_pat_" + "a" * 27) is None
+    assert kit.tokens.check_opaque_token("has space") is not None
+    assert kit.tokens.check_opaque_token("npm_abc\n") is not None
+    assert kit.tokens.check_opaque_token("${{ secrets.NPM_TOKEN }}") is not None
 
 
 # Accepted by both repository-file version rules. The forms come from what the setup
@@ -1434,14 +1464,18 @@ DETECTED_REJECTED = [
 
 
 @pytest.mark.parametrize("value", DETECTED_DOTTED)
-@pytest.mark.parametrize("rule", [kit.is_detected_version, kit.is_detected_dotnet_version])
+@pytest.mark.parametrize(
+    "rule", [kit.versions.is_detected_version, kit.versions.is_detected_dotnet_version]
+)
 def test_detected_version_rules_accept(rule, value):
     """Both rules accept the dotted forms the setup actions and the tools document."""
     assert rule(value) is True
 
 
 @pytest.mark.parametrize("value", DETECTED_REJECTED)
-@pytest.mark.parametrize("rule", [kit.is_detected_version, kit.is_detected_dotnet_version])
+@pytest.mark.parametrize(
+    "rule", [kit.versions.is_detected_version, kit.versions.is_detected_dotnet_version]
+)
 def test_detected_version_rules_reject(rule, value):
     """Both rules reject blanks, prefixes, shell syntax, line breaks and malformed dots."""
     assert rule(value) is False
@@ -1450,8 +1484,8 @@ def test_detected_version_rules_reject(rule, value):
 @pytest.mark.parametrize("value", ["8", "10", "8.x"])
 def test_only_dotnet_accepts_a_bare_major(value):
     """setup-dotnet documents 8 and 8.x; the other setup actions need a minor version."""
-    assert kit.is_detected_dotnet_version(value) is True
-    assert kit.is_detected_version(value) is False
+    assert kit.versions.is_detected_dotnet_version(value) is True
+    assert kit.versions.is_detected_version(value) is False
 
 
 def test_detected_version_rules_are_not_input_checks():

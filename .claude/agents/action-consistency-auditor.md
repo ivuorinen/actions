@@ -47,7 +47,7 @@ uv run --locked --extra dev pytest _validation/tests/test_spec.py
 
 Each action's generated `validate.py` masks its credential inputs before it runs any
 check. An input counts as a credential when its check type in `_validation/spec.py` is
-in `MASKED_CHECKS` in `_validation/kit.py`. Masking lives only there, so no action.yml
+in `MASKED_CHECKS` in `_validation/kit/__init__.py`. Masking lives only there, so no action.yml
 emits `::add-mask::` for an input itself.
 
 Check that every input whose name says it holds a credential (`token`, `secret`,

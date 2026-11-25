@@ -13,15 +13,20 @@ self-contained model removes all of that: validation ships _atomically_ with eac
 
 ## Layout
 
-| File          | Role                                                                                                                  |
-| ------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `kit.py`      | Canonical check functions — `CHECKS[type](value) -> error \| None`. Every regex/enum/range is defined here, **once**. |
-| `spec.py`     | Hand-edited map: `SPECS[action] = {"required": [...], "checks": {input: type}}`.                                      |
-| `generate.py` | Inlines the exact source of the checks each action needs into `<action>/validate.py`.                                 |
-| `tests/`      | pytest: kit unit tests, a drift test, and spec/coverage tests.                                                        |
+| File          | Role                                                                                                          |
+| ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `kit/`        | Canonical check functions — `CHECKS[type](value) -> error \| None`. Every regex/enum/range is here, **once**. |
+| `spec.py`     | Hand-edited map: `SPECS[action] = {"required": [...], "checks": {input: type}}`.                              |
+| `generate.py` | Inlines the exact source of the checks each action needs into `<action>/validate.py`.                         |
+| `tests/`      | pytest: kit unit tests, a drift test, and spec/coverage tests.                                                |
+
+The kit is a package with one module per domain: `tokens.py`, `versions.py`, `docker.py`,
+`codeql.py`, `paths.py`, `network.py` and `formats.py`. `common.py` holds the helpers that checks
+in more than one module call, and `__init__.py` gathers every check of the modules in `MODULES`
+into `CHECKS`. A new module is added to `MODULES`; `tests/test_kit.py` fails until it is.
 
 A generated `<action>/validate.py` contains: a small preamble (`_skip`, `_enum`, …),
-only the checks that action uses (copied verbatim from `kit.py`), a `CHECKS` map, a
+only the checks that action uses (copied verbatim from the kit), a `CHECKS` map, a
 `REQUIRED` set, a `MASKED_INPUTS` list of input names, and a `main()` that reads `INPUT_*`
 env vars, masks those inputs, and exits non-zero with `::error::` annotations on any failure.
 
@@ -68,8 +73,8 @@ an input named like a credential uses another check type.
 
 ## Changing what an action validates
 
-1. Edit `spec.py` (to change an input→check mapping or required list) or `kit.py` (to change
-   a check's logic — affects every action that uses it).
+1. Edit `spec.py` (to change an input→check mapping or required list) or the check's module
+   in `kit/` (to change a check's logic — affects every action that uses it).
 2. Run `make update-validators` (regenerates every `<action>/validate.py`).
 3. Review `git diff '*/validate.py'`.
 
@@ -101,7 +106,7 @@ CodeRabbit skips every such file as generated, so that check stands in for its r
 Some actions also read a tool version from a file in the checked-out repository
 (`.tool-versions`, `global.json`, `go.mod`, ...). That value is untrusted and is not an
 input, so it has its own rule: `is_detected_version` or `is_detected_dotnet_version` in
-`kit.py`, named by `detected_version` in `spec.py`. Neither has the `_skip` gate, and a
+`kit/versions.py`, named by `detected_version` in `spec.py`. Neither has the `_skip` gate, and a
 rejected value is not an error: the step moves on to its next source.
 
 `validate.py` and `python3` are the only things a step can rely on at runtime, so the rule

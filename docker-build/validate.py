@@ -1,6 +1,6 @@
 """GENERATED — DO NOT EDIT. Input validation for the docker-build action.
 
-Produced by _validation/generate.py from _validation/kit.py + _validation/spec.py.
+Produced by _validation/generate.py from the _validation/kit package + _validation/spec.py.
 Run `make update-validators` to regenerate. Pure stdlib, no third-party deps — the action
 runs it with `python3 validate.py`.
 
@@ -54,27 +54,6 @@ def _enum(value: str, *allowed: str) -> str | None:
     return "must be one of: " + ", ".join(allowed)
 
 
-def _int_in_range(value: str, low: int, high: int) -> str | None:
-    """Accept ``value`` iff it is plain digits within ``[low, high]``.
-
-    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
-    integer test errors, and inside a ``while`` condition that error just ends the loop.
-    """
-    if _skip(value):
-        return None
-    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
-        return None
-    return f"must be an integer between {low} and {high}"
-
-
-def _is_docker_tag(tag: str) -> bool:
-    """Return True if ``tag`` follows the tag rule of the Distribution reference grammar.
-
-    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``.
-    """
-    return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
-
-
 def _strip_v(version: str) -> str:
     """Return version without one leading ``v`` or ``V``."""
     return version[1:] if version[:1] in ("v", "V") else version
@@ -110,28 +89,6 @@ def _shell_meta_error(value: str) -> str | None:
     return None
 
 
-def _comma_key_value_error(value: str, value_pattern: str) -> str | None:
-    """Check a one-line list of comma-separated ``KEY=VALUE`` items.
-
-    Mirrors the consumer, which splits on commas only and trims each item: a VALUE may hold
-    spaces but no comma, and whitespace around items (``A=1, B=2``, a YAML block scalar's
-    trailing newline) is ignored. A line break anywhere else is rejected. Bad items are named
-    by position, so a build argument's value never reaches the log.
-    """
-    if _skip(value):
-        return None
-    if meta := _shell_meta_error(value):
-        return meta
-    if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", value.strip()):
-        return "must be a single line without control characters"
-    for position, item in enumerate(value.split(","), start=1):
-        # Only what the action's shell trim removes, so the name checked is the name used.
-        item = item.strip(" \t\n\v\f\r")
-        if item and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=" + value_pattern, item):
-            return f"item {position} is not a valid KEY=VALUE pair"
-    return None
-
-
 def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     """Return why ``value`` is not a relative path below the working directory, or None.
 
@@ -156,6 +113,14 @@ def _file_path_error(value: str, *, spaces: bool = False) -> str | None:
     if re.fullmatch(f"{chars}( +{chars})*" if spaces else chars, value):
         return None
     return "contains invalid path characters"
+
+
+def _is_docker_tag(tag: str) -> bool:
+    """Return True if ``tag`` follows the tag rule of the Distribution reference grammar.
+
+    A letter, digit or ``_``, then up to 127 of those, ``.`` or ``-``.
+    """
+    return re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}", tag) is not None
 
 
 def _is_docker_remote_source(value: str) -> bool:
@@ -243,38 +208,17 @@ def _docker_named_sources_error(value: str, *, contexts: bool) -> str | None:
     return None
 
 
-def check_boolean(value: str) -> str | None:
-    """Boolean flag — exactly ``true`` or ``false``.
+def _cache_backends() -> dict[str, tuple[str, ...]]:
+    """Return the keys each buildx cache backend accepts, by backend name.
 
-    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
-    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
-    refused for the reason in the module contract.
+    The keys are the ones each backend documents at https://docs.docker.com/build/cache/backends/
+    and in the BuildKit README.
     """
-    if value in ("true", "false"):
-        return None
-    return 'must be "true" or "false" (lowercase)'
-
-
-def check_cache_config(value: str) -> str | None:
-    """One buildx cache spec: ``type=<backend>[,key=value...]`` (e.g. ``type=gha,mode=max``).
-
-    The spec reaches buildx as one argument, which parses it as one CSV record, so a value
-    holds no comma or quote, and only a local ``src`` or ``dest`` path may hold spaces. Keys
-    are the ones each backend documents at https://docs.docker.com/build/cache/backends/ and
-    in the BuildKit README.
-    """
-    if _skip(value):
-        return None
-    match = re.fullmatch(
-        r"type=([a-z0-9-]+)((?:,[a-z0-9._-]+=[A-Za-z0-9._~:;/@+=%#?&\[\] -]+)*)", value.strip()
-    )
-    if not match:
-        return "must be one spec, type=<backend>[,key=value...], on one line"
     common = ("mode", "ignore-error")
     compression = ("compression", "compression-level", "force-compression")
     image = ("oci-mediatypes", "image-manifest")
     storage = ("prefix", "blobs_prefix", "manifests_prefix", "name", "secret_access_key")
-    backends = {
+    return {
         "registry": (*common, *compression, *image, "ref", "registry.insecure"),
         "local": (*common, *compression, *image, "src", "dest", "digest", "tag", "reset"),
         "gha": (
@@ -308,6 +252,69 @@ def check_cache_config(value: str) -> str | None:
         ),
         "azblob": (*common, *compression, *storage, "account_url", "account_name", "container"),
     }
+
+
+def _int_in_range(value: str, low: int, high: int) -> str | None:
+    """Accept ``value`` iff it is plain digits within ``[low, high]``.
+
+    ``int()`` alone is too lenient: it takes ``1_0`` and non-ASCII digits, on which a shell
+    integer test errors, and inside a ``while`` condition that error just ends the loop.
+    """
+    if _skip(value):
+        return None
+    if re.fullmatch(r"[0-9]{1,18}", value) and low <= int(value) <= high:
+        return None
+    return f"must be an integer between {low} and {high}"
+
+
+def _comma_key_value_error(value: str, value_pattern: str) -> str | None:
+    """Check a one-line list of comma-separated ``KEY=VALUE`` items.
+
+    Mirrors the consumer, which splits on commas only and trims each item: a VALUE may hold
+    spaces but no comma, and whitespace around items (``A=1, B=2``, a YAML block scalar's
+    trailing newline) is ignored. A line break anywhere else is rejected. Bad items are named
+    by position, so a build argument's value never reaches the log.
+    """
+    if _skip(value):
+        return None
+    if meta := _shell_meta_error(value):
+        return meta
+    if re.search(r"[\x00-\x08\x0a-\x1f\x7f]", value.strip()):
+        return "must be a single line without control characters"
+    for position, item in enumerate(value.split(","), start=1):
+        # Only what the action's shell trim removes, so the name checked is the name used.
+        item = item.strip(" \t\n\v\f\r")
+        if item and not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=" + value_pattern, item):
+            return f"item {position} is not a valid KEY=VALUE pair"
+    return None
+
+
+def check_boolean(value: str) -> str | None:
+    """Boolean flag — exactly ``true`` or ``false``.
+
+    Shell steps test ``[ "$FLAG" = "true" ]``, which is case-sensitive, while ``if:`` expressions
+    are not, so ``True`` or a blank would have the two halves of an action disagree. A blank is
+    refused for the reason in the module contract.
+    """
+    if value in ("true", "false"):
+        return None
+    return 'must be "true" or "false" (lowercase)'
+
+
+def check_cache_config(value: str) -> str | None:
+    """One buildx cache spec: ``type=<backend>[,key=value...]`` (e.g. ``type=gha,mode=max``).
+
+    The spec reaches buildx as one argument, which parses it as one CSV record, so a value
+    holds no comma or quote, and only a local ``src`` or ``dest`` path may hold spaces.
+    """
+    if _skip(value):
+        return None
+    match = re.fullmatch(
+        r"type=([a-z0-9-]+)((?:,[a-z0-9._-]+=[A-Za-z0-9._~:;/@+=%#?&\[\] -]+)*)", value.strip()
+    )
+    if not match:
+        return "must be one spec, type=<backend>[,key=value...], on one line"
+    backends = _cache_backends()
     backend = match.group(1)
     if backend not in backends:
         return "cache backend must be one of: " + ", ".join(backends)
@@ -519,30 +526,41 @@ def _input(name: str) -> str:
     return os.environ.get(_variable(name), "")
 
 
-def main() -> None:
-    """Mask secret inputs, then validate every declared input; fail with all reasons."""
-    # Masks come first so nothing printed below can reveal a secret. The runner decodes %25
-    # in command data, so a literal % has to be encoded to register the real value.
+def _mask_secrets() -> None:
+    """Register every line of each secret input with the runner's log masker."""
+    # The runner decodes %25 in command data, so a literal % has to be encoded to register the
+    # real value.
     for input_name in MASKED_INPUTS:
         for line in _input(input_name).splitlines():
             if line.strip():
                 sys.stdout.write("::add-mask::" + line.strip().replace("%", "%25") + "\n")
-    errors = []
-    for input_name, check in CHECKS.items():
-        value = _input(input_name)
-        if input_name in REQUIRED and _skip(value):
-            errors.append(f"{input_name}: required input is missing")
-            continue
-        # The runner applies a default only when the caller leaves the input out, and `||` in an
-        # expression takes any non-empty string as set, so `${{ inputs.x || default }}` and
-        # with: would pass a value of only whitespace on as it is. Empty means unset.
-        if value and _skip(value):
-            errors.append(f"{input_name}: is only whitespace: leave the input out for its default")
-            continue
-        # action.yml forwards every input, so only a standalone run leaves a variable unset.
-        reason = check(value) if _variable(input_name) in os.environ else None
-        if reason is not None:
-            errors.append(f"{input_name}: {reason}")
+
+
+def _input_error(input_name: str) -> str | None:
+    """Return why an input's value is refused, or None when it passes."""
+    value = _input(input_name)
+    if input_name in REQUIRED and _skip(value):
+        return "required input is missing"
+    # The runner applies a default only when the caller leaves the input out, and `||` in an
+    # expression takes any non-empty string as set, so `${{ inputs.x || default }}` and
+    # with: would pass a value of only whitespace on as it is. Empty means unset.
+    if value and _skip(value):
+        return "is only whitespace: leave the input out for its default"
+    # action.yml forwards every input, so only a standalone run leaves a variable unset.
+    if _variable(input_name) not in os.environ:
+        return None
+    return CHECKS[input_name](value)
+
+
+def main() -> None:
+    """Mask secret inputs, then validate every declared input; fail with all reasons."""
+    # Masks come first so nothing printed below can reveal a secret.
+    _mask_secrets()
+    errors = [
+        f"{input_name}: {reason}"
+        for input_name in CHECKS
+        if (reason := _input_error(input_name)) is not None
+    ]
     if errors:
         for error in errors:
             # Encode as workflow-command data: a rejected value must not start a new command.

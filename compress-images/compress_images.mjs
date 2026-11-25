@@ -33,8 +33,9 @@ const FORMATS = new Map([
   ['.avif', 'avif'],
 ]);
 
-// Split a list as kit._split_items(globs=True) does: a comma inside braces belongs to the glob,
-// an unclosed brace groups nothing, and spaces or tabs around an item are not part of it.
+// Split a list as kit.common._split_items(globs=True) does: a comma inside braces belongs to
+// the glob, an unclosed brace groups nothing, and spaces or tabs around an item are not part
+// of it.
 export function splitPatterns(value) {
   const split = globs => {
     const parts = [];

@@ -291,7 +291,7 @@ make lint-python        # Lint Python files with ruff and pyright
 
 The validation system (`_validation/`) generates a self-contained `validate.py` for each action:
 
-- **Single Source of Truth**: `_validation/kit.py` defines every check once; `_validation/spec.py` maps each action's inputs to checks; `make update-validators` regenerates the validators.
+- **Single Source of Truth**: the `_validation/kit` package defines every check once; `_validation/spec.py` maps each action's inputs to checks; `make update-validators` regenerates the validators.
 - **Self-Contained & Stdlib-Only**: each `<action>/validate.py` runs with `python3` — no `uv`, no third-party dependencies, and no shared action.
 - **CalVer and SemVer Support**: flexible version validation for different schemes.
 - **Security Features**: command-injection and path-traversal protection; fail-closed on invalid input; credential inputs masked before any check runs.

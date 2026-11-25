@@ -48,7 +48,7 @@ input values and can inject shell commands.
 
 Each action's generated `validate.py` masks its credential inputs before it runs any
 check, and it is the action's first real step. An input counts as a credential when its
-check type in `_validation/spec.py` is in `MASKED_CHECKS` in `_validation/kit.py`.
+check type in `_validation/spec.py` is in `MASKED_CHECKS` in `_validation/kit/__init__.py`.
 Flag a token or secret input whose check type is not masked, and an action.yml that
 emits `::add-mask::` for an input itself, which `_validation/tests/test_spec.py` rejects.
 

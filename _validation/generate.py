@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate a self-contained ``validate.py`` for every action from ``kit.py`` + ``spec.py``.
+"""Generate a self-contained ``validate.py`` for every action from ``kit`` + ``spec.py``.
 
 This is the codegen behind ``make update-validators``. For each action in ``spec.py`` it:
 
@@ -9,7 +9,7 @@ This is the codegen behind ``make update-validators``. For each action in ``spec
 *   writes ``<action>/validate.py`` — a pure-stdlib, dependency-free validator that the
     action runs with ``python3 validate.py``.
 
-Because every pattern is defined once in ``kit.py`` and copied verbatim, the per-action
+Because every pattern is defined once in the ``kit`` package and copied verbatim, the per-action
 validators stay self-contained *and* never drift: ``--check`` regenerates in memory and
 fails if any committed file differs, or if a top-level ``validate.py`` is not one the spec
 generates (used by CI and ``tests/test_generate.py``).
@@ -33,26 +33,32 @@ from spec import SPECS
 
 ROOT = Path(__file__).resolve().parent.parent
 
-# Preamble helpers: kit's private functions, in kit's source order. Each is emitted only when a
-# selected check (or an included helper) calls it, so a boolean-only validator stays tiny. Taken
-# from kit itself, a helper a new check calls cannot be left out of the validators.
-_HELPERS = tuple(
-    name
-    for _, name in sorted(
-        (obj.__code__.co_firstlineno, name)
-        for name, obj in vars(kit).items()
-        if name.startswith("_")
-        and not name.startswith("__")
-        and inspect.isfunction(obj)
-        and obj.__module__ == kit.__name__
+# Preamble helpers: the private functions each kit module defines, module by module in
+# kit.MODULES order and in source order within a module. Each is emitted only when a selected
+# check (or an included helper) calls it, so a boolean-only validator stays tiny. Taken from the
+# kit itself, a helper a new check calls cannot be left out of the validators. A helper a module
+# imports from common is common's, so it is taken once.
+_HELPER_SOURCES = {
+    helper.__name__: inspect.getsource(helper).strip()
+    for module in kit.MODULES
+    for helper in sorted(
+        (
+            obj
+            for name, obj in vars(module).items()
+            if name.startswith("_")
+            and not name.startswith("__")
+            and inspect.isfunction(obj)
+            and obj.__module__ == module.__name__
+        ),
+        key=lambda function: function.__code__.co_firstlineno,
     )
-)
-_HELPER_SOURCES = {name: inspect.getsource(getattr(kit, name)).strip() for name in _HELPERS}
+}
+_HELPERS = tuple(_HELPER_SOURCES)
 
 _HEADER = '''\
 """GENERATED — DO NOT EDIT. Input validation for the {action} action.
 
-Produced by _validation/generate.py from _validation/kit.py + _validation/spec.py.
+Produced by _validation/generate.py from the _validation/kit package + _validation/spec.py.
 Run `make update-validators` to regenerate. Pure stdlib, no third-party deps — the action
 runs it with `python3 validate.py`.
 
@@ -81,30 +87,41 @@ def _input(name: str) -> str:
     return os.environ.get(_variable(name), "")
 
 
-def main() -> None:
-    """Mask secret inputs, then validate every declared input; fail with all reasons."""
-    # Masks come first so nothing printed below can reveal a secret. The runner decodes %25
-    # in command data, so a literal % has to be encoded to register the real value.
+def _mask_secrets() -> None:
+    """Register every line of each secret input with the runner's log masker."""
+    # The runner decodes %25 in command data, so a literal % has to be encoded to register the
+    # real value.
     for input_name in MASKED_INPUTS:
         for line in _input(input_name).splitlines():
             if line.strip():
                 sys.stdout.write("::add-mask::" + line.strip().replace("%", "%25") + "\\n")
-    errors = []
-    for input_name, check in CHECKS.items():
-        value = _input(input_name)
-        if input_name in REQUIRED and _skip(value):
-            errors.append(f"{input_name}: required input is missing")
-            continue
-        # The runner applies a default only when the caller leaves the input out, and `||` in an
-        # expression takes any non-empty string as set, so `${{ inputs.x || default }}` and
-        # with: would pass a value of only whitespace on as it is. Empty means unset.
-        if value and _skip(value):
-            errors.append(f"{input_name}: @WHITESPACE_ONLY_REASON@")
-            continue
-        # action.yml forwards every input, so only a standalone run leaves a variable unset.
-        reason = check(value) if _variable(input_name) in os.environ else None
-        if reason is not None:
-            errors.append(f"{input_name}: {reason}")
+
+
+def _input_error(input_name: str) -> str | None:
+    """Return why an input's value is refused, or None when it passes."""
+    value = _input(input_name)
+    if input_name in REQUIRED and _skip(value):
+        return "required input is missing"
+    # The runner applies a default only when the caller leaves the input out, and `||` in an
+    # expression takes any non-empty string as set, so `${{ inputs.x || default }}` and
+    # with: would pass a value of only whitespace on as it is. Empty means unset.
+    if value and _skip(value):
+        return "@WHITESPACE_ONLY_REASON@"
+    # action.yml forwards every input, so only a standalone run leaves a variable unset.
+    if _variable(input_name) not in os.environ:
+        return None
+    return CHECKS[input_name](value)
+
+
+def main() -> None:
+    """Mask secret inputs, then validate every declared input; fail with all reasons."""
+    # Masks come first so nothing printed below can reveal a secret.
+    _mask_secrets()
+    errors = [
+        f"{input_name}: {reason}"
+        for input_name in CHECKS
+        if (reason := _input_error(input_name)) is not None
+    ]
     if errors:
         for error in errors:
             # Encode as workflow-command data: a rejected value must not start a new command.
@@ -151,42 +168,40 @@ def _needed_helpers(sources: list[str]) -> list[str]:
     return [name for name in _HELPERS if name in needed]
 
 
+def _tables(action: str) -> list[str]:
+    """Return the ACTION and CHECKS, REQUIRED and MASKED_INPUTS blocks of an action's validator."""
+    spec = SPECS[action]
+    checks = sorted(spec["checks"].items())
+    check_lines = "\n".join(f'    "{name}": {_check_name(check)},' for name, check in checks)
+    required = ", ".join(f'"{name}"' for name in sorted(spec["required"]))
+    masked = ", ".join(f'"{name}"' for name, check in checks if check in kit.MASKED_CHECKS)
+    return [
+        f'ACTION = "{action}"\n\nCHECKS = {{\n{check_lines}\n}}',
+        f"REQUIRED = {{{required}}}" if required else "REQUIRED: set[str] = set()",
+        f"MASKED_INPUTS: list[str] = [{masked}]",
+    ]
+
+
 def render(action: str) -> str:
     """Return the full source text of ``<action>/validate.py``."""
     spec = SPECS[action]
-    checks = spec["checks"]
-    required = spec["required"]
     detected_rule = spec.get("detected_version")
-
-    used_types = sorted(set(checks.values()))
-    check_sources = [inspect.getsource(getattr(kit, _check_name(t))).strip() for t in used_types]
+    used_types = sorted(set(spec["checks"].values()))
+    check_sources = [inspect.getsource(kit.CHECKS[check]).strip() for check in used_types]
+    # The detected-version rule comes after the checks, and the helper scan reads it too.
+    if detected_rule:
+        check_sources.append(inspect.getsource(getattr(kit.versions, detected_rule)).strip())
     # The runner tests a required input with _skip, so blank means the same there as in a check.
     helper_names = _needed_helpers([*check_sources, _RUNNER])
-    helper_sources = [_HELPER_SOURCES[name] for name in helper_names]
-
-    blocks: list[str] = [_HEADER.format(action=action).rstrip()]
-    blocks.extend(helper_sources)
-    blocks.extend(check_sources)
-    if detected_rule:
-        blocks.append(inspect.getsource(getattr(kit, detected_rule)).strip())
-
-    check_lines = "\n".join(
-        f'    "{name}": {_check_name(check_type)},' for name, check_type in sorted(checks.items())
-    )
-    blocks.append(f'ACTION = "{action}"\n\nCHECKS = {{\n{check_lines}\n}}')
-
-    if required:
-        required_lines = ", ".join(f'"{name}"' for name in sorted(required))
-        blocks.append(f"REQUIRED = {{{required_lines}}}")
-    else:
-        blocks.append("REQUIRED: set[str] = set()")
-
-    masked_inputs = sorted(name for name, check in checks.items() if check in kit.MASKED_CHECKS)
-    masked_names = ", ".join(f'"{name}"' for name in masked_inputs)
-    blocks.append(f"MASKED_INPUTS: list[str] = [{masked_names}]")
-
+    blocks = [
+        _HEADER.format(action=action).rstrip(),
+        *(_HELPER_SOURCES[name] for name in helper_names),
+        *check_sources,
+        *_tables(action),
+    ]
     # The reason text lives in the kit, which validation_core.py also reads.
-    blocks.append(_RUNNER.replace("@WHITESPACE_ONLY_REASON@", kit.WHITESPACE_ONLY_REASON).rstrip())
+    reason = kit.common.WHITESPACE_ONLY_REASON
+    blocks.append(_RUNNER.replace("@WHITESPACE_ONLY_REASON@", reason).rstrip())
     entry = _DETECTED_VERSION_ENTRY.format(rule=detected_rule) if detected_rule else _ENTRY
     blocks.append(entry.rstrip())
     return "\n\n\n".join(blocks) + "\n"
@@ -211,6 +226,42 @@ def stray_validators() -> list[str]:
     )
 
 
+def _current(action: str) -> bool:
+    """Return whether the committed validator for ``action`` is the one the spec generates."""
+    path = target(action)
+    return path.exists() and path.read_text(encoding="utf-8") == render(action)
+
+
+def _check(actions: list[str], *, strays: bool) -> int:
+    """Name each stale validator, and with ``strays`` each stray one; return 1 if there is any."""
+    stray = stray_validators() if strays else []
+    if stray:
+        sys.stderr.write(
+            "::error::not generated from _validation/spec.py: "
+            + ", ".join(stray)
+            + " — add the action to the spec, or remove the file\n",
+        )
+    drifted = [action for action in actions if not _current(action)]
+    if drifted:
+        sys.stderr.write(
+            "::error::validate.py out of date for: "
+            + ", ".join(drifted)
+            + " — run `make update-validators`\n",
+        )
+    if stray or drifted:
+        return 1
+    sys.stdout.write(f"validators up to date ({len(actions)} actions)\n")
+    return 0
+
+
+def _write(actions: list[str]) -> int:
+    """Write the validator of each action."""
+    for action in actions:
+        target(action).write_text(render(action), encoding="utf-8")
+    sys.stdout.write(f"generated {len(actions)} validators\n")
+    return 0
+
+
 def main() -> int:
     """Generate every validator, or with ``--check`` verify the committed files are current."""
     parser = argparse.ArgumentParser(description=__doc__)
@@ -223,38 +274,8 @@ def main() -> int:
     if unknown:
         sys.stderr.write(f"::error::unknown action(s): {', '.join(unknown)}\n")
         return 1
-
-    drifted: list[str] = []
-    for action in actions:
-        content = render(action)
-        path = target(action)
-        if args.check:
-            current = path.read_text(encoding="utf-8") if path.exists() else None
-            if current != content:
-                drifted.append(action)
-        else:
-            path.write_text(content, encoding="utf-8")
-
-    if args.check:
-        stray = [] if args.action else stray_validators()
-        if stray:
-            sys.stderr.write(
-                "::error::not generated from _validation/spec.py: "
-                + ", ".join(stray)
-                + " — add the action to the spec, or remove the file\n",
-            )
-        if drifted:
-            sys.stderr.write(
-                "::error::validate.py out of date for: "
-                + ", ".join(drifted)
-                + " — run `make update-validators`\n",
-            )
-        if stray or drifted:
-            return 1
-        sys.stdout.write(f"validators up to date ({len(actions)} actions)\n")
-    else:
-        sys.stdout.write(f"generated {len(actions)} validators\n")
-    return 0
+    # A single action's run checks only that action, so it cannot name a stray file.
+    return _check(actions, strays=not args.action) if args.check else _write(actions)
 
 
 if __name__ == "__main__":

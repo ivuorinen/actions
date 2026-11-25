@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Shared validation core for the ShellSpec test harness.
 
-The actual input checks live in ``_validation/kit.py`` (the single source of truth); this
+The actual input checks live in the ``_validation/kit`` package (the single source of truth); this
 module delegates to ``kit.CHECKS`` via ``_validation/spec.py`` and adds:
 
 1.  action.yml parsing utilities (name, inputs, outputs, runs-using, input properties)
 2.  a command-line interface for ShellSpec test integration (``--validate``, ``--property``,
     ``--inputs``, ``--outputs``, ``--name``, ``--runs-using``, ``--validate-yaml``)
 
-It holds no validation patterns of its own — to change what an input accepts, edit
-``_validation/kit.py`` and run ``make update-validators``.
+It holds no validation patterns of its own — to change what an input accepts, edit the
+check's module in ``_validation/kit/`` and run ``make update-validators``.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from typing import Any
 import yaml
 
 # Delegate input validation to the canonical per-action validation kit
-# (_validation/kit.py + _validation/spec.py) — the single source of truth that
+# (_validation/kit/ + _validation/spec.py) — the single source of truth that
 # also generates each action's self-contained validate.py. Adding the directory
 # to sys.path lets this CLI import the same checks the actions run.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "_validation"))
@@ -195,11 +195,11 @@ def validate_input(action_dir: str, input_name: str, input_value: str) -> tuple[
         return True, ""
 
     # Blank means what it means in the generated runner: ASCII whitespace only.
-    if input_name in spec["required"] and kit.is_blank(input_value):
+    if input_name in spec["required"] and kit.common.is_blank(input_value):
         return False, f"Required input '{input_name}' cannot be empty"
     # As the runner: a non-empty value of only whitespace is refused before the check runs.
-    if input_value and kit.is_blank(input_value):
-        return False, kit.WHITESPACE_ONLY_REASON
+    if input_value and kit.common.is_blank(input_value):
+        return False, kit.common.WHITESPACE_ONLY_REASON
 
     err = kit.CHECKS[check_type](input_value)
     return err is None, err or ""

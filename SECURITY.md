@@ -41,7 +41,7 @@ run: |
 Every action masks its credential inputs. Each action's generated `validate.py` registers those values with
 `::add-mask::` before it runs any check, so log output from that point on shows `***` instead of the value. An input
 counts as a credential when its check type in `_validation/spec.py` is listed in `MASKED_CHECKS` in
-`_validation/kit.py`.
+`_validation/kit/__init__.py`.
 
 **Limit**: the runner prints an action's `with:` values, and each step's `with:` and `env:` values, before that step
 starts. A value the runner does not already treat as a secret is visible in those lines, and an action cannot prevent

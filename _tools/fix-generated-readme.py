@@ -11,9 +11,9 @@ Every fixup here corrects generated output; none of it is style preference.
 Usage: fix-generated-readme.py <readme-path>
 
 Pure stdlib, like ``fix-local-action-refs.py`` — ``make docs`` must not depend on
-a virtualenv. Input examples come from ``_validation/kit.py``, the same module
-the generated validators are built from, so an example can never contradict the
-rule that validates it.
+a virtualenv. Input examples come from the ``_validation/kit`` package, the same
+source the generated validators are built from, so an example can never
+contradict the rule that validates it.
 """
 
 from __future__ import annotations
@@ -22,7 +22,7 @@ from pathlib import Path
 import re
 import sys
 
-# kit and spec are stdlib-only modules in _validation/, which is no package.
+# The kit package and spec are stdlib-only, in _validation/, which is no package itself.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "_validation"))
 
 import kit

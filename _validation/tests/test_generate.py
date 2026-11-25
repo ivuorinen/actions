@@ -29,7 +29,7 @@ VALID_TOKEN = "ghp_" + "a" * 36
 # The helpers come from kit itself, so a helper a new check calls reaches the validators: a
 # hand-kept list once left a new brace helper out, and the validators failed with a NameError.
 def test_a_check_gets_every_helper_it_calls_directly_or_through_another():
-    needed = generate._needed_helpers([inspect.getsource(kit.check_path_list)])
+    needed = generate._needed_helpers([inspect.getsource(kit.paths.check_path_list)])
     # _brace_group only through _brace_expansions, and _first_brace_pair through _brace_group
     assert {
         "_skip",
@@ -41,13 +41,35 @@ def test_a_check_gets_every_helper_it_calls_directly_or_through_another():
     } <= set(needed)
 
 
-def test_every_private_kit_function_is_a_helper_candidate():
-    private = {
+# A list, not a set: the generator keys helpers by name, so of two modules defining one helper
+# name it would keep only one, and a validator could get the wrong function.
+def test_every_private_kit_function_is_a_helper_candidate_once():
+    private = [
         name
-        for name, obj in vars(kit).items()
-        if name.startswith("_") and not name.startswith("__") and inspect.isfunction(obj)
-    }
-    assert set(generate._HELPERS) == private
+        for module in kit.MODULES
+        for name, obj in vars(module).items()
+        if name.startswith("_")
+        and not name.startswith("__")
+        and inspect.isfunction(obj)
+        and obj.__module__ == module.__name__
+    ]
+    assert sorted(generate._HELPERS) == sorted(private)
+
+
+# The helper scan reads the detected-version rule as well as the checks, so a rule that calls a
+# helper gets it: without it, the validator's --detected-version mode would fail with a NameError.
+def test_a_detected_version_rule_gets_the_helpers_it_calls(monkeypatch):
+    action = next(
+        a
+        for a in ACTIONS
+        if "detected_version" in SPECS[a] and "def _strip_v(" not in generate.render(a)
+    )
+
+    def calls_a_helper(value):
+        return kit.common._strip_v(value) == value
+
+    monkeypatch.setattr(kit.versions, SPECS[action].get("detected_version", ""), calls_a_helper)
+    assert "def _strip_v(" in generate.render(action)
 
 
 # CodeRabbit skips every top-level validate.py, in any case (.coderabbit.yaml), so --check fails
