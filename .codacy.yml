@@ -17,12 +17,19 @@
 # Production code is deliberately NOT excluded. The Bandit "hardcoded password"
 # findings that prompted this file were fixed in the source instead, by building
 # the GitHub Actions expressions rather than writing them as literals — see
-# `actions_expression()` in _tools/fix-generated-readme.py and kit.py.
+# `actions_expression()` in _tools/fix-generated-readme.py and the kit's
+# __init__.py.
 #
-# npm lockfiles are excluded because npm writes them: Lizard's file-length rule
-# reads one as 1700 lines of hand-written code. The Security Scan workflow's Trivy
-# still scans them for vulnerable dependencies.
+# npm lockfiles are excluded from Lizard alone, because npm writes them: its
+# file-length rule reads one as 1700 lines of hand-written code. Every other tool
+# still reads them, Codacy's Trivy among them, which checks their dependencies.
+# The patterns are Java globs, where `**/` needs at least one directory, so the
+# root lockfile has its own entry.
+engines:
+  lizard:
+    exclude_paths:
+      - 'package-lock.json'
+      - '**/package-lock.json'
 exclude_paths:
   - '_tests/**'
   - '_validation/tests/**'
-  - '**/package-lock.json'

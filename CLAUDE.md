@@ -34,7 +34,7 @@ Edit/Write (ruff for .py, shfmt for .sh, prettier for
 
 **Blocked edits** (PreToolUse):
 
-- `*/validate.py` — auto-generated; edit `_validation/spec.py` or `_validation/kit.py`, then `make update-validators`
+- `*/validate.py` — generated from `_validation/spec.py` and `_validation/kit/`; regenerate it with `make update-validators`
 - Action `README.md` — auto-generated, use `make docs`
 - `echo >> GITHUB_OUTPUT` in action.yml — use printf format-string separation
 - Bash-isms in .sh/action.yml — blocked, must be POSIX sh.
@@ -72,7 +72,7 @@ in hook commands
 
 ### Documentation Locations
 
-**Validation System**: `_validation/` — `kit.py` (canonical checks, single source of truth), `spec.py` (per-action input→check map), `generate.py` (codegen). See `_validation/README.md`.
+**Validation System**: `_validation/` — `kit/` (canonical checks, single source of truth), `spec.py` (per-action input→check map), `generate.py` (codegen). See `_validation/README.md`.
 
 **Testing**: `_tests/README.md` (ShellSpec framework, test patterns, running tests)
 
@@ -199,7 +199,7 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 **Model**: Each action runs its own self-contained `validate.py` (pure-stdlib `python3`, no deps, no external action) as its first real step. Validators are generated from one source:
 
-- `_validation/kit.py` — canonical check functions (`CHECKS[type](value) -> error|None`); the single place every regex/enum/range is defined.
+- `_validation/kit/` — canonical check functions (`CHECKS[type](value) -> error|None`), one module per domain; the single place every regex/enum/range is defined.
 - `_validation/spec.py` — per-action `{required, checks: {input: type}}` map (hand-edited source of truth).
 - `_validation/generate.py` — inlines only the needed checks into each `<action>/validate.py` (generated; do not hand-edit).
 
@@ -209,7 +209,12 @@ printf '%s\n' "status=$status" >> "$GITHUB_OUTPUT"
 
 **CalVer Support**: YYYY.MM.PATCH, YYYY.MM.DD, YYYY.0M.0D, YY.MM.MICRO, YYYY.MM, YYYY-MM-DD
 
-**Maintenance**: edit `_validation/spec.py` or `kit.py` → `make update-validators` → review `git diff '*/validate.py'`.
+**Maintenance**:
+
+1. Edit `_validation/spec.py` or a module in `_validation/kit/`.
+2. Run `make update-validators`.
+3. Review `git diff '*/validate.py'`.
+
 CI's `generate.py --check` fails if a committed validator is stale, or if a `validate.py` is not one the spec generates.
 
 ---

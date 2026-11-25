@@ -38,7 +38,7 @@ Evidence:
 
 Evidence:
 
-- `_validation/kit.py` keeps every input check in one table, `CHECKS[type](value) -> error | None`, and
+- The `_validation/kit` package keeps every input check in one table, `CHECKS[type](value) -> error | None`, and
   `_validation/spec.py` maps each action's inputs to check types. A new check type is a new entry in that table.
 - Nothing is discovered at run time: `_validation/generate.py` inlines the checks an action needs into its
   `validate.py`, which imports only the standard library. The registry is a build-time table, not an extension
@@ -49,7 +49,7 @@ Evidence:
 ### Custom hybrid: Modular Monolith + Pipe and Filter, with build-time code generation
 
 Each action is a self-contained module with a fixed step pipeline whose first stage is input validation. The
-validation logic has one source, `_validation/kit.py` and `_validation/spec.py`, from which `_validation/generate.py`
+validation logic has one source, `_validation/kit/` and `_validation/spec.py`, from which `_validation/generate.py`
 writes a vendored, stdlib-only `validate.py` into each module. Modules share code only through that generation or
 through an identical copy that a test keeps identical, never through a runtime reference.
 
@@ -60,7 +60,7 @@ through an identical copy that a test keeps identical, never through a runtime r
    byte-identical (`install_tool.py`).
 2. **Validation gate**: an action that accepts inputs runs its own `validate.py` as the first step, before
    `actions/checkout`, with no `if:` condition that could skip it.
-3. **Single source for validation**: every check (regex, enum, range) is defined in `_validation/kit.py`, and each
+3. **Single source for validation**: every check (regex, enum, range) is defined in `_validation/kit/`, and each
    action's input-to-check map in `_validation/spec.py`. `*/validate.py` is generated (`make update-validators`),
    never edited by hand, and `generate.py --check` fails CI when one is stale. The test harness imports
    `kit.CHECKS` (`_tests/shared/validation_core.py`) instead of copying a pattern.
@@ -87,7 +87,7 @@ through an identical copy that a test keeps identical, never through a runtime r
   `_validation/` and `gh-action-readme`. Pre-tool hooks block hand edits to both.
 - **Repository-level actions outside the catalog**: `.github/actions/setup-test-environment/` is a local composite
   action that only CI uses; it is not one of the published modules and follows the workflow rules, not Rule 1.
-- **Plugin signal is thin**: the check table in `kit.py` is resolved when the validators are generated. Calling it
+- **Plugin signal is thin**: the kit's check table is resolved when the validators are generated. Calling it
   a plugin architecture would need run-time discovery, which is absent, so the confidence stays at Low.
 - **No MVC, DDD, Hexagonal, CQRS or SOA signals**: no layer, domain, port or command directories, and no shared
   service action. Correctly absent.

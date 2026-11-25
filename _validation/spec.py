@@ -1,7 +1,7 @@
 """Per-action validation spec — the single source of the input -> check mapping.
 
-This is hand-maintained (BUILD-TIME ONLY). ``generate.py`` reads it together with
-``kit.py`` and emits a self-contained ``<action>/validate.py`` for each action.
+This is hand-maintained (BUILD-TIME ONLY). ``generate.py`` reads it together with the
+``kit`` package and emits a self-contained ``<action>/validate.py`` for each action.
 
 Shape::
 
@@ -9,14 +9,14 @@ Shape::
         "required": [<input names that must be non-empty>],
         "checks":   {<input name>: "<kit check type>"},
         # only for actions that read a tool version from a repository file:
-        "detected_version": "<kit is_detected_* rule>",
+        "detected_version": "<kit.versions is_detected_* rule>",
     }
 
 Rules for editing:
 
 *   ``checks`` keys are the action's input names *exactly* as declared in its
     ``action.yml`` (the runner derives the ``INPUT_<UPPER_SNAKE>`` env var from them).
-*   each check value must be a type defined in ``kit.py`` (``kit.CHECKS``);
+*   each check value must be a type defined in the ``kit`` package (``kit.CHECKS``);
     ``tests/test_spec.py`` fails if a value is unknown or an action's inputs and its
     spec drift apart.
 *   a credential input must use a check type in ``kit.MASKED_CHECKS``: that type is what

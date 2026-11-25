@@ -30,11 +30,11 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter | Description                                                                      | Required | Default |
-| --------- | -------------------------------------------------------------------------------- | -------- | ------- |
-| `dry-run` | Run in dry-run mode without creating the release (lowercase true or false).      | ❌       | `false` |
-| `prefix`  | Optional prefix for release tags.                                                | ❌       | -       |
-| `token`   | GitHub token with permission to create releases. Defaults to the workflow token. | ❌       | -       |
+| Parameter | Description                                                                       | Required | Default |
+| --------- | --------------------------------------------------------------------------------- | -------- | ------- |
+| `dry-run` | Run in dry-run mode without creating the release (lowercase true or false).       | ❌       | `false` |
+| `prefix`  | Optional prefix for release tags: letters, digits and . _ -, not starting with -. | ❌       | -       |
+| `token`   | GitHub token with permission to create releases. Defaults to the workflow token.  | ❌       | -       |
 
 ## 📤 Outputs
 

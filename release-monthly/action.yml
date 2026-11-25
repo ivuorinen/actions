@@ -20,7 +20,7 @@ inputs:
     required: false
     default: 'false'
   prefix:
-    description: 'Optional prefix for release tags.'
+    description: 'Optional prefix for release tags: letters, digits and . _ -, not starting with -.'
     required: false
     default: ''
 

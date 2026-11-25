@@ -34,7 +34,7 @@ python3 _validation/generate.py --check --action <action-name>
 If the action declares inputs but `validate.py` does not exist, report as FAIL.
 If the action has no inputs, `validate.py` is not required — report as N/A.
 Never hand-edit `validate.py`; it is generated from `_validation/spec.py` +
-`_validation/kit.py` via `make update-validators`.
+`_validation/kit/` via `make update-validators`.
 
 ### 3. Check README.md is up-to-date
 

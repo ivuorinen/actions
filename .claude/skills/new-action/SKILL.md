@@ -32,15 +32,15 @@ Create `<action-name>/action.yml` following the existing action patterns:
 ## 3. Generate the input validator
 
 Add the new action to `_validation/spec.py` — list its required inputs and map each
-input to a check type from `_validation/kit.py` (add a new check to `kit.py` if none
-fits). Then:
+input to a check type from `_validation/kit/` (add a new check to the module for its domain
+if none fits). Then:
 
 ```bash
 make update-validators
 ```
 
 This generates `<action-name>/validate.py` (self-contained pure-stdlib validator) from
-`_validation/spec.py` + `_validation/kit.py`. Never hand-edit the generated `validate.py`.
+`_validation/spec.py` + `_validation/kit/`. Never hand-edit the generated `validate.py`.
 Add a `shell: sh` step that runs `python3 validate.py` as the action's first real step.
 
 ## 4. Write the tests

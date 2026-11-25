@@ -11,9 +11,9 @@ which is produced from the canonical sources under `_validation/`.
 
 The input → check mapping lives in `_validation/spec.py` (the single source: which
 inputs each action has, which check type each uses, and which are required); the check
-implementations (every regex, enum, and range) live in `_validation/kit.py`.
+implementations (every regex, enum, and range) live in the `_validation/kit/` package.
 
 Never hand-edit a generated `<action>/validate.py` — it is auto-generated and a
-PreToolUse hook blocks editing it. Edit `_validation/spec.py` and/or `_validation/kit.py`,
+PreToolUse hook blocks editing it. Edit `_validation/spec.py` and/or `_validation/kit/`,
 then run `make update-validators` to regenerate. Verify the committed validators are
 current with `python3 _validation/generate.py --check`.
