@@ -140,6 +140,9 @@ Parameters
 "pnpm" "pnpm-lock.yaml" "    resolution: {commit: 0123abc, repo: https://github.com/acme/lib.git, type: git}"
 "yarn" "yarn.lock" '  resolution: "lib@https://github.com/acme/lib.git#commit=0123abc"'
 "yarn" "yarn.lock" '  resolved "git+https://github.com/acme/lib.git#0123abc"'
+"yarn" "yarn.lock" '  resolved "https://example.org/lib.git#0123abc"'
+"yarn" "yarn.lock" '"lib@https://github.com/acme/lib":'
+"npm" "package-lock.json" '"resolved": "ssh://git@example.org/acme/lib.git#0123abc"'
 "bun" "bun.lock" '    "lib": ["lib@github:acme/lib#0123abc", {}],'
 End
 
@@ -165,13 +168,24 @@ The stdout should include "::error::bun.lockb names a Git dependency"
 The stdout should not include "installed anyway"
 End
 
-It "installs a lockfile of registry archives"
-printf '%s\n' '"resolved": "https://registry.npmjs.org/lib/-/lib-1.0.0.tgz"' >package-lock.json
+# Archives install without a build: a registry tarball, one whose package name holds .git, and a
+# release archive deeper in a Git host than an owner and a repository.
+Describe "a lockfile of archives"
+Parameters
+"package-lock.json" '"resolved": "https://registry.npmjs.org/lib/-/lib-1.0.0.tgz"'
+"package-lock.json" '"resolved": "https://registry.npmjs.org/x.github/-/x.github-1.0.0.tgz"'
+"package-lock.json" '"resolved": "https://github.com/acme/lib/archive/v1.0.0.tar.gz"'
+"yarn.lock" '  resolved "https://registry.yarnpkg.com/lib/-/lib-1.0.0.tgz#0123abc"'
+End
+
+It "installs $2 from $1"
+printf '%s\n' "$2" >"$1"
 mock_command npm "ci --ignore-scripts" ""
 
 When call run_install_node "npm"
 The status should be success
 The stdout should include "Dependencies installed successfully"
+End
 End
 
 Describe "Corepack settings from the checkout"
@@ -203,6 +217,25 @@ mock_command yarn "$2" ""
 When call run_install_node "yarn"
 The status should be success
 The stdout should include "Dependencies installed successfully"
+End
+End
+
+# --skip-builds came in Yarn 2.4.0. Only --version is mocked: an install would reach an
+# unregistered call, which the mock reports on stderr.
+Describe "yarn before 2.4.0"
+Parameters
+"2.0.0"
+"2.3.1"
+End
+
+It "refuses yarn $1, which cannot skip builds"
+mock_command yarn "--version" "$1"
+
+When call run_install_node "yarn"
+The status should be failure
+The stderr should equal ""
+The stdout should include "::error::Yarn 2.0 to 2.3 cannot install without running builds"
+The stdout should not include "Dependencies installed successfully"
 End
 End
 End

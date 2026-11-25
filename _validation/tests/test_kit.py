@@ -8,6 +8,8 @@ asserted explicitly so a regression cannot pass silently.
 
 from __future__ import annotations
 
+import time
+
 import kit
 import pytest
 
@@ -1251,6 +1253,33 @@ def test_integer_checks_accept_only_ascii_digits(check, value):
 def test_path_list_reasons_about_deeply_nested_braces():
     assert kit.check_path_list("{" * 2000 + "a" + "}" * 2000) is None
     assert kit.check_path_list("{" * 2000 + "/a" + "}" * 2000) is not None
+
+
+# Each expansion reads a run of unclosed braces once. Rescanning the rest of the text from each
+# of them took about a billion character visits for this input; one pass takes a fraction of a
+# second, so the bound only catches that.
+def test_path_list_reads_unclosed_braces_once():
+    started = time.perf_counter()
+    assert kit.check_path_list("{" * 2000 + "a" + "}" * 1000) is None
+    assert time.perf_counter() - started < 10
+
+
+# An unclosed or unmatched brace stays literal, wherever it is, and the closed groups around it
+# still expand.
+@pytest.mark.parametrize(
+    ("item", "expansions"),
+    [
+        ("{a,{b}", ["{a,b"]),
+        ("{{a,b}", ["{a", "{b"]),
+        ("a}{b,c}", ["a}b", "a}c"]),
+        ("{a,b", ["{a,b"]),
+        ("}{a,b}{", ["}a{", "}b{"]),
+    ],
+)
+def test_brace_expansions_keep_unbalanced_braces_literal(item, expansions):
+    expanded = kit._brace_expansions(item)
+    assert expanded is not None
+    assert sorted(expanded) == expansions
 
 
 @pytest.mark.parametrize(

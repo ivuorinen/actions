@@ -15,8 +15,15 @@ printf 'Installing dependencies using %s...\n' "$PACKAGE_MANAGER"
 # pack in the clone. Such a dependency cannot install without scripts, so a lockfile that names
 # one stops the install. Bun's binary bun.lockb holds the same URLs as plain strings, which grep
 # matches in a binary file too.
+#
+# The forms a lockfile names one in: a git+, git:// or ssh:// URL; an http(s) URL ending in
+# .git, or naming an owner and a repository on github.com, gitlab.com or bitbucket, which Yarn 1
+# reads as Git; Yarn 2+'s #commit=; pnpm's type: git; and a host shorthand such as github:.
+git_ref='git\+[a-z]+://|git://|ssh://|https?://[^[:space:]"#]*\.git([#"[:space:]]|$)'
+git_ref="$git_ref"'|https?://(github\.com|gitlab\.com|bitbucket\.(com|org))/[^/[:space:]"#]+/[^/[:space:]"#]+([#"[:space:]]|$)'
+git_ref="$git_ref"'|#commit=|type: git|(github|gitlab|bitbucket):'
 for lockfile in package-lock.json npm-shrinkwrap.json pnpm-lock.yaml yarn.lock bun.lock bun.lockb; do
-  if [ -f "$lockfile" ] && grep -E -q 'git\+[a-z]+://|git://|#commit=|type: git|(github|gitlab|bitbucket):' "$lockfile"; then
+  if [ -f "$lockfile" ] && grep -E -q "$git_ref" "$lockfile"; then
     echo "::error::$lockfile names a Git dependency, which is built from its repository with its scripts; the dependencies install only without scripts"
     exit 1
   fi
@@ -38,10 +45,15 @@ yarn)
     exit 1
   }
   # The running Yarn decides the flags, so a Yarn 2+ project needs no .yarnrc.yml: each
-  # generation names its frozen-lockfile and script-skipping flags differently.
+  # generation names its frozen-lockfile and script-skipping flags differently. Yarn 2.4.0 added
+  # --skip-builds, and 2.0 to 2.3 have no way to install without builds.
   yarn_version=$(yarn --version 2>/dev/null || printf '1.0.0')
   case "$yarn_version" in
   1.*) yarn install --frozen-lockfile --ignore-scripts ;;
+  2.[0-3].*)
+    echo "::error::Yarn 2.0 to 2.3 cannot install without running builds; use Yarn 1, or 2.4.0 or later"
+    exit 1
+    ;;
   2.*) yarn install --immutable --skip-builds ;;
   *) yarn install --immutable --mode=skip-build ;;
   esac

@@ -805,24 +805,34 @@ def check_file_extensions(value: str) -> str | None:
 def _brace_group(text: str) -> tuple[int, int, list[str]] | None:
     """Return the start, end and top-level alternatives of the first closed brace group, or None.
 
-    An unclosed brace groups nothing and stays literal, so the search moves on past it.
+    An unclosed brace groups nothing and stays literal. One pass pairs each closing brace with
+    the nearest open one before it, and the first group is the pair that opens first, so a run
+    of unclosed braces is read once rather than once for each of them.
     """
-    for start, char in enumerate(text):
-        if char != "{":
-            continue
-        depth, begin, alternatives = 0, start + 1, []
-        for index in range(start, len(text)):
-            if text[index] == "{":
-                depth += 1
-            elif text[index] == "}":
-                depth -= 1
-                if depth == 0:
-                    alternatives.append(text[begin:index])
-                    return start, index, alternatives
-            elif text[index] == "," and depth == 1:
-                alternatives.append(text[begin:index])
-                begin = index + 1
-    return None
+    opened: list[int] = []
+    first: tuple[int, int] | None = None
+    for index, char in enumerate(text):
+        if char == "{":
+            opened.append(index)
+        elif char == "}" and opened:
+            start = opened.pop()
+            if first is None or start < first[0]:
+                first = (start, index)
+    if first is None:
+        return None
+    start, end = first
+    # Every brace between the pair is paired too, so depth 0 is the group's own level.
+    depth, begin, alternatives = 0, start + 1, []
+    for index in range(start + 1, end):
+        if text[index] == "{":
+            depth += 1
+        elif text[index] == "}":
+            depth -= 1
+        elif text[index] == "," and depth == 0:
+            alternatives.append(text[begin:index])
+            begin = index + 1
+    alternatives.append(text[begin:end])
+    return start, end, alternatives
 
 
 def _brace_expansions(item: str, limit: int = 256) -> list[str] | None:
