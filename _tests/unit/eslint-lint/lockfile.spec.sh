@@ -127,9 +127,12 @@ The stdout should include "Dependencies installed successfully"
 End
 
 # The running Yarn picks the flags; only the expected install call is mocked, so another fails.
+# node reads the manifests for exec: dependencies, and its mock finds none; pr-lint's behavior
+# spec runs the real one against the shared install script.
 It "installs with --frozen-lockfile under Yarn 1, without install scripts"
 printf '%s\n' '{"name": "app"}' >package.json
 export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"yarn"}}}'
+mock_command node "*" ""
 mock_command yarn "--version" "1.22.22"
 mock_command yarn "install --frozen-lockfile --ignore-scripts" ""
 When call run_step "${ACTION_DIR}" "install-deps"
@@ -141,6 +144,7 @@ End
 It "installs with --immutable under Yarn 2+, without a .yarnrc.yml or builds"
 printf '%s\n' '{"name": "app"}' >package.json
 export HARNESS_STEP_OUTPUTS='{"detect-pm":{"outputs":{"package-manager":"yarn"}}}'
+mock_command node "*" ""
 mock_command yarn "--version" "4.18.1"
 mock_command yarn "install --immutable --mode=skip-build" ""
 When call run_step "${ACTION_DIR}" "install-deps"
