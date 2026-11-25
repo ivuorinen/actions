@@ -31,14 +31,14 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter       | Description                                                                                                                    | Required | Default                     |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------ | -------- | --------------------------- |
-| `email`         | GitHub email for commits (fix mode only)                                                                                       | ❌       | `github-actions@github.com` |
-| `fail-on-error` | Fail the workflow when issues are found; a run that could not lint fails either way (check mode only; lowercase true or false) | ❌       | `true`                      |
-| `max-retries`   | Maximum number of retry attempts for npm install operations (1-10, must not be empty)                                          | ❌       | `3`                         |
-| `mode`          | Mode to run: check or fix (empty: check)                                                                                       | ❌       | `check`                     |
-| `token`         | GitHub token for authentication. Stays in git config after checkout in fix mode only. Defaults to the workflow token.          | ❌       | -                           |
-| `username`      | GitHub username for commits (fix mode only)                                                                                    | ❌       | `github-actions`            |
+| Parameter       | Description                                                                                                                                                    | Required | Default                     |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
+| `email`         | GitHub email for commits (fix mode only)                                                                                                                       | ❌       | `github-actions@github.com` |
+| `fail-on-error` | Fail the workflow when issues are found; a run that could not lint fails either way (check mode only; lowercase true or false)                                 | ❌       | `true`                      |
+| `max-retries`   | Maximum number of retry attempts for npm install operations (1-10, must not be empty)                                                                          | ❌       | `3`                         |
+| `mode`          | Mode to run: check or fix (empty: check)                                                                                                                       | ❌       | `check`                     |
+| `token`         | GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run fix mode on trusted refs only. Defaults to the workflow token. | ❌       | -                           |
+| `username`      | GitHub username for commits (fix mode only)                                                                                                                    | ❌       | `github-actions`            |
 
 ## 📤 Outputs
 

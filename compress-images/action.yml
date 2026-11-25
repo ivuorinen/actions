@@ -109,6 +109,8 @@ runs:
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: '24'
+        # setup-node would restore and save the package manager's cache from any event.
+        package-manager-cache: false
 
     # sharp comes from this action's package-lock.json: npm ci installs each package of the
     # tree at its locked version and integrity hash, with no lifecycle scripts, into a new

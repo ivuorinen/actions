@@ -1,14 +1,15 @@
 #!/usr/bin/env shellspec
-# setup-dotnet runs in a `uses:` step the harness skips, so this assertion reads
-# action.yml. The restore command runs in behavior.spec.sh, whose exact mocks
-# require --locked-mode.
+# The cache steps are `uses:` steps the harness skips, so this assertion reads action.yml. The
+# restore command runs in behavior.spec.sh, whose exact mocks require --locked-mode.
 
 Describe "csharp-publish lock file handling"
 ACTION_FILE="${PROJECT_ROOT}/csharp-publish/action.yml"
 
-It "caches packages only when a lock file exists"
-When call lock_aware_dotnet_cache "$ACTION_FILE"
-The status should be success
-The stdout should include "hashFiles"
+It "caches packages only when a lock file exists, under a key that hashes it"
+When call nuget_cache_steps "$ACTION_FILE"
+The lines of output should equal 3
+The line 1 of output should include "hashFiles('**/packages.lock.json') != ''"
+The line 2 of output should include "hashFiles('**/packages.lock.json') != ''"
+The line 3 of output should include "hashFiles('**/packages.lock.json')"
 End
 End

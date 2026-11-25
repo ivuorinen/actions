@@ -133,6 +133,8 @@ runs:
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: '24'
+        # setup-node would restore and save the package manager's cache from any event.
+        package-manager-cache: false
 
     - name: Enable Corepack
       if: steps.detect-node.outputs.found == 'true' && steps.detect-node.outputs.has-package-manager == 'true'

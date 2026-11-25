@@ -40,7 +40,7 @@ jobs:
 | `flake8-version`    | Deprecated: has no effect, because the action installs the flake8 version locked in its requirements.lock.txt. A value set here must still be a version number.   | ❌       | -                           |
 | `max-retries`       | Maximum number of retries for the connections pip makes while installing the lint tools (1-10, must not be empty)                                                 | ❌       | `3`                         |
 | `python-version`    | Python version to use                                                                                                                                             | ❌       | `3.11`                      |
-| `token`             | GitHub token for authentication. Stays in git config after checkout. Defaults to the workflow token.                                                              | ❌       | -                           |
+| `token`             | GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run on trusted refs only. Defaults to the workflow token.             | ❌       | -                           |
 | `username`          | GitHub username for commits                                                                                                                                       | ❌       | `github-actions`            |
 | `working-directory` | Directory containing Python files to lint                                                                                                                         | ❌       | `.`                         |
 

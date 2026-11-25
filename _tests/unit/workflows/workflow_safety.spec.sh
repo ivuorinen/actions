@@ -208,6 +208,14 @@ The status should be success
 The output should equal ""
 End
 
+# A job's permissions replace the workflow's, so a grant at the top reaches only a job that names
+# none; each job names what it needs instead. grep -L's exit status differs between versions, so
+# only the files it lists count.
+It "grant nothing at the top of a workflow"
+When call grep -L -x 'permissions: {}' .github/workflows/*.yml
+The output should equal ""
+End
+
 It "give the pr-lint job read on contents and write only where MegaLinter reports"
 When call pr_lint_permissions
 The status should be success

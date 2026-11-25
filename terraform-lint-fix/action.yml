@@ -50,7 +50,7 @@ inputs:
     required: false
     default: 'sarif'
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout only when auto-fix is true. Defaults to the workflow token.'
+    description: 'GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run auto-fix on trusted refs only. Defaults to the workflow token.'
     required: false
     default: ''
   username:

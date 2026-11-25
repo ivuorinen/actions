@@ -45,7 +45,7 @@ jobs:
 | `max-retries`       | Deprecated: has no effect, because the action does not retry its installs. A value set here must still be a number from 1 to 10.                                                   | ❌       | `3`                         |
 | `terraform-version` | Terraform version to use (empty: the version pinned in this action, "latest": the newest release)                                                                                  | ❌       | -                           |
 | `tflint-version`    | TFLint version to use (empty: the version pinned in this action, "latest": the newest release)                                                                                     | ❌       | -                           |
-| `token`             | GitHub token for authentication. Stays in git config after checkout only when auto-fix is true. Defaults to the workflow token.                                                    | ❌       | -                           |
+| `token`             | GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run auto-fix on trusted refs only. Defaults to the workflow token.                     | ❌       | -                           |
 | `username`          | GitHub username for commits                                                                                                                                                        | ❌       | `github-actions`            |
 | `working-directory` | Directory containing Terraform files                                                                                                                                               | ❌       | `.`                         |
 

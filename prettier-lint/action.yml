@@ -65,7 +65,7 @@ inputs:
     required: false
     default: ''
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only. Defaults to the workflow token.'
+    description: 'GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run fix mode on trusted refs only. Defaults to the workflow token.'
     required: false
     default: ''
   username:
@@ -153,6 +153,8 @@ runs:
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: '24'
+        # setup-node would restore and save the package manager's cache from any event.
+        package-manager-cache: false
 
     # Every step that runs corepack or a pnpm or yarn shim sets COREPACK_ENV_FILE: otherwise
     # Corepack takes settings, such as the registry it fetches the package manager from and

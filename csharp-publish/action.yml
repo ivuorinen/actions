@@ -166,9 +166,21 @@ runs:
       uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
       with:
         dotnet-version: ${{ inputs.dotnet-version || steps.detect-dotnet-version.outputs.detected-version }}
-        # setup-dotnet fails the step when the cache is on and no lock file matches.
-        cache: ${{ hashFiles('**/packages.lock.json') != '' }}
-        cache-dependency-path: '**/packages.lock.json'
+        # setup-dotnet saves its cache from any event; the NuGet packages are restored and saved below.
+        cache: false
+
+    # The packages hold the assemblies and MSBuild targets the build runs, and csharp-build,
+    # csharp-lint-check and csharp-publish share them. Save NuGet Packages writes them only from a
+    # trusted event: a pull_request_target, issue_comment or workflow_run run builds pull-request
+    # code under the default branch's cache scope, and a later run there would restore and run
+    # what it saved. Both steps need a lock file, which the key hashes.
+    - name: Restore NuGet Packages
+      id: nuget-cache
+      if: hashFiles('**/packages.lock.json') != ''
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/packages.lock.json') }}
 
     - name: Restore Dependencies
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
@@ -185,6 +197,15 @@ runs:
           set -eu
           command -v dotnet >/dev/null 2>&1 || { echo "::error::dotnet is required to restore the dependencies"; exit 1; }
           dotnet restore ${PROJECT:+"$PROJECT"} --locked-mode --verbosity normal
+
+    - name: Save NuGet Packages
+      if: >-
+        hashFiles('**/packages.lock.json') != '' && steps.nuget-cache.outputs.cache-hit != 'true'
+        && contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event_name)
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.nuget/packages
+        key: ${{ steps.nuget-cache.outputs.cache-primary-key }}
 
     - name: Build Solution
       id: build

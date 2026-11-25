@@ -10,7 +10,8 @@ on:
     # Weekly on Saturdays.
     - cron: '30 1 * * 6'
 
-permissions: read-all
+# Nothing at the top, as in the other workflows: the job names what it needs.
+permissions: {}
 
 jobs:
   analysis:

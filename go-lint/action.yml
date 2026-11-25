@@ -119,7 +119,8 @@ runs:
         DEFAULT_GO_VERSION: '1.27.3'
       with:
         go-version: ${{ inputs.go-version || env.DEFAULT_GO_VERSION }}
-        cache: true
+        # setup-go saves its cache from any event; the build cache is restored and saved below.
+        cache: false
 
     - name: Checkout Repository
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -152,10 +153,14 @@ runs:
 
         printf 'version=%s\n' "$version" >> "$GITHUB_OUTPUT"
 
-    - name: Cache golangci-lint
+    # The build cache holds the objects go install builds golangci-lint from, and Go trusts its
+    # entries. Save golangci-lint Cache writes it only from a trusted event: a pull_request_target,
+    # issue_comment or workflow_run run lints pull-request code under the default branch's cache
+    # scope, and a later run there would restore and execute what it saved.
+    - name: Restore golangci-lint Cache
       id: cache
       if: inputs.cache == 'true'
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: |
           ~/.cache/golangci-lint
@@ -380,6 +385,17 @@ runs:
           echo "::error::golangci-lint found ${error_count} issues"
           exit 1
         fi
+
+    - name: Save golangci-lint Cache
+      if: >-
+        inputs.cache == 'true' && steps.cache.outputs.cache-hit != 'true'
+        && contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event_name)
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ~/.cache/golangci-lint
+          ~/.cache/go-build
+        key: ${{ steps.cache.outputs.cache-primary-key }}
 
     - name: Upload Lint Results
       # Also after the lint step failed on issues: it names the report first. It names none when

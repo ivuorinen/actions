@@ -19,7 +19,7 @@ inputs:
     description: 'Base branch name (for example main); only files changed since it diverged from HEAD are checked, and the full history is fetched'
     required: false
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout. Defaults to the workflow token.'
+    description: 'GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run on trusted refs only. Defaults to the workflow token.'
     required: false
     default: ''
   commit_user:
