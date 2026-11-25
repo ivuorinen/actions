@@ -103,9 +103,9 @@ runs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         token: ${{ inputs.token || github.token }}
-        # Only auto-fix pushes; git-auto-commit-action authenticates with the
-        # credentials actions/checkout leaves in git config.
-        persist-credentials: ${{ inputs.auto-fix == 'true' }}
+        # The token reaches git only in the step that pushes, from that step's environment, so
+        # code that runs before it finds none in .git/config.
+        persist-credentials: false
 
     - name: Check for Terraform Files
       id: check-files
@@ -319,6 +319,15 @@ runs:
     - name: Commit Fixes
       if: steps.check-files.outputs.found == 'true' && inputs.auto-fix == 'true' && fromJSON(steps.fix.outputs.fixed_count) > 0
       uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
+      env:
+        GH_TOKEN: ${{ inputs.token || github.token }}
+        # The empty helper drops any configured one, and the next answers git's credential request
+        # from this step's environment.
+        GIT_CONFIG_COUNT: '2'
+        GIT_CONFIG_KEY_0: credential.helper
+        GIT_CONFIG_VALUE_0: ''
+        GIT_CONFIG_KEY_1: credential.helper
+        GIT_CONFIG_VALUE_1: '!f() { test "$1" = get || return 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
       with:
         commit_message: 'style: apply terraform formatting fixes'
         commit_user_name: ${{ inputs.username }}

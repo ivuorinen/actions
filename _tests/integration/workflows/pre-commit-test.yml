@@ -24,6 +24,7 @@ jobs:
 
       - name: Verify validation passed
         run: |
+          set -eu
           echo "✓ Default inputs validation completed"
 
       - name: Test with custom config file
@@ -36,6 +37,7 @@ jobs:
 
       - name: Verify custom config accepted
         run: |
+          set -eu
           echo "✓ Custom config file accepted"
 
       - name: Test with base branch
@@ -48,6 +50,7 @@ jobs:
 
       - name: Verify base branch accepted
         run: |
+          set -eu
           echo "✓ Base branch parameter accepted"
 
   test-pre-commit-git-config:
@@ -59,6 +62,7 @@ jobs:
 
       - name: Test custom git user
         run: |
+          set -eu
           # Simulate set-git-config step
           git config user.name "Test User"
           git config user.email "test@example.com"
@@ -81,6 +85,7 @@ jobs:
 
       - name: Test default git user
         run: |
+          set -eu
           # Simulate default configuration
           git config user.name "GitHub Actions"
           git config user.email "github-actions@github.com"
@@ -110,6 +115,7 @@ jobs:
 
       - name: Verify default config exists
         run: |
+          set -eu
           if [[ -f ".pre-commit-config.yaml" ]]; then
             echo "✓ Default .pre-commit-config.yaml found"
           else
@@ -118,6 +124,7 @@ jobs:
 
       - name: Test custom config path validation
         run: |
+          set -eu
           CONFIG_FILE="custom-pre-commit-config.yaml"
 
           # In real action, this would be validated
@@ -136,6 +143,7 @@ jobs:
 
       - name: Test pre-commit installed
         run: |
+          set -eu
           if command -v pre-commit >/dev/null 2>&1; then
             echo "✓ pre-commit is installed"
             pre-commit --version
@@ -145,6 +153,7 @@ jobs:
 
       - name: Create test file with issues
         run: |
+          set -eu
           mkdir -p test-pre-commit
           cd test-pre-commit
 
@@ -166,6 +175,7 @@ jobs:
 
       - name: Test hook detection of issues
         run: |
+          set -eu
           cd test-pre-commit
 
           # Check if trailing whitespace exists
@@ -185,6 +195,7 @@ jobs:
 
       - name: Test hooks_passed output
         run: |
+          set -eu
           # Simulate successful hooks
           HOOKS_OUTCOME="success"
 
@@ -203,6 +214,7 @@ jobs:
 
       - name: Test hooks_passed output on failure
         run: |
+          set -eu
           # Simulate failed hooks
           HOOKS_OUTCOME="failure"
 
@@ -221,6 +233,7 @@ jobs:
 
       - name: Test files_changed output
         run: |
+          set -eu
           # Simulate git status check
           echo "test.txt" > /tmp/test-changes.txt
 
@@ -246,6 +259,7 @@ jobs:
 
       - name: Test autofix commit message
         run: |
+          set -eu
           COMMIT_MESSAGE="style(pre-commit): autofix"
 
           if [[ "$COMMIT_MESSAGE" != "style(pre-commit): autofix" ]]; then
@@ -257,6 +271,7 @@ jobs:
 
       - name: Test git add options
         run: |
+          set -eu
           ADD_OPTIONS="-u"
 
           if [[ "$ADD_OPTIONS" != "-u" ]]; then
@@ -268,6 +283,7 @@ jobs:
 
       - name: Test autofix always runs
         run: |
+          set -eu
           # Autofix should still run (if: always())
           echo "✓ Autofix runs even when pre-commit fails"
 
@@ -284,6 +300,7 @@ jobs:
     steps:
       - name: Summary
         run: |
+          set -eu
           echo "=========================================="
           echo "Pre-commit Integration Tests - PASSED"
           echo "=========================================="

@@ -116,7 +116,9 @@ jobs:
       # The validators' drift check runs on every pull request in generated-files.yml.
       - name: Run validation test suite
         shell: sh
-        run: make test-python
+        run: |
+          set -eu
+          make test-python
 
   integration-tests:
     name: Integration Tests
@@ -189,7 +191,9 @@ jobs:
           install-kcov: 'true'
 
       - name: Generate coverage report
-        run: make test-coverage
+        run: |
+          set -eu
+          make test-coverage
 
       - name: Upload coverage report
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2

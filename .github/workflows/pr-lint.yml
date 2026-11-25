@@ -99,6 +99,7 @@ jobs:
         if: always()
         shell: sh
         run: |-
+          set -eu
           # Remove temporary files but keep reports
           find . -type f -name "megalinter.*" ! -path "./megalinter-reports/*" -delete || true
           find . -type d -name ".megalinter" -exec rm -rf {} + || true

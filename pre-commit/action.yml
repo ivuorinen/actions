@@ -68,10 +68,9 @@ runs:
         # Strings, not numbers: the expression returns an operand, and the number 0 is
         # falsy, so `&& 0 || 1` would always give 1.
         fetch-depth: ${{ inputs.base-branch != '' && '0' || '1' }}
-        # git-auto-commit-action pushes the auto-fix commit using the token that
-        # actions/checkout persists in .git/config; persist-credentials must stay
-        # true or the "Commit Fixes" step cannot authenticate its push.
-        persist-credentials: true # zizmor: ignore[artipacked]
+        # The token reaches git only in the step that pushes, from that step's environment, so
+        # code that runs before it, the hooks among it, finds none in .git/config.
+        persist-credentials: false
 
     # The lock holds the wheels for this Python; the cache key below reads its location.
     - name: Set up Python
@@ -96,8 +95,13 @@ runs:
         python3 -P -m pip install --require-hashes --only-binary=:all: -r "$ACTION_PATH/requirements.lock.txt"
         python3 -P -m pip freeze --local
 
-    - name: Cache pre-commit environments
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+    # The hook environments run as they are restored. Save pre-commit environments writes them
+    # only from a trusted event, as docker-build writes its build cache: a pull_request_target,
+    # issue_comment or workflow_run run lints pull-request code under the default branch's cache
+    # scope, and a later run there would restore and execute what it saved.
+    - name: Restore pre-commit environments
+      id: pre-commit-cache
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ~/.cache/pre-commit
         key: pre-commit-3|${{ runner.arch }}|${{ env.pythonLocation }}|${{ hashFiles(inputs.pre-commit-config || '.pre-commit-config.yaml') }}
@@ -150,11 +154,30 @@ runs:
         fi
         exit "$status"
 
+    # A run that finished has installed every hook environment, whether or not a hook failed.
+    - name: Save pre-commit environments
+      if: >-
+        always() && steps.pre-commit.outputs.finished == 'true' && steps.pre-commit-cache.outputs.cache-hit != 'true'
+        && contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event_name)
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ~/.cache/pre-commit
+        key: ${{ steps.pre-commit-cache.outputs.cache-primary-key }}
+
     - name: Push pre-commit fixes
       id: push-fixes
       # Also after the hooks failed, which is when they leave fixes to push.
       if: always() && steps.pre-commit.outputs.finished == 'true'
       uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
+      env:
+        GH_TOKEN: ${{ inputs.token || github.token }}
+        # The empty helper drops any configured one, and the next answers git's credential request
+        # from this step's environment.
+        GIT_CONFIG_COUNT: '2'
+        GIT_CONFIG_KEY_0: credential.helper
+        GIT_CONFIG_VALUE_0: ''
+        GIT_CONFIG_KEY_1: credential.helper
+        GIT_CONFIG_VALUE_1: '!f() { test "$1" = get || return 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
       with:
         commit_message: 'style(pre-commit): autofix'
         commit_user_name: ${{ inputs.commit_user }}

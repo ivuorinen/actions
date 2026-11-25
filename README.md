@@ -46,7 +46,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 |  📦  | [`npm-publish`][npm-publish]                         | Publishing | Publishes the package to the NPM registry with configurable ... | Token auth, Outputs                          |
 |  📦  | [`npm-semantic-release`][npm-semantic-release]       | Publishing | Runs semantic-release for automated npm versioning and publi... | Outputs                                      |
 |  ✅  | [`php-tests`][php-tests]                             | Testing    | Run PHPUnit tests with optional Laravel setup and Composer d... | Caching, Auto-detection, Token auth, Outputs |
-|  ✅  | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests. Refuses pull_request_... | Caching, Token auth, Outputs                 |
+|  ✅  | [`pr-lint`][pr-lint]                                 | Linting    | Runs MegaLinter against pull requests. Refuses pull_request_... | Token auth, Outputs                          |
 |  📦  | [`pre-commit`][pre-commit]                           | Linting    | Runs pre-commit on the repository and pushes the fixes back ... | Caching, Token auth, Outputs                 |
 |  ✅  | [`prettier-lint`][prettier-lint]                     | Linting    | Run Prettier in check or fix mode                               | Caching, Token auth, Outputs                 |
 |  📝  | [`python-lint-fix`][python-lint-fix]                 | Linting    | Lints and fixes Python files, commits changes, and uploads S... | Token auth, Outputs                          |
@@ -73,7 +73,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | 📝 [`csharp-lint-check`][csharp-lint-check]   | Runs linters like StyleCop or dotnet-format for C#... | C#, .NET                                     | Caching, Token auth, Outputs |
 | ✅ [`eslint-lint`][eslint-lint]               | Run ESLint in check or fix mode with advanced conf... | JavaScript, TypeScript                       | Caching, Token auth, Outputs |
 | 📝 [`go-lint`][go-lint]                       | Run golangci-lint with advanced configuration, cac... | Go                                           | Caching, Token auth, Outputs |
-| ✅ [`pr-lint`][pr-lint]                       | Runs MegaLinter against pull requests. Refuses pul... | Conventional Commits                         | Caching, Token auth, Outputs |
+| ✅ [`pr-lint`][pr-lint]                       | Runs MegaLinter against pull requests. Refuses pul... | Conventional Commits                         | Token auth, Outputs          |
 | 📦 [`pre-commit`][pre-commit]                 | Runs pre-commit on the repository and pushes the f... | Python, Multiple Languages                   | Caching, Token auth, Outputs |
 | ✅ [`prettier-lint`][prettier-lint]           | Run Prettier in check or fix mode                     | JavaScript, TypeScript, Markdown, YAML, JSON | Caching, Token auth, Outputs |
 | 📝 [`python-lint-fix`][python-lint-fix]       | Lints and fixes Python files, commits changes, and... | Python                                       | Token auth, Outputs          |
@@ -138,7 +138,7 @@ This repository contains **25 reusable GitHub Actions** for CI/CD automation.
 | [`npm-publish`][npm-publish]                         |    -    |       -        |     ✅     |   ✅    |
 | [`npm-semantic-release`][npm-semantic-release]       |    -    |       -        |     -      |   ✅    |
 | [`php-tests`][php-tests]                             |   ✅    |       ✅       |     ✅     |   ✅    |
-| [`pr-lint`][pr-lint]                                 |   ✅    |       -        |     ✅     |   ✅    |
+| [`pr-lint`][pr-lint]                                 |    -    |       -        |     ✅     |   ✅    |
 | [`pre-commit`][pre-commit]                           |   ✅    |       -        |     ✅     |   ✅    |
 | [`prettier-lint`][prettier-lint]                     |   ✅    |       -        |     ✅     |   ✅    |
 | [`python-lint-fix`][python-lint-fix]                 |    -    |       -        |     ✅     |   ✅    |

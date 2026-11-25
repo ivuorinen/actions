@@ -185,21 +185,13 @@ runs:
       with:
         bun-version: ${{ env.BUN_VERSION }}
 
-    - name: Cache Node Dependencies
-      if: steps.detect-node.outputs.found == 'true'
-      id: node-cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: node_modules
-        key: ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock*') }}
-        restore-keys: |
-          ${{ runner.os }}-pr-lint-${{ steps.detect-pm.outputs.package-manager }}-
-
     # Installed for linters to read, so no install scripts, hooks or builds run; the shared
-    # install_node_dependencies.sh says how for each package manager.
+    # install_node_dependencies.sh says how for each package manager. Installed on every run,
+    # never restored: a run under the default branch's cache scope could save a node_modules
+    # that a later run's linters would load.
     - name: Install Node Dependencies
       id: install-node
-      if: steps.detect-node.outputs.found == 'true' && steps.node-cache.outputs.cache-hit != 'true'
+      if: steps.detect-node.outputs.found == 'true'
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}

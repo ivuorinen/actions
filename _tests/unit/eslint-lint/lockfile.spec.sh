@@ -38,36 +38,6 @@ Assert expect_output package-manager "$2"
 End
 End
 
-It "hashes each package manager's lockfile into the dependency cache key"
-When call cache_key_misses "${ACTION_DIR}/action.yml" package-lock.json yarn.lock pnpm-lock.yaml bun.lock bun.lockb
-The status should be success
-The output should equal ""
-End
-
-# The check itself: a key that hashes the npm lock alone misses both Bun lockfiles.
-It "reports each lockfile the cache key does not hash"
-printf '%s\n' "key: \${{ hashFiles('package-lock.json') }}" >action.yml
-When call cache_key_misses action.yml package-lock.json bun.lock bun.lockb
-The status should be success
-The line 1 of output should equal "bun.lock"
-The line 2 of output should equal "bun.lockb"
-The lines of output should equal 2
-End
-
-It "reports a lockfile that a ! pattern in the key excludes"
-printf '%s\n' "key: \${{ hashFiles('bun.lock*', '!bun.lockb') }}" >action.yml
-When call cache_key_misses action.yml bun.lock bun.lockb
-The status should be success
-The output should equal "bun.lockb"
-End
-
-It "counts a **/ pattern in the key as matching at the root"
-printf '%s\n' "- key: \${{ hashFiles('**/package-lock.json') }}" >action.yml
-When call cache_key_misses action.yml package-lock.json
-The status should be success
-The output should equal ""
-End
-
 It "ships a complete npm lock for its own ESLint"
 When call package_lock_problems "${ACTION_DIR}"
 The status should be success

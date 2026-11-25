@@ -1,14 +1,17 @@
 #!/usr/bin/env shellspec
-# Static checks for the workflows, the local composite actions and the published
-# actions: no ${{ }} expression inside a run: block, actions/checkout pinned by full
-# SHA, and a pr-lint job that reads contents and only writes where MegaLinter reports.
-# The checks read the YAML as text so they need nothing beyond python3.
+# Static checks for the workflows, the local composite actions, the published actions and
+# the integration-test workflows: no ${{ }} expression inside a run: block, every run: block
+# begun with set -eu, actions/checkout pinned by full SHA, and a pr-lint job that reads
+# contents and only writes where MegaLinter reports. The checks read the YAML as text so they
+# need nothing beyond python3.
 
-# Scans the given files, or the workflows, the local composite actions and the
-# published actions when no file is given, each as .yml or .yaml. A location that
-# matches no file fails the scan instead of dropping out of it. The mode picks what is
+# Scans the given files, or the workflows, the local composite actions, the published actions
+# and the integration-test workflows when no file is given, each as .yml or .yaml. A location
+# that matches no file fails the scan instead of dropping out of it. The mode picks what is
 # printed:
 #   expressions  "<file>:<line>: <text>" for every ${{ }} inside a run: block
+#   set-eu       "<file>:<line>: <command>" for every run: block whose first command, past
+#                comments and blank lines, is not set -eu (or bash's set -euo pipefail)
 #   checkout     "<file>:<line>: <ref>" for every actions/checkout ref a uses: key
 #                names that is not a full commit SHA; finding no ref at all fails
 workflow_scan() {
@@ -22,13 +25,14 @@ import re
 import sys
 
 mode, files = sys.argv[1], sys.argv[2:]
-if mode not in ("expressions", "checkout"):
+if mode not in ("expressions", "set-eu", "checkout"):
     sys.exit("unknown mode: %s" % mode)
 if not files:
     for patterns in (
         (".github/workflows/*.yml", ".github/workflows/*.yaml"),
         (".github/actions/*/action.yml", ".github/actions/*/action.yaml"),
         ("*/action.yml", "*/action.yaml"),
+        ("_tests/integration/workflows/*.yml", "_tests/integration/workflows/*.yaml"),
     ):
         matched = sorted(path for pattern in patterns for path in glob.glob(pattern))
         if not matched:
@@ -48,7 +52,12 @@ pinned = re.compile(r"actions/checkout@[0-9a-f]{40}")
 comment = re.compile(r"(?:^|\s)#.*")
 
 
-def report_expressions(path, lines):
+# set -eu, or bash's set -euo pipefail, which the integration-test workflows may use.
+guard = re.compile(r"set -eu(?:o pipefail)?(?:\s|$)")
+
+
+def run_blocks(lines):
+    """Yield each run: block's lines as (line number, text): one for a value on the key's line."""
     index = 0
     while index < len(lines):
         match = key.match(lines[index])
@@ -65,9 +74,21 @@ def report_expressions(path, lines):
                     break
                 body.append((index + 1, text))
                 index += 1
+        yield body
+
+
+def report_expressions(path, lines):
+    for body in run_blocks(lines):
         for number, text in body:
             if "${{" in text:
                 print("%s:%d: %s" % (path, number, text.strip()))
+
+
+def report_unguarded(path, lines):
+    for body in run_blocks(lines):
+        commands = [(number, text.strip()) for number, text in body if text.strip() and not text.strip().startswith("#")]
+        if commands and not guard.match(commands[0][1]):
+            print("%s:%d: %s" % (path, commands[0][0], commands[0][1]))
 
 
 def report_checkout_refs(path, lines):
@@ -86,6 +107,8 @@ for path in files:
         lines = handle.read().splitlines()
     if mode == "expressions":
         report_expressions(path, lines)
+    elif mode == "set-eu":
+        report_unguarded(path, lines)
     else:
         found += report_checkout_refs(path, lines)
 if mode == "checkout" and not found:
@@ -168,6 +191,13 @@ PY
 Describe "GitHub workflows and actions"
 It "contain no \${{ }} expression inside a run: block"
 When call workflow_scan expressions
+The status should be success
+The output should equal ""
+End
+
+# GitHub's sh and bash wrappers add -e but not -u, and a one-line run: is a script too.
+It "begin every run: block with set -eu"
+When call workflow_scan set-eu
 The status should be success
 The output should equal ""
 End
@@ -256,6 +286,44 @@ The output should include ':5: echo "${{ github.sha }}"'
 End
 End
 
+Describe "the set -eu scanner"
+# Writes a workflow whose only step runs the given run: value, from line 4.
+run_workflow() {
+  printf 'jobs:\n  test:\n    steps:\n      - run: %s\n' "$1" >"${SHELLSPEC_TMPBASE}/guard.yml"
+}
+
+Describe "reports"
+Parameters
+"make test" ":4: make test"
+"|\n          # a note\n          make test" ":6: make test"
+"|\n          echo start\n          set -eu" ":5: echo start"
+"|\n          set -e\n          make test" ":5: set -e"
+End
+
+It "the first command of: $1"
+run_workflow "$(printf "$1")"
+When call workflow_scan set-eu "${SHELLSPEC_TMPBASE}/guard.yml"
+The status should be success
+The output should equal "${SHELLSPEC_TMPBASE}/guard.yml$2"
+End
+End
+
+Describe "accepts"
+Parameters
+"|\n          set -eu\n          make test"
+"|\n          # a note\n\n          set -eu\n          make test"
+"|\n          set -euo pipefail\n          make test"
+End
+
+It "$1"
+run_workflow "$(printf "$1")"
+When call workflow_scan set-eu "${SHELLSPEC_TMPBASE}/guard.yml"
+The status should be success
+The output should equal ""
+End
+End
+End
+
 Describe "the checkout scanner"
 # Writes a workflow whose only step, on line 4, is the given uses: line.
 checkout_workflow() {
@@ -309,26 +377,30 @@ End
 End
 
 Describe "the default scan"
-# Enters a tree with a .yaml workflow, a local composite action named action.yaml and
-# a published action, where the workflow and the published action each hold a ${{ }}
-# expression in a run: block. Without the local action the scan would fail, so it
-# also shows that action.yaml counts.
+# Enters a tree with a .yaml workflow, a local composite action named action.yaml, a
+# published action and a .yaml integration-test workflow, where all but the local action
+# hold a ${{ }} expression in a run: block. Without the local action the scan would fail,
+# so it also shows that action.yaml counts.
 enter_default_scan_tree() {
   tree="${SHELLSPEC_TMPBASE}/default-scan"
-  mkdir -p "$tree/.github/workflows" "$tree/.github/actions/local" "$tree/published"
+  mkdir -p "$tree/.github/workflows" "$tree/.github/actions/local" "$tree/published" \
+    "$tree/_tests/integration/workflows"
   printf 'jobs:\n  test:\n    steps:\n      - run: echo "${{ github.sha }}"\n' >"$tree/.github/workflows/ci.yaml"
   printf 'runs:\n  steps:\n    - run: echo ok\n' >"$tree/.github/actions/local/action.yaml"
   printf 'runs:\n  steps:\n    - run: echo "${{ inputs.name }}"\n' >"$tree/published/action.yml"
+  printf 'jobs:\n  test:\n    steps:\n      - run: echo "${{ github.ref }}"\n' \
+    >"$tree/_tests/integration/workflows/flow.yaml"
   cd "$tree" || return
 }
 
-It "covers .yaml files and the published actions"
+It "covers .yaml files, the published actions and the integration-test workflows"
 enter_default_scan_tree
 When call workflow_scan expressions
 The status should be success
-The lines of output should equal 2
+The lines of output should equal 3
 The line 1 of output should equal '.github/workflows/ci.yaml:4: echo "${{ github.sha }}"'
 The line 2 of output should equal 'published/action.yml:3: echo "${{ inputs.name }}"'
+The line 3 of output should equal '_tests/integration/workflows/flow.yaml:4: echo "${{ github.ref }}"'
 End
 End
 
