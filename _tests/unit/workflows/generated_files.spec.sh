@@ -2,7 +2,8 @@
 # The README steps of generated-files.yml, run as the workflow writes them, in a scratch
 # repository standing in for the checkout after make docs: a README that make docs changed,
 # or wrote back after the pull request deleted it, must fail the drift step, and a README the
-# review skips that is not an action's README.md must fail the other.
+# review skips that is not an action's README.md must fail the other. The catalog step must
+# fail when make update-catalog changes README.md, or fails itself.
 
 Describe "generated-files README drift step"
 WORKFLOW="${PROJECT_ROOT}/.github/workflows/generated-files.yml"
@@ -121,6 +122,58 @@ add_file act/readme.md
 When call run_skipped_readmes
 The status should be failure
 The stderr should include "Unchecked: act/readme.md"
+End
+End
+
+Describe "the README catalog step"
+catalog_step() {
+  yq -r '.jobs["docs-drift"].steps[] | select(.name == "Check the README action catalog") | .run' "$WORKFLOW"
+}
+
+# setup_catalog RECIPE: a repository with a committed README.md whose Makefile runs RECIPE for
+# update-catalog, and an npx that formats nothing.
+setup_catalog() {
+  setup_repo
+  printf '# Actions\n<!--LISTING-->\ncatalog\n<!--/LISTING-->\n' >"$repo/README.md"
+  printf 'update-catalog:\n\t@%s\n' "$1" >"$repo/Makefile"
+  git -C "$repo" add -- README.md Makefile
+  git -C "$repo" -c user.email=test@example.com -c user.name=test commit -q -m "catalog"
+  mkdir -p "$repo/.stub"
+  printf '#!/bin/sh\nexit 0\n' >"$repo/.stub/npx"
+  chmod +x "$repo/.stub/npx"
+}
+
+# Under make test, make's own variables would make the inner make print the directories it
+# enters, as a sub-make of the outer one.
+run_catalog() {
+  (
+    unset MAKEFLAGS MFLAGS MAKELEVEL
+    cd "$repo" && PATH="$repo/.stub:$PATH" bash -c "$(catalog_step)"
+  )
+}
+
+It "passes when the generator writes the catalog README.md holds"
+setup_catalog true
+When call run_catalog
+The status should be success
+The stdout should include "The action catalog in README.md is up to date."
+End
+
+It "fails, showing the difference, when the generator writes another catalog"
+setup_catalog "sed -i.bak 's/^catalog\$\$/new catalog/' README.md && rm -f README.md.bak"
+When call run_catalog
+The status should be failure
+The stdout should equal ""
+The stderr should include "::error::The action catalog in README.md is out of date."
+The stderr should include "+new catalog"
+End
+
+It "fails when the catalog cannot be generated"
+setup_catalog "exit 1"
+When call run_catalog
+The status should be failure
+The stdout should not include "up to date"
+The stderr should not equal ""
 End
 End
 End
