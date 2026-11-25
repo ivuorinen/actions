@@ -17,6 +17,7 @@ jobs:
 
       - name: Create test JavaScript files
         run: |
+          set -eu
           mkdir -p test-project/src
 
           # Create package.json
@@ -63,14 +64,19 @@ jobs:
         continue-on-error: true
 
       - name: Validate eslint-lint check found issues
+        env:
+          CHECK_OUTCOME: ${{ steps.eslint-check.outcome }}
+          ERROR_COUNT: ${{ steps.eslint-check.outputs.error-count }}
+          WARNING_COUNT: ${{ steps.eslint-check.outputs.warning-count }}
         run: |
-          echo "ESLint check outcome: ${{ steps.eslint-check.outcome }}"
-          echo "Error count: ${{ steps.eslint-check.outputs.error-count }}"
-          echo "Warning count: ${{ steps.eslint-check.outputs.warning-count }}"
+          set -eu
+          echo "ESLint check outcome: $CHECK_OUTCOME"
+          echo "Error count: $ERROR_COUNT"
+          echo "Warning count: $WARNING_COUNT"
 
           # Check should fail or find issues
-          if [[ "${{ steps.eslint-check.outcome }}" == "success" ]]; then
-            if [[ "${{ steps.eslint-check.outputs.error-count }}" == "0" ]]; then
+          if [[ "$CHECK_OUTCOME" == "success" ]]; then
+            if [[ "$ERROR_COUNT" == "0" ]]; then
               echo "⚠️  WARNING: Expected to find linting errors but found none"
             fi
           fi
@@ -88,13 +94,17 @@ jobs:
           username: 'test-user'
 
       - name: Validate eslint-lint fix ran
+        env:
+          ERRORS_FIXED: ${{ steps.eslint-fix.outputs.errors-fixed }}
+          FILES_CHANGED: ${{ steps.eslint-fix.outputs.files-changed }}
         run: |
-          echo "Errors fixed: ${{ steps.eslint-fix.outputs.errors-fixed }}"
-          echo "Files changed: ${{ steps.eslint-fix.outputs.files-changed }}"
+          set -eu
+          echo "Errors fixed: $ERRORS_FIXED"
+          echo "Files changed: $FILES_CHANGED"
 
           # Check that fixes were attempted
-          if [[ -n "${{ steps.eslint-fix.outputs.errors-fixed }}" ]]; then
-            echo "✅ ESLint fixed ${{ steps.eslint-fix.outputs.errors-fixed }} issues"
+          if [[ -n "$ERRORS_FIXED" ]]; then
+            echo "✅ ESLint fixed $ERRORS_FIXED issues"
           else
             echo "⚠️  No fix count reported (may be expected if no fixable issues)"
           fi
@@ -109,6 +119,7 @@ jobs:
 
       - name: Create test files for Prettier
         run: |
+          set -eu
           mkdir -p test-prettier
 
           # Create package.json
@@ -151,11 +162,14 @@ jobs:
         continue-on-error: true
 
       - name: Validate prettier-check found issues
+        env:
+          CHECK_OUTCOME: ${{ steps.prettier-check.outcome }}
         run: |
-          echo "Prettier check outcome: ${{ steps.prettier-check.outcome }}"
+          set -eu
+          echo "Prettier check outcome: $CHECK_OUTCOME"
 
           # Check should find formatting issues
-          if [[ "${{ steps.prettier-check.outcome }}" == "failure" ]]; then
+          if [[ "$CHECK_OUTCOME" == "failure" ]]; then
             echo "✅ Prettier correctly found formatting issues"
           else
             echo "⚠️  WARNING: Expected Prettier to find formatting issues"
@@ -173,6 +187,7 @@ jobs:
 
       - name: Validate prettier-lint fix ran
         run: |
+          set -eu
           echo "Prettier fix completed"
 
           # Check that files exist and have been processed
@@ -193,6 +208,7 @@ jobs:
 
       - name: Create comprehensive test project
         run: |
+          set -eu
           mkdir -p test-chain/src
 
           # Create package.json with both ESLint and Prettier
@@ -278,19 +294,27 @@ jobs:
           username: 'test-user'
 
       - name: Validate complete chain
+        env:
+          LINT_CHECK: ${{ steps.lint-check.outcome }}
+          FORMAT_CHECK: ${{ steps.format-check.outcome }}
+          LINT_FIX: ${{ steps.lint-fix.outcome }}
+          FORMAT_FIX: ${{ steps.format-fix.outcome }}
         run: |
+          set -eu
           echo "=== Action Chain Results ==="
-          echo "Lint Check: ${{ steps.lint-check.outcome }}"
-          echo "Format Check: ${{ steps.format-check.outcome }}"
-          echo "Lint Fix: ${{ steps.lint-fix.outcome }}"
-          echo "Format Fix: ${{ steps.format-fix.outcome }}"
+          echo "Lint Check: $LINT_CHECK"
+          echo "Format Check: $FORMAT_CHECK"
+          echo "Lint Fix: $LINT_FIX"
+          echo "Format Fix: $FORMAT_FIX"
 
-          # Validate that all steps ran
+          # Validate that all steps ran. Not ((steps_run++)): it returns 1 when the count was 0,
+          # and the step's bash -e stops on that.
           steps_run=0
-          [[ "${{ steps.lint-check.outcome }}" != "skipped" ]] && ((steps_run++))
-          [[ "${{ steps.format-check.outcome }}" != "skipped" ]] && ((steps_run++))
-          [[ "${{ steps.lint-fix.outcome }}" != "skipped" ]] && ((steps_run++))
-          [[ "${{ steps.format-fix.outcome }}" != "skipped" ]] && ((steps_run++))
+          for outcome in "$LINT_CHECK" "$FORMAT_CHECK" "$LINT_FIX" "$FORMAT_FIX"; do
+            if [[ "$outcome" != "skipped" ]]; then
+              steps_run=$((steps_run + 1))
+            fi
+          done
 
           if [[ $steps_run -eq 4 ]]; then
             echo "✅ Complete action chain executed successfully"

@@ -37,10 +37,4 @@ The stdout should include "Detected package manager: $2"
 Assert expect_output package-manager "$2"
 End
 End
-
-It "hashes each package manager's lockfile into the dependency cache key"
-When call cache_key_misses "${ACTION_DIR}/action.yml" package-lock.json yarn.lock pnpm-lock.yaml bun.lock bun.lockb
-The status should be success
-The output should equal ""
-End
 End

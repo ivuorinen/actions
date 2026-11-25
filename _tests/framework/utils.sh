@@ -246,40 +246,12 @@ PY
   fi
 }
 
-# Print the setup-dotnet cache line of an action.yml, and fail unless it turns the
-# cache on only when a lock file exists: with `cache: true` and no matching file,
-# setup-dotnet fails the step.
-lock_aware_dotnet_cache() {
-  ! grep -Fq 'cache: true' "$1" && grep -F "cache: \${{ hashFiles('**/packages.lock.json') != '' }}" "$1"
-}
-
-# cache_key_misses ACTION_YML FILE...: print each root-level FILE that no hashFiles() pattern
-# in a cache `key:` of ACTION_YML matches, or that a `!` pattern there excludes, so a glob
-# such as 'bun.lock*' counts for every file it names. Prints nothing when the patterns cover
-# them all. A key written as a block scalar over several lines is not read, so its files are
-# reported as misses.
-cache_key_misses() {
-  python3 - "$@" <<'PY'
-import fnmatch
-import re
-import sys
-
-
-def matches(name, pattern):
-    """Match like hashFiles for a root-level name: its **/ also matches at the root."""
-    return fnmatch.fnmatchcase(name, pattern) or (
-        pattern.startswith("**/") and fnmatch.fnmatchcase(name, pattern[3:])
-    )
-
-
-keys = [line for line in open(sys.argv[1], encoding="utf-8") if re.match(r"\s*(-\s+)?key:", line)]
-patterns = [p for line in keys for call in re.findall(r"hashFiles\(([^)]*)\)", line) for p in re.findall(r"'([^']+)'", call)]
-included = [p for p in patterns if not p.startswith("!")]
-excluded = [p[1:] for p in patterns if p.startswith("!")]
-for name in sys.argv[2:]:
-    if not any(matches(name, p) for p in included) or any(matches(name, p) for p in excluded):
-        print(name)
-PY
+# nuget_cache_steps ACTION_YML: the conditions of the action's Restore NuGet Packages and Save
+# NuGet Packages steps, one per line, then the restore's key, then each step's path.
+nuget_cache_steps() {
+  yq -r '.runs.steps[] | select(.name == "Restore NuGet Packages" or .name == "Save NuGet Packages") | .if' "$1"
+  yq -r '.runs.steps[] | select(.name == "Restore NuGet Packages") | .with.key' "$1"
+  yq -r '.runs.steps[] | select(.name == "Restore NuGet Packages" or .name == "Save NuGet Packages") | .with.path' "$1"
 }
 
 # hook_run HOOK INPUT: pipe INPUT, a Claude Code hook's JSON, into the hook script HOOK.
@@ -309,5 +281,5 @@ fixture_repo() {
 # Export all functions
 export -f validate_action_yml get_action_inputs get_action_outputs get_action_name get_action_runs_using is_input_required
 export -f test_action_outputs
-export -f requirements_lock_problems package_lock_problems lock_aware_dotnet_cache cache_key_misses hook_run hook_field
+export -f requirements_lock_problems package_lock_problems nuget_cache_steps hook_run hook_field
 export -f fixture_repo

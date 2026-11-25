@@ -37,7 +37,7 @@ inputs:
     required: false
     default: 'true'
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout. Defaults to the workflow token.'
+    description: 'GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run on trusted refs only. Defaults to the workflow token.'
     required: false
     default: ''
   username:
@@ -88,10 +88,9 @@ runs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         token: ${{ inputs.token || github.token }}
-        # git-auto-commit-action pushes the auto-fix commit using the token that
-        # actions/checkout persists in .git/config; persist-credentials must stay
-        # true or the "Commit Fixes" step cannot authenticate its push.
-        persist-credentials: true # zizmor: ignore[artipacked]
+        # The token reaches git only in the step that pushes, from that step's environment, so
+        # code that runs before it finds none in .git/config.
+        persist-credentials: false
 
     - name: Detect Python Version
       id: python-version
@@ -351,6 +350,15 @@ runs:
       # The count is empty when no Python files were found, and fromJSON fails on it.
       if: steps.check-files.outputs.result == 'found' && fromJSON(steps.fix.outputs.fixed_count) > 0
       uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
+      env:
+        GH_TOKEN: ${{ inputs.token || github.token }}
+        # The empty helper drops any configured one, and the next answers git's credential request
+        # from this step's environment.
+        GIT_CONFIG_COUNT: '2'
+        GIT_CONFIG_KEY_0: credential.helper
+        GIT_CONFIG_VALUE_0: ''
+        GIT_CONFIG_KEY_1: credential.helper
+        GIT_CONFIG_VALUE_1: '!f() { test "$1" = get || return 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
       with:
         commit_message: 'style: apply python lint fixes'
         commit_user_name: ${{ inputs.username }}

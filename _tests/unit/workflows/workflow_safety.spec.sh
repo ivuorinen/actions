@@ -1,93 +1,118 @@
 #!/usr/bin/env shellspec
-# Static checks for the workflows, the local composite actions and the published
-# actions: no ${{ }} expression inside a run: block, actions/checkout pinned by full
-# SHA, and a pr-lint job that reads contents and only writes where MegaLinter reports.
-# The checks read the YAML as text so they need nothing beyond python3.
+# Static checks for the workflows, the local composite actions, the published actions and
+# the integration-test workflows: no ${{ }} expression inside a run: block, every run: block
+# begun with set -eu, actions/checkout pinned by full SHA, and a pr-lint job that reads
+# contents and only writes where MegaLinter reports. The scans parse each file with PyYAML, so
+# they read a value as GitHub does: without its quotes, with its escapes decoded, without a
+# comment after it, and with a value written over several lines joined.
 
-# Scans the given files, or the workflows, the local composite actions and the
-# published actions when no file is given, each as .yml or .yaml. A location that
-# matches no file fails the scan instead of dropping out of it. The mode picks what is
+# Scans the given files, or the workflows, the local composite actions, the published actions
+# and the integration-test workflows when no file is given, each as .yml or .yaml. A location
+# that matches no file fails the scan instead of dropping out of it. The mode picks what is
 # printed:
-#   expressions  "<file>:<line>: <text>" for every ${{ }} inside a run: block
+#   expressions  "<file>:<line>: <text>" for every ${{ }} in a run: value
+#   set-eu       "<file>:<line>: <command>" for every run: value whose first command, past
+#                comments and blank lines, is not set -eu (or bash's set -euo pipefail)
 #   checkout     "<file>:<line>: <ref>" for every actions/checkout ref a uses: key
 #                names that is not a full commit SHA; finding no ref at all fails
+# A literal block's lines keep their own numbers. YAML joins the lines of a folded block and of
+# a quoted or plain value, so their lines take the number of the folded block's first line, or
+# of the line the value starts on.
 workflow_scan() {
   command -v python3 >/dev/null 2>&1 || {
     echo "python3 is required" >&2
     return 1
   }
-  python3 -I - "$@" <<'PY'
+  _harness_python -I - "$@" <<'PY'
 import glob
 import re
 import sys
 
+import yaml
+
 mode, files = sys.argv[1], sys.argv[2:]
-if mode not in ("expressions", "checkout"):
+if mode not in ("expressions", "set-eu", "checkout"):
     sys.exit("unknown mode: %s" % mode)
 if not files:
     for patterns in (
         (".github/workflows/*.yml", ".github/workflows/*.yaml"),
         (".github/actions/*/action.yml", ".github/actions/*/action.yaml"),
         ("*/action.yml", "*/action.yaml"),
+        ("_tests/integration/workflows/*.yml", "_tests/integration/workflows/*.yaml"),
     ):
         matched = sorted(path for pattern in patterns for path in glob.glob(pattern))
         if not matched:
             sys.exit("no file matches %s" % " or ".join(patterns))
         files += matched
 
-key = re.compile(r"^(\s*)(?:- )?run:\s*(.*)$")
-# A block scalar header: | or >, an optional indentation indicator and chomping
-# indicator in either order, then an optional comment.
-block = re.compile(r"^[|>](?:[1-9][-+]?|[-+][1-9]?)?(?:\s+#.*)?\s*$")
-# Every uses: value on its own, quoted or not, up to whitespace, a quote or a comment,
-# so a pinned ref elsewhere on the line does not cover a floating one.
-uses = re.compile(r"""uses:\s*["']?(actions/checkout@[^\s"'#]*)""")
 pinned = re.compile(r"actions/checkout@[0-9a-f]{40}")
-# A YAML comment: a # at the line start or after whitespace, to the end of the line.
-# Only the checkout scan drops it; GitHub expands ${{ }} even inside a shell comment.
-comment = re.compile(r"(?:^|\s)#.*")
+# set -eu, or bash's set -euo pipefail, which the integration-test workflows may use, ended by
+# whitespace, the line's end or a ; before the next command.
+guard = re.compile(r"set -eu(?:o pipefail)?(?:\s|;|$)")
 
 
-def report_expressions(path, lines):
-    index = 0
-    while index < len(lines):
-        match = key.match(lines[index])
-        index += 1
-        if not match:
-            continue
-        indent = len(match.group(1)) + (2 if lines[index - 1].lstrip().startswith("- ") else 0)
-        body = [(index, match.group(2))]
-        if block.match(match.group(2)):
-            body = []
-            while index < len(lines):
-                text = lines[index]
-                if text.strip() and len(text) - len(text.lstrip()) <= indent:
-                    break
-                body.append((index + 1, text))
-                index += 1
+def values(node, name):
+    """Yield the scalar value of every name: key in the document, at any depth."""
+    if isinstance(node, yaml.MappingNode):
+        for key, value in node.value:
+            if key.value == name and isinstance(value, yaml.ScalarNode):
+                yield value
+            else:
+                yield from values(value, name)
+    elif isinstance(node, yaml.SequenceNode):
+        for item in node.value:
+            yield from values(item, name)
+
+
+def run_blocks(root):
+    """Yield each run: value's lines as (line number, text)."""
+    for node in values(root, "run"):
+        lines = node.value.split("\n")
+        # PyYAML counts lines from 0, and a block's start is its header.
+        start = node.start_mark.line + 1
+        if node.style == "|":
+            yield [(start + 1 + offset, text) for offset, text in enumerate(lines)]
+        elif node.style == ">":
+            yield [(start + 1, text) for text in lines]
+        else:
+            yield [(start, text) for text in lines]
+
+
+# A shell comment is part of the value, and GitHub expands ${{ }} inside it too.
+def report_expressions(path, root):
+    for body in run_blocks(root):
         for number, text in body:
             if "${{" in text:
                 print("%s:%d: %s" % (path, number, text.strip()))
 
 
-def report_checkout_refs(path, lines):
+def report_unguarded(path, root):
+    for body in run_blocks(root):
+        commands = [(number, text.strip()) for number, text in body if text.strip() and not text.strip().startswith("#")]
+        if commands and not guard.match(commands[0][1]):
+            print("%s:%d: %s" % (path, commands[0][0], commands[0][1]))
+
+
+def report_checkout_refs(path, root):
     found = 0
-    for number, text in enumerate(lines, 1):
-        for ref in uses.findall(comment.sub("", text, count=1)):
+    for node in values(root, "uses"):
+        if node.value.startswith("actions/checkout@"):
             found += 1
-            if not pinned.fullmatch(ref):
-                print("%s:%d: %s" % (path, number, ref))
+            if not pinned.fullmatch(node.value):
+                print("%s:%d: %s" % (path, node.start_mark.line + 1, node.value))
     return found
 
 
 found = 0
 for path in files:
     with open(path, encoding="utf-8") as handle:
-        lines = handle.read().splitlines()
+        root = yaml.compose(handle, Loader=yaml.SafeLoader)
     if mode == "expressions":
-        report_expressions(path, lines)
+        report_expressions(path, root)
+    elif mode == "set-eu":
+        report_unguarded(path, root)
     else:
-        found += report_checkout_refs(path, lines)
+        found += report_checkout_refs(path, root)
 if mode == "checkout" and not found:
     sys.exit("no actions/checkout reference found")
 PY
@@ -172,9 +197,24 @@ The status should be success
 The output should equal ""
 End
 
+# GitHub's sh and bash wrappers add -e but not -u, and a one-line run: is a script too.
+It "begin every run: block with set -eu"
+When call workflow_scan set-eu
+The status should be success
+The output should equal ""
+End
+
 It "name actions/checkout only by full commit SHA"
 When call workflow_scan checkout
 The status should be success
+The output should equal ""
+End
+
+# A job's permissions replace the workflow's, so a grant at the top reaches only a job that names
+# none; each job names what it needs instead. grep -L's exit status differs between versions, so
+# only the files it lists count.
+It "grant nothing at the top of a workflow"
+When call grep -L -x 'permissions: {}' .github/workflows/*.yml
 The output should equal ""
 End
 
@@ -256,6 +296,75 @@ The output should include ':5: echo "${{ github.sha }}"'
 End
 End
 
+Describe "the run: value scanners"
+# Writes a workflow whose only step runs the given run: value, from line 4.
+run_workflow() {
+  printf 'jobs:\n  test:\n    steps:\n      - run: %s\n' "$1" >"${SHELLSPEC_TMPBASE}/run.yml"
+}
+
+# GitHub reads a run: value only after YAML has decoded it, so an escape that spells $ is an
+# expression, and so is one on a plain value's second line.
+Describe "for expressions report"
+Parameters
+'"echo \\x24{{ github.sha }}"' ':4: echo ${{ github.sha }}'
+'echo start\n          ${{ github.sha }}' ':4: echo start ${{ github.sha }}'
+End
+
+It "the expression YAML reads in: $1"
+run_workflow "$(printf "$1")"
+When call workflow_scan expressions "${SHELLSPEC_TMPBASE}/run.yml"
+The status should be success
+The output should equal "${SHELLSPEC_TMPBASE}/run.yml$2"
+End
+End
+
+It "for expressions pass over a YAML comment after the value, which GitHub never reads"
+run_workflow "'echo ok' # \${{ github.sha }}"
+When call workflow_scan expressions "${SHELLSPEC_TMPBASE}/run.yml"
+The status should be success
+The output should equal ""
+End
+
+Describe "for set -eu report"
+Parameters
+"make test" ":4: make test"
+"|\n          # a note\n          make test" ":6: make test"
+"|\n          echo start\n          set -eu" ":5: echo start"
+"|\n          set -e\n          make test" ":5: set -e"
+"'make test'" ":4: make test"
+"'make test' # set -eu" ":4: make test"
+End
+
+It "the first command of: $1"
+run_workflow "$(printf "$1")"
+When call workflow_scan set-eu "${SHELLSPEC_TMPBASE}/run.yml"
+The status should be success
+The output should equal "${SHELLSPEC_TMPBASE}/run.yml$2"
+End
+End
+
+Describe "for set -eu accept"
+Parameters
+"|\n          set -eu\n          make test"
+"|\n          # a note\n\n          set -eu\n          make test"
+"|\n          set -euo pipefail\n          make test"
+"set -eu; make test"
+"'set -eu; make test'"
+"\"set -eu; make test\""
+"'set -eu; make test' # Run tests"
+"\"set -eu; make test\" # Run tests"
+"set -eu;\n          make test"
+End
+
+It "$1"
+run_workflow "$(printf "$1")"
+When call workflow_scan set-eu "${SHELLSPEC_TMPBASE}/run.yml"
+The status should be success
+The output should equal ""
+End
+End
+End
+
 Describe "the checkout scanner"
 # Writes a workflow whose only step, on line 4, is the given uses: line.
 checkout_workflow() {
@@ -309,26 +418,30 @@ End
 End
 
 Describe "the default scan"
-# Enters a tree with a .yaml workflow, a local composite action named action.yaml and
-# a published action, where the workflow and the published action each hold a ${{ }}
-# expression in a run: block. Without the local action the scan would fail, so it
-# also shows that action.yaml counts.
+# Enters a tree with a .yaml workflow, a local composite action named action.yaml, a
+# published action and a .yaml integration-test workflow, where all but the local action
+# hold a ${{ }} expression in a run: block. Without the local action the scan would fail,
+# so it also shows that action.yaml counts.
 enter_default_scan_tree() {
   tree="${SHELLSPEC_TMPBASE}/default-scan"
-  mkdir -p "$tree/.github/workflows" "$tree/.github/actions/local" "$tree/published"
+  mkdir -p "$tree/.github/workflows" "$tree/.github/actions/local" "$tree/published" \
+    "$tree/_tests/integration/workflows"
   printf 'jobs:\n  test:\n    steps:\n      - run: echo "${{ github.sha }}"\n' >"$tree/.github/workflows/ci.yaml"
   printf 'runs:\n  steps:\n    - run: echo ok\n' >"$tree/.github/actions/local/action.yaml"
   printf 'runs:\n  steps:\n    - run: echo "${{ inputs.name }}"\n' >"$tree/published/action.yml"
+  printf 'jobs:\n  test:\n    steps:\n      - run: echo "${{ github.ref }}"\n' \
+    >"$tree/_tests/integration/workflows/flow.yaml"
   cd "$tree" || return
 }
 
-It "covers .yaml files and the published actions"
+It "covers .yaml files, the published actions and the integration-test workflows"
 enter_default_scan_tree
 When call workflow_scan expressions
 The status should be success
-The lines of output should equal 2
+The lines of output should equal 3
 The line 1 of output should equal '.github/workflows/ci.yaml:4: echo "${{ github.sha }}"'
 The line 2 of output should equal 'published/action.yml:3: echo "${{ inputs.name }}"'
+The line 3 of output should equal '_tests/integration/workflows/flow.yaml:4: echo "${{ github.ref }}"'
 End
 End
 

@@ -59,7 +59,7 @@ inputs:
     required: false
     default: '3'
   token:
-    description: 'GitHub token for authentication. Stays in git config after checkout in fix mode only. Defaults to the workflow token.'
+    description: 'GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run fix mode on trusted refs only. Defaults to the workflow token.'
     required: false
     default: ''
   username:
@@ -127,9 +127,9 @@ runs:
       uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       with:
         token: ${{ inputs.token || github.token }}
-        # Only fix mode pushes; git-auto-commit-action authenticates with the
-        # credentials actions/checkout leaves in git config.
-        persist-credentials: ${{ inputs.mode == 'fix' }}
+        # The token reaches git only in the step that pushes, from that step's environment, so
+        # code that runs before it finds none in .git/config.
+        persist-credentials: false
 
     - name: Detect Package Manager
       id: detect-pm
@@ -155,6 +155,8 @@ runs:
       uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
       with:
         node-version: '24'
+        # setup-node would restore and save the package manager's cache from any event.
+        package-manager-cache: false
 
     # Every step that runs corepack or a pnpm or yarn shim sets COREPACK_ENV_FILE: otherwise
     # Corepack takes settings, such as the registry it fetches the package manager from and
@@ -204,21 +206,13 @@ runs:
       with:
         bun-version: ${{ env.BUN_VERSION }}
 
-    - name: Cache Node Dependencies
-      id: cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-      with:
-        path: node_modules
-        key: ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-${{ hashFiles('package-lock.json', 'yarn.lock', 'pnpm-lock.yaml', 'bun.lock*') }}
-        restore-keys: |
-          ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-${{ steps.detect-pm.outputs.package-manager }}-
-          ${{ runner.os }}-eslint-lint-${{ inputs.mode }}-
-
     # Installed for ESLint to read its plugins and configs, so no install scripts, hooks or
     # builds run; install_node_dependencies.sh, pr-lint's, says how for each package manager.
+    # Installed on every run, never restored: a run that lints pull-request code under the
+    # default branch's cache scope, such as pull_request_target, could save a node_modules
+    # that a later run would execute.
     - name: Install Dependencies
       id: install-deps
-      if: steps.cache.outputs.cache-hit != 'true'
       shell: sh
       env:
         PACKAGE_MANAGER: ${{ steps.detect-pm.outputs.package-manager }}
@@ -573,6 +567,15 @@ runs:
     - name: Commit and Push Fixes
       if: inputs.mode == 'fix' && success()
       uses: stefanzweifel/git-auto-commit-action@d0b01107b5db882071f96de5dd4b54961ea93f4c # v7.2.1
+      env:
+        GH_TOKEN: ${{ inputs.token || github.token }}
+        # The empty helper drops any configured one, and the next answers git's credential request
+        # from this step's environment.
+        GIT_CONFIG_COUNT: '2'
+        GIT_CONFIG_KEY_0: credential.helper
+        GIT_CONFIG_VALUE_0: ''
+        GIT_CONFIG_KEY_1: credential.helper
+        GIT_CONFIG_VALUE_1: '!f() { test "$1" = get || return 0; echo username=x-access-token; echo "password=$GH_TOKEN"; }; f'
       with:
         commit_message: 'style: autofix ESLint violations'
         commit_user_name: ${{ inputs.username }}

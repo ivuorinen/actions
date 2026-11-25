@@ -306,10 +306,14 @@ runs:
         printf 'dir=%s\n' "$cache_dir" >> "$GITHUB_OUTPUT"
 
     # Only Composer's download cache: a restored vendor/ would run one job's code in a later job.
-    # The fallback keys reuse the archives a changed composer.lock still needs.
-    - name: Cache Composer packages
+    # The fallback keys reuse the archives a changed composer.lock still needs. Composer uses a
+    # cached archive unchecked when the lock records no checksum, as Packagist leaves it for a
+    # package hosted on GitHub, so Save Composer packages writes the cache only from a trusted
+    # event: a pull_request_target, issue_comment or workflow_run run installs pull-request code
+    # under the default branch's cache scope, and a later run there would install what it saved.
+    - name: Restore Composer packages
       id: composer-cache
-      uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
       with:
         path: ${{ steps.composer-cache-dir.outputs.dir }}
         key: ${{ runner.os }}-php-${{ steps.setup-php.outputs.php-version }}-composer-${{ hashFiles('composer.lock', 'composer.json') }}
@@ -338,6 +342,16 @@ runs:
           set -- $COMPOSER_ARGS
           command -v composer >/dev/null 2>&1 || { echo "::error::composer is required to download the dependencies"; exit 1; }
           composer install --no-plugins --no-scripts "$@"
+
+    # Saved before any plugin or script of the repository can run and change the archives.
+    - name: Save Composer packages
+      if: >-
+        steps.composer-cache.outputs.cache-hit != 'true'
+        && contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event_name)
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: ${{ steps.composer-cache-dir.outputs.dir }}
+        key: ${{ steps.composer-cache.outputs.cache-primary-key }}
 
     # An installer plugin can move a package here, which reinstalls it. With no token, that
     # reinstall must come from Composer's cache, so --no-cache or --prefer-source fail for

@@ -29,8 +29,12 @@ step_line() {
   grep -n "^    - name: $1\$" "$ACTION_FILE" | cut -d: -f1
 }
 
+# ascending N...: succeeds when each number is smaller than the next.
 ascending() {
-  [ "$1" -lt "$2" ] && [ "$2" -lt "$3" ]
+  while [ "$#" -gt 1 ]; do
+    [ "$1" -lt "$2" ] || return 1
+    shift
+  done
 }
 
 Context "when installing pre-commit"
@@ -168,9 +172,16 @@ When call grep -F "pre-commit/action@" "$ACTION_FILE"
 The status should be failure
 End
 
-It "pins actions/cache to a full commit SHA"
-When call grep -Eq 'uses: actions/cache@[0-9a-f]{40} # v[0-9]' "$ACTION_FILE"
-The status should be success
+It "pins the cache's restore and save actions to a full commit SHA"
+When call grep -E -c 'uses: actions/cache/(restore|save)@[0-9a-f]{40} # v[0-9]' "$ACTION_FILE"
+The output should equal 2
+End
+
+# actions/cache saves on every event, in its post step; restore and save apart, the save is the
+# action's to guard.
+It "uses no actions/cache step that saves by itself"
+When call grep -E 'uses: actions/cache@' "$ACTION_FILE"
+The status should be failure
 End
 
 It "caches the pre-commit environments directory"
@@ -183,12 +194,37 @@ When call grep -Fq 'key: pre-commit-3|${{ runner.arch }}|${{ env.pythonLocation 
 The status should be success
 End
 
-It "installs, then restores the cache, then runs hooks"
+It "installs, then restores the cache, then runs hooks, then saves the cache"
 install_line=$(step_line "Install pre-commit")
-cache_line=$(step_line "Cache pre-commit environments")
+restore_line=$(step_line "Restore pre-commit environments")
 run_line=$(step_line "Run pre-commit")
-When call ascending "$install_line" "$cache_line" "$run_line"
+save_line=$(step_line "Save pre-commit environments")
+When call ascending "$install_line" "$restore_line" "$run_line" "$save_line"
 The status should be success
+End
+
+# The restored hook environments run. A pull_request_target, issue_comment or workflow_run run
+# lints pull-request code under the default branch's cache scope, so only a trusted event saves.
+Describe "the cache save"
+save_step() {
+  yq -r ".runs.steps[] | select(.name == \"Save pre-commit environments\") | $1" "$ACTION_FILE"
+}
+
+It "runs only for a push, a schedule or a manual dispatch"
+When call save_step .if
+The output should include "contains(fromJSON('[\"push\", \"schedule\", \"workflow_dispatch\"]'), github.event_name)"
+End
+
+It "runs only after a run that finished, on a cache miss"
+When call save_step .if
+The output should include "steps.pre-commit.outputs.finished == 'true'"
+The output should include "steps.pre-commit-cache.outputs.cache-hit != 'true'"
+End
+
+It "saves under the key the restore looked up"
+When call save_step '.with.key'
+The output should equal '${{ steps.pre-commit-cache.outputs.cache-primary-key }}'
+End
 End
 End
 End

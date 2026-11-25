@@ -18,6 +18,7 @@ jobs:
       - name: Get previous month for the report window
         shell: sh
         run: |
+          set -eu
           # Previous month as YYYY-MM, computed portably (no GNU `date -d`,
           # which is forbidden by .claude/rules/posix-shell.md). GitHub issue
           # search treats `created:YYYY-MM` as the entire calendar month, so we

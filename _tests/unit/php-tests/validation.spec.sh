@@ -290,7 +290,8 @@ def find(name):
 
 
 if fact == "cache-path":
-    print(find("Cache Composer packages")["with"]["path"])
+    for name in ("Restore Composer packages", "Save Composer packages"):
+        print(find(name)["with"]["path"])
 elif fact == "run":
     print(find(args[0])["run"])
 elif fact == "install-shell":
@@ -358,9 +359,11 @@ The line 1 of output should equal "install"
 The status should equal 3
 End
 
-It "caches only the directory Composer reports, never vendor"
+It "restores and saves only the directory Composer reports, never vendor"
 When call composer_step_fact cache-path
-The output should equal '${{ steps.composer-cache-dir.outputs.dir }}'
+The line 1 of output should equal '${{ steps.composer-cache-dir.outputs.dir }}'
+The line 2 of output should equal '${{ steps.composer-cache-dir.outputs.dir }}'
+The lines of output should equal 2
 End
 
 It "takes that directory from global configuration, not from composer.json"
@@ -369,9 +372,15 @@ The output should include 'cache_dir=$(composer config --global --no-plugins --a
 The output should include "printf 'dir=%s\n' \"\$cache_dir\" >> \"\$GITHUB_OUTPUT\""
 End
 
-It "locates the directory right before the cache step"
+It "locates the directory right before the cache is restored"
 When call composer_step_fact step-after "Locate Composer Cache"
-The output should equal "Cache Composer packages"
+The output should equal "Restore Composer packages"
+End
+
+# Saved before a plugin or script of the repository can change the archives.
+It "saves the cache right after the download without plugins or scripts"
+When call composer_step_fact step-after "Download Composer Dependencies"
+The output should equal "Save Composer packages"
 End
 
 It "keeps the restored download cache"
@@ -778,8 +787,9 @@ When call composer_token_fact plugins-enabled-before-credentials
 The output should equal ""
 End
 
-It "runs plugins and scripts in the next step"
-When call composer_token_fact step-after "Download Composer Dependencies"
+# The cache save sits between, and runs no Composer.
+It "runs plugins and scripts in the step after the cache save"
+When call composer_token_fact step-after "Save Composer packages"
 The output should equal "Install Composer Dependencies"
 End
 

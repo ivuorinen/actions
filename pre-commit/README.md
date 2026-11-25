@@ -29,13 +29,13 @@ jobs:
 
 ## 📥 Inputs
 
-| Parameter           | Description                                                                                                                      | Required | Default                     |
-| ------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
-| `base-branch`       | Base branch name (for example main); only files changed since it diverged from HEAD are checked, and the full history is fetched | ❌       | -                           |
-| `commit_email`      | Commit email                                                                                                                     | ❌       | `github-actions@github.com` |
-| `commit_user`       | Commit user                                                                                                                      | ❌       | `GitHub Actions`            |
-| `pre-commit-config` | pre-commit configuration file (empty: .pre-commit-config.yaml)                                                                   | ❌       | `.pre-commit-config.yaml`   |
-| `token`             | GitHub token for authentication. Stays in git config after checkout. Defaults to the workflow token.                             | ❌       | -                           |
+| Parameter           | Description                                                                                                                                           | Required | Default                     |
+| ------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- | -------- | --------------------------- |
+| `base-branch`       | Base branch name (for example main); only files changed since it diverged from HEAD are checked, and the full history is fetched                      | ❌       | -                           |
+| `commit_email`      | Commit email                                                                                                                                          | ❌       | `github-actions@github.com` |
+| `commit_user`       | Commit user                                                                                                                                           | ❌       | `GitHub Actions`            |
+| `pre-commit-config` | pre-commit configuration file (empty: .pre-commit-config.yaml)                                                                                        | ❌       | `.pre-commit-config.yaml`   |
+| `token`             | GitHub token for authentication. Only the step that pushes fixes gets it, never git config; run on trusted refs only. Defaults to the workflow token. | ❌       | -                           |
 
 ## 📤 Outputs
 

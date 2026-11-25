@@ -178,7 +178,30 @@ runs:
       uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
       with:
         go-version: ${{ steps.detect-go-version.outputs.detected-version }}
-        cache: true
+        # setup-go saves its cache from any event; the Go caches are restored and saved below.
+        cache: false
+
+    # go build and go test link objects from the build cache, which Go trusts, and go mod verify
+    # checks only the downloaded modules. Save Go Caches writes them only from a trusted event: a
+    # pull_request_target, issue_comment or workflow_run run builds pull-request code under the
+    # default branch's cache scope, and a later run there would restore and link what it saved.
+    - name: Locate Go Caches
+      id: go-cache
+      shell: sh
+      run: |
+        set -eu
+        command -v go >/dev/null 2>&1 || { echo "::error::go is required to locate its caches"; exit 1; }
+        printf 'build=%s\n' "$(go env GOCACHE)" >> "$GITHUB_OUTPUT"
+        printf 'modules=%s\n' "$(go env GOMODCACHE)" >> "$GITHUB_OUTPUT"
+
+    - name: Restore Go Caches
+      id: go-cache-restore
+      uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.go-cache.outputs.build }}
+          ${{ steps.go-cache.outputs.modules }}
+        key: ${{ runner.os }}-${{ runner.arch }}-go-build-${{ steps.detect-go-version.outputs.detected-version }}-${{ hashFiles('**/go.sum') }}
 
     - name: Download Dependencies
       uses: nick-fields/retry@ad984534de44a9489a53aefd81eb77f87c70dc60 # v4.0.0
@@ -304,6 +327,17 @@ runs:
           echo "No test files found, skipping test execution."
           printf 'status=%s\n' "skipped" >> "$GITHUB_OUTPUT"
         fi
+
+    - name: Save Go Caches
+      if: >-
+        steps.go-cache-restore.outputs.cache-hit != 'true'
+        && contains(fromJSON('["push", "schedule", "workflow_dispatch"]'), github.event_name)
+      uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      with:
+        path: |
+          ${{ steps.go-cache.outputs.build }}
+          ${{ steps.go-cache.outputs.modules }}
+        key: ${{ steps.go-cache-restore.outputs.cache-primary-key }}
 
     - name: Upload Build Artifacts
       if: always()
