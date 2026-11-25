@@ -58,7 +58,8 @@ guard = re.compile(r"set -eu(?:o pipefail)?(?:\s|;|$)")
 
 
 def run_blocks(lines):
-    """Yield each run: block's lines as (line number, text): one for a value on the key's line."""
+    """Yield each run: block's lines as (line number, text): one for a value on the key's line,
+    without the quotes around it when it is a quoted scalar."""
     index = 0
     while index < len(lines):
         match = key.match(lines[index])
@@ -66,7 +67,10 @@ def run_blocks(lines):
         if not match:
             continue
         indent = len(match.group(1)) + (2 if lines[index - 1].lstrip().startswith("- ") else 0)
-        body = [(index, match.group(2))]
+        value = match.group(2).rstrip()
+        if len(value) >= 2 and value[0] in "'\"" and value[-1] == value[0]:
+            value = value[1:-1]
+        body = [(index, value)]
         if block.match(match.group(2)):
             body = []
             while index < len(lines):
@@ -307,6 +311,7 @@ Parameters
 "|\n          # a note\n          make test" ":6: make test"
 "|\n          echo start\n          set -eu" ":5: echo start"
 "|\n          set -e\n          make test" ":5: set -e"
+"'make test'" ":4: make test"
 End
 
 It "the first command of: $1"
@@ -323,6 +328,8 @@ Parameters
 "|\n          # a note\n\n          set -eu\n          make test"
 "|\n          set -euo pipefail\n          make test"
 "set -eu; make test"
+"'set -eu; make test'"
+"\"set -eu; make test\""
 End
 
 It "$1"
