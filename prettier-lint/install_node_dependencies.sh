@@ -47,13 +47,14 @@ done
 # Yarn 2+ fetches an exec: dependency by running its generator script from the checkout, which
 # no install flag skips, and it runs the generator to resolve one the lockfile lacks before
 # --immutable can fail the install. So yarn.lock and every manifest in the checkout are read;
-# installed packages and Yarn's own files are not the repository's manifests.
+# installed packages and Yarn's own files are not the repository's manifests. In a manifest,
+# exec: starts a value, right after a key's colon: a script named exec:lint is a key.
 exec_source=
 if [ -f yarn.lock ] && grep -E -q '@exec:' yarn.lock; then
   exec_source=yarn.lock
 else
   exec_source=$(find . \( -name node_modules -o -name .git -o -name .yarn \) -prune -o \
-    -name package.json -type f -exec grep -l -E '"exec:' {} + | head -n 1)
+    -name package.json -type f -exec grep -l -E ':[[:space:]]*"exec:' {} + | head -n 1)
 fi
 if [ -n "$exec_source" ]; then
   echo "::error::$exec_source names an exec: dependency, which Yarn builds by running its generator script; the dependencies install only without scripts"

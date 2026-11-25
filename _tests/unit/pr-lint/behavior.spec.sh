@@ -184,14 +184,38 @@ The stdout should include "::error::yarn.lock names an exec: dependency"
 The stdout should not include "installed anyway"
 End
 
-It "stops the install for one only the manifest names"
-printf '%s\n' '{"name": "app", "dependencies": {"generated": "exec:./generate.js"}}' >package.json
+Describe "one only the manifest names"
+Parameters
+'{"name": "app", "dependencies": {"generated": "exec:./generate.js"}}'
+'{"name":"app","dependencies":{"generated":"exec:./generate.js"}}'
+End
+
+It "stops the install for $1"
+printf '%s\n' "$1" >package.json
 mock_command yarn "*" "installed anyway"
 
 When call run_install_node "yarn"
 The status should be failure
 The stdout should include "::error::./package.json names an exec: dependency"
 The stdout should not include "installed anyway"
+End
+End
+
+# A key is no dependency source: a script may be named exec:lint.
+Describe "a script whose name starts with exec:"
+Parameters
+'{"name": "app", "scripts": {"exec:lint": "eslint ."}}'
+'{"name":"app","scripts":{"lint":"eslint .","exec:lint":"eslint ."}}'
+End
+
+It "installs for $1"
+printf '%s\n' "$1" >package.json
+mock_command npm "ci --ignore-scripts" ""
+
+When call run_install_node "npm"
+The status should be success
+The stdout should include "Dependencies installed successfully"
+End
 End
 
 It "stops the install for one a workspace's manifest names"
