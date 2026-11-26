@@ -23,7 +23,7 @@ AfterEach 'after'
 
 # True when no output line starts a workflow command other than the action's own warning.
 no_injected_command() {
-  ! printf '%s\n' "$SHELLSPEC_SUBJECT" | grep -E '^::' | grep -Ev '^::warning::Invalid Terraform syntax in '
+  ! printf '%s\n' "$SHELLSPEC_SUBJECT" | grep -E '^::' | grep -Ev '^::warning::.* is not formatted, or is not valid Terraform$'
 }
 
 Describe "Validate Terraform Syntax"
@@ -36,12 +36,50 @@ The status should be success
 The stdout should satisfy no_injected_command
 End
 
-It "still reports the invalid file by name"
+It "still reports the file by name"
 printf 'a = 1\n' >bad.tf
 mock_command terraform "fmt -check=true *" "" 1
 When call run_step "${ACTION_DIR}" "syntax"
 The status should be success
-The stdout should include "::warning::Invalid Terraform syntax in ./bad.tf"
+The stdout should include "::warning::./bad.tf is not formatted, or is not valid Terraform"
+End
+End
+
+Describe "Fix Formatting"
+# fmt -check exits 3 for a file it would rewrite. The mocks match in the order they are added.
+It "formats and counts each file fmt would rewrite, keeping a name with a newline whole"
+nl_name="$(printf 'a\nb.tf')"
+printf 'a = 1\n' >"$nl_name"
+printf 'b = 2\n' >main.tf
+mock_command terraform "fmt -check *" "" 3
+mock_command terraform "fmt *" "" 0
+When call run_step "${ACTION_DIR}" "fix"
+The status should be success
+Assert expect_output fixed_count 2
+Assert expect_argv terraform fmt "./${nl_name}"
+End
+
+# terraform fmt follows a symlink and rewrites its target, which can lie outside the workspace.
+It "leaves a symlink named like a Terraform file alone"
+printf 'a = 1\n' >"${SHELLSPEC_TMPBASE}/outside.tf"
+ln -s "${SHELLSPEC_TMPBASE}/outside.tf" link.tf
+printf 'b = 2\n' >main.tf
+mock_command terraform "fmt -check *" "" 3
+mock_command terraform "fmt *" "" 0
+When call run_step "${ACTION_DIR}" "fix"
+The status should be success
+Assert expect_output fixed_count 1
+The contents of file "${HARNESS_SESSION}/calls.jsonl" should not include "link.tf"
+End
+
+It "fails without a count when terraform fmt fails"
+printf 'a = \n' >broken.tf
+mock_command terraform "fmt -check *" "" 2
+mock_command terraform "fmt *" "Error: Invalid expression" 1
+When call run_step "${ACTION_DIR}" "fix"
+The status should be failure
+The stdout should include "Error: Invalid expression"
+The contents of file "$GITHUB_OUTPUT" should not include "fixed_count"
 End
 End
 

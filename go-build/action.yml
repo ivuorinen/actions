@@ -243,47 +243,26 @@ runs:
           exit 1
         }
 
-        # Create destination directory
         mkdir -p -- "$DESTINATION"
 
-        build_success=true
-        # Temp file to propagate failure flag out of the pipeline subshell
-        command -v mktemp >/dev/null 2>&1 || {
-          echo "::error::mktemp is required to record a failed build"
-          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
-          exit 1
-        }
-        _build_failed=$(mktemp)
-        trap 'rm -f "$_build_failed"' EXIT
-        # Check if there are any main packages
-        if find . -name "*.go" -exec grep -l "package main" {} \; | head -1 | grep -q .; then
-          # Build all main packages
-          find . -name "*.go" -exec grep -l "package main" {} + | while IFS= read -r main_file; do dirname -- "$main_file"; done | sort -u | while IFS= read -r main_dir; do
-            echo "Building package in $main_dir..."
-            output_name=$(basename -- "$main_dir")
-            if ! go build -ldflags="-s -w" -o "$DESTINATION/$output_name" "$main_dir"; then
-              printf 'failed\n' > "$_build_failed"
-            fi
-          done
-        else
-          echo "No main packages found, building library..."
-          if ! go build ./...; then
-            printf 'failed\n' > "$_build_failed"
+        # go finds the packages itself, so no repository file name reaches its command line, where
+        # go could read one as a flag. The first build compiles every package as a check. The
+        # second writes each main package's executable to the directory, named after the last
+        # element of its import path. go refuses -o with a directory when no package is a main
+        # package with files to build (one of test files alone is not), so it runs only then.
+        status=failure
+        if go build ./... && mains=$(go list -f '{{if and (eq .Name "main") .GoFiles}}main{{end}}' ./...); then
+          status=success
+          if printf '%s\n' "$mains" | grep -qx main; then
+            go build -ldflags="-s -w" -o "$DESTINATION/" ./... || status=failure
           fi
         fi
-        if [ -s "$_build_failed" ]; then
-          build_success=false
-        fi
-        rm -f "$_build_failed"
-
-        if [ "$build_success" = true ]; then
-          printf 'status=%s\n' "success" >> "$GITHUB_OUTPUT"
-          echo "Build completed successfully"
-        else
-          printf 'status=%s\n' "failure" >> "$GITHUB_OUTPUT"
+        printf 'status=%s\n' "$status" >> "$GITHUB_OUTPUT"
+        if [ "$status" = failure ]; then
           echo "Build failed"
           exit 1
         fi
+        echo "Build completed successfully"
 
     - name: Run Tests
       id: test

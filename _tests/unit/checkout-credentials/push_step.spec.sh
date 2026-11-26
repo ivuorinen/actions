@@ -1,14 +1,8 @@
 #!/usr/bin/env shellspec
-# The push token never stays in git config. Each checkout persists none, and the one step that
-# pushes, git-auto-commit-action, gets the token in its own environment through a git credential
-# helper, so code that runs before it finds no token in .git/config. Every action that pushes
-# fixes gives its push step the same environment.
-
-# persistence ACTION: each checkout's persist-credentials value, one per line.
-persistence() {
-  yq -r '.runs.steps[] | select((.uses // "") | test("^actions/checkout@")) | .with."persist-credentials"' \
-    "${PROJECT_ROOT}/$1/action.yml"
-}
+# The push token never stays in git config. Each checkout persists none (workflow_safety.spec.sh
+# checks every checkout), and the one step that pushes, git-auto-commit-action, gets the token in
+# its own environment through a git credential helper, so code that runs before it finds no token
+# in .git/config. Every action that pushes fixes gives its push step the same environment.
 
 # push_env ACTION: the push step's environment, as one line of JSON.
 push_env() {
@@ -25,11 +19,6 @@ pre-commit
 prettier-lint
 python-lint-fix
 terraform-lint-fix
-End
-
-It "$1 persists no token at checkout"
-When call persistence "$1"
-The output should equal "false"
 End
 
 It "$1 gives its push step the environment ansible-lint-fix does"

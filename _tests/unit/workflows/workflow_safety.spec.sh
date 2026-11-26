@@ -190,6 +190,33 @@ PY
   (cd "$cleanup_dir" && sh -c "$cleanup_script" && find . -type f | sort)
 }
 
+# Prints "<file>: <step>" for each actions/checkout step that does not set persist-credentials
+# to false, in the given files or in the workflows, the local actions, the published actions and
+# the integration-test workflows. A checkout that persists them leaves the token in .git/config
+# for every later step, which in an action may build or test the repository's code.
+checkouts_keeping_credentials() {
+  if [ "$#" -eq 0 ]; then
+    set -- .github/workflows/*.yml .github/actions/*/action.yml ./*/action.yml \
+      _tests/integration/workflows/*.yml
+  fi
+  _harness_python - "$@" <<'PY'
+import sys
+
+import yaml
+
+for path in sys.argv[1:]:
+    with open(path, encoding="utf-8") as handle:
+        doc = yaml.safe_load(handle) or {}
+    jobs = (doc.get("jobs") or {}).values()
+    steps = [step for job in jobs for step in job.get("steps") or []]
+    steps += (doc.get("runs") or {}).get("steps") or []
+    for step in steps:
+        if str(step.get("uses", "")).startswith("actions/checkout@"):
+            if (step.get("with") or {}).get("persist-credentials") is not False:
+                print("%s: %s" % (path, step.get("name", step["uses"])))
+PY
+}
+
 Describe "GitHub workflows and actions"
 It "contain no \${{ }} expression inside a run: block"
 When call workflow_scan expressions
@@ -212,10 +239,41 @@ End
 
 # A job's permissions replace the workflow's, so a grant at the top reaches only a job that names
 # none; each job names what it needs instead. grep -L's exit status differs between versions, so
-# only the files it lists count.
-It "grant nothing at the top of a workflow"
-When call grep -L -x 'permissions: {}' .github/workflows/*.yml
+# only the files it lists count. GitHub never runs the integration-test workflows, but a copy of
+# one into .github/workflows would run with the default token scopes.
+It "grant nothing at the top of a workflow, an integration-test workflow too"
+When call grep -L -x 'permissions: {}' .github/workflows/*.yml _tests/integration/workflows/*.yml
 The output should equal ""
+End
+
+It "check out without persisting the token"
+When call checkouts_keeping_credentials
+The status should be success
+The output should equal ""
+End
+
+# The check above passes when it prints nothing, so it must name the checkouts it is for.
+It "names a checkout that leaves persist-credentials out or sets it to true"
+cat >"${SHELLSPEC_TMPBASE}/checkouts.yml" <<'YAML'
+jobs:
+  a:
+    steps:
+      - name: Kept
+        uses: actions/checkout@x
+      - name: True
+        uses: actions/checkout@x
+        with:
+          persist-credentials: true
+      - name: Dropped
+        uses: actions/checkout@x
+        with:
+          persist-credentials: false
+YAML
+When call checkouts_keeping_credentials "${SHELLSPEC_TMPBASE}/checkouts.yml"
+The status should be success
+The lines of output should equal 2
+The line 1 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml: Kept"
+The line 2 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml: True"
 End
 
 It "give the pr-lint job read on contents and write only where MegaLinter reports"

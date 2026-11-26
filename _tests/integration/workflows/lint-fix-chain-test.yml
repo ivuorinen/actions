@@ -8,12 +8,18 @@ on:
       - 'prettier-lint/**'
       - '_tests/integration/workflows/lint-fix-chain-test.yml'
 
+permissions: {}
+
 jobs:
   test-eslint-chain:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Create test JavaScript files
         run: |
@@ -113,9 +119,13 @@ jobs:
 
   test-prettier-chain:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Create test files for Prettier
         run: |
@@ -202,9 +212,13 @@ jobs:
 
   test-action-chain-integration:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Create comprehensive test project
         run: |

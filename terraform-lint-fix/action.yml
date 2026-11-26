@@ -123,7 +123,7 @@ runs:
         cd -- "$WORKING_DIRECTORY"
 
         # Check for Terraform files
-        if ! find . \( -name "*.tf" -o -name "*.tfvars" \) | grep -q .; then
+        if ! find . -type f \( -name "*.tf" -o -name "*.tfvars" \) | grep -q .; then
           echo "No Terraform files found. Skipping lint and fix."
           printf 'found=%s\n' "false" >> "$GITHUB_OUTPUT"
           exit 0
@@ -152,13 +152,14 @@ runs:
         cd -- "$VALIDATED_WORKING_DIR"
         echo "Validating Terraform file syntax..."
         command -v terraform >/dev/null 2>&1 || { echo "::error::terraform is required to check the formatting"; exit 1; }
-        find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
+        find . -type f \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
+          set -eu
           file="$1"
           if ! terraform fmt -check=true "$file" >/dev/null 2>&1; then
             # A repository filename is untrusted: control characters (a newline in
             # particular) could start a new workflow command in the log, so drop them.
             safe_name=$(printf "%s" "$file" | tr -d "\000-\037\177")
-            printf "::warning::Invalid Terraform syntax in %s\n" "$safe_name"
+            printf "::warning::%s is not formatted, or is not valid Terraform\n" "$safe_name"
           fi
         ' _ {} \;
 
@@ -294,25 +295,28 @@ runs:
 
         cd -- "$WORKING_DIRECTORY"
 
-        # Track fixed files
-        fixed_count=0
-        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to track the fixed files"; exit 1; }
-        _fixed_list=$(mktemp)
-        trap 'rm -f "$_fixed_list"' EXIT
+        # A tally of the fixed files, one line each, so a name holding a newline counts once
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to count the fixed files"; exit 1; }
+        _fixed=$(mktemp)
+        trap 'rm -f "$_fixed"' EXIT
 
-        # Format Terraform files
+        # find hands the names to sh as arguments. A terraform fmt that fails stops sh, which makes
+        # find fail and stops this step, so a file fmt could not format is never counted as fixed.
         command -v terraform >/dev/null 2>&1 || { echo "::error::terraform is required to format the files"; exit 1; }
-        find . \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
-          file="$1"
-          fixed_list="$2"
-          if ! terraform fmt -check "$file" >/dev/null 2>&1; then
-            terraform fmt "$file"
-            printf "%s\n" "$file" >> "$fixed_list"
-          fi
-        ' _ {} "$_fixed_list" \;
+        find . -type f \( -name "*.tf" -o -name "*.tfvars" \) -exec sh -c '
+          set -eu
+          tally=$1
+          shift
+          for file do
+            if ! terraform fmt -check "$file" >/dev/null 2>&1; then
+              terraform fmt "$file"
+              printf "fixed\n" >> "$tally"
+            fi
+          done
+        ' sh "$_fixed" {} +
 
-        fixed_count=$(wc -l < "$_fixed_list" | tr -d ' ')
-        rm -f "$_fixed_list"
+        fixed_count=$(wc -l < "$_fixed" | tr -d ' ')
+        rm -f "$_fixed"
 
         printf 'fixed_count=%s\n' "$fixed_count" >> "$GITHUB_OUTPUT"
 

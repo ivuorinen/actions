@@ -7,13 +7,19 @@ on:
       - 'pre-commit/**'
       - '_tests/integration/workflows/pre-commit-test.yml'
 
+permissions: {}
+
 jobs:
   test-pre-commit-validation:
     name: Test Input Validation
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Test with default inputs (should pass validation)
         id: default-inputs
@@ -56,9 +62,13 @@ jobs:
   test-pre-commit-git-config:
     name: Test Git Configuration
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Test custom git user
         run: |
@@ -109,9 +119,13 @@ jobs:
   test-pre-commit-config-file-detection:
     name: Test Config File Detection
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Verify default config exists
         run: |
@@ -137,9 +151,13 @@ jobs:
   test-pre-commit-hook-execution:
     name: Test Hook Execution Scenarios
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Test pre-commit installed
         run: |
@@ -189,9 +207,13 @@ jobs:
   test-pre-commit-outputs:
     name: Test Output Values
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Test hooks_passed output
         run: |
@@ -253,9 +275,13 @@ jobs:
   test-pre-commit-autofix-behavior:
     name: Test Autofix Behavior
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Test autofix commit message
         run: |

@@ -323,28 +323,31 @@ runs:
         . "$WORK_DIR/venv/bin/activate"
         cd -- "$WORKING_DIRECTORY"
 
-        # Create temporary file for tracking changes
-        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to track the changed files"; exit 1; }
-        _changed_files=$(mktemp)
+        # A tally of the fixed files, one line each, so a name holding a newline counts once
+        command -v mktemp >/dev/null 2>&1 || { echo "::error::mktemp is required to count the fixed files"; exit 1; }
+        _fixed=$(mktemp)
 
-        # Run autopep8 with change detection
+        # find hands the names to sh as arguments, never through a pipe, so a name holding a
+        # newline stays one name. A failing sh makes find fail, which stops this step.
         command -v autopep8 >/dev/null 2>&1 || { echo "::error::autopep8 is required to fix the code"; exit 1; }
-        find . -name "*.py" -type f -not -path "*/\.*" | while read -r file; do
-          # autopep8 prints nothing when it has no fix. Its failure has to stop this step.
-          file_diff=$(autopep8 --diff "$file")
-          if [ -n "$file_diff" ]; then
-            autopep8 --in-place "$file"
-            echo "$file" >> "$_changed_files"
-          fi
-        done
+        find . -name "*.py" -type f -not -path "*/\.*" -exec sh -c '
+          set -eu
+          tally=$1
+          shift
+          for file do
+            # autopep8 prints nothing when it has no fix. Its failure has to stop this step.
+            file_diff=$(autopep8 --diff "$file")
+            if [ -n "$file_diff" ]; then
+              autopep8 --in-place "$file"
+              printf "fixed\n" >> "$tally"
+            fi
+          done
+        ' sh "$_fixed" {} +
 
-        # Count fixed files
-        fixed_count=$(wc -l < "$_changed_files" || echo 0)
+        fixed_count=$(wc -l < "$_fixed" | tr -d ' ')
         echo "Fixed $fixed_count files"
         printf 'fixed_count=%s\n' "$fixed_count" >> "$GITHUB_OUTPUT"
-
-        # Cleanup
-        rm -f "$_changed_files"
+        rm -f "$_fixed"
 
     - name: Commit Fixes
       # The count is empty when no Python files were found, and fromJSON fails on it.

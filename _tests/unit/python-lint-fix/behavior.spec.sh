@@ -170,6 +170,19 @@ The contents of file "app.py" should equal "fixed by autopep8"
 The contents of file "$TOOL_LOG" should include "autopep8 --in-place ./app.py"
 End
 
+# A pipe would split the name at its newline and hand autopep8 the pieces as paths.
+It "keeps a file name holding a newline whole, and counts that file once"
+nl_dir="$(printf 'sub\ndir')"
+mkdir -p "$nl_dir"
+printf 'y = 2\n' >"$nl_dir/mod.py"
+export FAKE_AUTOPEP8_DIFF="+"
+When call run_action
+The status should be success
+Assert expect_output fixed_count 2
+The contents of file "$nl_dir/mod.py" should equal "fixed by autopep8"
+The path "sub" should not be exist
+End
+
 It "fails instead of reporting no fixes when autopep8 fails"
 export FAKE_AUTOPEP8_EXIT="1"
 When call run_action
