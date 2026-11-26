@@ -1,0 +1,8 @@
+---
+# Trivy reads this from the directory security-scan runs it in: the checkout, or on a pull request
+# or in a merge group the base commit's tree, so a pull request cannot change its own scan. Trivy
+# finds Python dependencies only in files named as pip names them; the hash-locked lists the
+# actions install from are requirements.lock.txt, so this pattern makes them part of the scan.
+scan:
+  file-patterns:
+    - 'pip:requirements\.lock\.txt'

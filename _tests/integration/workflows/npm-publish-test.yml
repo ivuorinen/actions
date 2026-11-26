@@ -11,13 +11,19 @@ on:
 # its outcome cannot tell a validation failure from that one. _tests/unit/npm-publish/
 # validation.spec.sh tests the inputs against validate.py; this workflow checks only what a
 # failed run still shows, the outputs.
+permissions: {}
+
 jobs:
   test-npm-publish-outputs:
     name: Test Output Values
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
 
       - name: Create test package
         run: |

@@ -15,6 +15,8 @@
 #                comments and blank lines, is not set -eu (or bash's set -euo pipefail)
 #   checkout     "<file>:<line>: <ref>" for every actions/checkout ref a uses: key
 #                names that is not a full commit SHA; finding no ref at all fails
+#   credentials  "<file>:<line>: <ref>" for every actions/checkout step that keeps the token in
+#                .git/config: one whose persist-credentials is left out, or may read as true
 # A literal block's lines keep their own numbers. YAML joins the lines of a folded block and of
 # a quoted or plain value, so their lines take the number of the folded block's first line, or
 # of the line the value starts on.
@@ -31,7 +33,7 @@ import sys
 import yaml
 
 mode, files = sys.argv[1], sys.argv[2:]
-if mode not in ("expressions", "set-eu", "checkout"):
+if mode not in ("expressions", "set-eu", "checkout", "credentials"):
     sys.exit("unknown mode: %s" % mode)
 if not files:
     for patterns in (
@@ -103,6 +105,33 @@ def report_checkout_refs(path, root):
     return found
 
 
+def checkout_steps(node):
+    """Yield the uses: value and the with: node of every step that runs actions/checkout."""
+    if isinstance(node, yaml.MappingNode):
+        fields = {key.value: value for key, value in node.value if isinstance(key, yaml.ScalarNode)}
+        uses = fields.get("uses")
+        if isinstance(uses, yaml.ScalarNode) and uses.value.startswith("actions/checkout@"):
+            yield uses, fields.get("with")
+        for _, value in node.value:
+            yield from checkout_steps(value)
+    elif isinstance(node, yaml.SequenceNode):
+        for item in node.value:
+            yield from checkout_steps(item)
+
+
+# actions/checkout keeps the token unless its persist-credentials input, true when left out,
+# reads as anything but "true" in any case (its input-helper.ts), so a quoted 'false' turns it
+# off too. A ${{ }} value may read as true at run time, so it counts as true here.
+def report_kept_credentials(path, root):
+    for uses, inputs in checkout_steps(root):
+        fields = dict(inputs.value) if isinstance(inputs, yaml.MappingNode) else {}
+        persist = next((value for key, value in fields.items() if key.value == "persist-credentials"), None)
+        # Like checkout's core.getInput, which trims the value before reading it.
+        text = (persist.value if isinstance(persist, yaml.ScalarNode) else "true").strip()
+        if text.upper() == "TRUE" or "${{" in text:
+            print("%s:%d: %s" % (path, uses.start_mark.line + 1, uses.value))
+
+
 found = 0
 for path in files:
     with open(path, encoding="utf-8") as handle:
@@ -111,6 +140,8 @@ for path in files:
         report_expressions(path, root)
     elif mode == "set-eu":
         report_unguarded(path, root)
+    elif mode == "credentials":
+        report_kept_credentials(path, root)
     else:
         found += report_checkout_refs(path, root)
 if mode == "checkout" and not found:
@@ -212,10 +243,66 @@ End
 
 # A job's permissions replace the workflow's, so a grant at the top reaches only a job that names
 # none; each job names what it needs instead. grep -L's exit status differs between versions, so
-# only the files it lists count.
-It "grant nothing at the top of a workflow"
-When call grep -L -x 'permissions: {}' .github/workflows/*.yml
+# only the files it lists count. GitHub never runs the integration-test workflows, but a copy of
+# one into .github/workflows would run with the default token scopes.
+It "grant nothing at the top of a workflow, an integration-test workflow too"
+When call grep -L -x 'permissions: {}' .github/workflows/*.yml _tests/integration/workflows/*.yml
 The output should equal ""
+End
+
+# A checkout that keeps the token leaves it in .git/config for every later step, which in an
+# action may build or test the repository's code.
+It "check out without persisting the token"
+When call workflow_scan credentials
+The status should be success
+The output should equal ""
+End
+
+# The check above passes when it prints nothing, so it must name the checkouts it is for.
+It "names a checkout whose persist-credentials is left out or may read as true"
+cat >"${SHELLSPEC_TMPBASE}/checkouts.yml" <<'YAML'
+jobs:
+  a:
+    steps:
+      - name: Left out
+        uses: actions/checkout@x
+      - name: True
+        uses: actions/checkout@x
+        with:
+          persist-credentials: true
+      - name: Quoted TRUE
+        uses: actions/checkout@x
+        with:
+          persist-credentials: 'TRUE'
+      - name: From an expression
+        uses: actions/checkout@x
+        with:
+          persist-credentials: ${{ inputs.persist }}
+      - name: False
+        uses: actions/checkout@x
+        with:
+          persist-credentials: false
+      - name: Quoted false
+        uses: actions/checkout@x
+        with:
+          persist-credentials: 'false'
+      - name: Spaced true
+        uses: actions/checkout@x
+        with:
+          persist-credentials: ' true '
+      - name: Spaced false
+        uses: actions/checkout@x
+        with:
+          persist-credentials: ' false '
+YAML
+When call workflow_scan credentials "${SHELLSPEC_TMPBASE}/checkouts.yml"
+The status should be success
+The lines of output should equal 5
+The line 1 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:5: actions/checkout@x"
+The line 2 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:7: actions/checkout@x"
+The line 3 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:11: actions/checkout@x"
+The line 4 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:15: actions/checkout@x"
+The line 5 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:27: actions/checkout@x"
 End
 
 It "give the pr-lint job read on contents and write only where MegaLinter reports"
