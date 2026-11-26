@@ -55,18 +55,22 @@ End
 End
 
 Describe "the build"
-set_destination() { export INPUT_DESTINATION="${PWD}/out"; }
+# The step asks go for the host's OS to name its null device; a Linux host unless an example says.
+set_destination() {
+  export INPUT_DESTINATION="${PWD}/out"
+  mock_command go "env GOHOSTOS" "linux" 0
+}
 Before 'set_destination'
 
 # go_calls: every recorded call, one JSON array per line.
 go_calls() { cat "${HARNESS_SESSION}/calls.jsonl"; }
 
 # The go list call: "main" for a main package with files to build, an empty line for any other.
-LIST_MAINS='list -f {{if and (eq .Name "main") .GoFiles}}main{{end}} ./...'
+LIST_MAINS='list -f {{if and (eq .Name "main") (or .GoFiles .CgoFiles)}}main{{end}} ./...'
 
 # Only the go commands an example names are mocked, so any other go command fails the step.
 It "compiles every package, then writes the executables when there is a main package"
-mock_command go "build ./..." "" 0
+mock_command go "build -o /dev/null ./..." "" 0
 mock_command go "$LIST_MAINS" "$(printf '\nmain')" 0
 mock_command go "build -ldflags=-s -w -o ${PWD}/out/ ./..." "" 0
 
@@ -74,14 +78,29 @@ When call run_step "${ACTION_DIR}" "build"
 The status should be success
 The stdout should include "Build completed successfully"
 Assert expect_output status success
-Assert expect_argv go build ./...
+Assert expect_argv go build -o /dev/null ./...
 Assert expect_argv go build "-ldflags=-s -w" -o "${PWD}/out/" ./...
+End
+
+# Given one main package alone, go build ./... writes its executable to the working directory
+# unless -o names the null device, which on Windows is NUL.
+It "keeps nothing from the check build on Windows either"
+harness_reset
+export INPUT_DESTINATION="${PWD}/out"
+mock_command go "env GOHOSTOS" "windows" 0
+mock_command go "build -o NUL ./..." "" 0
+mock_command go "$LIST_MAINS" "" 0
+
+When call run_step "${ACTION_DIR}" "build"
+The status should be success
+The stdout should include "Build completed successfully"
+Assert expect_argv go build -o NUL ./...
 End
 
 # go refuses -o with a directory when no package is a main package with files to build, which
 # includes a main package of test files alone.
 It "passes a module with no main package to build, writing no executables"
-mock_command go "build ./..." "" 0
+mock_command go "build -o /dev/null ./..." "" 0
 mock_command go "$LIST_MAINS" "" 0
 
 When call run_step "${ACTION_DIR}" "build"
@@ -92,7 +111,7 @@ The result of function go_calls should not include "-ldflags"
 End
 
 It "fails without writing executables when a package does not compile"
-mock_command go "build ./..." "build failed" 1
+mock_command go "build -o /dev/null ./..." "build failed" 1
 
 When call run_step "${ACTION_DIR}" "build"
 The status should be failure
@@ -102,7 +121,7 @@ The result of function go_calls should not include "-ldflags"
 End
 
 It "fails when writing the executables fails"
-mock_command go "build ./..." "" 0
+mock_command go "build -o /dev/null ./..." "" 0
 mock_command go "$LIST_MAINS" "main" 0
 mock_command go "build -ldflags=-s -w -o ${PWD}/out/ ./..." "link failed" 1
 

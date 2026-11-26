@@ -246,12 +246,19 @@ runs:
         mkdir -p -- "$DESTINATION"
 
         # go finds the packages itself, so no repository file name reaches its command line, where
-        # go could read one as a flag. The first build compiles every package as a check. The
-        # second writes each main package's executable to the directory, named after the last
-        # element of its import path. go refuses -o with a directory when no package is a main
-        # package with files to build (one of test files alone is not), so it runs only then.
+        # go could read one as a flag. The first build compiles every package as a check, and its
+        # -o names the null device, which go reads as "keep nothing": given one main package alone,
+        # go build would otherwise write its executable to the working directory. The second build
+        # writes each main package's executable to the directory, named after the last element of
+        # its import path. go refuses -o with a directory when no main package has files to build
+        # (Go files or cgo files; test files alone do not count), so it runs only when one does.
+        discard=/dev/null
+        if [ "$(go env GOHOSTOS)" = windows ]; then
+          discard=NUL
+        fi
         status=failure
-        if go build ./... && mains=$(go list -f '{{if and (eq .Name "main") .GoFiles}}main{{end}}' ./...); then
+        if go build -o "$discard" ./... &&
+          mains=$(go list -f '{{if and (eq .Name "main") (or .GoFiles .CgoFiles)}}main{{end}}' ./...); then
           status=success
           if printf '%s\n' "$mains" | grep -qx main; then
             go build -ldflags="-s -w" -o "$DESTINATION/" ./... || status=failure
