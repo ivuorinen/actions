@@ -126,7 +126,8 @@ def report_kept_credentials(path, root):
     for uses, inputs in checkout_steps(root):
         fields = dict(inputs.value) if isinstance(inputs, yaml.MappingNode) else {}
         persist = next((value for key, value in fields.items() if key.value == "persist-credentials"), None)
-        text = persist.value if isinstance(persist, yaml.ScalarNode) else "true"
+        # Like checkout's core.getInput, which trims the value before reading it.
+        text = (persist.value if isinstance(persist, yaml.ScalarNode) else "true").strip()
         if text.upper() == "TRUE" or "${{" in text:
             print("%s:%d: %s" % (path, uses.start_mark.line + 1, uses.value))
 
@@ -285,14 +286,23 @@ jobs:
         uses: actions/checkout@x
         with:
           persist-credentials: 'false'
+      - name: Spaced true
+        uses: actions/checkout@x
+        with:
+          persist-credentials: ' true '
+      - name: Spaced false
+        uses: actions/checkout@x
+        with:
+          persist-credentials: ' false '
 YAML
 When call workflow_scan credentials "${SHELLSPEC_TMPBASE}/checkouts.yml"
 The status should be success
-The lines of output should equal 4
+The lines of output should equal 5
 The line 1 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:5: actions/checkout@x"
 The line 2 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:7: actions/checkout@x"
 The line 3 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:11: actions/checkout@x"
 The line 4 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:15: actions/checkout@x"
+The line 5 of output should equal "${SHELLSPEC_TMPBASE}/checkouts.yml:27: actions/checkout@x"
 End
 
 It "give the pr-lint job read on contents and write only where MegaLinter reports"
