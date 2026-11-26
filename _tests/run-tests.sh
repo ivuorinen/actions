@@ -27,7 +27,7 @@ ACT_BIN="${ACT_BIN:-act}"
 # pushed again with other contents. .github/renovate.json's regex manager reads the pin, and a
 # packageRule there enables the digest updates that move it.
 # renovate: datasource=docker depName=catthehacker/ubuntu
-ACT_IMAGE_TAG='act-latest@sha256:a17ca1ab0676e450e5383024da90a53521edbbcf1e85b13a4d4a20bd5663eaa9'
+ACT_IMAGE_TAG='act-latest@sha256:fc96e68f607a38291c8057b4280aeba5e7164994c7262c09b15dc81cd786f1f1'
 # Integration outcome counters, set by run_integration_tests. A workflow that was
 # skipped (no act, no workflow file) is counted separately and never as a run.
 INTEGRATION_ATTEMPTED=false
